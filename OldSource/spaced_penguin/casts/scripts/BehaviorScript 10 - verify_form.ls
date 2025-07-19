@@ -1,0 +1,30 @@
+on mouseUp me
+  tempCorrect = 1
+  tempFName = member("fld_fname").text
+  tempFName = trimSpaces(tempFName)
+  tempState = member("fld_state").text
+  tempState = trimSpaces(tempState)
+  if tempFName.char.count < 1 then
+    tempError = "Please enter your first name."
+    tempCorrect = 0
+  else
+    if not onlyLetters(tempFName) then
+      tempCorrect = 0
+      tempError = "Your first name must be made only of letters and cannot contain any spaces."
+    end if
+  end if
+  if tempState.char.count < 1 then
+    tempError = "Please enter your 2 letter state, province or country abbreviation."
+    tempCorrect = 0
+  else
+    if not onlyLetters(tempState) then
+      tempCorrect = 0
+      tempError = "Your state, province or coutry abbreviation must be exactly 2 letters."
+    end if
+  end if
+  if tempCorrect then
+    go(#next)
+  else
+    dAlert(#message, tempError)
+  end if
+end

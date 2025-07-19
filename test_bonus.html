@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonus Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        #testCanvas {
+            border: 1px solid #333;
+            background: #000;
+            margin: 20px 0;
+        }
+        
+        .test-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+        
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0055aa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bonus System Test</h1>
+    
+    <div class="test-info">
+        <h3>Test Controls:</h3>
+        <button onclick="testSVGLoading()">Test SVG Loading</button>
+        <button onclick="testBonusBehavior()">Test Bonus Behavior</button>
+        <button onclick="testBonusCollection()">Test Bonus Collection</button>
+        <button onclick="testBonusReset()">Test Bonus Reset</button>
+    </div>
+    
+    <canvas id="testCanvas" width="400" height="300"></canvas>
+    
+    <div id="testOutput" class="test-info">
+        <h3>Test Output:</h3>
+        <div id="output"></div>
+    </div>
+    
+    <!-- No external dependencies needed -->
+    <script type="module">
+        import { Bonus } from './js/gameObjects.js';
+        
+        let testBonus = null;
+        let ctx = null;
+        
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<div>' + message + '</div>';
+            console.log(message);
+        }
+        
+        async function testSVGLoading() {
+            log('=== Testing SVG Loading ===');
+            
+            try {
+                // Test loading bonus SVG directly
+                const response = await fetch('assets/sprites/bonus.svg');
+                const svgText = await response.text();
+                log('✓ Bonus SVG loaded successfully');
+                log('SVG content length: ' + svgText.length + ' characters');
+                
+                // Test loading bonus_hit SVG
+                const response2 = await fetch('assets/sprites/bonus_hit.svg');
+                const svgText2 = await response2.text();
+                log('✓ Bonus hit SVG loaded successfully');
+                log('SVG content length: ' + svgText2.length + ' characters');
+                
+            } catch (error) {
+                log('✗ SVG loading failed: ' + error.message);
+            }
+        }
+        
+        async function testBonusBehavior() {
+            log('=== Testing Bonus Behavior ===');
+            
+            try {
+                // Create a bonus without asset loader (should use fallback)
+                testBonus = new Bonus(200, 150, 500);
+                log('✓ Bonus created with value 500');
+                log('Bonus state: ' + testBonus.state);
+                log('Bonus rotation speed: ' + testBonus.rotationSpeed);
+                
+                // Test rotation
+                testBonus.update(0.016); // 60 FPS
+                log('✓ Bonus rotation updated');
+                log('New rotation: ' + testBonus.rotation.toFixed(2));
+                
+                // Test drawing
+                ctx = document.getElementById('testCanvas').getContext('2d');
+                ctx.clearRect(0, 0, 400, 300);
+                testBonus.draw(ctx);
+                log('✓ Bonus drawn to canvas');
+                
+            } catch (error) {
+                log('✗ Bonus behavior test failed: ' + error.message);
+            }
+        }
+        
+        async function testBonusCollection() {
+            log('=== Testing Bonus Collection ===');
+            
+            if (!testBonus) {
+                log('✗ No bonus created yet. Run bonus behavior test first.');
+                return;
+            }
+            
+            try {
+                log('Bonus state before collection: ' + testBonus.state);
+                log('Bonus rotation speed before collection: ' + testBonus.rotationSpeed);
+                
+                // Test collection
+                const collectedValue = testBonus.collect();
+                log('✓ Bonus collected, value returned: ' + collectedValue);
+                log('Bonus state after collection: ' + testBonus.state);
+                log('Bonus rotation speed after collection: ' + testBonus.rotationSpeed);
+                
+                // Test collection again (should return 0)
+                const collectedValue2 = testBonus.collect();
+                log('Second collection attempt returned: ' + collectedValue2);
+                
+                // Redraw to show hit state
+                ctx.clearRect(0, 0, 400, 300);
+                testBonus.draw(ctx);
+                log('✓ Bonus redrawn in hit state');
+                
+            } catch (error) {
+                log('✗ Bonus collection test failed: ' + error.message);
+            }
+        }
+        
+        async function testBonusReset() {
+            log('=== Testing Bonus Reset ===');
+            
+            if (!testBonus) {
+                log('✗ No bonus created yet. Run bonus behavior test first.');
+                return;
+            }
+            
+            try {
+                log('Bonus state before reset: ' + testBonus.state);
+                log('Bonus rotation speed before reset: ' + testBonus.rotationSpeed);
+                
+                // Test reset
+                testBonus.reset();
+                log('✓ Bonus reset');
+                log('Bonus state after reset: ' + testBonus.state);
+                log('Bonus rotation speed after reset: ' + testBonus.rotationSpeed);
+                
+                // Redraw to show normal state
+                ctx.clearRect(0, 0, 400, 300);
+                testBonus.draw(ctx);
+                log('✓ Bonus redrawn in normal state');
+                
+            } catch (error) {
+                log('✗ Bonus reset test failed: ' + error.message);
+            }
+        }
+        
+        // Make functions globally available
+        window.testSVGLoading = testSVGLoading;
+        window.testBonusBehavior = testBonusBehavior;
+        window.testBonusCollection = testBonusCollection;
+        window.testBonusReset = testBonusReset;
+        
+        log('Bonus test page loaded. Click buttons to run tests.');
+    </script>
+</body>
+</html> 

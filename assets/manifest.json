@@ -1,0 +1,48 @@
+{
+  "sprites": {
+    "bonus": "sprites/bonus.swf",
+    "bonus_hit": "sprites/bonus_hit.swf",
+    "hoop": "sprites/hoop.swf",
+    "k1_icon": "sprites/k1_icon.png",
+    "k2_icon": "sprites/k2_icon.png",
+    "k3_icon": "sprites/k3_icon.png",
+    "rubber_band": "sprites/rubber_band.swf",
+    "ship_closed": "sprites/ship_closed.png",
+    "ship_open": "sprites/ship_open.png"
+  },
+  "ui": {
+    "alpha_mask": "ui/alpha_mask.png",
+    "arrow": "ui/arrow.swf",
+    "arrow_text": "ui/arrow_text.swf",
+    "background_drop": "ui/background_drop.png",
+    "bar_background": "ui/bar_background.png",
+    "bar_shadow": "ui/bar_shadow.png",
+    "box_black_med": "ui/box_black_med.swf",
+    "box_orange": "ui/box_orange.swf",
+    "box_orange_large": "ui/box_orange_large.swf",
+    "box_yellow": "ui/box_yellow.swf",
+    "o_orange": "ui/o_orange.swf",
+    "o_yellow": "ui/o_yellow.swf",
+    "title_penguin": "ui/title_penguin.png",
+    "title_spaced": "ui/title_spaced.png"
+  },
+  "planets": {
+    "planet_grey": "planets/planet_grey.swf",
+    "planet_pink": "planets/planet_pink.swf",
+    "planet_red_gumball": "planets/planet_red_gumball.swf",
+    "planet_saturn": "planets/planet_saturn.swf",
+    "planet_sun": "planets/planet_sun.swf"
+  },
+  "animations": {
+    "penguin_spin_xc_sheet": "animations/penguin_spin_xc_sheet.png",
+    "penguin_spin_yc_sheet": "animations/penguin_spin_yc_sheet.png",
+    "penguin_spin_zc_sheet": "animations/penguin_spin_zc_sheet.png"
+  },
+  "audio": {
+    "15_Arp": "audio/15_Arp.wav",
+    "16_snd_bonus": "audio/16_snd_bonus.wav",
+    "17_snd_launch": "audio/17_snd_launch.wav",
+    "20_snd_HitPlanet": "audio/20_snd_HitPlanet.wav",
+    "21_snd_enterShip": "audio/21_snd_enterShip.wav"
+  }
+}

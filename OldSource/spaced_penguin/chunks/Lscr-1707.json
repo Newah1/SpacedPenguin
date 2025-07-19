@@ -1,0 +1,170 @@
+{
+  "totalLength": 1790,
+  "totalLength2": 1790,
+  "headerLength": 92,
+  "scriptNumber": 6,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131077,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 15,
+  "handlerVectorsOffset": 1760,
+  "handlerVectorsSize": 16384,
+  "propertiesCount": 11,
+  "propertiesOffset": 92,
+  "globalsCount": 2,
+  "globalsOffset": 114,
+  "handlersCount": 4,
+  "handlersOffset": 118,
+  "literalsCount": 12,
+  "literalsOffset": 1358,
+  "literalsDataCount": 306,
+  "literalsDataOffset": 1454,
+  "propertyNameIDs": [
+    140,
+    265,
+    266,
+    267,
+    180,
+    181,
+    259,
+    260,
+    262,
+    264,
+    270
+  ],
+  "globalNameIDs": [
+    178,
+    46
+  ],
+  "handlers": [
+    {
+      "nameID": 0,
+      "vectorPos": 65535,
+      "compiledLen": 39,
+      "compiledOffset": 286,
+      "argumentCount": 1,
+      "argumentOffset": 326,
+      "localsCount": 0,
+      "localsOffset": 328,
+      "globalsCount": 0,
+      "globalsOffset": 328,
+      "unknown1": 206,
+      "unknown2": 6,
+      "lineCount": 4,
+      "lineOffset": 328
+    },
+    {
+      "nameID": 1,
+      "vectorPos": 14,
+      "compiledLen": 318,
+      "compiledOffset": 332,
+      "argumentCount": 1,
+      "argumentOffset": 650,
+      "localsCount": 6,
+      "localsOffset": 652,
+      "globalsCount": 0,
+      "globalsOffset": 664,
+      "unknown1": 344,
+      "unknown2": 14,
+      "lineCount": 21,
+      "lineOffset": 664
+    },
+    {
+      "nameID": 258,
+      "vectorPos": 65535,
+      "compiledLen": 289,
+      "compiledOffset": 686,
+      "argumentCount": 1,
+      "argumentOffset": 976,
+      "localsCount": 2,
+      "localsOffset": 978,
+      "globalsCount": 0,
+      "globalsOffset": 982,
+      "unknown1": 1412,
+      "unknown2": 39,
+      "lineCount": 23,
+      "lineOffset": 982
+    },
+    {
+      "nameID": 137,
+      "vectorPos": 65535,
+      "compiledLen": 333,
+      "compiledOffset": 1006,
+      "argumentCount": 0,
+      "argumentOffset": 1340,
+      "localsCount": 1,
+      "localsOffset": 1340,
+      "globalsCount": 0,
+      "globalsOffset": 1342,
+      "unknown1": 2150,
+      "unknown2": 65,
+      "lineCount": 16,
+      "lineOffset": 1342
+    }
+  ],
+  "literals": [
+    {
+      "type": 9,
+      "offset": 0,
+      "value": 1.0
+    },
+    {
+      "type": 1,
+      "offset": 12,
+      "value": "Sprite Num of Steller Body this planet Orbits (0 for all):"
+    },
+    {
+      "type": 1,
+      "offset": 76,
+      "value": "Steller Body 2 (optional):"
+    },
+    {
+      "type": 1,
+      "offset": 108,
+      "value": "Steller Body 3 (optional):"
+    },
+    {
+      "type": 1,
+      "offset": 140,
+      "value": "Initial Vx:"
+    },
+    {
+      "type": 9,
+      "offset": 156,
+      "value": 25.0
+    },
+    {
+      "type": 9,
+      "offset": 168,
+      "value": 25.0
+    },
+    {
+      "type": 1,
+      "offset": 180,
+      "value": "Initial Vy:"
+    },
+    {
+      "type": 9,
+      "offset": 196,
+      "value": 25.0
+    },
+    {
+      "type": 9,
+      "offset": 208,
+      "value": 25.0
+    },
+    {
+      "type": 1,
+      "offset": 220,
+      "value": "Gravity Factor (G is divided by it):"
+    },
+    {
+      "type": 1,
+      "offset": 262,
+      "value": "Alternative Mass to Use (0 to not use):"
+    }
+  ]
+}

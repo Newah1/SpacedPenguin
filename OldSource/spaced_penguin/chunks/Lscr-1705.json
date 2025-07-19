@@ -1,0 +1,121 @@
+{
+  "totalLength": 744,
+  "totalLength2": 744,
+  "headerLength": 92,
+  "scriptNumber": 4,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131075,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 16,
+  "handlerVectorsOffset": 712,
+  "handlerVectorsSize": 32778,
+  "propertiesCount": 0,
+  "propertiesOffset": 92,
+  "globalsCount": 1,
+  "globalsOffset": 92,
+  "handlersCount": 3,
+  "handlersOffset": 94,
+  "literalsCount": 8,
+  "literalsOffset": 596,
+  "literalsDataCount": 52,
+  "literalsDataOffset": 660,
+  "propertyNameIDs": [],
+  "globalNameIDs": [
+    36
+  ],
+  "handlers": [
+    {
+      "nameID": 115,
+      "vectorPos": 15,
+      "compiledLen": 10,
+      "compiledOffset": 220,
+      "argumentCount": 0,
+      "argumentOffset": 230,
+      "localsCount": 0,
+      "localsOffset": 230,
+      "globalsCount": 0,
+      "globalsOffset": 230,
+      "unknown1": 27,
+      "unknown2": 3,
+      "lineCount": 1,
+      "lineOffset": 230
+    },
+    {
+      "nameID": 246,
+      "vectorPos": 3,
+      "compiledLen": 197,
+      "compiledOffset": 232,
+      "argumentCount": 1,
+      "argumentOffset": 430,
+      "localsCount": 0,
+      "localsOffset": 432,
+      "globalsCount": 0,
+      "globalsOffset": 432,
+      "unknown1": 56,
+      "unknown2": 7,
+      "lineCount": 26,
+      "lineOffset": 432
+    },
+    {
+      "nameID": 247,
+      "vectorPos": 1,
+      "compiledLen": 123,
+      "compiledOffset": 458,
+      "argumentCount": 1,
+      "argumentOffset": 582,
+      "localsCount": 1,
+      "localsOffset": 584,
+      "globalsCount": 0,
+      "globalsOffset": 586,
+      "unknown1": 673,
+      "unknown2": 36,
+      "lineCount": 10,
+      "lineOffset": 586
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "q"
+    },
+    {
+      "type": 1,
+      "offset": 6,
+      "value": "Q"
+    },
+    {
+      "type": 1,
+      "offset": 12,
+      "value": "y"
+    },
+    {
+      "type": 1,
+      "offset": 18,
+      "value": "Y"
+    },
+    {
+      "type": 1,
+      "offset": 24,
+      "value": "n"
+    },
+    {
+      "type": 1,
+      "offset": 30,
+      "value": "N"
+    },
+    {
+      "type": 1,
+      "offset": 36,
+      "value": "Intro"
+    },
+    {
+      "type": 1,
+      "offset": 46,
+      "value": "s"
+    }
+  ]
+}

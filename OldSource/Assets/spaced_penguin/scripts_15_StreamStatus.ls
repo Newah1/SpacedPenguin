@@ -1,0 +1,1 @@
+on exitFrame  if frameReady("HS_Sending") and member("Arp").mediaReady and member("snd_bonus").mediaReady and member("snd_launch").mediaReady and member("snd_hitPlanet").mediaReady and member("snd_enterShip").mediaReady then    go(#next)  else    go(the frame)  end ifend

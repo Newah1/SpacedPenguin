@@ -1,0 +1,75 @@
+property pSprite, pState, pFrame, pTextMember
+global gBonus
+
+on beginSprite me
+  [  0] pushsymb 204 ............................ <#iddle>
+  [  3] setprop 163 ............................. pState = #iddle
+  [  6] getparam 0 .............................. <me>
+  [  8] getobjprop 141 .......................... <me.spriteNum>
+  [ 11] pusharglist 1 ........................... <me.spriteNum>
+  [ 13] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 16] setprop 140 ............................. pSprite = sprite(me.spriteNum)
+  [ 19] getprop 140 ............................. <pSprite>
+  [ 22] pushint8 1000 ........................... <1000>
+  [ 25] pushint8 1000 ........................... <1000>
+  [ 28] pusharglist 2 ........................... <1000, 1000>
+  [ 30] extcall 94 .............................. <point(1000, 1000)>
+  [ 33] setobjprop 152 .......................... pSprite.loc = point(1000, 1000)
+  [ 36] pushcons 0 .............................. <"txt_db">
+  [ 38] pusharglist 1 ........................... <"txt_db">
+  [ 40] extcall 4 ............................... <member("txt_db")>
+  [ 42] setprop 290 ............................. pTextMember = member("txt_db")
+  [ 45] ret
+end
+
+on showBonus me, tempVal, tempLoc
+  [  0] getprop 290 ............................. <pTextMember>
+  [  3] pushcons 8 .............................. <"+ ">
+  [  5] getparam 8 .............................. <tempVal>
+  [  7] joinstr ................................. <"+ " & tempVal>
+  [  8] setobjprop 5 ............................ pTextMember.text = "+ " & tempVal
+  [ 10] getprop 140 ............................. <pSprite>
+  [ 13] pushint8 1 .............................. <1>
+  [ 16] setobjprop 39 ........................... pSprite.visible = 1
+  [ 19] pushsymb 291 ............................ <#showing>
+  [ 22] setprop 163 ............................. pState = #showing
+  [ 25] pushint8 45 ............................. <45>
+  [ 28] setprop 292 ............................. pFrame = 45
+  [ 31] getprop 140 ............................. <pSprite>
+  [ 34] getparam 16 ............................. <tempLoc>
+  [ 36] setobjprop 152 .......................... pSprite.loc = tempLoc
+  [ 39] getprop 140 ............................. <pSprite>
+  [ 42] getprop 140 ............................. <pSprite>
+  [ 45] getobjprop 173 .......................... <pSprite.locV>
+  [ 48] pushint8 10 ............................. <10>
+  [ 51] sub ..................................... <pSprite.locV - 10>
+  [ 52] setobjprop 173 .......................... pSprite.locV = pSprite.locV - 10
+  [ 55] ret
+end
+
+on prepareFrame me
+  [  0] getprop 163 ............................. <pState>
+  [  3] pushsymb 291 ............................ <#showing>
+  [  6] eq ...................................... <pState = #showing>
+  [  7] jmpifz [ 57] ............................ if pState = #showing then
+  [ 10] getprop 292 ............................. <pFrame>
+  [ 13] pushint8 1 .............................. <1>
+  [ 16] sub ..................................... <pFrame - 1>
+  [ 17] setprop 292 ............................. pFrame = pFrame - 1
+  [ 20] getprop 140 ............................. <pSprite>
+  [ 23] getprop 140 ............................. <pSprite>
+  [ 26] getobjprop 173 .......................... <pSprite.locV>
+  [ 29] pushint8 1 .............................. <1>
+  [ 32] sub ..................................... <pSprite.locV - 1>
+  [ 33] setobjprop 173 .......................... pSprite.locV = pSprite.locV - 1
+  [ 36] getprop 292 ............................. <pFrame>
+  [ 39] pushzero ................................ <0>
+  [ 40] lt ...................................... <pFrame < 0>
+  [ 41] jmpifz [ 57] ............................ if pFrame < 0 then
+  [ 44] pushsymb 204 ............................ <#iddle>
+  [ 47] setprop 163 ............................. pState = #iddle
+  [ 50] getprop 140 ............................. <pSprite>
+  [ 53] pushzero ................................ <0>
+  [ 54] setobjprop 39 ........................... pSprite.visible = 0
+  [ 57] ret
+end

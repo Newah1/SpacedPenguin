@@ -1,0 +1,53 @@
+global gAlert
+
+on exitFrame
+  go(the frame)
+end
+
+on keyUp me
+  if (the frame >= 11) and (the frame <= 49) then
+    case gAlert of
+      0:
+        if (the key = "q") or (the key = "Q") then
+          dAlert(#reallyquit)
+        else
+          sendSprite(36, #tryAgain)
+        end if
+      #reallyquit:
+        case the key of
+          "y", "Y":
+            endDAlert()
+            endGame()
+          "n", "N":
+            endDAlert()
+        end case
+      #scoring:
+        sendSprite(36, #speedUpScoring)
+    end case
+  else
+    if the frame = "Intro" then
+      if the key = "s" then
+        go(#next)
+      end if
+    end if
+  end if
+end
+
+on mouseUp me
+  if gAlert = #message then
+    return 
+  end if
+  if sprite(36).type <> VOID then
+    if sprite(36).pState = #soaring then
+      tS = sprite(36).pState
+      if (tS = #snapping) or (tS = #pullback) then
+        return 
+      end if
+      sendSprite(36, #tryAgain)
+    else
+      if gAlert = #scoring then
+        sendSprite(36, #finishScoring)
+      end if
+    end if
+  end if
+end

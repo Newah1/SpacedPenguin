@@ -1,0 +1,75 @@
+on mouseUp me
+  [  0] pushint8 1 .............................. <1>
+  [  3] setlocal 0 .............................. tempCorrect = 1
+  [  5] pushcons 0 .............................. <"fld_fname">
+  [  7] pusharglist 1 ........................... <"fld_fname">
+  [  9] extcall 4 ............................... <member("fld_fname")>
+  [ 11] getobjprop 5 ............................ <member("fld_fname").text>
+  [ 13] setlocal 8 .............................. tempFName = member("fld_fname").text
+  [ 15] getlocal 8 .............................. <tempFName>
+  [ 17] pusharglist 1 ........................... <tempFName>
+  [ 19] extcall 3 ............................... <trimSpaces(tempFName)>
+  [ 21] setlocal 8 .............................. tempFName = trimSpaces(tempFName)
+  [ 23] pushcons 8 .............................. <"fld_state">
+  [ 25] pusharglist 1 ........................... <"fld_state">
+  [ 27] extcall 4 ............................... <member("fld_state")>
+  [ 29] getobjprop 5 ............................ <member("fld_state").text>
+  [ 31] setlocal 16 ............................. tempState = member("fld_state").text
+  [ 33] getlocal 16 ............................. <tempState>
+  [ 35] pusharglist 1 ........................... <tempState>
+  [ 37] extcall 3 ............................... <trimSpaces(tempState)>
+  [ 39] setlocal 16 ............................. tempState = trimSpaces(tempState)
+  [ 41] getlocal 8 .............................. <tempFName>
+  [ 43] pushsymb 53 ............................. <#char>
+  [ 46] pusharglist 2 ........................... <tempFName, #char>
+  [ 48] objcall 54 .............................. <tempFName.char.count>
+  [ 51] pushint8 1 .............................. <1>
+  [ 54] lt ...................................... <tempFName.char.count < 1>
+  [ 55] jmpifz [ 68] ............................ if tempFName.char.count < 1 then / else
+  [ 58] pushcons 16 ............................. <"Please enter your first name.">
+  [ 60] setlocal 24 ............................. tempError = "Please enter your first name."
+  [ 62] pushzero ................................ <0>
+  [ 63] setlocal 0 .............................. tempCorrect = 0
+  [ 65] jmp [ 85]
+  [ 68] getlocal 8 .............................. <tempFName>
+  [ 70] pusharglist 1 ........................... <tempFName>
+  [ 72] extcall 23 .............................. <onlyLetters(tempFName)>
+  [ 74] not ..................................... <not onlyLetters(tempFName)>
+  [ 75] jmpifz [ 85] ............................ if not onlyLetters(tempFName) then
+  [ 78] pushzero ................................ <0>
+  [ 79] setlocal 0 .............................. tempCorrect = 0
+  [ 81] pushcons 24 ............................. <"Your first name must be made only of letters and cannot contain any spaces.">
+  [ 83] setlocal 24 ............................. tempError = "Your first name must be made only of letters and cannot contain any spaces."
+  [ 85] getlocal 16 ............................. <tempState>
+  [ 87] pushsymb 53 ............................. <#char>
+  [ 90] pusharglist 2 ........................... <tempState, #char>
+  [ 92] objcall 54 .............................. <tempState.char.count>
+  [ 95] pushint8 1 .............................. <1>
+  [ 98] lt ...................................... <tempState.char.count < 1>
+  [ 99] jmpifz [112] ............................ if tempState.char.count < 1 then / else
+  [102] pushcons 32 ............................. <"Please enter your 2 letter state, province or country abbreviation.">
+  [104] setlocal 24 ............................. tempError = "Please enter your 2 letter state, province or country abbreviation."
+  [106] pushzero ................................ <0>
+  [107] setlocal 0 .............................. tempCorrect = 0
+  [109] jmp [129]
+  [112] getlocal 16 ............................. <tempState>
+  [114] pusharglist 1 ........................... <tempState>
+  [116] extcall 23 .............................. <onlyLetters(tempState)>
+  [118] not ..................................... <not onlyLetters(tempState)>
+  [119] jmpifz [129] ............................ if not onlyLetters(tempState) then
+  [122] pushzero ................................ <0>
+  [123] setlocal 0 .............................. tempCorrect = 0
+  [125] pushcons 40 ............................. <"Your state, province or coutry abbreviation must be exactly 2 letters.">
+  [127] setlocal 24 ............................. tempError = "Your state, province or coutry abbreviation must be exactly 2 letters."
+  [129] getlocal 0 .............................. <tempCorrect>
+  [131] jmpifz [144] ............................ if tempCorrect then / else
+  [134] pushsymb 250 ............................ <#next>
+  [137] pusharglistnoret 1 ...................... <#next>
+  [139] extcall 17 .............................. go(#next)
+  [141] jmp [153]
+  [144] pushsymb 85 ............................. <#message>
+  [147] getlocal 24 ............................. <tempError>
+  [149] pusharglistnoret 2 ...................... <#message, tempError>
+  [151] extcall 28 .............................. dAlert(#message, tempError)
+  [153] ret
+end

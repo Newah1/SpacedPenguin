@@ -1,0 +1,430 @@
+property pSprite, pSun, pSun2, pSun3, pVX, pVY, pSuns, pFloatLoc, pGravFactor, pAltMass, pOrigAngle
+global gPlanets, gGravitationalConstant
+
+on beginSprite me
+  [  0] getparam 0 .............................. <me>
+  [  2] getobjprop 141 .......................... <me.spriteNum>
+  [  5] pusharglist 1 ........................... <me.spriteNum>
+  [  7] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 10] setprop 140 ............................. pSprite = sprite(me.spriteNum)
+  [ 13] pusharglist 0 ........................... <[]>
+  [ 15] pushlist ................................ <[]>
+  [ 16] setprop 259 ............................. pSuns = []
+  [ 19] getprop 140 ............................. <pSprite>
+  [ 22] getobjprop 152 .......................... <pSprite.loc>
+  [ 25] pushcons 0 .............................. <1.0>
+  [ 27] mul ..................................... <pSprite.loc * 1.0>
+  [ 28] setprop 260 ............................. pFloatLoc = pSprite.loc * 1.0
+  [ 31] getprop 140 ............................. <pSprite>
+  [ 34] pushzero ................................ <0>
+  [ 35] setobjprop 261 .......................... pSprite.trails = 0
+  [ 38] ret
+end
+
+on enterFrame me
+  [  0] getprop 259 ............................. <pSuns>
+  [  3] pusharglist 0 ........................... <[]>
+  [  5] pushlist ................................ <[]>
+  [  6] eq ...................................... <pSuns = []>
+  [  7] jmpifz [ 14] ............................ if pSuns = [] then
+  [ 10] pusharglistnoret 0 ...................... <>
+  [ 12] localcall 2 ............................. makeSunList()
+  [ 14] getprop 140 ............................. <pSprite>
+  [ 17] getobjprop 152 .......................... <pSprite.loc>
+  [ 20] setlocal 0 .............................. pLocPrev = pSprite.loc
+  [ 22] getprop 259 ............................. <pSuns>
+  [ 25] getobjprop 54 ........................... <pSuns.count>
+  [ 28] setlocal 8 .............................. tempNumSuns = pSuns.count
+  [ 30] pushint8 1 .............................. <1>
+  [ 33] setlocal 16
+  [ 35] getlocal 16
+  [ 37] getlocal 8 .............................. <tempNumSuns>
+  [ 39] lteq
+  [ 40] jmpifz [290] ............................ repeat with p = 1 to tempNumSuns
+  [ 43] getprop 140 ............................. <pSprite>
+  [ 46] getobjprop 152 .......................... <pSprite.loc>
+  [ 49] getprop 259 ............................. <pSuns>
+  [ 52] getlocal 16 ............................. <p>
+  [ 54] pusharglist 2 ........................... <pSuns, p>
+  [ 56] objcall 87 .............................. <pSuns[p]>
+  [ 59] pushint8 1 .............................. <1>
+  [ 62] pusharglist 2 ........................... <pSuns[p], 1>
+  [ 64] objcall 87 .............................. <pSuns[p][1]>
+  [ 67] pusharglist 1 ........................... <pSuns[p][1]>
+  [ 69] extcall 38 .............................. <sprite(pSuns[p][1])>
+  [ 72] getobjprop 152 .......................... <sprite(pSuns[p][1]).loc>
+  [ 75] sub ..................................... <pSprite.loc - sprite(pSuns[p][1]).loc>
+  [ 76] setlocal 24 ............................. tempChangeLoc = pSprite.loc - sprite(pSuns[p][1]).loc
+  [ 78] getlocal 24 ............................. <tempChangeLoc>
+  [ 80] pushint8 1 .............................. <1>
+  [ 83] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [ 85] objcall 87 .............................. <tempChangeLoc[1]>
+  [ 88] getlocal 24 ............................. <tempChangeLoc>
+  [ 90] pushint8 1 .............................. <1>
+  [ 93] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [ 95] objcall 87 .............................. <tempChangeLoc[1]>
+  [ 98] mul ..................................... <tempChangeLoc[1] * tempChangeLoc[1]>
+  [ 99] getlocal 24 ............................. <tempChangeLoc>
+  [101] pushint8 2 .............................. <2>
+  [104] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [106] objcall 87 .............................. <tempChangeLoc[2]>
+  [109] getlocal 24 ............................. <tempChangeLoc>
+  [111] pushint8 2 .............................. <2>
+  [114] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [116] objcall 87 .............................. <tempChangeLoc[2]>
+  [119] mul ..................................... <tempChangeLoc[2] * tempChangeLoc[2]>
+  [120] add ..................................... <(tempChangeLoc[1] * tempChangeLoc[1]) + (tempChangeLoc[2] * tempChangeLoc[2])>
+  [121] setlocal 32 ............................. tempDistSquared = (tempChangeLoc[1] * tempChangeLoc[1]) + (tempChangeLoc[2] * tempChangeLoc[2])
+  [123] pushzero ................................ <0>
+  [124] setlocal 40 ............................. tempGravitationalForce = 0
+  [126] getlocal 32 ............................. <tempDistSquared>
+  [128] getprop 259 ............................. <pSuns>
+  [131] getlocal 16 ............................. <p>
+  [133] pusharglist 2 ........................... <pSuns, p>
+  [135] objcall 87 .............................. <pSuns[p]>
+  [138] pushint8 3 .............................. <3>
+  [141] pusharglist 2 ........................... <pSuns[p], 3>
+  [143] objcall 87 .............................. <pSuns[p][3]>
+  [146] getprop 259 ............................. <pSuns>
+  [149] getlocal 16 ............................. <p>
+  [151] pusharglist 2 ........................... <pSuns, p>
+  [153] objcall 87 .............................. <pSuns[p]>
+  [156] pushint8 3 .............................. <3>
+  [159] pusharglist 2 ........................... <pSuns[p], 3>
+  [161] objcall 87 .............................. <pSuns[p][3]>
+  [164] mul ..................................... <pSuns[p][3] * pSuns[p][3]>
+  [165] lt ...................................... <tempDistSquared < (pSuns[p][3] * pSuns[p][3])>
+  [166] jmpifz [208] ............................ if tempDistSquared < (pSuns[p][3] * pSuns[p][3]) then
+  [169] getprop 259 ............................. <pSuns>
+  [172] getlocal 16 ............................. <p>
+  [174] pusharglist 2 ........................... <pSuns, p>
+  [176] objcall 87 .............................. <pSuns[p]>
+  [179] pushint8 3 .............................. <3>
+  [182] pusharglist 2 ........................... <pSuns[p], 3>
+  [184] objcall 87 .............................. <pSuns[p][3]>
+  [187] getprop 259 ............................. <pSuns>
+  [190] getlocal 16 ............................. <p>
+  [192] pusharglist 2 ........................... <pSuns, p>
+  [194] objcall 87 .............................. <pSuns[p]>
+  [197] pushint8 3 .............................. <3>
+  [200] pusharglist 2 ........................... <pSuns[p], 3>
+  [202] objcall 87 .............................. <pSuns[p][3]>
+  [205] mul ..................................... <pSuns[p][3] * pSuns[p][3]>
+  [206] setlocal 32 ............................. tempDistSquared = pSuns[p][3] * pSuns[p][3]
+  [208] getprop 259 ............................. <pSuns>
+  [211] getlocal 16 ............................. <p>
+  [213] pusharglist 2 ........................... <pSuns, p>
+  [215] objcall 87 .............................. <pSuns[p]>
+  [218] pushint8 2 .............................. <2>
+  [221] pusharglist 2 ........................... <pSuns[p], 2>
+  [223] objcall 87 .............................. <pSuns[p][2]>
+  [226] getglobal 46 ............................ <gGravitationalConstant>
+  [229] mul ..................................... <pSuns[p][2] * gGravitationalConstant>
+  [230] getlocal 32 ............................. <tempDistSquared>
+  [232] getprop 262 ............................. <pGravFactor>
+  [235] mul ..................................... <tempDistSquared * pGravFactor>
+  [236] div ..................................... <pSuns[p][2] * gGravitationalConstant / (tempDistSquared * pGravFactor)>
+  [237] setlocal 40 ............................. tempGravitationalForce = pSuns[p][2] * gGravitationalConstant / (tempDistSquared * pGravFactor)
+  [239] getprop 180 ............................. <pVX>
+  [242] getlocal 40 ............................. <tempGravitationalForce>
+  [244] getlocal 24 ............................. <tempChangeLoc>
+  [246] pushint8 1 .............................. <1>
+  [249] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [251] objcall 87 .............................. <tempChangeLoc[1]>
+  [254] mul ..................................... <tempGravitationalForce * tempChangeLoc[1]>
+  [255] sub ..................................... <pVX - (tempGravitationalForce * tempChangeLoc[1])>
+  [256] setprop 180 ............................. pVX = pVX - (tempGravitationalForce * tempChangeLoc[1])
+  [259] getprop 181 ............................. <pVY>
+  [262] getlocal 40 ............................. <tempGravitationalForce>
+  [264] getlocal 24 ............................. <tempChangeLoc>
+  [266] pushint8 2 .............................. <2>
+  [269] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [271] objcall 87 .............................. <tempChangeLoc[2]>
+  [274] mul ..................................... <tempGravitationalForce * tempChangeLoc[2]>
+  [275] sub ..................................... <pVY - (tempGravitationalForce * tempChangeLoc[2])>
+  [276] setprop 181 ............................. pVY = pVY - (tempGravitationalForce * tempChangeLoc[2])
+  [279] pushint8 1
+  [282] getlocal 16
+  [284] add
+  [285] setlocal 16
+  [287] endrepeat [ 35]
+  [290] getprop 260 ............................. <pFloatLoc>
+  [293] getprop 180 ............................. <pVX>
+  [296] getprop 181 ............................. <pVY>
+  [299] pusharglist 2 ........................... <pVX, pVY>
+  [301] extcall 94 .............................. <point(pVX, pVY)>
+  [304] add ..................................... <pFloatLoc + point(pVX, pVY)>
+  [305] setprop 260 ............................. pFloatLoc = pFloatLoc + point(pVX, pVY)
+  [308] getprop 140 ............................. <pSprite>
+  [311] getprop 260 ............................. <pFloatLoc>
+  [314] setobjprop 152 .......................... pSprite.loc = pFloatLoc
+  [317] ret
+end
+
+on makeSunList me
+  [  0] getprop 264 ............................. <pAltMass>
+  [  3] pushzero ................................ <0>
+  [  4] eq ...................................... <pAltMass = 0>
+  [  5] jmpifz [178] ............................ if pAltMass = 0 then / else
+  [  8] getglobal 178 ........................... <gPlanets>
+  [ 11] getobjprop 54 ........................... <gPlanets.count>
+  [ 14] setlocal 0 .............................. tempPlanetsCount = gPlanets.count
+  [ 16] pushint8 1 .............................. <1>
+  [ 19] setlocal 8
+  [ 21] getlocal 8
+  [ 23] getlocal 0 .............................. <tempPlanetsCount>
+  [ 25] lteq
+  [ 26] jmpifz [175] ............................ repeat with p = 1 to tempPlanetsCount
+  [ 29] getglobal 178 ........................... <gPlanets>
+  [ 32] getlocal 8 .............................. <p>
+  [ 34] pusharglist 2 ........................... <gPlanets, p>
+  [ 36] objcall 87 .............................. <gPlanets[p]>
+  [ 39] pushint8 1 .............................. <1>
+  [ 42] pusharglist 2 ........................... <gPlanets[p], 1>
+  [ 44] objcall 87 .............................. <gPlanets[p][1]>
+  [ 47] getprop 265 ............................. <pSun>
+  [ 50] eq ...................................... <gPlanets[p][1] = pSun>
+  [ 51] jmpifz [ 75] ............................ if gPlanets[p][1] = pSun then
+  [ 54] getprop 259 ............................. <pSuns>
+  [ 57] getglobal 178 ........................... <gPlanets>
+  [ 60] getlocal 8 .............................. <p>
+  [ 62] pusharglist 2 ........................... <gPlanets, p>
+  [ 64] objcall 87 .............................. <gPlanets[p]>
+  [ 67] pusharglistnoret 2 ...................... <pSuns, gPlanets[p]>
+  [ 69] objcall 256 ............................. pSuns.add(gPlanets[p])
+  [ 72] jmp [164] ............................... next repeat
+  [ 75] getglobal 178 ........................... <gPlanets>
+  [ 78] getlocal 8 .............................. <p>
+  [ 80] pusharglist 2 ........................... <gPlanets, p>
+  [ 82] objcall 87 .............................. <gPlanets[p]>
+  [ 85] pushint8 1 .............................. <1>
+  [ 88] pusharglist 2 ........................... <gPlanets[p], 1>
+  [ 90] objcall 87 .............................. <gPlanets[p][1]>
+  [ 93] getprop 266 ............................. <pSun2>
+  [ 96] eq ...................................... <gPlanets[p][1] = pSun2>
+  [ 97] jmpifz [121] ............................ if gPlanets[p][1] = pSun2 then
+  [100] getprop 259 ............................. <pSuns>
+  [103] getglobal 178 ........................... <gPlanets>
+  [106] getlocal 8 .............................. <p>
+  [108] pusharglist 2 ........................... <gPlanets, p>
+  [110] objcall 87 .............................. <gPlanets[p]>
+  [113] pusharglistnoret 2 ...................... <pSuns, gPlanets[p]>
+  [115] objcall 256 ............................. pSuns.add(gPlanets[p])
+  [118] jmp [164] ............................... next repeat
+  [121] getglobal 178 ........................... <gPlanets>
+  [124] getlocal 8 .............................. <p>
+  [126] pusharglist 2 ........................... <gPlanets, p>
+  [128] objcall 87 .............................. <gPlanets[p]>
+  [131] pushint8 1 .............................. <1>
+  [134] pusharglist 2 ........................... <gPlanets[p], 1>
+  [136] objcall 87 .............................. <gPlanets[p][1]>
+  [139] getprop 267 ............................. <pSun3>
+  [142] eq ...................................... <gPlanets[p][1] = pSun3>
+  [143] jmpifz [164] ............................ if gPlanets[p][1] = pSun3 then
+  [146] getprop 259 ............................. <pSuns>
+  [149] getglobal 178 ........................... <gPlanets>
+  [152] getlocal 8 .............................. <p>
+  [154] pusharglist 2 ........................... <gPlanets, p>
+  [156] objcall 87 .............................. <gPlanets[p]>
+  [159] pusharglistnoret 2 ...................... <pSuns, gPlanets[p]>
+  [161] objcall 256 ............................. pSuns.add(gPlanets[p])
+  [164] pushint8 1
+  [167] getlocal 8
+  [169] add
+  [170] setlocal 8
+  [172] endrepeat [ 21]
+  [175] jmp [288]
+  [178] getprop 265 ............................. <pSun>
+  [181] getprop 264 ............................. <pAltMass>
+  [184] getprop 265 ............................. <pSun>
+  [187] pusharglist 1 ........................... <pSun>
+  [189] extcall 38 .............................. <sprite(pSun)>
+  [192] getobjprop 182 .......................... <sprite(pSun).width>
+  [195] pushint8 2 .............................. <2>
+  [198] div ..................................... <sprite(pSun).width / 2>
+  [199] pusharglist 3 ........................... <[pSun, pAltMass, sprite(pSun).width / 2]>
+  [201] pushlist ................................ <[pSun, pAltMass, sprite(pSun).width / 2]>
+  [202] pusharglist 1 ........................... <[[pSun, pAltMass, sprite(pSun).width / 2]]>
+  [204] pushlist ................................ <[[pSun, pAltMass, sprite(pSun).width / 2]]>
+  [205] setprop 259 ............................. pSuns = [[pSun, pAltMass, sprite(pSun).width / 2]]
+  [208] getprop 266 ............................. <pSun2>
+  [211] pushzero ................................ <0>
+  [212] nteq .................................... <pSun2 <> 0>
+  [213] jmpifz [248] ............................ if pSun2 <> 0 then
+  [216] getprop 259 ............................. <pSuns>
+  [219] getprop 266 ............................. <pSun2>
+  [222] getprop 264 ............................. <pAltMass>
+  [225] getprop 266 ............................. <pSun2>
+  [228] pusharglist 1 ........................... <pSun2>
+  [230] extcall 38 .............................. <sprite(pSun2)>
+  [233] getobjprop 182 .......................... <sprite(pSun2).width>
+  [236] pushint8 2 .............................. <2>
+  [239] div ..................................... <sprite(pSun2).width / 2>
+  [240] pusharglist 3 ........................... <[pSun2, pAltMass, sprite(pSun2).width / 2]>
+  [242] pushlist ................................ <[pSun2, pAltMass, sprite(pSun2).width / 2]>
+  [243] pusharglistnoret 2 ...................... <pSuns, [pSun2, pAltMass, sprite(pSun2).width / 2]>
+  [245] extcall 256 ............................. add(pSuns, [pSun2, pAltMass, sprite(pSun2).width / 2])
+  [248] getprop 267 ............................. <pSun3>
+  [251] pushzero ................................ <0>
+  [252] nteq .................................... <pSun3 <> 0>
+  [253] jmpifz [288] ............................ if pSun3 <> 0 then
+  [256] getprop 259 ............................. <pSuns>
+  [259] getprop 267 ............................. <pSun3>
+  [262] getprop 264 ............................. <pAltMass>
+  [265] getprop 267 ............................. <pSun3>
+  [268] pusharglist 1 ........................... <pSun3>
+  [270] extcall 38 .............................. <sprite(pSun3)>
+  [273] getobjprop 182 .......................... <sprite(pSun3).width>
+  [276] pushint8 2 .............................. <2>
+  [279] div ..................................... <sprite(pSun3).width / 2>
+  [280] pusharglist 3 ........................... <[pSun3, pAltMass, sprite(pSun3).width / 2]>
+  [282] pushlist ................................ <[pSun3, pAltMass, sprite(pSun3).width / 2]>
+  [283] pusharglistnoret 2 ...................... <pSuns, [pSun3, pAltMass, sprite(pSun3).width / 2]>
+  [285] extcall 256 ............................. add(pSuns, [pSun3, pAltMass, sprite(pSun3).width / 2])
+  [288] ret
+end
+
+on getPropertyDescriptionList
+  [  0] pusharglist 0 ........................... <[:]>
+  [  2] pushproplist ............................ <[:]>
+  [  3] setlocal 0 .............................. vList = [:]
+  [  5] getlocal 0 .............................. <vList>
+  [  7] pushsymb 265 ............................ <#pSun>
+  [ 10] pushsymb 236 ............................ <#comment>
+  [ 13] pushcons 8 .............................. <"Sprite Num of Steller Body this planet Orbits (0 for all):">
+  [ 15] pushsymb 237 ............................ <#format>
+  [ 18] pushsymb 71 ............................. <#integer>
+  [ 21] pushsymb 238 ............................ <#default>
+  [ 24] pushint8 5 .............................. <5>
+  [ 27] pushsymb 239 ............................ <#range>
+  [ 30] pushsymb 240 ............................ <#min>
+  [ 33] pushzero ................................ <0>
+  [ 34] pushsymb 241 ............................ <#max>
+  [ 37] pushint8 50 ............................. <50>
+  [ 40] pusharglist 4 ........................... <[#min: 0, #max: 50]>
+  [ 42] pushproplist ............................ <[#min: 0, #max: 50]>
+  [ 43] pusharglist 8 ........................... <[#comment: "Sprite Num of Steller Body this planet Orbits (0 for all):", #format: #integer, #default: 5, #range: [#min: 0, #max: 50]]>
+  [ 45] pushproplist ............................ <[#comment: "Sprite Num of Steller Body this planet Orbits (0 for all):", #format: #integer, #default: 5, #range: [#min: 0, #max: 50]]>
+  [ 46] pusharglistnoret 3 ...................... <vList, #pSun, [#comment: "Sprite Num of Steller Body this planet Orbits (0 for all):", #format: #integer, #default: 5, #range: [#min: 0, #max: 50]]>
+  [ 48] objcall 104 ............................. vList.addProp(#pSun, [#comment: "Sprite Num of Steller Body this planet Orbits (0 for all):", #format: #integer, #default: 5, #range: [#min: 0, #max: 50]])
+  [ 51] getlocal 0 .............................. <vList>
+  [ 53] pushsymb 266 ............................ <#pSun2>
+  [ 56] pushsymb 236 ............................ <#comment>
+  [ 59] pushcons 16 ............................. <"Steller Body 2 (optional):">
+  [ 61] pushsymb 237 ............................ <#format>
+  [ 64] pushsymb 71 ............................. <#integer>
+  [ 67] pushsymb 238 ............................ <#default>
+  [ 70] pushzero ................................ <0>
+  [ 71] pushsymb 239 ............................ <#range>
+  [ 74] pushsymb 240 ............................ <#min>
+  [ 77] pushzero ................................ <0>
+  [ 78] pushsymb 241 ............................ <#max>
+  [ 81] pushint8 50 ............................. <50>
+  [ 84] pusharglist 4 ........................... <[#min: 0, #max: 50]>
+  [ 86] pushproplist ............................ <[#min: 0, #max: 50]>
+  [ 87] pusharglist 8 ........................... <[#comment: "Steller Body 2 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [ 89] pushproplist ............................ <[#comment: "Steller Body 2 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [ 90] pusharglistnoret 3 ...................... <vList, #pSun2, [#comment: "Steller Body 2 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [ 92] objcall 104 ............................. vList.addProp(#pSun2, [#comment: "Steller Body 2 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]])
+  [ 95] getlocal 0 .............................. <vList>
+  [ 97] pushsymb 267 ............................ <#pSun3>
+  [100] pushsymb 236 ............................ <#comment>
+  [103] pushcons 24 ............................. <"Steller Body 3 (optional):">
+  [105] pushsymb 237 ............................ <#format>
+  [108] pushsymb 71 ............................. <#integer>
+  [111] pushsymb 238 ............................ <#default>
+  [114] pushzero ................................ <0>
+  [115] pushsymb 239 ............................ <#range>
+  [118] pushsymb 240 ............................ <#min>
+  [121] pushzero ................................ <0>
+  [122] pushsymb 241 ............................ <#max>
+  [125] pushint8 50 ............................. <50>
+  [128] pusharglist 4 ........................... <[#min: 0, #max: 50]>
+  [130] pushproplist ............................ <[#min: 0, #max: 50]>
+  [131] pusharglist 8 ........................... <[#comment: "Steller Body 3 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [133] pushproplist ............................ <[#comment: "Steller Body 3 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [134] pusharglistnoret 3 ...................... <vList, #pSun3, [#comment: "Steller Body 3 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]]>
+  [136] objcall 104 ............................. vList.addProp(#pSun3, [#comment: "Steller Body 3 (optional):", #format: #integer, #default: 0, #range: [#min: 0, #max: 50]])
+  [139] getlocal 0 .............................. <vList>
+  [141] pushsymb 180 ............................ <#pVX>
+  [144] pushsymb 236 ............................ <#comment>
+  [147] pushcons 32 ............................. <"Initial Vx:">
+  [149] pushsymb 237 ............................ <#format>
+  [152] pushsymb 89 ............................. <#float>
+  [155] pushsymb 238 ............................ <#default>
+  [158] pushint8 1 .............................. <1>
+  [161] pushsymb 239 ............................ <#range>
+  [164] pushsymb 240 ............................ <#min>
+  [167] pushcons 40 ............................. <25.0>
+  [169] inv ..................................... <-25.0>
+  [170] pushsymb 241 ............................ <#max>
+  [173] pushcons 48 ............................. <25.0>
+  [175] pusharglist 4 ........................... <[#min: -25.0, #max: 25.0]>
+  [177] pushproplist ............................ <[#min: -25.0, #max: 25.0]>
+  [178] pusharglist 8 ........................... <[#comment: "Initial Vx:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [180] pushproplist ............................ <[#comment: "Initial Vx:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [181] pusharglistnoret 3 ...................... <vList, #pVX, [#comment: "Initial Vx:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [183] objcall 104 ............................. vList.addProp(#pVX, [#comment: "Initial Vx:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]])
+  [186] getlocal 0 .............................. <vList>
+  [188] pushsymb 181 ............................ <#pVY>
+  [191] pushsymb 236 ............................ <#comment>
+  [194] pushcons 56 ............................. <"Initial Vy:">
+  [196] pushsymb 237 ............................ <#format>
+  [199] pushsymb 89 ............................. <#float>
+  [202] pushsymb 238 ............................ <#default>
+  [205] pushint8 1 .............................. <1>
+  [208] pushsymb 239 ............................ <#range>
+  [211] pushsymb 240 ............................ <#min>
+  [214] pushcons 64 ............................. <25.0>
+  [216] inv ..................................... <-25.0>
+  [217] pushsymb 241 ............................ <#max>
+  [220] pushcons 72 ............................. <25.0>
+  [222] pusharglist 4 ........................... <[#min: -25.0, #max: 25.0]>
+  [224] pushproplist ............................ <[#min: -25.0, #max: 25.0]>
+  [225] pusharglist 8 ........................... <[#comment: "Initial Vy:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [227] pushproplist ............................ <[#comment: "Initial Vy:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [228] pusharglistnoret 3 ...................... <vList, #pVY, [#comment: "Initial Vy:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]]>
+  [230] objcall 104 ............................. vList.addProp(#pVY, [#comment: "Initial Vy:", #format: #float, #default: 1, #range: [#min: -25.0, #max: 25.0]])
+  [233] getlocal 0 .............................. <vList>
+  [235] pushsymb 262 ............................ <#pGravFactor>
+  [238] pushsymb 236 ............................ <#comment>
+  [241] pushcons 80 ............................. <"Gravity Factor (G is divided by it):">
+  [243] pushsymb 237 ............................ <#format>
+  [246] pushsymb 89 ............................. <#float>
+  [249] pushsymb 238 ............................ <#default>
+  [252] pushint8 1 .............................. <1>
+  [255] pushsymb 239 ............................ <#range>
+  [258] pushsymb 240 ............................ <#min>
+  [261] pushint8 1 .............................. <1>
+  [264] pushsymb 241 ............................ <#max>
+  [267] pushint8 50 ............................. <50>
+  [270] pusharglist 4 ........................... <[#min: 1, #max: 50]>
+  [272] pushproplist ............................ <[#min: 1, #max: 50]>
+  [273] pusharglist 8 ........................... <[#comment: "Gravity Factor (G is divided by it):", #format: #float, #default: 1, #range: [#min: 1, #max: 50]]>
+  [275] pushproplist ............................ <[#comment: "Gravity Factor (G is divided by it):", #format: #float, #default: 1, #range: [#min: 1, #max: 50]]>
+  [276] pusharglistnoret 3 ...................... <vList, #pGravFactor, [#comment: "Gravity Factor (G is divided by it):", #format: #float, #default: 1, #range: [#min: 1, #max: 50]]>
+  [278] objcall 104 ............................. vList.addProp(#pGravFactor, [#comment: "Gravity Factor (G is divided by it):", #format: #float, #default: 1, #range: [#min: 1, #max: 50]])
+  [281] getlocal 0 .............................. <vList>
+  [283] pushsymb 264 ............................ <#pAltMass>
+  [286] pushsymb 236 ............................ <#comment>
+  [289] pushcons 88 ............................. <"Alternative Mass to Use (0 to not use):">
+  [291] pushsymb 237 ............................ <#format>
+  [294] pushsymb 71 ............................. <#integer>
+  [297] pushsymb 238 ............................ <#default>
+  [300] pushzero ................................ <0>
+  [301] pushsymb 239 ............................ <#range>
+  [304] pushsymb 240 ............................ <#min>
+  [307] pushzero ................................ <0>
+  [308] pushsymb 241 ............................ <#max>
+  [311] pushint8 1000 ........................... <1000>
+  [314] pusharglist 4 ........................... <[#min: 0, #max: 1000]>
+  [316] pushproplist ............................ <[#min: 0, #max: 1000]>
+  [317] pusharglist 8 ........................... <[#comment: "Alternative Mass to Use (0 to not use):", #format: #integer, #default: 0, #range: [#min: 0, #max: 1000]]>
+  [319] pushproplist ............................ <[#comment: "Alternative Mass to Use (0 to not use):", #format: #integer, #default: 0, #range: [#min: 0, #max: 1000]]>
+  [320] pusharglistnoret 3 ...................... <vList, #pAltMass, [#comment: "Alternative Mass to Use (0 to not use):", #format: #integer, #default: 0, #range: [#min: 0, #max: 1000]]>
+  [322] objcall 104 ............................. vList.addProp(#pAltMass, [#comment: "Alternative Mass to Use (0 to not use):", #format: #integer, #default: 0, #range: [#min: 0, #max: 1000]])
+  [325] getlocal 0 .............................. <vList>
+  [327] pusharglistnoret 1 ...................... <vList>
+  [329] extcall 57 .............................. return vList
+  [332] ret
+end

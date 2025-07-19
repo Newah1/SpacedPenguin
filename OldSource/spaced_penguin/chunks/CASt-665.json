@@ -1,0 +1,17 @@
+{
+  "type": 11,
+  "infoLen": 441,
+  "specificDataLen": 2,
+  "info": {
+    "dataOffset": 20,
+    "unk1": 0,
+    "unk2": 0,
+    "flags": 128,
+    "scriptId": 4,
+    "scriptSrcText": "",
+    "name": "GPS"
+  },
+  "member": {
+    "scriptType": 1
+  }
+}

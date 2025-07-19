@@ -1,0 +1,25 @@
+global gScore
+
+on mouseUp me
+  [  0] pushcons 0 .............................. <"fld_level">
+  [  2] pusharglist 1 ........................... <"fld_level">
+  [  4] extcall 4 ............................... <member("fld_level")>
+  [  6] pushsymb 40 ............................. <#word>
+  [  9] pushint8 2 .............................. <2>
+  [ 12] pushcons 8 .............................. <"0">
+  [ 14] pusharglist 4 ........................... <member("fld_level"), #word, 2, "0">
+  [ 16] objcall 41 .............................. member("fld_level").word[2] = "0"
+  [ 19] pushzero ................................ <0>
+  [ 20] setglobal 6 ............................. gScore = 0
+  [ 22] pushcons 16 ............................. <"fld_score">
+  [ 24] pusharglist 1 ........................... <"fld_score">
+  [ 26] extcall 4 ............................... <member("fld_score")>
+  [ 28] pushsymb 40 ............................. <#word>
+  [ 31] pushint8 2 .............................. <2>
+  [ 34] getglobal 6 ............................. <gScore>
+  [ 36] pusharglist 1 ........................... <gScore>
+  [ 38] extcall 51 .............................. <string(gScore)>
+  [ 41] pusharglist 4 ........................... <member("fld_score"), #word, 2, string(gScore)>
+  [ 43] objcall 41 .............................. member("fld_score").word[2] = string(gScore)
+  [ 46] ret
+end

@@ -1,0 +1,95 @@
+{
+  "totalLength": 578,
+  "totalLength2": 578,
+  "headerLength": 92,
+  "scriptNumber": 5,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131076,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 0,
+  "handlerVectorsOffset": 578,
+  "handlerVectorsSize": 0,
+  "propertiesCount": 3,
+  "propertiesOffset": 92,
+  "globalsCount": 1,
+  "globalsOffset": 98,
+  "handlersCount": 3,
+  "handlersOffset": 100,
+  "literalsCount": 2,
+  "literalsOffset": 436,
+  "literalsDataCount": 126,
+  "literalsDataOffset": 452,
+  "propertyNameIDs": [
+    140,
+    255,
+    254
+  ],
+  "globalNameIDs": [
+    178
+  ],
+  "handlers": [
+    {
+      "nameID": 0,
+      "vectorPos": 65535,
+      "compiledLen": 97,
+      "compiledOffset": 226,
+      "argumentCount": 1,
+      "argumentOffset": 324,
+      "localsCount": 1,
+      "localsOffset": 326,
+      "globalsCount": 0,
+      "globalsOffset": 328,
+      "unknown1": 123,
+      "unknown2": 7,
+      "lineCount": 5,
+      "lineOffset": 328
+    },
+    {
+      "nameID": 253,
+      "vectorPos": 65535,
+      "compiledLen": 7,
+      "compiledOffset": 334,
+      "argumentCount": 1,
+      "argumentOffset": 342,
+      "localsCount": 0,
+      "localsOffset": 344,
+      "globalsCount": 0,
+      "globalsOffset": 344,
+      "unknown1": 380,
+      "unknown2": 15,
+      "lineCount": 1,
+      "lineOffset": 344
+    },
+    {
+      "nameID": 137,
+      "vectorPos": 65535,
+      "compiledLen": 85,
+      "compiledOffset": 346,
+      "argumentCount": 0,
+      "argumentOffset": 432,
+      "localsCount": 0,
+      "localsOffset": 432,
+      "globalsCount": 0,
+      "globalsOffset": 432,
+      "unknown1": 444,
+      "unknown2": 19,
+      "lineCount": 4,
+      "lineOffset": 432
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "Mass of Planet (higher Mass greater gravitational effect):"
+    },
+    {
+      "type": 1,
+      "offset": 64,
+      "value": "Pixel reach of Gravity affect beyond radius (0 infinite):"
+    }
+  ]
+}

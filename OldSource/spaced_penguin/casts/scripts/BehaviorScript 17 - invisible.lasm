@@ -1,0 +1,19 @@
+on beginSprite me
+  [  0] getparam 0 .............................. <me>
+  [  2] getobjprop 141 .......................... <me.spriteNum>
+  [  5] pusharglist 1 ........................... <me.spriteNum>
+  [  7] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 10] pushzero ................................ <0>
+  [ 11] setobjprop 39 ........................... sprite(me.spriteNum).visible = 0
+  [ 14] ret
+end
+
+on endSprite me
+  [  0] getparam 0 .............................. <me>
+  [  2] getobjprop 141 .......................... <me.spriteNum>
+  [  5] pusharglist 1 ........................... <me.spriteNum>
+  [  7] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 10] pushint8 1 .............................. <1>
+  [ 13] setobjprop 39 ........................... sprite(me.spriteNum).visible = 1
+  [ 16] ret
+end

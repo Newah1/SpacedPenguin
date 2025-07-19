@@ -1,0 +1,668 @@
+[
+  {
+    "filename": "Internal_1_ship.png",
+    "category": "game_object",
+    "usage": "ship_closed",
+    "original_name": "ship",
+    "registration_point": [26, 19],
+    "type": "bitmap",
+    "notes": "Target ship (closed state)"
+  },
+  {
+    "filename": "Internal_2_ship_open.png",
+    "category": "game_object",
+    "usage": "ship_open",
+    "original_name": "ship_open",
+    "registration_point": [26, 19],
+    "type": "bitmap",
+    "notes": "Target ship (open state)"
+  },
+  {
+    "filename": "Internal_3_hoop.swf",
+    "category": "game_object",
+    "usage": "hoop",
+    "original_name": "hoop",
+    "registration_point": [39, 55],
+    "type": "vectorShape",
+    "notes": "Target hoop for landing"
+  },
+  {
+    "filename": "Internal_4_rubber_band.swf",
+    "category": "game_object",
+    "usage": "rubber_band",
+    "original_name": "rubber_band",
+    "registration_point": [1, 4],
+    "type": "vectorShape",
+    "notes": "Slingshot rubber band"
+  },
+  {
+    "filename": "Internal_5_planet_saturn.swf",
+    "category": "planet",
+    "usage": "planet_saturn",
+    "original_name": "planet_saturn",
+    "registration_point": [23, 22],
+    "type": "vectorShape",
+    "notes": "Saturn planet obstacle"
+  },
+  {
+    "filename": "Internal_6_planet_grey.swf",
+    "category": "planet",
+    "usage": "planet_grey",
+    "original_name": "planet_grey",
+    "registration_point": [23, 22],
+    "type": "vectorShape",
+    "notes": "Grey planet obstacle"
+  },
+  {
+    "filename": "Internal_7_planet_red_gumball.swf",
+    "category": "planet",
+    "usage": "planet_red_gumball",
+    "original_name": "planet_red_gumball",
+    "registration_point": [39, 38],
+    "type": "vectorShape",
+    "notes": "Red gumball planet obstacle"
+  },
+  {
+    "filename": "Internal_8_planet_sun.swf",
+    "category": "planet",
+    "usage": "planet_sun",
+    "original_name": "planet_sun",
+    "registration_point": [23, 22],
+    "type": "vectorShape",
+    "notes": "Sun planet obstacle"
+  },
+  {
+    "filename": "Internal_9_planet_pink.swf",
+    "category": "planet",
+    "usage": "planet_pink",
+    "original_name": "planet_pink",
+    "registration_point": [39, 38],
+    "type": "vectorShape",
+    "notes": "Pink planet obstacle"
+  },
+  {
+    "filename": "Internal_10_planet_sun.swf",
+    "category": "planet",
+    "usage": "planet_sun",
+    "original_name": "planet_sun",
+    "registration_point": [39, 38],
+    "type": "vectorShape",
+    "notes": "Sun planet obstacle (variant)"
+  },
+  {
+    "filename": "Internal_11_arrow.swf",
+    "category": "ui",
+    "usage": "arrow",
+    "original_name": "arrow",
+    "registration_point": [76, 23],
+    "type": "vectorShape",
+    "notes": "UI arrow indicator"
+  },
+  {
+    "filename": "Internal_12_bonus.swf",
+    "category": "bonus",
+    "usage": "bonus",
+    "original_name": "bonus",
+    "registration_point": [42, 43],
+    "type": "vectorShape",
+    "notes": "Bonus item to collect"
+  },
+  {
+    "filename": "Internal_13_bonus_hit.swf",
+    "category": "bonus",
+    "usage": "bonus_hit",
+    "original_name": "bonus_hit",
+    "registration_point": [42, 43],
+    "type": "vectorShape",
+    "notes": "Bonus item hit animation"
+  },
+  {
+    "filename": "Internal_14_bk_Drop.png",
+    "category": "background",
+    "usage": "background_drop",
+    "original_name": "bk_Drop",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Background drop effect"
+  },
+  {
+    "filename": "Internal_18_box_orange_large.swf",
+    "category": "ui",
+    "usage": "box_orange_large",
+    "original_name": "box_orange_large",
+    "registration_point": [202, 107],
+    "type": "vectorShape",
+    "notes": "Large orange UI box"
+  },
+  {
+    "filename": "Internal_19_box_black_med.swf",
+    "category": "ui",
+    "usage": "box_black_med",
+    "original_name": "box_black_med",
+    "registration_point": [95, 91],
+    "type": "vectorShape",
+    "notes": "Medium black UI box"
+  },
+  {
+    "filename": "Internal_22_arrow_text.swf",
+    "category": "ui",
+    "usage": "arrow_text",
+    "original_name": "arrow_text",
+    "registration_point": [115, 47],
+    "type": "vectorShape",
+    "notes": "Text arrow indicator"
+  },
+  {
+    "filename": "Internal_56_title_spaced.png",
+    "category": "ui",
+    "usage": "title_spaced",
+    "original_name": "title_spaced",
+    "registration_point": [72, 17],
+    "type": "bitmap",
+    "notes": "Title text 'SPACED'"
+  },
+  {
+    "filename": "Internal_57_title_penguin.png",
+    "category": "ui",
+    "usage": "title_penguin",
+    "original_name": "title_penguin",
+    "registration_point": [100, 15],
+    "type": "bitmap",
+    "notes": "Title text 'PENGUIN'"
+  },
+  {
+    "filename": "Internal_62_o_orange.swf",
+    "category": "ui",
+    "usage": "o_orange",
+    "original_name": "o_orange",
+    "registration_point": [59, 35],
+    "type": "vectorShape",
+    "notes": "Orange circle UI element"
+  },
+  {
+    "filename": "Internal_63_o_yellow.swf",
+    "category": "ui",
+    "usage": "o_yellow",
+    "original_name": "o_yellow",
+    "registration_point": [59, 34],
+    "type": "vectorShape",
+    "notes": "Yellow circle UI element"
+  },
+  {
+    "filename": "Internal_65_Kev_Alph.png",
+    "category": "ui",
+    "usage": "alpha_mask",
+    "original_name": "Kev_Alph",
+    "registration_point": [8, 13],
+    "type": "bitmap",
+    "notes": "Alpha mask for penguin"
+  },
+  {
+    "filename": "Internal_66_k1.png",
+    "category": "icon",
+    "usage": "k1_icon",
+    "original_name": "k1",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Icon k1"
+  },
+  {
+    "filename": "Internal_67_k2.png",
+    "category": "icon",
+    "usage": "k2_icon",
+    "original_name": "k2",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Icon k2"
+  },
+  {
+    "filename": "Internal_68_k3.png",
+    "category": "icon",
+    "usage": "k3_icon",
+    "original_name": "k3",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Icon k3"
+  },
+  {
+    "filename": "Internal_69_bar_bk.png",
+    "category": "ui",
+    "usage": "bar_background",
+    "original_name": "bar_bk",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Bar background"
+  },
+  {
+    "filename": "Internal_70_bar_bk.png",
+    "category": "ui",
+    "usage": "bar_background",
+    "original_name": "bar_bk",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Bar background (duplicate)"
+  },
+  {
+    "filename": "Internal_71_bar_bk_shadow.png",
+    "category": "ui",
+    "usage": "bar_shadow",
+    "original_name": "bar_bk_shadow",
+    "registration_point": [0, 0],
+    "type": "bitmap",
+    "notes": "Bar background shadow"
+  },
+  {
+    "filename": "Internal_72_box_orange.swf",
+    "category": "ui",
+    "usage": "box_orange",
+    "original_name": "box_orange",
+    "registration_point": [106, 111],
+    "type": "vectorShape",
+    "notes": "Orange UI box"
+  },
+  {
+    "filename": "Internal_73_box_yellow.swf",
+    "category": "ui",
+    "usage": "box_yellow",
+    "original_name": "box_yellow",
+    "registration_point": [44, 27],
+    "type": "vectorShape",
+    "notes": "Yellow UI box"
+  },
+  {
+    "filename": "Internal_75_KevinSpin_Xc.12.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 12,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.12",
+    "registration_point": [8, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 12 (X axis)"
+  },
+  {
+    "filename": "Internal_76_KevinSpin_Xc.01.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 1,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.01",
+    "registration_point": [10, 12],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 1 (X axis)"
+  },
+  {
+    "filename": "Internal_77_KevinSpin_Xc.02.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 2,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.02",
+    "registration_point": [11, 11],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 2 (X axis)"
+  },
+  {
+    "filename": "Internal_78_KevinSpin_Xc.03.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 3,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.03",
+    "registration_point": [10, 9],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 3 (X axis)"
+  },
+  {
+    "filename": "Internal_79_KevinSpin_Xc.04.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 4,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.04",
+    "registration_point": [9, 11],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 4 (X axis)"
+  },
+  {
+    "filename": "Internal_80_KevinSpin_Xc.05.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 5,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.05",
+    "registration_point": [10, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 5 (X axis)"
+  },
+  {
+    "filename": "Internal_81_KevinSpin_Xc.06.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 6,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.06",
+    "registration_point": [10, 15],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 6 (X axis)"
+  },
+  {
+    "filename": "Internal_82_KevinSpin_Xc.07.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 7,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.07",
+    "registration_point": [9, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 7 (X axis)"
+  },
+  {
+    "filename": "Internal_83_KevinSpin_Xc.08.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 8,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.08",
+    "registration_point": [9, 8],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 8 (X axis)"
+  },
+  {
+    "filename": "Internal_84_KevinSpin_Xc.09.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 9,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.09",
+    "registration_point": [9, 10],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 9 (X axis)"
+  },
+  {
+    "filename": "Internal_85_KevinSpin_Xc.10.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 10,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.10",
+    "registration_point": [8, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 10 (X axis)"
+  },
+  {
+    "filename": "Internal_86_KevinSpin_Xc.11.png",
+    "category": "penguin_animation",
+    "animation_group": "Xc",
+    "frame_number": 11,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Xc.11",
+    "registration_point": [9, 15],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 11 (X axis)"
+  },
+  {
+    "filename": "Internal_87_KevinSpin_Yc.12.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 12,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.12",
+    "registration_point": [8, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 12 (Y axis)"
+  },
+  {
+    "filename": "Internal_88_KevinSpin_Yc.01.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 1,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.01",
+    "registration_point": [8, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 1 (Y axis)"
+  },
+  {
+    "filename": "Internal_89_KevinSpin_Yc.02.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 2,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.02",
+    "registration_point": [7, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 2 (Y axis)"
+  },
+  {
+    "filename": "Internal_90_KevinSpin_Yc.03.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 3,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.03",
+    "registration_point": [9, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 3 (Y axis)"
+  },
+  {
+    "filename": "Internal_91_KevinSpin_Yc.04.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 4,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.04",
+    "registration_point": [9, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 4 (Y axis)"
+  },
+  {
+    "filename": "Internal_92_KevinSpin_Yc.05.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 5,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.05",
+    "registration_point": [9, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 5 (Y axis)"
+  },
+  {
+    "filename": "Internal_93_KevinSpin_Yc.06.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 6,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.06",
+    "registration_point": [10, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 6 (Y axis)"
+  },
+  {
+    "filename": "Internal_94_KevinSpin_Yc.07.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 7,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.07",
+    "registration_point": [9, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 7 (Y axis)"
+  },
+  {
+    "filename": "Internal_95_KevinSpin_Yc.08.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 8,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.08",
+    "registration_point": [6, 15],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 8 (Y axis)"
+  },
+  {
+    "filename": "Internal_96_KevinSpin_Yc.09.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 9,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.09",
+    "registration_point": [8, 15],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 9 (Y axis)"
+  },
+  {
+    "filename": "Internal_97_KevinSpin_Yc.10.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 10,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.10",
+    "registration_point": [14, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 10 (Y axis)"
+  },
+  {
+    "filename": "Internal_98_KevinSpin_Yc.11.png",
+    "category": "penguin_animation",
+    "animation_group": "Yc",
+    "frame_number": 11,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Yc.11",
+    "registration_point": [12, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 11 (Y axis)"
+  },
+  {
+    "filename": "Internal_99_KevinSpin_Zc.12.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 12,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.12",
+    "registration_point": [9, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 12 (Z axis)"
+  },
+  {
+    "filename": "Internal_100_KevinSpin_Zc.01.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 1,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.01",
+    "registration_point": [12, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 1 (Z axis)"
+  },
+  {
+    "filename": "Internal_101_KevinSpin_Zc.02.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 2,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.02",
+    "registration_point": [13, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 2 (Z axis)"
+  },
+  {
+    "filename": "Internal_102_KevinSpin_Zc.03.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 3,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.03",
+    "registration_point": [13, 10],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 3 (Z axis)"
+  },
+  {
+    "filename": "Internal_103_KevinSpin_Zc.04.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 4,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.04",
+    "registration_point": [13, 12],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 4 (Z axis)"
+  },
+  {
+    "filename": "Internal_104_KevinSpin_Zc.05.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 5,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.05",
+    "registration_point": [11, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 5 (Z axis)"
+  },
+  {
+    "filename": "Internal_105_KevinSpin_Zc.06.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 6,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.06",
+    "registration_point": [13, 14],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 6 (Z axis)"
+  },
+  {
+    "filename": "Internal_106_KevinSpin_Zc.07.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 7,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.07",
+    "registration_point": [11, 13],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 7 (Z axis)"
+  },
+  {
+    "filename": "Internal_107_KevinSpin_Zc.08.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 8,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.08",
+    "registration_point": [12, 9],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 8 (Z axis)"
+  },
+  {
+    "filename": "Internal_108_KevinSpin_Zc.09.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 9,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.09",
+    "registration_point": [13, 10],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 9 (Z axis)"
+  },
+  {
+    "filename": "Internal_109_KevinSpin_Zc.10.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 10,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.10",
+    "registration_point": [13, 12],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 10 (Z axis)"
+  },
+  {
+    "filename": "Internal_110_KevinSpin_Zc.11.png",
+    "category": "penguin_animation",
+    "animation_group": "Zc",
+    "frame_number": 11,
+    "usage": "penguin_spin",
+    "original_name": "KevinSpin_Zc.11",
+    "registration_point": [10, 12],
+    "type": "bitmap",
+    "notes": "Penguin spin animation frame 11 (Z axis)"
+  }
+] 

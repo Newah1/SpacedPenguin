@@ -1,0 +1,138 @@
+property pSprite, pValue, pState, pRotationVel
+global gBonus
+
+on beginSprite me
+  [  0] pushsymb 284 ............................ <#notHit>
+  [  3] setprop 163 ............................. pState = #notHit
+  [  6] getparam 0 .............................. <me>
+  [  8] getobjprop 141 .......................... <me.spriteNum>
+  [ 11] pusharglist 1 ........................... <me.spriteNum>
+  [ 13] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 16] setprop 140 ............................. pSprite = sprite(me.spriteNum)
+  [ 19] getglobal 37 ............................ <gBonus>
+  [ 22] pusharglist 0 ........................... <>
+  [ 24] extcall 107 ............................. <VOID>
+  [ 27] eq ...................................... <gBonus = VOID>
+  [ 28] jmpifz [ 37] ............................ if gBonus = VOID then
+  [ 31] pusharglist 0 ........................... <[]>
+  [ 33] pushlist ................................ <[]>
+  [ 34] setglobal 37 ............................ gBonus = []
+  [ 37] getglobal 37 ............................ <gBonus>
+  [ 40] getprop 140 ............................. <pSprite>
+  [ 43] getobjprop 141 .......................... <pSprite.spriteNum>
+  [ 46] pusharglistnoret 2 ...................... <gBonus, pSprite.spriteNum>
+  [ 48] objcall 256 ............................. gBonus.add(pSprite.spriteNum)
+  [ 51] pushcons 0 .............................. <3.0>
+  [ 53] setprop 285 ............................. pRotationVel = 3.0
+  [ 56] ret
+end
+
+on collectBonus me
+  [  0] getprop 163 ............................. <pState>
+  [  3] pushsymb 284 ............................ <#notHit>
+  [  6] eq ...................................... <pState = #notHit>
+  [  7] jmpifz [ 81] ............................ if pState = #notHit then / else
+  [ 10] pushcons 8 .............................. <30.0>
+  [ 12] setprop 285 ............................. pRotationVel = 30.0
+  [ 15] pushint8 2 .............................. <2>
+  [ 18] pushcons 16 ............................. <"snd_bonus">
+  [ 20] pusharglistnoret 2 ...................... <2, "snd_bonus">
+  [ 22] extcall 179 ............................. puppetSound(2, "snd_bonus")
+  [ 25] pushsymb 286 ............................ <#Hit>
+  [ 28] setprop 163 ............................. pState = #Hit
+  [ 31] getprop 140 ............................. <pSprite>
+  [ 34] getprop 140 ............................. <pSprite>
+  [ 37] getobjprop 221 .......................... <pSprite.memberNum>
+  [ 40] pushint8 1 .............................. <1>
+  [ 43] add ..................................... <pSprite.memberNum + 1>
+  [ 44] pusharglist 1 ........................... <pSprite.memberNum + 1>
+  [ 46] extcall 4 ............................... <member(pSprite.memberNum + 1)>
+  [ 48] setobjprop 4 ............................ pSprite.member = member(pSprite.memberNum + 1)
+  [ 50] pushint8 39 ............................. <39>
+  [ 53] pushsymb 287 ............................ <#showBonus>
+  [ 56] getprop 288 ............................. <pValue>
+  [ 59] getprop 140 ............................. <pSprite>
+  [ 62] getobjprop 152 .......................... <pSprite.loc>
+  [ 65] pusharglistnoret 4 ...................... <39, #showBonus, pValue, pSprite.loc>
+  [ 67] extcall 183 ............................. sendSprite(39, #showBonus, pValue, pSprite.loc)
+  [ 70] getprop 288 ............................. <pValue>
+  [ 73] pusharglistnoret 1 ...................... <pValue>
+  [ 75] extcall 57 .............................. return pValue
+  [ 78] jmp [ 87]
+  [ 81] pushzero ................................ <0>
+  [ 82] pusharglistnoret 1 ...................... <0>
+  [ 84] extcall 57 .............................. return 0
+  [ 87] ret
+end
+
+on resetBonus me
+  [  0] getprop 163 ............................. <pState>
+  [  3] pushsymb 286 ............................ <#Hit>
+  [  6] eq ...................................... <pState = #Hit>
+  [  7] jmpifz [ 40] ............................ if pState = #Hit then
+  [ 10] pushcons 24 ............................. <3.0>
+  [ 12] setprop 285 ............................. pRotationVel = 3.0
+  [ 15] pushsymb 284 ............................ <#notHit>
+  [ 18] setprop 163 ............................. pState = #notHit
+  [ 21] getprop 140 ............................. <pSprite>
+  [ 24] getprop 140 ............................. <pSprite>
+  [ 27] getobjprop 221 .......................... <pSprite.memberNum>
+  [ 30] pushint8 1 .............................. <1>
+  [ 33] sub ..................................... <pSprite.memberNum - 1>
+  [ 34] pusharglist 1 ........................... <pSprite.memberNum - 1>
+  [ 36] extcall 4 ............................... <member(pSprite.memberNum - 1)>
+  [ 38] setobjprop 4 ............................ pSprite.member = member(pSprite.memberNum - 1)
+  [ 40] ret
+end
+
+on prepareFrame me
+  [  0] getprop 285 ............................. <pRotationVel>
+  [  3] pushcons 32 ............................. <3.0>
+  [  5] gt ...................................... <pRotationVel > 3.0>
+  [  6] jmpifz [ 21] ............................ if pRotationVel > 3.0 then / else
+  [  9] getprop 285 ............................. <pRotationVel>
+  [ 12] pushcons 40 ............................. <0.10000000000000001>
+  [ 14] sub ..................................... <pRotationVel - 0.10000000000000001>
+  [ 15] setprop 285 ............................. pRotationVel = pRotationVel - 0.10000000000000001
+  [ 18] jmp [ 25]
+  [ 21] pushcons 48 ............................. <3.0>
+  [ 23] setlocal 0 .............................. pRotation = 3.0
+  [ 25] getprop 140 ............................. <pSprite>
+  [ 28] getprop 140 ............................. <pSprite>
+  [ 31] getobjprop 154 .......................... <pSprite.rotation>
+  [ 34] getprop 285 ............................. <pRotationVel>
+  [ 37] add ..................................... <pSprite.rotation + pRotationVel>
+  [ 38] setobjprop 154 .......................... pSprite.rotation = pSprite.rotation + pRotationVel
+  [ 41] ret
+end
+
+on endSprite me
+  [  0] pusharglist 0 ........................... <[]>
+  [  2] pushlist ................................ <[]>
+  [  3] setglobal 37 ............................ gBonus = []
+  [  6] ret
+end
+
+on getPropertyDescriptionList
+  [  0] pushsymb 288 ............................ <#pValue>
+  [  3] pushsymb 236 ............................ <#comment>
+  [  6] pushcons 56 ............................. <"Value of this bonus:">
+  [  8] pushsymb 237 ............................ <#format>
+  [ 11] pushsymb 71 ............................. <#integer>
+  [ 14] pushsymb 238 ............................ <#default>
+  [ 17] pushint8 100 ............................ <100>
+  [ 20] pushsymb 239 ............................ <#range>
+  [ 23] pushsymb 240 ............................ <#min>
+  [ 26] pushzero ................................ <0>
+  [ 27] pushsymb 241 ............................ <#max>
+  [ 30] pushint8 10000 .......................... <10000>
+  [ 33] pusharglist 4 ........................... <[#min: 0, #max: 10000]>
+  [ 35] pushproplist ............................ <[#min: 0, #max: 10000]>
+  [ 36] pusharglist 8 ........................... <[#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]>
+  [ 38] pushproplist ............................ <[#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]>
+  [ 39] pusharglist 2 ........................... <[#pValue: [#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]]>
+  [ 41] pushproplist ............................ <[#pValue: [#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]]>
+  [ 42] pusharglistnoret 1 ...................... <[#pValue: [#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]]>
+  [ 44] extcall 57 .............................. return [#pValue: [#comment: "Value of this bonus:", #format: #integer, #default: 100, #range: [#min: 0, #max: 10000]]]
+  [ 47] ret
+end

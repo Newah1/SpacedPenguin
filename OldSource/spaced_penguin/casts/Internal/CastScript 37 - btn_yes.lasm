@@ -1,0 +1,9 @@
+global gScore, glowScore
+
+on mouseUp
+  [  0] pusharglistnoret 0 ...................... <>
+  [  2] extcall 5 ............................... endDAlert()
+  [  4] pusharglistnoret 0 ...................... <>
+  [  6] extcall 6 ............................... endGame()
+  [  8] ret
+end

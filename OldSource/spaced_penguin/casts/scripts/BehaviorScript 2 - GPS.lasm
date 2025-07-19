@@ -1,0 +1,2119 @@
+property pSprite, pSArrow, pSLS1, pSLS2, pSLS3, pSHoopT, pSHoopB, pSRubberT, pSRubberB, pMember, pMRubber, pPoint, pState, pLocPrev, pVX, pVY, pOriginalHoopAngle, pTarget, pFrameCount, pFlightRect, pStageRect, pTries, pDistance, pScoreList, pScoreListIndex, pScoreTargetVal, pScoreAddRate, pScoreCurVal, pScoreFinalVal, pBKDMember, pBorder, pTraceColor, plastLevel, pAniFrame, pAniDir, pAniMax, pAniMin, pAniSwap, pStretchLimit
+global gPlanets, gGame, gAlert, gColorList, gTrace, gScore, gHighScore, glowScore, gGravitationalConstant, gBonus
+
+on beginSprite me
+  [  0] pushcons 0 .............................. <"bk_Drop">
+  [  2] pusharglist 1 ........................... <"bk_Drop">
+  [  4] extcall 4 ............................... <member("bk_Drop")>
+  [  6] setprop 138 ............................. pBKDMember = member("bk_Drop")
+  [  9] getprop 138 ............................. <pBKDMember>
+  [ 12] getobjprop 47 ........................... <pBKDMember.image>
+  [ 15] pushzero ................................ <0>
+  [ 16] pushzero ................................ <0>
+  [ 17] pushint8 500 ............................ <500>
+  [ 20] pushint8 400 ............................ <400>
+  [ 23] pushzero ................................ <0>
+  [ 24] pushzero ................................ <0>
+  [ 25] pushzero ................................ <0>
+  [ 26] pusharglist 3 ........................... <0, 0, 0>
+  [ 28] extcall 43 .............................. <rgb(0, 0, 0)>
+  [ 31] pusharglistnoret 6 ...................... <pBKDMember.image, 0, 0, 500, 400, rgb(0, 0, 0)>
+  [ 33] objcall 139 ............................. pBKDMember.image.fill(0, 0, 500, 400, rgb(0, 0, 0))
+  [ 36] getparam 0 .............................. <me>
+  [ 38] getobjprop 141 .......................... <me.spriteNum>
+  [ 41] pusharglist 1 ........................... <me.spriteNum>
+  [ 43] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 46] setprop 140 ............................. pSprite = sprite(me.spriteNum)
+  [ 49] getparam 0 .............................. <me>
+  [ 51] getobjprop 141 .......................... <me.spriteNum>
+  [ 54] pushint8 3 .............................. <3>
+  [ 57] sub ..................................... <me.spriteNum - 3>
+  [ 58] pusharglist 1 ........................... <me.spriteNum - 3>
+  [ 60] extcall 38 .............................. <sprite(me.spriteNum - 3)>
+  [ 63] setprop 142 ............................. pSArrow = sprite(me.spriteNum - 3)
+  [ 66] getparam 0 .............................. <me>
+  [ 68] getobjprop 141 .......................... <me.spriteNum>
+  [ 71] pushint8 4 .............................. <4>
+  [ 74] sub ..................................... <me.spriteNum - 4>
+  [ 75] pusharglist 1 ........................... <me.spriteNum - 4>
+  [ 77] extcall 38 .............................. <sprite(me.spriteNum - 4)>
+  [ 80] setprop 143 ............................. pSLS1 = sprite(me.spriteNum - 4)
+  [ 83] getparam 0 .............................. <me>
+  [ 85] getobjprop 141 .......................... <me.spriteNum>
+  [ 88] pushint8 5 .............................. <5>
+  [ 91] sub ..................................... <me.spriteNum - 5>
+  [ 92] pusharglist 1 ........................... <me.spriteNum - 5>
+  [ 94] extcall 38 .............................. <sprite(me.spriteNum - 5)>
+  [ 97] setprop 144 ............................. pSLS2 = sprite(me.spriteNum - 5)
+  [100] getparam 0 .............................. <me>
+  [102] getobjprop 141 .......................... <me.spriteNum>
+  [105] pushint8 6 .............................. <6>
+  [108] sub ..................................... <me.spriteNum - 6>
+  [109] pusharglist 1 ........................... <me.spriteNum - 6>
+  [111] extcall 38 .............................. <sprite(me.spriteNum - 6)>
+  [114] setprop 145 ............................. pSLS3 = sprite(me.spriteNum - 6)
+  [117] getparam 0 .............................. <me>
+  [119] getobjprop 141 .......................... <me.spriteNum>
+  [122] pushint8 2 .............................. <2>
+  [125] add ..................................... <me.spriteNum + 2>
+  [126] pusharglist 1 ........................... <me.spriteNum + 2>
+  [128] extcall 38 .............................. <sprite(me.spriteNum + 2)>
+  [131] setprop 146 ............................. pSHoopT = sprite(me.spriteNum + 2)
+  [134] getparam 0 .............................. <me>
+  [136] getobjprop 141 .......................... <me.spriteNum>
+  [139] pushint8 2 .............................. <2>
+  [142] sub ..................................... <me.spriteNum - 2>
+  [143] pusharglist 1 ........................... <me.spriteNum - 2>
+  [145] extcall 38 .............................. <sprite(me.spriteNum - 2)>
+  [148] setprop 147 ............................. pSHoopB = sprite(me.spriteNum - 2)
+  [151] getparam 0 .............................. <me>
+  [153] getobjprop 141 .......................... <me.spriteNum>
+  [156] pushint8 1 .............................. <1>
+  [159] sub ..................................... <me.spriteNum - 1>
+  [160] pusharglist 1 ........................... <me.spriteNum - 1>
+  [162] extcall 38 .............................. <sprite(me.spriteNum - 1)>
+  [165] setprop 148 ............................. pSRubberT = sprite(me.spriteNum - 1)
+  [168] getparam 0 .............................. <me>
+  [170] getobjprop 141 .......................... <me.spriteNum>
+  [173] pushint8 1 .............................. <1>
+  [176] add ..................................... <me.spriteNum + 1>
+  [177] pusharglist 1 ........................... <me.spriteNum + 1>
+  [179] extcall 38 .............................. <sprite(me.spriteNum + 1)>
+  [182] setprop 149 ............................. pSRubberB = sprite(me.spriteNum + 1)
+  [185] getprop 149 ............................. <pSRubberB>
+  [188] getobjprop 4 ............................ <pSRubberB.member>
+  [190] setprop 150 ............................. pMRubber = pSRubberB.member
+  [193] pushzero ................................ <0>
+  [194] setprop 151 ............................. pTries = 0
+  [197] pushcons 8 .............................. <"fld_tries">
+  [199] pusharglist 1 ........................... <"fld_tries">
+  [201] extcall 4 ............................... <member("fld_tries")>
+  [203] pushsymb 40 ............................. <#word>
+  [206] pushint8 2 .............................. <2>
+  [209] getprop 151 ............................. <pTries>
+  [212] pusharglist 1 ........................... <pTries>
+  [214] extcall 51 .............................. <string(pTries)>
+  [217] pusharglist 4 ........................... <member("fld_tries"), #word, 2, string(pTries)>
+  [219] objcall 41 .............................. member("fld_tries").word[2] = string(pTries)
+  [222] getprop 143 ............................. <pSLS1>
+  [225] pushint8 1000 ........................... <1000>
+  [228] pushint8 1000 ........................... <1000>
+  [231] pusharglist 2 ........................... <1000, 1000>
+  [233] extcall 94 .............................. <point(1000, 1000)>
+  [236] setobjprop 152 .......................... pSLS1.loc = point(1000, 1000)
+  [239] getprop 144 ............................. <pSLS2>
+  [242] pushint8 1000 ........................... <1000>
+  [245] pushint8 1000 ........................... <1000>
+  [248] pusharglist 2 ........................... <1000, 1000>
+  [250] extcall 94 .............................. <point(1000, 1000)>
+  [253] setobjprop 152 .......................... pSLS2.loc = point(1000, 1000)
+  [256] getprop 145 ............................. <pSLS3>
+  [259] pushint8 1000 ........................... <1000>
+  [262] pushint8 1000 ........................... <1000>
+  [265] pusharglist 2 ........................... <1000, 1000>
+  [267] extcall 94 .............................. <point(1000, 1000)>
+  [270] setobjprop 152 .......................... pSLS3.loc = point(1000, 1000)
+  [273] getprop 142 ............................. <pSArrow>
+  [276] pushint8 1000 ........................... <1000>
+  [279] pushint8 1000 ........................... <1000>
+  [282] pusharglist 2 ........................... <1000, 1000>
+  [284] extcall 94 .............................. <point(1000, 1000)>
+  [287] setobjprop 152 .......................... pSArrow.loc = point(1000, 1000)
+  [290] getprop 147 ............................. <pSHoopB>
+  [293] getprop 146 ............................. <pSHoopT>
+  [296] getobjprop 152 .......................... <pSHoopT.loc>
+  [299] setobjprop 152 .......................... pSHoopB.loc = pSHoopT.loc
+  [302] getprop 146 ............................. <pSHoopT>
+  [305] getobjprop 154 .......................... <pSHoopT.rotation>
+  [308] setprop 153 ............................. pOriginalHoopAngle = pSHoopT.rotation
+  [311] pushzero ................................ <0>
+  [312] setprop 155 ............................. pDistance = 0
+  [315] pushcons 16 ............................. <"fld_distance">
+  [317] pusharglist 1 ........................... <"fld_distance">
+  [319] extcall 4 ............................... <member("fld_distance")>
+  [321] pushsymb 40 ............................. <#word>
+  [324] pushint8 2 .............................. <2>
+  [327] getprop 155 ............................. <pDistance>
+  [330] pusharglist 1 ........................... <pDistance>
+  [332] extcall 71 .............................. <integer(pDistance)>
+  [335] pusharglist 1 ........................... <integer(pDistance)>
+  [337] extcall 51 .............................. <string(integer(pDistance))>
+  [340] pusharglist 4 ........................... <member("fld_distance"), #word, 2, string(integer(pDistance))>
+  [342] objcall 41 .............................. member("fld_distance").word[2] = string(integer(pDistance))
+  [345] getprop 158 ............................. <pBorder>
+  [348] inv ..................................... <-pBorder>
+  [349] getprop 158 ............................. <pBorder>
+  [352] inv ..................................... <-pBorder>
+  [353] getmovieprop 159 ........................ <the stage>
+  [356] getobjprop 157 .......................... <(the stage).rect>
+  [359] getobjprop 75 ........................... <(the stage).rect.right>
+  [362] getmovieprop 159 ........................ <the stage>
+  [365] getobjprop 157 .......................... <(the stage).rect>
+  [368] getobjprop 74 ........................... <(the stage).rect.left>
+  [371] sub ..................................... <(the stage).rect.right - (the stage).rect.left>
+  [372] getprop 158 ............................. <pBorder>
+  [375] add ..................................... <(the stage).rect.right - (the stage).rect.left + pBorder>
+  [376] getmovieprop 159 ........................ <the stage>
+  [379] getobjprop 157 .......................... <(the stage).rect>
+  [382] getobjprop 160 .......................... <(the stage).rect.bottom>
+  [385] getmovieprop 159 ........................ <the stage>
+  [388] getobjprop 157 .......................... <(the stage).rect>
+  [391] getobjprop 161 .......................... <(the stage).rect.top>
+  [394] sub ..................................... <(the stage).rect.bottom - (the stage).rect.top>
+  [395] getprop 158 ............................. <pBorder>
+  [398] add ..................................... <(the stage).rect.bottom - (the stage).rect.top + pBorder>
+  [399] pusharglist 4 ........................... <-pBorder, -pBorder, (the stage).rect.right - (the stage).rect.left + pBorder, (the stage).rect.bottom - (the stage).rect.top + pBorder>
+  [401] extcall 157 ............................. <rect(-pBorder, -pBorder, (the stage).rect.right - (the stage).rect.left + pBorder, (the stage).rect.bottom - (the stage).rect.top + pBorder)>
+  [404] setprop 156 ............................. pFlightRect = rect(-pBorder, -pBorder, (the stage).rect.right - (the stage).rect.left + pBorder, (the stage).rect.bottom - (the stage).rect.top + pBorder)
+  [407] pushzero ................................ <0>
+  [408] pushzero ................................ <0>
+  [409] getmovieprop 159 ........................ <the stage>
+  [412] getobjprop 157 .......................... <(the stage).rect>
+  [415] getobjprop 75 ........................... <(the stage).rect.right>
+  [418] getmovieprop 159 ........................ <the stage>
+  [421] getobjprop 157 .......................... <(the stage).rect>
+  [424] getobjprop 74 ........................... <(the stage).rect.left>
+  [427] sub ..................................... <(the stage).rect.right - (the stage).rect.left>
+  [428] getmovieprop 159 ........................ <the stage>
+  [431] getobjprop 157 .......................... <(the stage).rect>
+  [434] getobjprop 160 .......................... <(the stage).rect.bottom>
+  [437] getmovieprop 159 ........................ <the stage>
+  [440] getobjprop 157 .......................... <(the stage).rect>
+  [443] getobjprop 161 .......................... <(the stage).rect.top>
+  [446] sub ..................................... <(the stage).rect.bottom - (the stage).rect.top>
+  [447] pusharglist 4 ........................... <0, 0, (the stage).rect.right - (the stage).rect.left, (the stage).rect.bottom - (the stage).rect.top>
+  [449] extcall 157 ............................. <rect(0, 0, (the stage).rect.right - (the stage).rect.left, (the stage).rect.bottom - (the stage).rect.top)>
+  [452] setprop 162 ............................. pStageRect = rect(0, 0, (the stage).rect.right - (the stage).rect.left, (the stage).rect.bottom - (the stage).rect.top)
+  [455] pusharglistnoret 0 ...................... <>
+  [457] localcall 17 ............................ resetGPS()
+  [459] pushcons 24 ............................. <"fld_level">
+  [461] pusharglist 1 ........................... <"fld_level">
+  [463] extcall 4 ............................... <member("fld_level")>
+  [465] pushsymb 40 ............................. <#word>
+  [468] pushint8 2 .............................. <2>
+  [471] pushint8 1 .............................. <1>
+  [474] pushcons 32 ............................. <"fld_level">
+  [476] pusharglist 1 ........................... <"fld_level">
+  [478] extcall 4 ............................... <member("fld_level")>
+  [480] pushsymb 40 ............................. <#word>
+  [483] pushint8 2 .............................. <2>
+  [486] pusharglist 3 ........................... <member("fld_level"), #word, 2>
+  [488] objcall 56 .............................. <member("fld_level").word[2]>
+  [491] pusharglist 1 ........................... <member("fld_level").word[2]>
+  [493] extcall 71 .............................. <integer(member("fld_level").word[2])>
+  [496] add ..................................... <1 + integer(member("fld_level").word[2])>
+  [497] pusharglist 1 ........................... <1 + integer(member("fld_level").word[2])>
+  [499] extcall 51 .............................. <string(1 + integer(member("fld_level").word[2]))>
+  [502] pusharglist 4 ........................... <member("fld_level"), #word, 2, string(1 + integer(member("fld_level").word[2]))>
+  [504] objcall 41 .............................. member("fld_level").word[2] = string(1 + integer(member("fld_level").word[2]))
+  [507] ret
+end
+
+on prepareFrame me
+  [  0] getglobal 36 ............................ <gAlert>
+  [  3] pushzero ................................ <0>
+  [  4] nteq .................................... <gAlert <> 0>
+  [  5] getglobal 36 ............................ <gAlert>
+  [  8] pushsymb 83 ............................. <#scoring>
+  [ 11] nteq .................................... <gAlert <> #scoring>
+  [ 12] and ..................................... <(gAlert <> 0) and (gAlert <> #scoring)>
+  [ 13] jmpifz [ 21] ............................ if (gAlert <> 0) and (gAlert <> #scoring) then
+  [ 16] pusharglistnoret 0 ...................... <>
+  [ 18] extcall 57 .............................. return 
+  [ 21] getprop 163 ............................. <pState>
+  [ 24] peek 0 .................................. case pState of
+  [ 26] pushsymb 164 ............................ <#soaring>
+  [ 29] eq
+  [ 30] jmpifz [ 40] ............................ (case) #soaring:
+  [ 33] pusharglistnoret 0 ...................... <>
+  [ 35] localcall 4 ............................. soaringFrame()
+  [ 37] jmp [117]
+  [ 40] peek 0
+  [ 42] pushsymb 165 ............................ <#pullback>
+  [ 45] eq
+  [ 46] jmpifz [ 56] ............................ (case) #pullback:
+  [ 49] pusharglistnoret 0 ...................... <>
+  [ 51] localcall 20 ............................ pullbackFrame()
+  [ 53] jmp [117]
+  [ 56] peek 0
+  [ 58] pushsymb 166 ............................ <#snapping>
+  [ 61] eq
+  [ 62] jmpifz [ 72] ............................ (case) #snapping:
+  [ 65] pusharglistnoret 0 ...................... <>
+  [ 67] localcall 22 ............................ snappingFrame()
+  [ 69] jmp [117]
+  [ 72] peek 0
+  [ 74] pushsymb 167 ............................ <#crashed>
+  [ 77] eq
+  [ 78] jmpifz [ 88] ............................ (case) #crashed:
+  [ 81] pusharglistnoret 0 ...................... <>
+  [ 83] localcall 7 ............................. crashedFrame()
+  [ 85] jmp [117]
+  [ 88] peek 0
+  [ 90] pushsymb 168 ............................ <#hitTarget>
+  [ 93] eq
+  [ 94] jmpifz [104] ............................ (case) #hitTarget:
+  [ 97] pusharglistnoret 0 ...................... <>
+  [ 99] localcall 12 ............................ hitTargetFrame()
+  [101] jmp [117]
+  [104] peek 0
+  [106] pushsymb 83 ............................. <#scoring>
+  [109] eq
+  [110] jmpifz [117] ............................ (case) #scoring:
+  [113] pusharglistnoret 0 ...................... <>
+  [115] localcall 15 ............................ scoringFrame()
+  [117] pop 1 ................................... end case
+  [119] ret
+end
+
+on exitFrame
+  [  0] getprop 163 ............................. <pState>
+  [  3] pushsymb 169 ............................ <#next_level>
+  [  6] eq ...................................... <pState = #next_level>
+  [  7] jmpifz [ 36] ............................ if pState = #next_level then
+  [ 10] getprop 170 ............................. <plastLevel>
+  [ 13] jmpifz [ 23] ............................ if plastLevel then / else
+  [ 16] pusharglistnoret 0 ...................... <>
+  [ 18] extcall 22 .............................. endGame()
+  [ 20] jmp [ 36]
+  [ 23] pusharglist 0 ........................... <>
+  [ 25] thebuiltin 171 .......................... <the frame>
+  [ 28] pushint8 1 .............................. <1>
+  [ 31] add ..................................... <the frame + 1>
+  [ 32] pusharglistnoret 1 ...................... <the frame + 1>
+  [ 34] extcall 17 .............................. go(the frame + 1)
+  [ 36] ret
+end
+
+on setUpSoaring
+  [  0] pushsymb 164 ............................ <#soaring>
+  [  3] setprop 163 ............................. pState = #soaring
+  [  6] getprop 146 ............................. <pSHoopT>
+  [  9] pushzero ................................ <0>
+  [ 10] setobjprop 39 ........................... pSHoopT.visible = 0
+  [ 13] getprop 147 ............................. <pSHoopB>
+  [ 16] pushzero ................................ <0>
+  [ 17] setobjprop 39 ........................... pSHoopB.visible = 0
+  [ 20] getprop 148 ............................. <pSRubberT>
+  [ 23] pushzero ................................ <0>
+  [ 24] setobjprop 39 ........................... pSRubberT.visible = 0
+  [ 27] getprop 149 ............................. <pSRubberB>
+  [ 30] pushzero ................................ <0>
+  [ 31] setobjprop 39 ........................... pSRubberB.visible = 0
+  [ 34] pushzero ................................ <0>
+  [ 35] setprop 155 ............................. pDistance = 0
+  [ 38] pushcons 40 ............................. <"fld_distance">
+  [ 40] pusharglist 1 ........................... <"fld_distance">
+  [ 42] extcall 4 ............................... <member("fld_distance")>
+  [ 44] pushsymb 40 ............................. <#word>
+  [ 47] pushint8 2 .............................. <2>
+  [ 50] getprop 155 ............................. <pDistance>
+  [ 53] pusharglist 1 ........................... <pDistance>
+  [ 55] extcall 71 .............................. <integer(pDistance)>
+  [ 58] pusharglist 1 ........................... <integer(pDistance)>
+  [ 60] extcall 51 .............................. <string(integer(pDistance))>
+  [ 63] pusharglist 4 ........................... <member("fld_distance"), #word, 2, string(integer(pDistance))>
+  [ 65] objcall 41 .............................. member("fld_distance").word[2] = string(integer(pDistance))
+  [ 68] getglobal 44 ............................ <gTrace>
+  [ 71] jmpifz [128] ............................ if gTrace then
+  [ 74] getprop 138 ............................. <pBKDMember>
+  [ 77] getobjprop 47 ........................... <pBKDMember.image>
+  [ 80] getprop 140 ............................. <pSprite>
+  [ 83] pushsymb 152 ............................ <#loc>
+  [ 86] pushint8 1 .............................. <1>
+  [ 89] pusharglist 3 ........................... <pSprite, #loc, 1>
+  [ 91] objcall 56 .............................. <pSprite.loc[1]>
+  [ 94] getprop 140 ............................. <pSprite>
+  [ 97] pushsymb 152 ............................ <#loc>
+  [100] pushint8 2 .............................. <2>
+  [103] pusharglist 3 ........................... <pSprite, #loc, 2>
+  [105] objcall 56 .............................. <pSprite.loc[2]>
+  [108] getprop 143 ............................. <pSLS1>
+  [111] getobjprop 172 .......................... <pSLS1.locH>
+  [114] getprop 143 ............................. <pSLS1>
+  [117] getobjprop 173 .......................... <pSLS1.locV>
+  [120] getprop 174 ............................. <pTraceColor>
+  [123] pusharglistnoret 6 ...................... <pBKDMember.image, pSprite.loc[1], pSprite.loc[2], pSLS1.locH, pSLS1.locV, pTraceColor>
+  [125] objcall 175 ............................. pBKDMember.image.draw(pSprite.loc[1], pSprite.loc[2], pSLS1.locH, pSLS1.locV, pTraceColor)
+  [128] ret
+end
+
+on soaringFrame
+  [  0] getprop 177 ............................. <pPoint>
+  [  3] setprop 176 ............................. pLocPrev = pPoint
+  [  6] getglobal 178 ........................... <gPlanets>
+  [  9] getobjprop 54 ........................... <gPlanets.count>
+  [ 12] setlocal 0 .............................. tempNumPlanets = gPlanets.count
+  [ 14] pushint8 1 .............................. <1>
+  [ 17] setlocal 8
+  [ 19] getlocal 8
+  [ 21] getlocal 0 .............................. <tempNumPlanets>
+  [ 23] lteq
+  [ 24] jmpifz [280] ............................ repeat with p = 1 to tempNumPlanets
+  [ 27] getglobal 178 ........................... <gPlanets>
+  [ 30] getlocal 8 .............................. <p>
+  [ 32] pusharglist 2 ........................... <gPlanets, p>
+  [ 34] objcall 87 .............................. <gPlanets[p]>
+  [ 37] pushint8 1 .............................. <1>
+  [ 40] pusharglist 2 ........................... <gPlanets[p], 1>
+  [ 42] objcall 87 .............................. <gPlanets[p][1]>
+  [ 45] pusharglist 1 ........................... <gPlanets[p][1]>
+  [ 47] extcall 38 .............................. <sprite(gPlanets[p][1])>
+  [ 50] getobjprop 152 .......................... <sprite(gPlanets[p][1]).loc>
+  [ 53] getprop 177 ............................. <pPoint>
+  [ 56] sub ..................................... <sprite(gPlanets[p][1]).loc - pPoint>
+  [ 57] setlocal 16 ............................. tempChangeLoc = sprite(gPlanets[p][1]).loc - pPoint
+  [ 59] getlocal 16 ............................. <tempChangeLoc>
+  [ 61] pusharglist 1 ........................... <tempChangeLoc>
+  [ 63] extcall 31 .............................. <distance(tempChangeLoc)>
+  [ 65] setlocal 24 ............................. tempDistance = distance(tempChangeLoc)
+  [ 67] getlocal 24 ............................. <tempDistance>
+  [ 69] getglobal 178 ........................... <gPlanets>
+  [ 72] getlocal 8 .............................. <p>
+  [ 74] pusharglist 2 ........................... <gPlanets, p>
+  [ 76] objcall 87 .............................. <gPlanets[p]>
+  [ 79] pushint8 4 .............................. <4>
+  [ 82] pusharglist 2 ........................... <gPlanets[p], 4>
+  [ 84] objcall 87 .............................. <gPlanets[p][4]>
+  [ 87] lt ...................................... <tempDistance < gPlanets[p][4]>
+  [ 88] jmpifz [269] ............................ if tempDistance < gPlanets[p][4] then
+  [ 91] getlocal 24 ............................. <tempDistance>
+  [ 93] getglobal 178 ........................... <gPlanets>
+  [ 96] getlocal 8 .............................. <p>
+  [ 98] pusharglist 2 ........................... <gPlanets, p>
+  [100] objcall 87 .............................. <gPlanets[p]>
+  [103] pushint8 3 .............................. <3>
+  [106] pusharglist 2 ........................... <gPlanets[p], 3>
+  [108] objcall 87 .............................. <gPlanets[p][3]>
+  [111] lt ...................................... <tempDistance < gPlanets[p][3]>
+  [112] jmpifz [147] ............................ if tempDistance < gPlanets[p][3] then
+  [115] pushint8 1 .............................. <1>
+  [118] pushcons 48 ............................. <"snd_HitPlanet">
+  [120] pusharglistnoret 2 ...................... <1, "snd_HitPlanet">
+  [122] extcall 179 ............................. puppetSound(1, "snd_HitPlanet")
+  [125] getglobal 178 ........................... <gPlanets>
+  [128] getlocal 8 .............................. <p>
+  [130] pusharglist 2 ........................... <gPlanets, p>
+  [132] objcall 87 .............................. <gPlanets[p]>
+  [135] pushint8 1 .............................. <1>
+  [138] pusharglist 2 ........................... <gPlanets[p], 1>
+  [140] objcall 87 .............................. <gPlanets[p][1]>
+  [143] pusharglistnoret 1 ...................... <gPlanets[p][1]>
+  [145] localcall 5 ............................. setUpCrashed(gPlanets[p][1])
+  [147] getlocal 16 ............................. <tempChangeLoc>
+  [149] pushint8 1 .............................. <1>
+  [152] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [154] objcall 87 .............................. <tempChangeLoc[1]>
+  [157] getlocal 16 ............................. <tempChangeLoc>
+  [159] pushint8 1 .............................. <1>
+  [162] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [164] objcall 87 .............................. <tempChangeLoc[1]>
+  [167] mul ..................................... <tempChangeLoc[1] * tempChangeLoc[1]>
+  [168] getlocal 16 ............................. <tempChangeLoc>
+  [170] pushint8 2 .............................. <2>
+  [173] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [175] objcall 87 .............................. <tempChangeLoc[2]>
+  [178] getlocal 16 ............................. <tempChangeLoc>
+  [180] pushint8 2 .............................. <2>
+  [183] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [185] objcall 87 .............................. <tempChangeLoc[2]>
+  [188] mul ..................................... <tempChangeLoc[2] * tempChangeLoc[2]>
+  [189] add ..................................... <(tempChangeLoc[1] * tempChangeLoc[1]) + (tempChangeLoc[2] * tempChangeLoc[2])>
+  [190] setlocal 32 ............................. tempDistSquared = (tempChangeLoc[1] * tempChangeLoc[1]) + (tempChangeLoc[2] * tempChangeLoc[2])
+  [192] pushzero ................................ <0>
+  [193] setlocal 40 ............................. tempGravitationalForce = 0
+  [195] getlocal 32 ............................. <tempDistSquared>
+  [197] pushzero ................................ <0>
+  [198] gt ...................................... <tempDistSquared > 0>
+  [199] jmpifz [229] ............................ if tempDistSquared > 0 then
+  [202] getglobal 178 ........................... <gPlanets>
+  [205] getlocal 8 .............................. <p>
+  [207] pusharglist 2 ........................... <gPlanets, p>
+  [209] objcall 87 .............................. <gPlanets[p]>
+  [212] pushint8 2 .............................. <2>
+  [215] pusharglist 2 ........................... <gPlanets[p], 2>
+  [217] objcall 87 .............................. <gPlanets[p][2]>
+  [220] getglobal 46 ............................ <gGravitationalConstant>
+  [223] mul ..................................... <gPlanets[p][2] * gGravitationalConstant>
+  [224] getlocal 32 ............................. <tempDistSquared>
+  [226] div ..................................... <gPlanets[p][2] * gGravitationalConstant / tempDistSquared>
+  [227] setlocal 40 ............................. tempGravitationalForce = gPlanets[p][2] * gGravitationalConstant / tempDistSquared
+  [229] getprop 180 ............................. <pVX>
+  [232] getlocal 40 ............................. <tempGravitationalForce>
+  [234] getlocal 16 ............................. <tempChangeLoc>
+  [236] pushint8 1 .............................. <1>
+  [239] pusharglist 2 ........................... <tempChangeLoc, 1>
+  [241] objcall 87 .............................. <tempChangeLoc[1]>
+  [244] mul ..................................... <tempGravitationalForce * tempChangeLoc[1]>
+  [245] add ..................................... <pVX + (tempGravitationalForce * tempChangeLoc[1])>
+  [246] setprop 180 ............................. pVX = pVX + (tempGravitationalForce * tempChangeLoc[1])
+  [249] getprop 181 ............................. <pVY>
+  [252] getlocal 40 ............................. <tempGravitationalForce>
+  [254] getlocal 16 ............................. <tempChangeLoc>
+  [256] pushint8 2 .............................. <2>
+  [259] pusharglist 2 ........................... <tempChangeLoc, 2>
+  [261] objcall 87 .............................. <tempChangeLoc[2]>
+  [264] mul ..................................... <tempGravitationalForce * tempChangeLoc[2]>
+  [265] add ..................................... <pVY + (tempGravitationalForce * tempChangeLoc[2])>
+  [266] setprop 181 ............................. pVY = pVY + (tempGravitationalForce * tempChangeLoc[2])
+  [269] pushint8 1
+  [272] getlocal 8
+  [274] add
+  [275] setlocal 8
+  [277] endrepeat [ 19]
+  [280] getglobal 37 ............................ <gBonus>
+  [283] getobjprop 54 ........................... <gBonus.count>
+  [286] pushzero ................................ <0>
+  [287] gt ...................................... <gBonus.count > 0>
+  [288] jmpifz [403] ............................ if gBonus.count > 0 then
+  [291] pushint8 1 .............................. <1>
+  [294] setlocal 48
+  [296] getlocal 48
+  [298] getglobal 37 ............................ <gBonus>
+  [301] getobjprop 54 ........................... <gBonus.count>
+  [304] lteq
+  [305] jmpifz [403] ............................ repeat with b = 1 to gBonus.count
+  [308] getprop 140 ............................. <pSprite>
+  [311] getobjprop 152 .......................... <pSprite.loc>
+  [314] getglobal 37 ............................ <gBonus>
+  [317] getlocal 48 ............................. <b>
+  [319] pusharglist 2 ........................... <gBonus, b>
+  [321] objcall 87 .............................. <gBonus[b]>
+  [324] pusharglist 1 ........................... <gBonus[b]>
+  [326] extcall 38 .............................. <sprite(gBonus[b])>
+  [329] getobjprop 152 .......................... <sprite(gBonus[b]).loc>
+  [332] sub ..................................... <pSprite.loc - sprite(gBonus[b]).loc>
+  [333] pusharglist 1 ........................... <pSprite.loc - sprite(gBonus[b]).loc>
+  [335] extcall 31 .............................. <distance(pSprite.loc - sprite(gBonus[b]).loc)>
+  [337] pushint8 8 .............................. <8>
+  [340] getglobal 37 ............................ <gBonus>
+  [343] getlocal 48 ............................. <b>
+  [345] pusharglist 2 ........................... <gBonus, b>
+  [347] objcall 87 .............................. <gBonus[b]>
+  [350] pusharglist 1 ........................... <gBonus[b]>
+  [352] extcall 38 .............................. <sprite(gBonus[b])>
+  [355] getobjprop 182 .......................... <sprite(gBonus[b]).width>
+  [358] pushint8 2 .............................. <2>
+  [361] div ..................................... <sprite(gBonus[b]).width / 2>
+  [362] add ..................................... <8 + (sprite(gBonus[b]).width / 2)>
+  [363] lt ...................................... <distance(pSprite.loc - sprite(gBonus[b]).loc) < (8 + (sprite(gBonus[b]).width / 2))>
+  [364] jmpifz [392] ............................ if distance(pSprite.loc - sprite(gBonus[b]).loc) < (8 + (sprite(gBonus[b]).width / 2)) then
+  [367] getprop 155 ............................. <pDistance>
+  [370] getglobal 37 ............................ <gBonus>
+  [373] getlocal 48 ............................. <b>
+  [375] pusharglist 2 ........................... <gBonus, b>
+  [377] objcall 87 .............................. <gBonus[b]>
+  [380] pushsymb 184 ............................ <#collectBonus>
+  [383] pusharglist 2 ........................... <gBonus[b], #collectBonus>
+  [385] extcall 183 ............................. <sendSprite(gBonus[b], #collectBonus)>
+  [388] add ..................................... <pDistance + sendSprite(gBonus[b], #collectBonus)>
+  [389] setprop 155 ............................. pDistance = pDistance + sendSprite(gBonus[b], #collectBonus)
+  [392] pushint8 1
+  [395] getlocal 48
+  [397] add
+  [398] setlocal 48
+  [400] endrepeat [296]
+  [403] getprop 177 ............................. <pPoint>
+  [406] getprop 180 ............................. <pVX>
+  [409] getprop 181 ............................. <pVY>
+  [412] pusharglist 2 ........................... <pVX, pVY>
+  [414] extcall 94 .............................. <point(pVX, pVY)>
+  [417] add ..................................... <pPoint + point(pVX, pVY)>
+  [418] setprop 177 ............................. pPoint = pPoint + point(pVX, pVY)
+  [421] getprop 140 ............................. <pSprite>
+  [424] getprop 177 ............................. <pPoint>
+  [427] setobjprop 152 .......................... pSprite.loc = pPoint
+  [430] getglobal 44 ............................ <gTrace>
+  [433] jmpifz [500] ............................ if gTrace then
+  [436] getprop 138 ............................. <pBKDMember>
+  [439] getobjprop 47 ........................... <pBKDMember.image>
+  [442] getprop 140 ............................. <pSprite>
+  [445] pushsymb 152 ............................ <#loc>
+  [448] pushint8 1 .............................. <1>
+  [451] pusharglist 3 ........................... <pSprite, #loc, 1>
+  [453] objcall 56 .............................. <pSprite.loc[1]>
+  [456] getprop 140 ............................. <pSprite>
+  [459] pushsymb 152 ............................ <#loc>
+  [462] pushint8 2 .............................. <2>
+  [465] pusharglist 3 ........................... <pSprite, #loc, 2>
+  [467] objcall 56 .............................. <pSprite.loc[2]>
+  [470] getprop 176 ............................. <pLocPrev>
+  [473] pushint8 1 .............................. <1>
+  [476] pusharglist 2 ........................... <pLocPrev, 1>
+  [478] objcall 87 .............................. <pLocPrev[1]>
+  [481] getprop 176 ............................. <pLocPrev>
+  [484] pushint8 2 .............................. <2>
+  [487] pusharglist 2 ........................... <pLocPrev, 2>
+  [489] objcall 87 .............................. <pLocPrev[2]>
+  [492] getprop 174 ............................. <pTraceColor>
+  [495] pusharglistnoret 6 ...................... <pBKDMember.image, pSprite.loc[1], pSprite.loc[2], pLocPrev[1], pLocPrev[2], pTraceColor>
+  [497] objcall 175 ............................. pBKDMember.image.draw(pSprite.loc[1], pSprite.loc[2], pLocPrev[1], pLocPrev[2], pTraceColor)
+  [500] getprop 177 ............................. <pPoint>
+  [503] getprop 176 ............................. <pLocPrev>
+  [506] sub ..................................... <pPoint - pLocPrev>
+  [507] pusharglist 1 ........................... <pPoint - pLocPrev>
+  [509] extcall 31 .............................. <distance(pPoint - pLocPrev)>
+  [511] setlocal 56 ............................. tempDis = distance(pPoint - pLocPrev)
+  [513] getprop 155 ............................. <pDistance>
+  [516] getlocal 56 ............................. <tempDis>
+  [518] add ..................................... <pDistance + tempDis>
+  [519] setprop 155 ............................. pDistance = pDistance + tempDis
+  [522] pushcons 56 ............................. <"fld_distance">
+  [524] pusharglist 1 ........................... <"fld_distance">
+  [526] extcall 4 ............................... <member("fld_distance")>
+  [528] pushsymb 40 ............................. <#word>
+  [531] pushint8 2 .............................. <2>
+  [534] getprop 155 ............................. <pDistance>
+  [537] pusharglist 1 ........................... <pDistance>
+  [539] extcall 71 .............................. <integer(pDistance)>
+  [542] pusharglist 1 ........................... <integer(pDistance)>
+  [544] extcall 51 .............................. <string(integer(pDistance))>
+  [547] pusharglist 4 ........................... <member("fld_distance"), #word, 2, string(integer(pDistance))>
+  [549] objcall 41 .............................. member("fld_distance").word[2] = string(integer(pDistance))
+  [552] getprop 140 ............................. <pSprite>
+  [555] getobjprop 141 .......................... <pSprite.spriteNum>
+  [558] getprop 185 ............................. <pTarget>
+  [561] pusharglist 1 ........................... <pTarget>
+  [563] extcall 38 .............................. <sprite(pTarget)>
+  [566] getobjprop 141 .......................... <sprite(pTarget).spriteNum>
+  [569] pusharglist 1 ........................... <sprite(pTarget).spriteNum>
+  [571] extcall 38 .............................. <sprite(sprite(pTarget).spriteNum)>
+  [574] ontospr ................................. <sprite pSprite.spriteNum intersects sprite(sprite(pTarget).spriteNum)>
+  [575] jmpifz [585] ............................ if sprite pSprite.spriteNum intersects sprite(sprite(pTarget).spriteNum) then / else
+  [578] pusharglistnoret 0 ...................... <>
+  [580] localcall 10 ............................ setUpHitTarget()
+  [582] jmp [660]
+  [585] getprop 140 ............................. <pSprite>
+  [588] getobjprop 152 .......................... <pSprite.loc>
+  [591] getprop 156 ............................. <pFlightRect>
+  [594] pusharglist 2 ........................... <pSprite.loc, pFlightRect>
+  [596] extcall 186 ............................. <inside(pSprite.loc, pFlightRect)>
+  [599] not ..................................... <not inside(pSprite.loc, pFlightRect)>
+  [600] jmpifz [618] ............................ if not inside(pSprite.loc, pFlightRect) then / else
+  [603] pushsymb 167 ............................ <#crashed>
+  [606] setprop 163 ............................. pState = #crashed
+  [609] pushint8 2 .............................. <2>
+  [612] setprop 187 ............................. pFrameCount = 2
+  [615] jmp [660]
+  [618] getprop 140 ............................. <pSprite>
+  [621] getobjprop 152 .......................... <pSprite.loc>
+  [624] getprop 162 ............................. <pStageRect>
+  [627] pusharglist 2 ........................... <pSprite.loc, pStageRect>
+  [629] extcall 186 ............................. <inside(pSprite.loc, pStageRect)>
+  [632] not ..................................... <not inside(pSprite.loc, pStageRect)>
+  [633] jmpifz [643] ............................ if not inside(pSprite.loc, pStageRect) then / else
+  [636] pusharglistnoret 0 ...................... <>
+  [638] localcall 16 ............................ setArrow()
+  [640] jmp [660]
+  [643] getprop 142 ............................. <pSArrow>
+  [646] pushint8 1000 ........................... <1000>
+  [649] pushint8 1000 ........................... <1000>
+  [652] pusharglist 2 ........................... <1000, 1000>
+  [654] extcall 94 .............................. <point(1000, 1000)>
+  [657] setobjprop 152 .......................... pSArrow.loc = point(1000, 1000)
+  [660] getprop 188 ............................. <pAniSwap>
+  [663] jmpifz [727] ............................ if pAniSwap then / else
+  [666] getprop 189 ............................. <pAniFrame>
+  [669] getprop 190 ............................. <pAniDir>
+  [672] add ..................................... <pAniFrame + pAniDir>
+  [673] setprop 189 ............................. pAniFrame = pAniFrame + pAniDir
+  [676] getprop 189 ............................. <pAniFrame>
+  [679] getprop 191 ............................. <pAniMin>
+  [682] lt ...................................... <pAniFrame < pAniMin>
+  [683] jmpifz [692] ............................ if pAniFrame < pAniMin then
+  [686] getprop 192 ............................. <pAniMax>
+  [689] setprop 189 ............................. pAniFrame = pAniMax
+  [692] getprop 189 ............................. <pAniFrame>
+  [695] getprop 192 ............................. <pAniMax>
+  [698] gt ...................................... <pAniFrame > pAniMax>
+  [699] jmpifz [708] ............................ if pAniFrame > pAniMax then
+  [702] getprop 191 ............................. <pAniMin>
+  [705] setprop 189 ............................. pAniFrame = pAniMin
+  [708] getprop 140 ............................. <pSprite>
+  [711] getprop 189 ............................. <pAniFrame>
+  [714] pusharglist 1 ........................... <pAniFrame>
+  [716] extcall 4 ............................... <member(pAniFrame)>
+  [718] setobjprop 4 ............................ pSprite.member = member(pAniFrame)
+  [720] pushzero ................................ <0>
+  [721] setprop 188 ............................. pAniSwap = 0
+  [724] jmp [733]
+  [727] pushint8 1 .............................. <1>
+  [730] setprop 188 ............................. pAniSwap = 1
+  [733] ret
+end
+
+on setUpCrashed tempHitPlanet
+  [  0] pushsymb 167 ............................ <#crashed>
+  [  3] setprop 163 ............................. pState = #crashed
+  [  6] pushint8 300 ............................ <300>
+  [  9] setprop 187 ............................. pFrameCount = 300
+  [ 12] getparam 0 .............................. <tempHitPlanet>
+  [ 14] pusharglistnoret 1 ...................... <tempHitPlanet>
+  [ 16] localcall 6 ............................. setBounceOffPlanet(tempHitPlanet)
+  [ 18] getprop 140 ............................. <pSprite>
+  [ 21] getobjprop 152 .......................... <pSprite.loc>
+  [ 24] getparam 0 .............................. <tempHitPlanet>
+  [ 26] pusharglist 1 ........................... <tempHitPlanet>
+  [ 28] extcall 38 .............................. <sprite(tempHitPlanet)>
+  [ 31] getobjprop 152 .......................... <sprite(tempHitPlanet).loc>
+  [ 34] sub ..................................... <pSprite.loc - sprite(tempHitPlanet).loc>
+  [ 35] pusharglist 1 ........................... <pSprite.loc - sprite(tempHitPlanet).loc>
+  [ 37] extcall 30 .............................. <rotationAngle(pSprite.loc - sprite(tempHitPlanet).loc)>
+  [ 39] setlocal 0 .............................. tempAngle = rotationAngle(pSprite.loc - sprite(tempHitPlanet).loc)
+  [ 41] pushcons 64 ............................. <0.0>
+  [ 43] pushcons 72 ............................. <0.0>
+  [ 45] pusharglist 2 ........................... <0.0, 0.0>
+  [ 47] extcall 94 .............................. <point(0.0, 0.0)>
+  [ 50] getlocal 0 .............................. <tempAngle>
+  [ 52] getprop 180 ............................. <pVX>
+  [ 55] getprop 181 ............................. <pVY>
+  [ 58] pusharglist 2 ........................... <pVX, pVY>
+  [ 60] extcall 94 .............................. <point(pVX, pVY)>
+  [ 63] pusharglist 1 ........................... <point(pVX, pVY)>
+  [ 65] extcall 31 .............................. <distance(point(pVX, pVY))>
+  [ 67] pusharglist 3 ........................... <point(0.0, 0.0), tempAngle, distance(point(pVX, pVY))>
+  [ 69] extcall 32 .............................. <findPoint(point(0.0, 0.0), tempAngle, distance(point(pVX, pVY)))>
+  [ 72] setlocal 8 .............................. tempPoint = findPoint(point(0.0, 0.0), tempAngle, distance(point(pVX, pVY)))
+  [ 74] getlocal 8 .............................. <tempPoint>
+  [ 76] pushint8 1 .............................. <1>
+  [ 79] pusharglist 2 ........................... <tempPoint, 1>
+  [ 81] objcall 87 .............................. <tempPoint[1]>
+  [ 84] setprop 180 ............................. pVX = tempPoint[1]
+  [ 87] getlocal 8 .............................. <tempPoint>
+  [ 89] pushint8 2 .............................. <2>
+  [ 92] pusharglist 2 ........................... <tempPoint, 2>
+  [ 94] objcall 87 .............................. <tempPoint[2]>
+  [ 97] setprop 181 ............................. pVY = tempPoint[2]
+  [100] pusharglistnoret 0 ...................... <>
+  [102] localcall 18 ............................ setUpAnimation()
+  [104] ret
+end
+
+on setBounceOffPlanet tempHitPlanet
+  [  0] getprop 140 ............................. <pSprite>
+  [  3] getobjprop 152 .......................... <pSprite.loc>
+  [  6] getparam 0 .............................. <tempHitPlanet>
+  [  8] pusharglist 1 ........................... <tempHitPlanet>
+  [ 10] extcall 38 .............................. <sprite(tempHitPlanet)>
+  [ 13] getobjprop 152 .......................... <sprite(tempHitPlanet).loc>
+  [ 16] sub ..................................... <pSprite.loc - sprite(tempHitPlanet).loc>
+  [ 17] pusharglist 1 ........................... <pSprite.loc - sprite(tempHitPlanet).loc>
+  [ 19] extcall 30 .............................. <rotationAngle(pSprite.loc - sprite(tempHitPlanet).loc)>
+  [ 21] setlocal 0 .............................. tempAngle = rotationAngle(pSprite.loc - sprite(tempHitPlanet).loc)
+  [ 23] pushcons 80 ............................. <0.0>
+  [ 25] pushcons 88 ............................. <0.0>
+  [ 27] pusharglist 2 ........................... <0.0, 0.0>
+  [ 29] extcall 94 .............................. <point(0.0, 0.0)>
+  [ 32] getlocal 0 .............................. <tempAngle>
+  [ 34] getprop 180 ............................. <pVX>
+  [ 37] getprop 181 ............................. <pVY>
+  [ 40] pusharglist 2 ........................... <pVX, pVY>
+  [ 42] extcall 94 .............................. <point(pVX, pVY)>
+  [ 45] pusharglist 1 ........................... <point(pVX, pVY)>
+  [ 47] extcall 31 .............................. <distance(point(pVX, pVY))>
+  [ 49] pusharglist 3 ........................... <point(0.0, 0.0), tempAngle, distance(point(pVX, pVY))>
+  [ 51] extcall 32 .............................. <findPoint(point(0.0, 0.0), tempAngle, distance(point(pVX, pVY)))>
+  [ 54] setlocal 8 .............................. tempPoint = findPoint(point(0.0, 0.0), tempAngle, distance(point(pVX, pVY)))
+  [ 56] getlocal 8 .............................. <tempPoint>
+  [ 58] pushint8 1 .............................. <1>
+  [ 61] pusharglist 2 ........................... <tempPoint, 1>
+  [ 63] objcall 87 .............................. <tempPoint[1]>
+  [ 66] setprop 180 ............................. pVX = tempPoint[1]
+  [ 69] getlocal 8 .............................. <tempPoint>
+  [ 71] pushint8 2 .............................. <2>
+  [ 74] pusharglist 2 ........................... <tempPoint, 2>
+  [ 76] objcall 87 .............................. <tempPoint[2]>
+  [ 79] setprop 181 ............................. pVY = tempPoint[2]
+  [ 82] ret
+end
+
+on crashedFrame
+  [  0] getprop 187 ............................. <pFrameCount>
+  [  3] pushint8 1 .............................. <1>
+  [  6] sub ..................................... <pFrameCount - 1>
+  [  7] setprop 187 ............................. pFrameCount = pFrameCount - 1
+  [ 10] getprop 177 ............................. <pPoint>
+  [ 13] getprop 180 ............................. <pVX>
+  [ 16] getprop 181 ............................. <pVY>
+  [ 19] pusharglist 2 ........................... <pVX, pVY>
+  [ 21] extcall 94 .............................. <point(pVX, pVY)>
+  [ 24] add ..................................... <pPoint + point(pVX, pVY)>
+  [ 25] setprop 177 ............................. pPoint = pPoint + point(pVX, pVY)
+  [ 28] getprop 140 ............................. <pSprite>
+  [ 31] getprop 177 ............................. <pPoint>
+  [ 34] setobjprop 152 .......................... pSprite.loc = pPoint
+  [ 37] getprop 189 ............................. <pAniFrame>
+  [ 40] getprop 190 ............................. <pAniDir>
+  [ 43] add ..................................... <pAniFrame + pAniDir>
+  [ 44] setprop 189 ............................. pAniFrame = pAniFrame + pAniDir
+  [ 47] getprop 189 ............................. <pAniFrame>
+  [ 50] getprop 191 ............................. <pAniMin>
+  [ 53] lt ...................................... <pAniFrame < pAniMin>
+  [ 54] jmpifz [ 63] ............................ if pAniFrame < pAniMin then
+  [ 57] getprop 192 ............................. <pAniMax>
+  [ 60] setprop 189 ............................. pAniFrame = pAniMax
+  [ 63] getprop 189 ............................. <pAniFrame>
+  [ 66] getprop 192 ............................. <pAniMax>
+  [ 69] gt ...................................... <pAniFrame > pAniMax>
+  [ 70] jmpifz [ 79] ............................ if pAniFrame > pAniMax then
+  [ 73] getprop 191 ............................. <pAniMin>
+  [ 76] setprop 189 ............................. pAniFrame = pAniMin
+  [ 79] getprop 140 ............................. <pSprite>
+  [ 82] getprop 189 ............................. <pAniFrame>
+  [ 85] pusharglist 1 ........................... <pAniFrame>
+  [ 87] extcall 4 ............................... <member(pAniFrame)>
+  [ 89] setobjprop 4 ............................ pSprite.member = member(pAniFrame)
+  [ 91] getprop 140 ............................. <pSprite>
+  [ 94] getobjprop 152 .......................... <pSprite.loc>
+  [ 97] pusharglist 1 ........................... <pSprite.loc>
+  [ 99] localcall 9 ............................. <intersectsPlanets(pSprite.loc)>
+  [101] setlocal 0 .............................. tempHitPlanet = intersectsPlanets(pSprite.loc)
+  [103] getlocal 0 .............................. <tempHitPlanet>
+  [105] jmpifz [124] ............................ if tempHitPlanet then
+  [108] getlocal 0 .............................. <tempHitPlanet>
+  [110] pusharglistnoret 1 ...................... <tempHitPlanet>
+  [112] localcall 6 ............................. setBounceOffPlanet(tempHitPlanet)
+  [114] pushint8 1 .............................. <1>
+  [117] pushcons 96 ............................. <"snd_HitPlanet">
+  [119] pusharglistnoret 2 ...................... <1, "snd_HitPlanet">
+  [121] extcall 179 ............................. puppetSound(1, "snd_HitPlanet")
+  [124] getprop 187 ............................. <pFrameCount>
+  [127] pushint8 1 .............................. <1>
+  [130] lt ...................................... <pFrameCount < 1>
+  [131] getprop 140 ............................. <pSprite>
+  [134] getobjprop 152 .......................... <pSprite.loc>
+  [137] getprop 162 ............................. <pStageRect>
+  [140] pusharglist 2 ........................... <pSprite.loc, pStageRect>
+  [142] extcall 186 ............................. <inside(pSprite.loc, pStageRect)>
+  [145] not ..................................... <not inside(pSprite.loc, pStageRect)>
+  [146] or ...................................... <(pFrameCount < 1) or not inside(pSprite.loc, pStageRect)>
+  [147] jmpifz [167] ............................ if (pFrameCount < 1) or not inside(pSprite.loc, pStageRect) then
+  [150] getprop 140 ............................. <pSprite>
+  [153] pushzero ................................ <0>
+  [154] setobjprop 154 .......................... pSprite.rotation = 0
+  [157] pusharglistnoret 0 ...................... <>
+  [159] localcall 17 ............................ resetGPS()
+  [161] pushsymb 204 ............................ <#iddle>
+  [164] setprop 163 ............................. pState = #iddle
+  [167] ret
+end
+
+on tryAgain me
+  [  0] pushsymb 204 ............................ <#iddle>
+  [  3] setprop 163 ............................. pState = #iddle
+  [  6] pusharglistnoret 0 ...................... <>
+  [  8] localcall 17 ............................ resetGPS()
+  [ 10] ret
+end
+
+on intersectsPlanets tempPoint
+  [  0] getglobal 178 ........................... <gPlanets>
+  [  3] getobjprop 54 ........................... <gPlanets.count>
+  [  6] setlocal 0 .............................. tempNumPlanets = gPlanets.count
+  [  8] pushint8 1 .............................. <1>
+  [ 11] setlocal 8
+  [ 13] getlocal 8
+  [ 15] getlocal 0 .............................. <tempNumPlanets>
+  [ 17] lteq
+  [ 18] jmpifz [ 98] ............................ repeat with p = 1 to tempNumPlanets
+  [ 21] getparam 0 .............................. <tempPoint>
+  [ 23] getglobal 178 ........................... <gPlanets>
+  [ 26] getlocal 8 .............................. <p>
+  [ 28] pusharglist 2 ........................... <gPlanets, p>
+  [ 30] objcall 87 .............................. <gPlanets[p]>
+  [ 33] pushint8 1 .............................. <1>
+  [ 36] pusharglist 2 ........................... <gPlanets[p], 1>
+  [ 38] objcall 87 .............................. <gPlanets[p][1]>
+  [ 41] pusharglist 1 ........................... <gPlanets[p][1]>
+  [ 43] extcall 38 .............................. <sprite(gPlanets[p][1])>
+  [ 46] getobjprop 152 .......................... <sprite(gPlanets[p][1]).loc>
+  [ 49] sub ..................................... <tempPoint - sprite(gPlanets[p][1]).loc>
+  [ 50] setlocal 16 ............................. tempChangeLoc = tempPoint - sprite(gPlanets[p][1]).loc
+  [ 52] getlocal 16 ............................. <tempChangeLoc>
+  [ 54] pusharglist 1 ........................... <tempChangeLoc>
+  [ 56] extcall 31 .............................. <distance(tempChangeLoc)>
+  [ 58] getglobal 178 ........................... <gPlanets>
+  [ 61] getlocal 8 .............................. <p>
+  [ 63] pusharglist 2 ........................... <gPlanets, p>
+  [ 65] objcall 87 .............................. <gPlanets[p]>
+  [ 68] pushint8 3 .............................. <3>
+  [ 71] pusharglist 2 ........................... <gPlanets[p], 3>
+  [ 73] objcall 87 .............................. <gPlanets[p][3]>
+  [ 76] lt ...................................... <distance(tempChangeLoc) < gPlanets[p][3]>
+  [ 77] jmpifz [ 87] ............................ if distance(tempChangeLoc) < gPlanets[p][3] then
+  [ 80] getlocal 8 .............................. <p>
+  [ 82] pusharglistnoret 1 ...................... <p>
+  [ 84] extcall 57 .............................. return p
+  [ 87] pushint8 1
+  [ 90] getlocal 8
+  [ 92] add
+  [ 93] setlocal 8
+  [ 95] endrepeat [ 13]
+  [ 98] pushzero ................................ <0>
+  [ 99] pusharglistnoret 1 ...................... <0>
+  [101] extcall 57 .............................. return 0
+  [104] ret
+end
+
+on setUpHitTarget
+  [  0] pushint8 1 .............................. <1>
+  [  3] pushcons 104 ............................ <"snd_enterShip">
+  [  5] pusharglistnoret 2 ...................... <1, "snd_enterShip">
+  [  7] extcall 179 ............................. puppetSound(1, "snd_enterShip")
+  [ 10] pushsymb 168 ............................ <#hitTarget>
+  [ 13] setprop 163 ............................. pState = #hitTarget
+  [ 16] pushint8 30 ............................. <30>
+  [ 19] setprop 187 ............................. pFrameCount = 30
+  [ 22] getprop 140 ............................. <pSprite>
+  [ 25] pushint8 1000 ........................... <1000>
+  [ 28] pushint8 1000 ........................... <1000>
+  [ 31] pusharglist 2 ........................... <1000, 1000>
+  [ 33] extcall 94 .............................. <point(1000, 1000)>
+  [ 36] setobjprop 152 .......................... pSprite.loc = point(1000, 1000)
+  [ 39] getprop 185 ............................. <pTarget>
+  [ 42] pusharglist 1 ........................... <pTarget>
+  [ 44] extcall 38 .............................. <sprite(pTarget)>
+  [ 47] pushcons 112 ............................ <"ship_open">
+  [ 49] pusharglist 1 ........................... <"ship_open">
+  [ 51] extcall 4 ............................... <member("ship_open")>
+  [ 53] setobjprop 4 ............................ sprite(pTarget).member = member("ship_open")
+  [ 55] pushsymb 205 ............................ <#ship>
+  [ 58] setlocal 0 .............................. pScoringState = #ship
+  [ 60] pushcons 120 ............................ <"fld_score_actual">
+  [ 62] pusharglist 1 ........................... <"fld_score_actual">
+  [ 64] extcall 4 ............................... <member("fld_score_actual")>
+  [ 66] pushcons 128 ............................ <"text_function">
+  [ 68] pusharglist 1 ........................... <"text_function">
+  [ 70] extcall 4 ............................... <member("text_function")>
+  [ 72] getobjprop 5 ............................ <member("text_function").text>
+  [ 74] setobjprop 5 ............................ member("fld_score_actual").text = member("text_function").text
+  [ 76] ret
+end
+
+on finishScoring me
+  [  0] getprop 207 ............................. <pScoreFinalVal>
+  [  3] setglobal 6 ............................. gScore = pScoreFinalVal
+  [  5] pushcons 136 ............................ <"snd_entership">
+  [  7] pusharglist 1 ........................... <"snd_entership">
+  [  9] extcall 4 ............................... <member("snd_entership")>
+  [ 11] pushzero ................................ <0>
+  [ 12] setobjprop 208 .......................... member("snd_entership").loop = 0
+  [ 15] pushint8 1 .............................. <1>
+  [ 18] pushzero ................................ <0>
+  [ 19] pusharglistnoret 2 ...................... <1, 0>
+  [ 21] extcall 179 ............................. puppetSound(1, 0)
+  [ 24] getglobal 6 ............................. <gScore>
+  [ 26] getglobal 45 ............................ <gHighScore>
+  [ 29] gt ...................................... <gScore > gHighScore>
+  [ 30] jmpifz [ 38] ............................ if gScore > gHighScore then
+  [ 33] getglobal 6 ............................. <gScore>
+  [ 35] setglobal 45 ............................ gHighScore = gScore
+  [ 38] pushcons 144 ............................ <"fld_score">
+  [ 40] pusharglist 1 ........................... <"fld_score">
+  [ 42] extcall 4 ............................... <member("fld_score")>
+  [ 44] pushsymb 40 ............................. <#word>
+  [ 47] pushint8 2 .............................. <2>
+  [ 50] getglobal 6 ............................. <gScore>
+  [ 52] pusharglist 4 ........................... <member("fld_score"), #word, 2, gScore>
+  [ 54] objcall 41 .............................. member("fld_score").word[2] = gScore
+  [ 57] pushcons 152 ............................ <"fld_score_total">
+  [ 59] pusharglist 1 ........................... <"fld_score_total">
+  [ 61] extcall 4 ............................... <member("fld_score_total")>
+  [ 63] pushsymb 40 ............................. <#word>
+  [ 66] pushint8 3 .............................. <3>
+  [ 69] getglobal 6 ............................. <gScore>
+  [ 71] pusharglist 1 ........................... <gScore>
+  [ 73] extcall 51 .............................. <string(gScore)>
+  [ 76] pusharglist 4 ........................... <member("fld_score_total"), #word, 3, string(gScore)>
+  [ 78] objcall 41 .............................. member("fld_score_total").word[3] = string(gScore)
+  [ 81] pushcons 160 ............................ <"fld_your_high_score">
+  [ 83] pusharglist 1 ........................... <"fld_your_high_score">
+  [ 85] extcall 4 ............................... <member("fld_your_high_score")>
+  [ 87] pushsymb 40 ............................. <#word>
+  [ 90] pushint8 3 .............................. <3>
+  [ 93] getglobal 45 ............................ <gHighScore>
+  [ 96] pusharglist 1 ........................... <gHighScore>
+  [ 98] extcall 51 .............................. <string(gHighScore)>
+  [101] pusharglist 4 ........................... <member("fld_your_high_score"), #word, 3, string(gHighScore)>
+  [103] objcall 41 .............................. member("fld_your_high_score").word[3] = string(gHighScore)
+  [106] pusharglistnoret 0 ...................... <>
+  [108] extcall 29 .............................. endDAlert()
+  [110] pushsymb 169 ............................ <#next_level>
+  [113] setprop 163 ............................. pState = #next_level
+  [116] pushcons 168 ............................ <"bk_drop">
+  [118] pusharglist 1 ........................... <"bk_drop">
+  [120] extcall 4 ............................... <member("bk_drop")>
+  [122] getobjprop 47 ........................... <member("bk_drop").image>
+  [125] pushzero ................................ <0>
+  [126] pushzero ................................ <0>
+  [127] pushint8 500 ............................ <500>
+  [130] pushint8 400 ............................ <400>
+  [133] pushzero ................................ <0>
+  [134] pushzero ................................ <0>
+  [135] pushzero ................................ <0>
+  [136] pusharglist 3 ........................... <0, 0, 0>
+  [138] extcall 43 .............................. <rgb(0, 0, 0)>
+  [141] pusharglistnoret 6 ...................... <member("bk_drop").image, 0, 0, 500, 400, rgb(0, 0, 0)>
+  [143] objcall 139 ............................. member("bk_drop").image.fill(0, 0, 500, 400, rgb(0, 0, 0))
+  [146] ret
+end
+
+on hitTargetFrame
+  [  0] getprop 187 ............................. <pFrameCount>
+  [  3] pushint8 1 .............................. <1>
+  [  6] sub ..................................... <pFrameCount - 1>
+  [  7] setprop 187 ............................. pFrameCount = pFrameCount - 1
+  [ 10] getprop 187 ............................. <pFrameCount>
+  [ 13] pushzero ................................ <0>
+  [ 14] lt ...................................... <pFrameCount < 0>
+  [ 15] jmpifz [ 38] ............................ if pFrameCount < 0 then
+  [ 18] getprop 185 ............................. <pTarget>
+  [ 21] pusharglist 1 ........................... <pTarget>
+  [ 23] extcall 38 .............................. <sprite(pTarget)>
+  [ 26] pushcons 176 ............................ <"ship">
+  [ 28] pusharglist 1 ........................... <"ship">
+  [ 30] extcall 4 ............................... <member("ship")>
+  [ 32] setobjprop 4 ............................ sprite(pTarget).member = member("ship")
+  [ 34] pusharglistnoret 0 ...................... <>
+  [ 36] localcall 13 ............................ setUpScoring()
+  [ 38] ret
+end
+
+on setUpScoring me
+  [  0] pushsymb 83 ............................. <#scoring>
+  [  3] setprop 163 ............................. pState = #scoring
+  [  6] pushzero ................................ <0>
+  [  7] setprop 209 ............................. pScoreListIndex = 0
+  [ 10] pushcons 184 ............................ <"fld_distance">
+  [ 12] pusharglist 1 ........................... <"fld_distance">
+  [ 14] extcall 4 ............................... <member("fld_distance")>
+  [ 16] pushsymb 40 ............................. <#word>
+  [ 19] pushint8 2 .............................. <2>
+  [ 22] pusharglist 3 ........................... <member("fld_distance"), #word, 2>
+  [ 24] objcall 56 .............................. <member("fld_distance").word[2]>
+  [ 27] pusharglist 1 ........................... <member("fld_distance").word[2]>
+  [ 29] extcall 71 .............................. <integer(member("fld_distance").word[2])>
+  [ 32] setlocal 0 .............................. tempDist = integer(member("fld_distance").word[2])
+  [ 34] pushcons 192 ............................ <"fld_level">
+  [ 36] pusharglist 1 ........................... <"fld_level">
+  [ 38] extcall 4 ............................... <member("fld_level")>
+  [ 40] pushsymb 40 ............................. <#word>
+  [ 43] pushint8 2 .............................. <2>
+  [ 46] pusharglist 3 ........................... <member("fld_level"), #word, 2>
+  [ 48] objcall 56 .............................. <member("fld_level").word[2]>
+  [ 51] pusharglist 1 ........................... <member("fld_level").word[2]>
+  [ 53] extcall 71 .............................. <integer(member("fld_level").word[2])>
+  [ 56] setlocal 8 .............................. tempLevel = integer(member("fld_level").word[2])
+  [ 58] pushcons 200 ............................ <"fld_tries">
+  [ 60] pusharglist 1 ........................... <"fld_tries">
+  [ 62] extcall 4 ............................... <member("fld_tries")>
+  [ 64] pushsymb 40 ............................. <#word>
+  [ 67] pushint8 2 .............................. <2>
+  [ 70] pusharglist 3 ........................... <member("fld_tries"), #word, 2>
+  [ 72] objcall 56 .............................. <member("fld_tries").word[2]>
+  [ 75] pusharglist 1 ........................... <member("fld_tries").word[2]>
+  [ 77] extcall 71 .............................. <integer(member("fld_tries").word[2])>
+  [ 80] setlocal 16 ............................. tempTries = integer(member("fld_tries").word[2])
+  [ 82] getlocal 0 .............................. <tempDist>
+  [ 84] getlocal 8 .............................. <tempLevel>
+  [ 86] mul ..................................... <tempDist * tempLevel>
+  [ 87] getlocal 16 ............................. <tempTries>
+  [ 89] div ..................................... <tempDist * tempLevel / tempTries>
+  [ 90] setlocal 24 ............................. tempScore = tempDist * tempLevel / tempTries
+  [ 92] getlocal 0 .............................. <tempDist>
+  [ 94] getlocal 0 .............................. <tempDist>
+  [ 96] pusharglist 1 ........................... <tempDist>
+  [ 98] extcall 92 .............................. <sqrt(tempDist)>
+  [101] pusharglist 1 ........................... <sqrt(tempDist)>
+  [103] extcall 71 .............................. <integer(sqrt(tempDist))>
+  [106] pushint8 5 .............................. <5>
+  [109] mul ..................................... <integer(sqrt(tempDist)) * 5>
+  [110] pushint8 15 ............................. <15>
+  [113] pushcons 208 ............................ <"arp">
+  [115] pusharglist 4 ........................... <[tempDist, integer(sqrt(tempDist)) * 5, 15, "arp"]>
+  [117] pushlist ................................ <[tempDist, integer(sqrt(tempDist)) * 5, 15, "arp"]>
+  [118] pusharglist 1 ........................... <[[tempDist, integer(sqrt(tempDist)) * 5, 15, "arp"]]>
+  [120] pushlist ................................ <[[tempDist, integer(sqrt(tempDist)) * 5, 15, "arp"]]>
+  [121] setprop 210 ............................. pScoreList = [[tempDist, integer(sqrt(tempDist)) * 5, 15, "arp"]]
+  [124] getprop 210 ............................. <pScoreList>
+  [127] pushint8 2 .............................. <2>
+  [130] getlocal 8 .............................. <tempLevel>
+  [132] pushcons 216 ............................ <0.25>
+  [134] pushint8 15 ............................. <15>
+  [137] pushcons 224 ............................ <"snd_entership">
+  [139] pusharglist 4 ........................... <[tempLevel, 0.25, 15, "snd_entership"]>
+  [141] pushlist ................................ <[tempLevel, 0.25, 15, "snd_entership"]>
+  [142] pusharglistnoret 3 ...................... <pScoreList, 2, [tempLevel, 0.25, 15, "snd_entership"]>
+  [144] objcall 211 ............................. pScoreList[2] = [tempLevel, 0.25, 15, "snd_entership"]
+  [147] getprop 210 ............................. <pScoreList>
+  [150] pushint8 3 .............................. <3>
+  [153] getlocal 16 ............................. <tempTries>
+  [155] pushcons 232 ............................ <0.25>
+  [157] pushint8 15 ............................. <15>
+  [160] pushcons 240 ............................ <"snd_entership">
+  [162] pusharglist 4 ........................... <[tempTries, 0.25, 15, "snd_entership"]>
+  [164] pushlist ................................ <[tempTries, 0.25, 15, "snd_entership"]>
+  [165] pusharglistnoret 3 ...................... <pScoreList, 3, [tempTries, 0.25, 15, "snd_entership"]>
+  [167] objcall 211 ............................. pScoreList[3] = [tempTries, 0.25, 15, "snd_entership"]
+  [170] getprop 210 ............................. <pScoreList>
+  [173] pushint8 4 .............................. <4>
+  [176] getlocal 24 ............................. <tempScore>
+  [178] getlocal 24 ............................. <tempScore>
+  [180] pusharglist 1 ........................... <tempScore>
+  [182] extcall 92 .............................. <sqrt(tempScore)>
+  [185] pusharglist 1 ........................... <sqrt(tempScore)>
+  [187] extcall 71 .............................. <integer(sqrt(tempScore))>
+  [190] pushint8 5 .............................. <5>
+  [193] mul ..................................... <integer(sqrt(tempScore)) * 5>
+  [194] pushint8 60 ............................. <60>
+  [197] pushcons 248 ............................ <"arp">
+  [199] pusharglist 4 ........................... <[tempScore, integer(sqrt(tempScore)) * 5, 60, "arp"]>
+  [201] pushlist ................................ <[tempScore, integer(sqrt(tempScore)) * 5, 60, "arp"]>
+  [202] pusharglistnoret 3 ...................... <pScoreList, 4, [tempScore, integer(sqrt(tempScore)) * 5, 60, "arp"]>
+  [204] objcall 211 ............................. pScoreList[4] = [tempScore, integer(sqrt(tempScore)) * 5, 60, "arp"]
+  [207] getprop 210 ............................. <pScoreList>
+  [210] pushint8 4 .............................. <4>
+  [213] pusharglist 2 ........................... <pScoreList, 4>
+  [215] objcall 87 .............................. <pScoreList[4]>
+  [218] pushint8 1 .............................. <1>
+  [221] pusharglist 2 ........................... <pScoreList[4], 1>
+  [223] objcall 87 .............................. <pScoreList[4][1]>
+  [226] getglobal 6 ............................. <gScore>
+  [228] add ..................................... <pScoreList[4][1] + gScore>
+  [229] setprop 207 ............................. pScoreFinalVal = pScoreList[4][1] + gScore
+  [232] pushcons 256 ............................ <"fld_score_actual">
+  [235] pusharglist 1 ........................... <"fld_score_actual">
+  [237] extcall 4 ............................... <member("fld_score_actual")>
+  [239] pushcons 264 ............................ <"text_function">
+  [242] pusharglist 1 ........................... <"text_function">
+  [244] extcall 4 ............................... <member("text_function")>
+  [246] getobjprop 5 ............................ <member("text_function").text>
+  [248] setobjprop 5 ............................ member("fld_score_actual").text = member("text_function").text
+  [250] pushcons 272 ............................ <"fld_score_actual">
+  [253] pusharglist 1 ........................... <"fld_score_actual">
+  [255] extcall 4 ............................... <member("fld_score_actual")>
+  [257] pushsymb 40 ............................. <#word>
+  [260] pushint8 1 .............................. <1>
+  [263] pushzero ................................ <0>
+  [264] pushint8 8 .............................. <8>
+  [267] pushcons 280 ............................ <" ">
+  [270] pushsymb 75 ............................. <#right>
+  [273] pusharglist 4 ........................... <0, 8, " ", #right>
+  [275] extcall 26 .............................. <fString(0, 8, " ", #right)>
+  [277] pusharglist 4 ........................... <member("fld_score_actual"), #word, 1, fString(0, 8, " ", #right)>
+  [279] objcall 41 .............................. member("fld_score_actual").word[1] = fString(0, 8, " ", #right)
+  [282] pushcons 288 ............................ <"fld_score_actual">
+  [285] pusharglist 1 ........................... <"fld_score_actual">
+  [287] extcall 4 ............................... <member("fld_score_actual")>
+  [289] pushsymb 40 ............................. <#word>
+  [292] pushint8 3 .............................. <3>
+  [295] pushzero ................................ <0>
+  [296] pushint8 5 .............................. <5>
+  [299] pushcons 296 ............................ <" ">
+  [302] pushsymb 76 ............................. <#center>
+  [305] pusharglist 4 ........................... <0, 5, " ", #center>
+  [307] extcall 26 .............................. <fString(0, 5, " ", #center)>
+  [309] pusharglist 4 ........................... <member("fld_score_actual"), #word, 3, fString(0, 5, " ", #center)>
+  [311] objcall 41 .............................. member("fld_score_actual").word[3] = fString(0, 5, " ", #center)
+  [314] pushcons 304 ............................ <"fld_score_actual">
+  [317] pusharglist 1 ........................... <"fld_score_actual">
+  [319] extcall 4 ............................... <member("fld_score_actual")>
+  [321] pushsymb 40 ............................. <#word>
+  [324] pushint8 5 .............................. <5>
+  [327] pushzero ................................ <0>
+  [328] pushint8 5 .............................. <5>
+  [331] pushcons 312 ............................ <" ">
+  [334] pushsymb 76 ............................. <#center>
+  [337] pusharglist 4 ........................... <0, 5, " ", #center>
+  [339] extcall 26 .............................. <fString(0, 5, " ", #center)>
+  [341] pusharglist 4 ........................... <member("fld_score_actual"), #word, 5, fString(0, 5, " ", #center)>
+  [343] objcall 41 .............................. member("fld_score_actual").word[5] = fString(0, 5, " ", #center)
+  [346] pushcons 320 ............................ <"fld_score_actual">
+  [349] pusharglist 1 ........................... <"fld_score_actual">
+  [351] extcall 4 ............................... <member("fld_score_actual")>
+  [353] pushsymb 40 ............................. <#word>
+  [356] pushint8 7 .............................. <7>
+  [359] pushzero ................................ <0>
+  [360] pushint8 5 .............................. <5>
+  [363] pushcons 328 ............................ <" ">
+  [366] pushsymb 74 ............................. <#left>
+  [369] pusharglist 4 ........................... <0, 5, " ", #left>
+  [371] extcall 26 .............................. <fString(0, 5, " ", #left)>
+  [373] pusharglist 4 ........................... <member("fld_score_actual"), #word, 7, fString(0, 5, " ", #left)>
+  [375] objcall 41 .............................. member("fld_score_actual").word[7] = fString(0, 5, " ", #left)
+  [378] pushcons 336 ............................ <"fld_your_high_score">
+  [381] pusharglist 1 ........................... <"fld_your_high_score">
+  [383] extcall 4 ............................... <member("fld_your_high_score")>
+  [385] pushsymb 40 ............................. <#word>
+  [388] pushint8 3 .............................. <3>
+  [391] getglobal 45 ............................ <gHighScore>
+  [394] pusharglist 4 ........................... <member("fld_your_high_score"), #word, 3, gHighScore>
+  [396] objcall 41 .............................. member("fld_your_high_score").word[3] = gHighScore
+  [399] pushcons 344 ............................ <"fld_Level_complete">
+  [402] pusharglist 1 ........................... <"fld_Level_complete">
+  [404] extcall 4 ............................... <member("fld_Level_complete")>
+  [406] pushsymb 40 ............................. <#word>
+  [409] pushint8 2 .............................. <2>
+  [412] getlocal 8 .............................. <tempLevel>
+  [414] pusharglist 4 ........................... <member("fld_Level_complete"), #word, 2, tempLevel>
+  [416] objcall 41 .............................. member("fld_Level_complete").word[2] = tempLevel
+  [419] pushcons 352 ............................ <"fld_score_total">
+  [422] pusharglist 1 ........................... <"fld_score_total">
+  [424] extcall 4 ............................... <member("fld_score_total")>
+  [426] pushsymb 40 ............................. <#word>
+  [429] pushint8 3 .............................. <3>
+  [432] getglobal 6 ............................. <gScore>
+  [434] pusharglist 1 ........................... <gScore>
+  [436] extcall 51 .............................. <string(gScore)>
+  [439] pusharglist 4 ........................... <member("fld_score_total"), #word, 3, string(gScore)>
+  [441] objcall 41 .............................. member("fld_score_total").word[3] = string(gScore)
+  [444] pusharglistnoret 0 ...................... <>
+  [446] localcall 14 ............................ setUpNextScoring()
+  [448] pushsymb 83 ............................. <#scoring>
+  [451] pusharglistnoret 1 ...................... <#scoring>
+  [453] extcall 28 .............................. dAlert(#scoring)
+  [455] ret
+end
+
+on setUpNextScoring
+  [  0] getprop 209 ............................. <pScoreListIndex>
+  [  3] pushint8 1 .............................. <1>
+  [  6] add ..................................... <pScoreListIndex + 1>
+  [  7] setprop 209 ............................. pScoreListIndex = pScoreListIndex + 1
+  [ 10] getprop 210 ............................. <pScoreList>
+  [ 13] getprop 209 ............................. <pScoreListIndex>
+  [ 16] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [ 18] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [ 21] pushint8 1 .............................. <1>
+  [ 24] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 1>
+  [ 26] objcall 87 .............................. <pScoreList[pScoreListIndex][1]>
+  [ 29] setprop 215 ............................. pScoreTargetVal = pScoreList[pScoreListIndex][1]
+  [ 32] getprop 210 ............................. <pScoreList>
+  [ 35] getprop 209 ............................. <pScoreListIndex>
+  [ 38] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [ 40] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [ 43] pushint8 2 .............................. <2>
+  [ 46] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 2>
+  [ 48] objcall 87 .............................. <pScoreList[pScoreListIndex][2]>
+  [ 51] setprop 216 ............................. pScoreAddRate = pScoreList[pScoreListIndex][2]
+  [ 54] getprop 210 ............................. <pScoreList>
+  [ 57] getprop 209 ............................. <pScoreListIndex>
+  [ 60] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [ 62] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [ 65] pushint8 3 .............................. <3>
+  [ 68] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 3>
+  [ 70] objcall 87 .............................. <pScoreList[pScoreListIndex][3]>
+  [ 73] setprop 187 ............................. pFrameCount = pScoreList[pScoreListIndex][3]
+  [ 76] getprop 210 ............................. <pScoreList>
+  [ 79] getprop 209 ............................. <pScoreListIndex>
+  [ 82] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [ 84] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [ 87] pushint8 4 .............................. <4>
+  [ 90] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 4>
+  [ 92] objcall 87 .............................. <pScoreList[pScoreListIndex][4]>
+  [ 95] pusharglist 1 ........................... <pScoreList[pScoreListIndex][4]>
+  [ 97] extcall 4 ............................... <member(pScoreList[pScoreListIndex][4])>
+  [ 99] pushint8 1 .............................. <1>
+  [102] setobjprop 208 .......................... member(pScoreList[pScoreListIndex][4]).loop = 1
+  [105] pushint8 1 .............................. <1>
+  [108] getprop 210 ............................. <pScoreList>
+  [111] getprop 209 ............................. <pScoreListIndex>
+  [114] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [116] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [119] pushint8 4 .............................. <4>
+  [122] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 4>
+  [124] objcall 87 .............................. <pScoreList[pScoreListIndex][4]>
+  [127] pusharglistnoret 2 ...................... <1, pScoreList[pScoreListIndex][4]>
+  [129] extcall 179 ............................. puppetSound(1, pScoreList[pScoreListIndex][4])
+  [132] pushzero ................................ <0>
+  [133] getprop 215 ............................. <pScoreTargetVal>
+  [136] mul ..................................... <0 * pScoreTargetVal>
+  [137] setprop 217 ............................. pScoreCurVal = 0 * pScoreTargetVal
+  [140] ret
+end
+
+on scoringFrame me
+  [  0] getprop 217 ............................. <pScoreCurVal>
+  [  3] getprop 215 ............................. <pScoreTargetVal>
+  [  6] eq ...................................... <pScoreCurVal = pScoreTargetVal>
+  [  7] jmpifz [ 57] ............................ if pScoreCurVal = pScoreTargetVal then / else
+  [ 10] getprop 187 ............................. <pFrameCount>
+  [ 13] pushint8 1 .............................. <1>
+  [ 16] sub ..................................... <pFrameCount - 1>
+  [ 17] setprop 187 ............................. pFrameCount = pFrameCount - 1
+  [ 20] getprop 187 ............................. <pFrameCount>
+  [ 23] pushint8 1 .............................. <1>
+  [ 26] lt ...................................... <pFrameCount < 1>
+  [ 27] jmpifz [ 54] ............................ if pFrameCount < 1 then
+  [ 30] getprop 209 ............................. <pScoreListIndex>
+  [ 33] getprop 210 ............................. <pScoreList>
+  [ 36] getobjprop 54 ........................... <pScoreList.count>
+  [ 39] eq ...................................... <pScoreListIndex = pScoreList.count>
+  [ 40] jmpifz [ 50] ............................ if pScoreListIndex = pScoreList.count then / else
+  [ 43] pusharglistnoret 0 ...................... <>
+  [ 45] localcall 11 ............................ finishScoring()
+  [ 47] jmp [ 54]
+  [ 50] pusharglistnoret 0 ...................... <>
+  [ 52] localcall 14 ............................ setUpNextScoring()
+  [ 54] jmp [446]
+  [ 57] getprop 217 ............................. <pScoreCurVal>
+  [ 60] getprop 216 ............................. <pScoreAddRate>
+  [ 63] add ..................................... <pScoreCurVal + pScoreAddRate>
+  [ 64] setprop 217 ............................. pScoreCurVal = pScoreCurVal + pScoreAddRate
+  [ 67] getprop 217 ............................. <pScoreCurVal>
+  [ 70] getprop 215 ............................. <pScoreTargetVal>
+  [ 73] gteq .................................... <pScoreCurVal >= pScoreTargetVal>
+  [ 74] jmpifz [119] ............................ if pScoreCurVal >= pScoreTargetVal then
+  [ 77] getprop 215 ............................. <pScoreTargetVal>
+  [ 80] setprop 217 ............................. pScoreCurVal = pScoreTargetVal
+  [ 83] pushint8 1 .............................. <1>
+  [ 86] pushzero ................................ <0>
+  [ 87] pusharglistnoret 2 ...................... <1, 0>
+  [ 89] extcall 179 ............................. puppetSound(1, 0)
+  [ 92] getprop 210 ............................. <pScoreList>
+  [ 95] getprop 209 ............................. <pScoreListIndex>
+  [ 98] pusharglist 2 ........................... <pScoreList, pScoreListIndex>
+  [100] objcall 87 .............................. <pScoreList[pScoreListIndex]>
+  [103] pushint8 4 .............................. <4>
+  [106] pusharglist 2 ........................... <pScoreList[pScoreListIndex], 4>
+  [108] objcall 87 .............................. <pScoreList[pScoreListIndex][4]>
+  [111] pusharglist 1 ........................... <pScoreList[pScoreListIndex][4]>
+  [113] extcall 4 ............................... <member(pScoreList[pScoreListIndex][4])>
+  [115] pushzero ................................ <0>
+  [116] setobjprop 208 .......................... member(pScoreList[pScoreListIndex][4]).loop = 0
+  [119] getprop 209 ............................. <pScoreListIndex>
+  [122] peek 0 .................................. case pScoreListIndex of
+  [124] pushint8 1 .............................. <1>
+  [127] eq
+  [128] jmpifz [171] ............................ (case) 1:
+  [131] pushcons 360 ............................ <"fld_score_actual">
+  [134] pusharglist 1 ........................... <"fld_score_actual">
+  [136] extcall 4 ............................... <member("fld_score_actual")>
+  [138] pushsymb 53 ............................. <#char>
+  [141] pushint8 1 .............................. <1>
+  [144] pushint8 8 .............................. <8>
+  [147] getprop 217 ............................. <pScoreCurVal>
+  [150] pushint8 8 .............................. <8>
+  [153] pushcons 368 ............................ <" ">
+  [156] pushsymb 75 ............................. <#right>
+  [159] pusharglist 4 ........................... <pScoreCurVal, 8, " ", #right>
+  [161] extcall 26 .............................. <fString(pScoreCurVal, 8, " ", #right)>
+  [163] pusharglist 5 ........................... <member("fld_score_actual"), #char, 1, 8, fString(pScoreCurVal, 8, " ", #right)>
+  [165] objcall 41 .............................. member("fld_score_actual").char[1..8] = fString(pScoreCurVal, 8, " ", #right)
+  [168] jmp [444]
+  [171] peek 0
+  [173] pushint8 2 .............................. <2>
+  [176] eq
+  [177] jmpifz [225] ............................ (case) 2:
+  [180] pushcons 376 ............................ <"fld_score_actual">
+  [183] pusharglist 1 ........................... <"fld_score_actual">
+  [185] extcall 4 ............................... <member("fld_score_actual")>
+  [187] pushsymb 53 ............................. <#char>
+  [190] pushint8 12 ............................. <12>
+  [193] pushint8 16 ............................. <16>
+  [196] getprop 217 ............................. <pScoreCurVal>
+  [199] pusharglist 1 ........................... <pScoreCurVal>
+  [201] extcall 71 .............................. <integer(pScoreCurVal)>
+  [204] pushint8 5 .............................. <5>
+  [207] pushcons 384 ............................ <" ">
+  [210] pushsymb 76 ............................. <#center>
+  [213] pusharglist 4 ........................... <integer(pScoreCurVal), 5, " ", #center>
+  [215] extcall 26 .............................. <fString(integer(pScoreCurVal), 5, " ", #center)>
+  [217] pusharglist 5 ........................... <member("fld_score_actual"), #char, 12, 16, fString(integer(pScoreCurVal), 5, " ", #center)>
+  [219] objcall 41 .............................. member("fld_score_actual").char[12..16] = fString(integer(pScoreCurVal), 5, " ", #center)
+  [222] jmp [444]
+  [225] peek 0
+  [227] pushint8 3 .............................. <3>
+  [230] eq
+  [231] jmpifz [279] ............................ (case) 3:
+  [234] pushcons 392 ............................ <"fld_score_actual">
+  [237] pusharglist 1 ........................... <"fld_score_actual">
+  [239] extcall 4 ............................... <member("fld_score_actual")>
+  [241] pushsymb 53 ............................. <#char>
+  [244] pushint8 20 ............................. <20>
+  [247] pushint8 24 ............................. <24>
+  [250] getprop 217 ............................. <pScoreCurVal>
+  [253] pusharglist 1 ........................... <pScoreCurVal>
+  [255] extcall 71 .............................. <integer(pScoreCurVal)>
+  [258] pushint8 5 .............................. <5>
+  [261] pushcons 400 ............................ <" ">
+  [264] pushsymb 76 ............................. <#center>
+  [267] pusharglist 4 ........................... <integer(pScoreCurVal), 5, " ", #center>
+  [269] extcall 26 .............................. <fString(integer(pScoreCurVal), 5, " ", #center)>
+  [271] pusharglist 5 ........................... <member("fld_score_actual"), #char, 20, 24, fString(integer(pScoreCurVal), 5, " ", #center)>
+  [273] objcall 41 .............................. member("fld_score_actual").char[20..24] = fString(integer(pScoreCurVal), 5, " ", #center)
+  [276] jmp [444]
+  [279] peek 0
+  [281] pushint8 4 .............................. <4>
+  [284] eq
+  [285] jmpifz [444] ............................ (case) 4:
+  [288] getglobal 6 ............................. <gScore>
+  [290] getprop 217 ............................. <pScoreCurVal>
+  [293] add ..................................... <gScore + pScoreCurVal>
+  [294] setlocal 0 .............................. tempCurScore = gScore + pScoreCurVal
+  [296] getlocal 0 .............................. <tempCurScore>
+  [298] getglobal 45 ............................ <gHighScore>
+  [301] gt ...................................... <tempCurScore > gHighScore>
+  [302] jmpifz [310] ............................ if tempCurScore > gHighScore then
+  [305] getlocal 0 .............................. <tempCurScore>
+  [307] setglobal 45 ............................ gHighScore = tempCurScore
+  [310] pushcons 408 ............................ <"fld_score_actual">
+  [313] pusharglist 1 ........................... <"fld_score_actual">
+  [315] extcall 4 ............................... <member("fld_score_actual")>
+  [317] pushsymb 40 ............................. <#word>
+  [320] pushint8 7 .............................. <7>
+  [323] pusharglist 3 ........................... <member("fld_score_actual"), #word, 7>
+  [325] objcall 61 .............................. <member("fld_score_actual").word[7]>
+  [328] pusharglistnoret 1 ...................... <member("fld_score_actual").word[7]>
+  [330] objcall 62 .............................. delete member("fld_score_actual").word[7]
+  [333] getprop 217 ............................. <pScoreCurVal>
+  [336] pushint8 8 .............................. <8>
+  [339] pushcons 416 ............................ <" ">
+  [342] pushsymb 74 ............................. <#left>
+  [345] pusharglist 4 ........................... <pScoreCurVal, 8, " ", #left>
+  [347] extcall 26 .............................. <fString(pScoreCurVal, 8, " ", #left)>
+  [349] pushcons 424 ............................ <"fld_score_actual">
+  [352] pusharglist 1 ........................... <"fld_score_actual">
+  [354] extcall 4 ............................... <member("fld_score_actual")>
+  [356] pushsymb 53 ............................. <#char>
+  [359] pushint8 27 ............................. <27>
+  [362] pusharglist 3 ........................... <member("fld_score_actual"), #char, 27>
+  [364] objcall 61 .............................. <member("fld_score_actual").char[27]>
+  [367] swap
+  [368] pusharglistnoret 2 ...................... <member("fld_score_actual").char[27], fString(pScoreCurVal, 8, " ", #left)>
+  [370] objcall 77 .............................. put fString(pScoreCurVal, 8, " ", #left) after (member "fld_score_actual").char[27]
+  [373] pushcons 432 ............................ <"fld_score">
+  [376] pusharglist 1 ........................... <"fld_score">
+  [378] extcall 4 ............................... <member("fld_score")>
+  [380] pushsymb 40 ............................. <#word>
+  [383] pushint8 2 .............................. <2>
+  [386] getlocal 0 .............................. <tempCurScore>
+  [388] pusharglist 4 ........................... <member("fld_score"), #word, 2, tempCurScore>
+  [390] objcall 41 .............................. member("fld_score").word[2] = tempCurScore
+  [393] pushcons 440 ............................ <"fld_score_total">
+  [396] pusharglist 1 ........................... <"fld_score_total">
+  [398] extcall 4 ............................... <member("fld_score_total")>
+  [400] pushsymb 40 ............................. <#word>
+  [403] pushint8 3 .............................. <3>
+  [406] getlocal 0 .............................. <tempCurScore>
+  [408] pusharglist 1 ........................... <tempCurScore>
+  [410] extcall 51 .............................. <string(tempCurScore)>
+  [413] pusharglist 4 ........................... <member("fld_score_total"), #word, 3, string(tempCurScore)>
+  [415] objcall 41 .............................. member("fld_score_total").word[3] = string(tempCurScore)
+  [418] pushcons 448 ............................ <"fld_your_high_score">
+  [421] pusharglist 1 ........................... <"fld_your_high_score">
+  [423] extcall 4 ............................... <member("fld_your_high_score")>
+  [425] pushsymb 40 ............................. <#word>
+  [428] pushint8 3 .............................. <3>
+  [431] getglobal 45 ............................ <gHighScore>
+  [434] pusharglist 1 ........................... <gHighScore>
+  [436] extcall 51 .............................. <string(gHighScore)>
+  [439] pusharglist 4 ........................... <member("fld_your_high_score"), #word, 3, string(gHighScore)>
+  [441] objcall 41 .............................. member("fld_your_high_score").word[3] = string(gHighScore)
+  [444] pop 1 ................................... end case
+  [446] ret
+end
+
+on setArrow
+  [  0] getprop 142 ............................. <pSArrow>
+  [  3] getprop 140 ............................. <pSprite>
+  [  6] getobjprop 152 .......................... <pSprite.loc>
+  [  9] setobjprop 152 .......................... pSArrow.loc = pSprite.loc
+  [ 12] getprop 142 ............................. <pSArrow>
+  [ 15] getobjprop 172 .......................... <pSArrow.locH>
+  [ 18] pushzero ................................ <0>
+  [ 19] lt ...................................... <pSArrow.locH < 0>
+  [ 20] jmpifz [ 33] ............................ if pSArrow.locH < 0 then / else
+  [ 23] getprop 142 ............................. <pSArrow>
+  [ 26] pushzero ................................ <0>
+  [ 27] setobjprop 172 .......................... pSArrow.locH = 0
+  [ 30] jmp [ 61]
+  [ 33] getprop 142 ............................. <pSArrow>
+  [ 36] getobjprop 172 .......................... <pSArrow.locH>
+  [ 39] getprop 162 ............................. <pStageRect>
+  [ 42] getobjprop 75 ........................... <pStageRect.right>
+  [ 45] gt ...................................... <pSArrow.locH > pStageRect.right>
+  [ 46] jmpifz [ 61] ............................ if pSArrow.locH > pStageRect.right then
+  [ 49] getprop 142 ............................. <pSArrow>
+  [ 52] getprop 162 ............................. <pStageRect>
+  [ 55] getobjprop 75 ........................... <pStageRect.right>
+  [ 58] setobjprop 172 .......................... pSArrow.locH = pStageRect.right
+  [ 61] getprop 142 ............................. <pSArrow>
+  [ 64] getobjprop 173 .......................... <pSArrow.locV>
+  [ 67] pushzero ................................ <0>
+  [ 68] lt ...................................... <pSArrow.locV < 0>
+  [ 69] jmpifz [ 82] ............................ if pSArrow.locV < 0 then / else
+  [ 72] getprop 142 ............................. <pSArrow>
+  [ 75] pushzero ................................ <0>
+  [ 76] setobjprop 173 .......................... pSArrow.locV = 0
+  [ 79] jmp [110]
+  [ 82] getprop 142 ............................. <pSArrow>
+  [ 85] getobjprop 173 .......................... <pSArrow.locV>
+  [ 88] getprop 162 ............................. <pStageRect>
+  [ 91] getobjprop 160 .......................... <pStageRect.bottom>
+  [ 94] gt ...................................... <pSArrow.locV > pStageRect.bottom>
+  [ 95] jmpifz [110] ............................ if pSArrow.locV > pStageRect.bottom then
+  [ 98] getprop 142 ............................. <pSArrow>
+  [101] getprop 162 ............................. <pStageRect>
+  [104] getobjprop 160 .......................... <pStageRect.bottom>
+  [107] setobjprop 173 .......................... pSArrow.locV = pStageRect.bottom
+  [110] getprop 142 ............................. <pSArrow>
+  [113] getprop 140 ............................. <pSprite>
+  [116] getobjprop 152 .......................... <pSprite.loc>
+  [119] getprop 142 ............................. <pSArrow>
+  [122] getobjprop 152 .......................... <pSArrow.loc>
+  [125] sub ..................................... <pSprite.loc - pSArrow.loc>
+  [126] pusharglist 1 ........................... <pSprite.loc - pSArrow.loc>
+  [128] extcall 30 .............................. <rotationAngle(pSprite.loc - pSArrow.loc)>
+  [130] setobjprop 154 .......................... pSArrow.rotation = rotationAngle(pSprite.loc - pSArrow.loc)
+  [133] getprop 142 ............................. <pSArrow>
+  [136] pushint8 20 ............................. <20>
+  [139] getprop 140 ............................. <pSprite>
+  [142] getobjprop 152 .......................... <pSprite.loc>
+  [145] getprop 142 ............................. <pSArrow>
+  [148] getobjprop 152 .......................... <pSArrow.loc>
+  [151] sub ..................................... <pSprite.loc - pSArrow.loc>
+  [152] pusharglist 1 ........................... <pSprite.loc - pSArrow.loc>
+  [154] extcall 31 .............................. <distance(pSprite.loc - pSArrow.loc)>
+  [156] pushint8 2 .............................. <2>
+  [159] div ..................................... <distance(pSprite.loc - pSArrow.loc) / 2>
+  [160] add ..................................... <20 + (distance(pSprite.loc - pSArrow.loc) / 2)>
+  [161] setobjprop 182 .......................... pSArrow.width = 20 + (distance(pSprite.loc - pSArrow.loc) / 2)
+  [164] ret
+end
+
+on resetGPS me
+  [  0] getglobal 42 ............................ <gColorList>
+  [  3] pushcons 456 ............................ <"fld_tries">
+  [  6] pusharglist 1 ........................... <"fld_tries">
+  [  8] extcall 4 ............................... <member("fld_tries")>
+  [ 10] pushsymb 40 ............................. <#word>
+  [ 13] pushint8 2 .............................. <2>
+  [ 16] pusharglist 3 ........................... <member("fld_tries"), #word, 2>
+  [ 18] objcall 56 .............................. <member("fld_tries").word[2]>
+  [ 21] pusharglist 1 ........................... <member("fld_tries").word[2]>
+  [ 23] extcall 71 .............................. <integer(member("fld_tries").word[2])>
+  [ 26] getglobal 42 ............................ <gColorList>
+  [ 29] getobjprop 54 ........................... <gColorList.count>
+  [ 32] mod ..................................... <integer(member("fld_tries").word[2]) mod gColorList.count>
+  [ 33] pushint8 1 .............................. <1>
+  [ 36] add ..................................... <(integer(member("fld_tries").word[2]) mod gColorList.count) + 1>
+  [ 37] pusharglist 2 ........................... <gColorList, (integer(member("fld_tries").word[2]) mod gColorList.count) + 1>
+  [ 39] objcall 87 .............................. <gColorList[(integer(member("fld_tries").word[2]) mod gColorList.count) + 1]>
+  [ 42] setprop 174 ............................. pTraceColor = gColorList[(integer(member("fld_tries").word[2]) mod gColorList.count) + 1]
+  [ 45] getprop 146 ............................. <pSHoopT>
+  [ 48] pushint8 1 .............................. <1>
+  [ 51] setobjprop 39 ........................... pSHoopT.visible = 1
+  [ 54] getprop 147 ............................. <pSHoopB>
+  [ 57] pushint8 1 .............................. <1>
+  [ 60] setobjprop 39 ........................... pSHoopB.visible = 1
+  [ 63] getprop 148 ............................. <pSRubberT>
+  [ 66] pushint8 1 .............................. <1>
+  [ 69] setobjprop 39 ........................... pSRubberT.visible = 1
+  [ 72] getprop 149 ............................. <pSRubberB>
+  [ 75] pushint8 1 .............................. <1>
+  [ 78] setobjprop 39 ........................... pSRubberB.visible = 1
+  [ 81] getprop 142 ............................. <pSArrow>
+  [ 84] pushint8 1000 ........................... <1000>
+  [ 87] pushint8 1000 ........................... <1000>
+  [ 90] pusharglist 2 ........................... <1000, 1000>
+  [ 92] extcall 94 .............................. <point(1000, 1000)>
+  [ 95] setobjprop 152 .......................... pSArrow.loc = point(1000, 1000)
+  [ 98] pushsymb 204 ............................ <#iddle>
+  [101] setprop 163 ............................. pState = #iddle
+  [104] getprop 147 ............................. <pSHoopB>
+  [107] getprop 146 ............................. <pSHoopT>
+  [110] getobjprop 154 .......................... <pSHoopT.rotation>
+  [113] setobjprop 154 .......................... pSHoopB.rotation = pSHoopT.rotation
+  [116] getprop 146 ............................. <pSHoopT>
+  [119] getobjprop 152 .......................... <pSHoopT.loc>
+  [122] getprop 146 ............................. <pSHoopT>
+  [125] getobjprop 154 .......................... <pSHoopT.rotation>
+  [128] pushcons 464 ............................ <30.0>
+  [131] pusharglist 3 ........................... <pSHoopT.loc, pSHoopT.rotation, 30.0>
+  [133] extcall 32 .............................. <findPoint(pSHoopT.loc, pSHoopT.rotation, 30.0)>
+  [136] setprop 177 ............................. pPoint = findPoint(pSHoopT.loc, pSHoopT.rotation, 30.0)
+  [139] getprop 140 ............................. <pSprite>
+  [142] getprop 177 ............................. <pPoint>
+  [145] setobjprop 152 .......................... pSprite.loc = pPoint
+  [148] getprop 140 ............................. <pSprite>
+  [151] pushzero ................................ <0>
+  [152] setobjprop 154 .......................... pSprite.rotation = 0
+  [155] pushint8 30 ............................. <30>
+  [158] pusharglistnoret 1 ...................... <30>
+  [160] localcall 19 ............................ setRubberBands(30)
+  [162] getprop 143 ............................. <pSLS1>
+  [165] pushint8 1 .............................. <1>
+  [168] setobjprop 39 ........................... pSLS1.visible = 1
+  [171] getprop 144 ............................. <pSLS2>
+  [174] pushint8 1 .............................. <1>
+  [177] setobjprop 39 ........................... pSLS2.visible = 1
+  [180] getprop 145 ............................. <pSLS3>
+  [183] pushint8 1 .............................. <1>
+  [186] setobjprop 39 ........................... pSLS3.visible = 1
+  [189] pusharglistnoret 0 ...................... <>
+  [191] localcall 18 ............................ setUpAnimation()
+  [193] getglobal 37 ............................ <gBonus>
+  [196] getobjprop 54 ........................... <gBonus.count>
+  [199] pushzero ................................ <0>
+  [200] gt ...................................... <gBonus.count > 0>
+  [201] jmpifz [250] ............................ if gBonus.count > 0 then
+  [204] pushint8 1 .............................. <1>
+  [207] setlocal 0
+  [209] getlocal 0
+  [211] getglobal 37 ............................ <gBonus>
+  [214] getobjprop 54 ........................... <gBonus.count>
+  [217] lteq
+  [218] jmpifz [250] ............................ repeat with s = 1 to gBonus.count
+  [221] getglobal 37 ............................ <gBonus>
+  [224] getlocal 0 .............................. <s>
+  [226] pusharglist 2 ........................... <gBonus, s>
+  [228] objcall 87 .............................. <gBonus[s]>
+  [231] pushsymb 219 ............................ <#resetBonus>
+  [234] pusharglistnoret 2 ...................... <gBonus[s], #resetBonus>
+  [236] extcall 183 ............................. sendSprite(gBonus[s], #resetBonus)
+  [239] pushint8 1
+  [242] getlocal 0
+  [244] add
+  [245] setlocal 0
+  [247] endrepeat [209]
+  [250] ret
+end
+
+on setUpAnimation
+  [  0] pushint8 1 .............................. <1>
+  [  3] setprop 188 ............................. pAniSwap = 1
+  [  6] getprop 140 ............................. <pSprite>
+  [  9] pushint8 75 ............................. <75>
+  [ 12] pushint8 12 ............................. <12>
+  [ 15] pushint8 3 .............................. <3>
+  [ 18] pusharglist 1 ........................... <3>
+  [ 20] extcall 220 ............................. <random(3)>
+  [ 23] pushint8 1 .............................. <1>
+  [ 26] sub ..................................... <random(3) - 1>
+  [ 27] mul ..................................... <12 * (random(3) - 1)>
+  [ 28] add ..................................... <75 + (12 * (random(3) - 1))>
+  [ 29] pusharglist 1 ........................... <75 + (12 * (random(3) - 1))>
+  [ 31] extcall 4 ............................... <member(75 + (12 * (random(3) - 1)))>
+  [ 33] setobjprop 4 ............................ pSprite.member = member(75 + (12 * (random(3) - 1)))
+  [ 35] getprop 140 ............................. <pSprite>
+  [ 38] getobjprop 221 .......................... <pSprite.memberNum>
+  [ 41] setprop 189 ............................. pAniFrame = pSprite.memberNum
+  [ 44] getprop 140 ............................. <pSprite>
+  [ 47] getobjprop 221 .......................... <pSprite.memberNum>
+  [ 50] pushint8 11 ............................. <11>
+  [ 53] add ..................................... <pSprite.memberNum + 11>
+  [ 54] setprop 192 ............................. pAniMax = pSprite.memberNum + 11
+  [ 57] getprop 140 ............................. <pSprite>
+  [ 60] getobjprop 221 .......................... <pSprite.memberNum>
+  [ 63] setprop 191 ............................. pAniMin = pSprite.memberNum
+  [ 66] pushint8 2 .............................. <2>
+  [ 69] pusharglist 1 ........................... <2>
+  [ 71] extcall 220 ............................. <random(2)>
+  [ 74] setprop 190 ............................. pAniDir = random(2)
+  [ 77] getprop 190 ............................. <pAniDir>
+  [ 80] pushint8 2 .............................. <2>
+  [ 83] eq ...................................... <pAniDir = 2>
+  [ 84] jmpifz [ 94] ............................ if pAniDir = 2 then
+  [ 87] pushint8 1 .............................. <1>
+  [ 90] inv ..................................... <-1>
+  [ 91] setprop 190 ............................. pAniDir = -1
+  [ 94] ret
+end
+
+on setRubberBands kevinDistance
+  [  0] getprop 146 ............................. <pSHoopT>
+  [  3] getobjprop 222 .......................... <pSHoopT.height>
+  [  6] pushint8 2 .............................. <2>
+  [  9] div ..................................... <pSHoopT.height / 2>
+  [ 10] pushint8 3 .............................. <3>
+  [ 13] sub ..................................... <(pSHoopT.height / 2) - 3>
+  [ 14] setlocal 0 .............................. tempRadius = (pSHoopT.height / 2) - 3
+  [ 16] getprop 148 ............................. <pSRubberT>
+  [ 19] getprop 146 ............................. <pSHoopT>
+  [ 22] getobjprop 152 .......................... <pSHoopT.loc>
+  [ 25] getprop 146 ............................. <pSHoopT>
+  [ 28] getobjprop 154 .......................... <pSHoopT.rotation>
+  [ 31] pushint8 90 ............................. <90>
+  [ 34] sub ..................................... <pSHoopT.rotation - 90>
+  [ 35] getlocal 0 .............................. <tempRadius>
+  [ 37] pusharglist 3 ........................... <pSHoopT.loc, pSHoopT.rotation - 90, tempRadius>
+  [ 39] extcall 32 .............................. <findPoint(pSHoopT.loc, pSHoopT.rotation - 90, tempRadius)>
+  [ 42] setobjprop 152 .......................... pSRubberT.loc = findPoint(pSHoopT.loc, pSHoopT.rotation - 90, tempRadius)
+  [ 45] getprop 149 ............................. <pSRubberB>
+  [ 48] getprop 146 ............................. <pSHoopT>
+  [ 51] getobjprop 152 .......................... <pSHoopT.loc>
+  [ 54] getprop 146 ............................. <pSHoopT>
+  [ 57] getobjprop 154 .......................... <pSHoopT.rotation>
+  [ 60] pushint8 90 ............................. <90>
+  [ 63] add ..................................... <pSHoopT.rotation + 90>
+  [ 64] getlocal 0 .............................. <tempRadius>
+  [ 66] pusharglist 3 ........................... <pSHoopT.loc, pSHoopT.rotation + 90, tempRadius>
+  [ 68] extcall 32 .............................. <findPoint(pSHoopT.loc, pSHoopT.rotation + 90, tempRadius)>
+  [ 71] setobjprop 152 .......................... pSRubberB.loc = findPoint(pSHoopT.loc, pSHoopT.rotation + 90, tempRadius)
+  [ 74] getlocal 0 .............................. <tempRadius>
+  [ 76] getlocal 0 .............................. <tempRadius>
+  [ 78] mul ..................................... <tempRadius * tempRadius>
+  [ 79] getparam 0 .............................. <kevinDistance>
+  [ 81] getparam 0 .............................. <kevinDistance>
+  [ 83] mul ..................................... <kevinDistance * kevinDistance>
+  [ 84] add ..................................... <(tempRadius * tempRadius) + (kevinDistance * kevinDistance)>
+  [ 85] pusharglist 1 ........................... <(tempRadius * tempRadius) + (kevinDistance * kevinDistance)>
+  [ 87] extcall 92 .............................. <sqrt((tempRadius * tempRadius) + (kevinDistance * kevinDistance))>
+  [ 90] setlocal 8 .............................. tempRubberWidth = sqrt((tempRadius * tempRadius) + (kevinDistance * kevinDistance))
+  [ 92] getprop 148 ............................. <pSRubberT>
+  [ 95] getlocal 8 .............................. <tempRubberWidth>
+  [ 97] setobjprop 182 .......................... pSRubberT.width = tempRubberWidth
+  [100] getprop 149 ............................. <pSRubberB>
+  [103] getlocal 8 .............................. <tempRubberWidth>
+  [105] setobjprop 182 .......................... pSRubberB.width = tempRubberWidth
+  [108] getparam 0 .............................. <kevinDistance>
+  [110] pusharglist 1 ........................... <kevinDistance>
+  [112] extcall 89 .............................. <float(kevinDistance)>
+  [115] pushcons 472 ............................ <0.0>
+  [118] nteq .................................... <float(kevinDistance) <> 0.0>
+  [119] jmpifz [146] ............................ if float(kevinDistance) <> 0.0 then / else
+  [122] getlocal 0 .............................. <tempRadius>
+  [124] getparam 0 .............................. <kevinDistance>
+  [126] pusharglist 1 ........................... <kevinDistance>
+  [128] extcall 89 .............................. <float(kevinDistance)>
+  [131] div ..................................... <tempRadius / float(kevinDistance)>
+  [132] pusharglist 1 ........................... <tempRadius / float(kevinDistance)>
+  [134] extcall 88 .............................. <atan(tempRadius / float(kevinDistance))>
+  [137] pushcons 480 ............................ <57.29577951308232286>
+  [140] mul ..................................... <atan(tempRadius / float(kevinDistance)) * 57.29577951308232286>
+  [141] setlocal 16 ............................. tempDifAngle = atan(tempRadius / float(kevinDistance)) * 57.29577951308232286
+  [143] jmp [151]
+  [146] pushint8 90 ............................. <90>
+  [149] setlocal 16 ............................. tempDifAngle = 90
+  [151] getprop 148 ............................. <pSRubberT>
+  [154] getprop 146 ............................. <pSHoopT>
+  [157] getobjprop 154 .......................... <pSHoopT.rotation>
+  [160] getlocal 16 ............................. <tempDifAngle>
+  [162] add ..................................... <pSHoopT.rotation + tempDifAngle>
+  [163] setobjprop 154 .......................... pSRubberT.rotation = pSHoopT.rotation + tempDifAngle
+  [166] getprop 149 ............................. <pSRubberB>
+  [169] getprop 146 ............................. <pSHoopT>
+  [172] getobjprop 154 .......................... <pSHoopT.rotation>
+  [175] getlocal 16 ............................. <tempDifAngle>
+  [177] sub ..................................... <pSHoopT.rotation - tempDifAngle>
+  [178] setobjprop 154 .......................... pSRubberB.rotation = pSHoopT.rotation - tempDifAngle
+  [181] ret
+end
+
+on pullbackFrame me
+  [  0] pusharglist 0 ........................... <>
+  [  2] thebuiltin 136 .......................... <the mouseDown>
+  [  5] not ..................................... <not (the mouseDown)>
+  [  6] jmpifz [ 18] ............................ if not (the mouseDown) then
+  [  9] pusharglistnoret 0 ...................... <>
+  [ 11] localcall 21 ............................ setUpSnapping()
+  [ 13] pusharglistnoret 0 ...................... <>
+  [ 15] extcall 57 .............................. return 
+  [ 18] pusharglist 0 ........................... <>
+  [ 20] extcall 227 ............................. <mouseH()>
+  [ 23] pusharglist 0 ........................... <>
+  [ 25] extcall 228 ............................. <mouseV()>
+  [ 28] pusharglist 2 ........................... <mouseH(), mouseV()>
+  [ 30] extcall 94 .............................. <point(mouseH(), mouseV())>
+  [ 33] setlocal 0 .............................. newPoint = point(mouseH(), mouseV())
+  [ 35] getlocal 0 .............................. <newPoint>
+  [ 37] pushcons 488 ............................ <1.0>
+  [ 40] mul ..................................... <newPoint * 1.0>
+  [ 41] setlocal 0 .............................. newPoint = newPoint * 1.0
+  [ 43] getlocal 0 .............................. <newPoint>
+  [ 45] getprop 146 ............................. <pSHoopT>
+  [ 48] getobjprop 152 .......................... <pSHoopT.loc>
+  [ 51] sub ..................................... <newPoint - pSHoopT.loc>
+  [ 52] pusharglist 1 ........................... <newPoint - pSHoopT.loc>
+  [ 54] extcall 30 .............................. <rotationAngle(newPoint - pSHoopT.loc)>
+  [ 56] setlocal 8 .............................. newAngle = rotationAngle(newPoint - pSHoopT.loc)
+  [ 58] getprop 146 ............................. <pSHoopT>
+  [ 61] getobjprop 152 .......................... <pSHoopT.loc>
+  [ 64] getlocal 0 .............................. <newPoint>
+  [ 66] sub ..................................... <pSHoopT.loc - newPoint>
+  [ 67] pusharglist 1 ........................... <pSHoopT.loc - newPoint>
+  [ 69] extcall 31 .............................. <distance(pSHoopT.loc - newPoint)>
+  [ 71] setlocal 16 ............................. tempDistance = distance(pSHoopT.loc - newPoint)
+  [ 73] getlocal 16 ............................. <tempDistance>
+  [ 75] getprop 229 ............................. <pStretchLimit>
+  [ 78] gt ...................................... <tempDistance > pStretchLimit>
+  [ 79] jmpifz [ 90] ............................ if tempDistance > pStretchLimit then / else
+  [ 82] getprop 229 ............................. <pStretchLimit>
+  [ 85] setlocal 16 ............................. tempDistance = pStretchLimit
+  [ 87] jmp [104]
+  [ 90] getlocal 16 ............................. <tempDistance>
+  [ 92] pushint8 10 ............................. <10>
+  [ 95] lt ...................................... <tempDistance < 10>
+  [ 96] jmpifz [104] ............................ if tempDistance < 10 then
+  [ 99] pushint8 10 ............................. <10>
+  [102] setlocal 16 ............................. tempDistance = 10
+  [104] getprop 146 ............................. <pSHoopT>
+  [107] getobjprop 152 .......................... <pSHoopT.loc>
+  [110] getlocal 8 .............................. <newAngle>
+  [112] getlocal 16 ............................. <tempDistance>
+  [114] pusharglist 3 ........................... <pSHoopT.loc, newAngle, tempDistance>
+  [116] extcall 32 .............................. <findPoint(pSHoopT.loc, newAngle, tempDistance)>
+  [119] setlocal 0 .............................. newPoint = findPoint(pSHoopT.loc, newAngle, tempDistance)
+  [121] getlocal 0 .............................. <newPoint>
+  [123] pusharglist 1 ........................... <newPoint>
+  [125] localcall 9 ............................. <intersectsPlanets(newPoint)>
+  [127] jmpifz [135] ............................ if intersectsPlanets(newPoint) then
+  [130] pusharglistnoret 0 ...................... <>
+  [132] extcall 57 .............................. return 
+  [135] getlocal 0 .............................. <newPoint>
+  [137] getprop 140 ............................. <pSprite>
+  [140] getobjprop 152 .......................... <pSprite.loc>
+  [143] eq ...................................... <newPoint = pSprite.loc>
+  [144] jmpifz [152] ............................ if newPoint = pSprite.loc then
+  [147] pusharglistnoret 0 ...................... <>
+  [149] extcall 57 .............................. return 
+  [152] getprop 146 ............................. <pSHoopT>
+  [155] getlocal 8 .............................. <newAngle>
+  [157] setobjprop 154 .......................... pSHoopT.rotation = newAngle
+  [160] getprop 147 ............................. <pSHoopB>
+  [163] getlocal 8 .............................. <newAngle>
+  [165] setobjprop 154 .......................... pSHoopB.rotation = newAngle
+  [168] getlocal 0 .............................. <newPoint>
+  [170] setprop 177 ............................. pPoint = newPoint
+  [173] getprop 140 ............................. <pSprite>
+  [176] getprop 177 ............................. <pPoint>
+  [179] setobjprop 152 .......................... pSprite.loc = pPoint
+  [182] getlocal 16 ............................. <tempDistance>
+  [184] pusharglistnoret 1 ...................... <tempDistance>
+  [186] localcall 19 ............................ setRubberBands(tempDistance)
+  [188] ret
+end
+
+on setUpSnapping
+  [  0] pushint8 2 .............................. <2>
+  [  3] pushcons 496 ............................ <"snd_launch">
+  [  6] pusharglistnoret 2 ...................... <2, "snd_launch">
+  [  8] extcall 179 ............................. puppetSound(2, "snd_launch")
+  [ 11] pushsymb 166 ............................ <#snapping>
+  [ 14] setprop 163 ............................. pState = #snapping
+  [ 17] getprop 143 ............................. <pSLS1>
+  [ 20] pushzero ................................ <0>
+  [ 21] setobjprop 39 ........................... pSLS1.visible = 0
+  [ 24] getprop 144 ............................. <pSLS2>
+  [ 27] pushzero ................................ <0>
+  [ 28] setobjprop 39 ........................... pSLS2.visible = 0
+  [ 31] getprop 145 ............................. <pSLS3>
+  [ 34] pushzero ................................ <0>
+  [ 35] setobjprop 39 ........................... pSLS3.visible = 0
+  [ 38] getprop 145 ............................. <pSLS3>
+  [ 41] getprop 144 ............................. <pSLS2>
+  [ 44] getobjprop 152 .......................... <pSLS2.loc>
+  [ 47] setobjprop 152 .......................... pSLS3.loc = pSLS2.loc
+  [ 50] getprop 144 ............................. <pSLS2>
+  [ 53] getprop 143 ............................. <pSLS1>
+  [ 56] getobjprop 152 .......................... <pSLS1.loc>
+  [ 59] setobjprop 152 .......................... pSLS2.loc = pSLS1.loc
+  [ 62] getprop 143 ............................. <pSLS1>
+  [ 65] getprop 140 ............................. <pSprite>
+  [ 68] getobjprop 152 .......................... <pSprite.loc>
+  [ 71] setobjprop 152 .......................... pSLS1.loc = pSprite.loc
+  [ 74] pushcons 504 ............................ <"k3">
+  [ 77] pusharglist 1 ........................... <"k3">
+  [ 79] extcall 4 ............................... <member("k3")>
+  [ 81] getobjprop 47 ........................... <member("k3").image>
+  [ 84] pushzero ................................ <0>
+  [ 85] pushzero ................................ <0>
+  [ 86] pushint8 17 ............................. <17>
+  [ 89] pushint8 26 ............................. <26>
+  [ 92] pushcons 512 ............................ <"k2">
+  [ 95] pusharglist 1 ........................... <"k2">
+  [ 97] extcall 4 ............................... <member("k2")>
+  [ 99] getobjprop 47 ........................... <member("k2").image>
+  [102] pushint8 5 .............................. <5>
+  [105] pushint8 5 .............................. <5>
+  [108] pusharglist 3 ........................... <member("k2").image, 5, 5>
+  [110] objcall 232 ............................. <member("k2").image.getPixel(5, 5)>
+  [113] pusharglistnoret 6 ...................... <member("k3").image, 0, 0, 17, 26, member("k2").image.getPixel(5, 5)>
+  [115] objcall 139 ............................. member("k3").image.fill(0, 0, 17, 26, member("k2").image.getPixel(5, 5))
+  [118] pushcons 520 ............................ <"k2">
+  [121] pusharglist 1 ........................... <"k2">
+  [123] extcall 4 ............................... <member("k2")>
+  [125] getobjprop 47 ........................... <member("k2").image>
+  [128] pushzero ................................ <0>
+  [129] pushzero ................................ <0>
+  [130] pushint8 17 ............................. <17>
+  [133] pushint8 26 ............................. <26>
+  [136] pushcons 528 ............................ <"k1">
+  [139] pusharglist 1 ........................... <"k1">
+  [141] extcall 4 ............................... <member("k1")>
+  [143] getobjprop 47 ........................... <member("k1").image>
+  [146] pushint8 5 .............................. <5>
+  [149] pushint8 5 .............................. <5>
+  [152] pusharglist 3 ........................... <member("k1").image, 5, 5>
+  [154] objcall 232 ............................. <member("k1").image.getPixel(5, 5)>
+  [157] pusharglistnoret 6 ...................... <member("k2").image, 0, 0, 17, 26, member("k1").image.getPixel(5, 5)>
+  [159] objcall 139 ............................. member("k2").image.fill(0, 0, 17, 26, member("k1").image.getPixel(5, 5))
+  [162] pushcons 536 ............................ <"k1">
+  [165] pusharglist 1 ........................... <"k1">
+  [167] extcall 4 ............................... <member("k1")>
+  [169] getobjprop 47 ........................... <member("k1").image>
+  [172] pushzero ................................ <0>
+  [173] pushzero ................................ <0>
+  [174] pushint8 17 ............................. <17>
+  [177] pushint8 26 ............................. <26>
+  [180] getprop 174 ............................. <pTraceColor>
+  [183] pusharglistnoret 6 ...................... <member("k1").image, 0, 0, 17, 26, pTraceColor>
+  [185] objcall 139 ............................. member("k1").image.fill(0, 0, 17, 26, pTraceColor)
+  [188] pushcons 544 ............................ <"k3">
+  [191] pusharglist 1 ........................... <"k3">
+  [193] extcall 4 ............................... <member("k3")>
+  [195] getobjprop 47 ........................... <member("k3").image>
+  [198] pushcons 552 ............................ <"Kev_Alph">
+  [201] pusharglist 1 ........................... <"Kev_Alph">
+  [203] extcall 4 ............................... <member("Kev_Alph")>
+  [205] getobjprop 47 ........................... <member("Kev_Alph").image>
+  [208] pusharglistnoret 2 ...................... <member("k3").image, member("Kev_Alph").image>
+  [210] objcall 49 .............................. member("k3").image.setAlpha(member("Kev_Alph").image)
+  [213] pushcons 560 ............................ <"k2">
+  [216] pusharglist 1 ........................... <"k2">
+  [218] extcall 4 ............................... <member("k2")>
+  [220] getobjprop 47 ........................... <member("k2").image>
+  [223] pushcons 568 ............................ <"Kev_Alph">
+  [226] pusharglist 1 ........................... <"Kev_Alph">
+  [228] extcall 4 ............................... <member("Kev_Alph")>
+  [230] getobjprop 47 ........................... <member("Kev_Alph").image>
+  [233] pusharglistnoret 2 ...................... <member("k2").image, member("Kev_Alph").image>
+  [235] objcall 49 .............................. member("k2").image.setAlpha(member("Kev_Alph").image)
+  [238] pushcons 576 ............................ <"k1">
+  [241] pusharglist 1 ........................... <"k1">
+  [243] extcall 4 ............................... <member("k1")>
+  [245] getobjprop 47 ........................... <member("k1").image>
+  [248] pushcons 584 ............................ <"Kev_Alph">
+  [251] pusharglist 1 ........................... <"Kev_Alph">
+  [253] extcall 4 ............................... <member("Kev_Alph")>
+  [255] getobjprop 47 ........................... <member("Kev_Alph").image>
+  [258] pusharglistnoret 2 ...................... <member("k1").image, member("Kev_Alph").image>
+  [260] objcall 49 .............................. member("k1").image.setAlpha(member("Kev_Alph").image)
+  [263] getprop 151 ............................. <pTries>
+  [266] pushint8 1 .............................. <1>
+  [269] add ..................................... <pTries + 1>
+  [270] setprop 151 ............................. pTries = pTries + 1
+  [273] pushcons 592 ............................ <"fld_tries">
+  [276] pusharglist 1 ........................... <"fld_tries">
+  [278] extcall 4 ............................... <member("fld_tries")>
+  [280] pushsymb 40 ............................. <#word>
+  [283] pushint8 2 .............................. <2>
+  [286] getprop 151 ............................. <pTries>
+  [289] pusharglist 1 ........................... <pTries>
+  [291] extcall 51 .............................. <string(pTries)>
+  [294] pusharglist 4 ........................... <member("fld_tries"), #word, 2, string(pTries)>
+  [296] objcall 41 .............................. member("fld_tries").word[2] = string(pTries)
+  [299] getprop 146 ............................. <pSHoopT>
+  [302] getobjprop 152 .......................... <pSHoopT.loc>
+  [305] getprop 140 ............................. <pSprite>
+  [308] getobjprop 152 .......................... <pSprite.loc>
+  [311] sub ..................................... <pSHoopT.loc - pSprite.loc>
+  [312] setlocal 0 .............................. tempPoint = pSHoopT.loc - pSprite.loc
+  [314] getlocal 0 .............................. <tempPoint>
+  [316] pushint8 100 ............................ <100>
+  [319] mul ..................................... <tempPoint * 100>
+  [320] getprop 229 ............................. <pStretchLimit>
+  [323] div ..................................... <tempPoint * 100 / pStretchLimit>
+  [324] setlocal 0 .............................. tempPoint = tempPoint * 100 / pStretchLimit
+  [326] getlocal 0 .............................. <tempPoint>
+  [328] pushint8 1 .............................. <1>
+  [331] pusharglist 2 ........................... <tempPoint, 1>
+  [333] objcall 87 .............................. <tempPoint[1]>
+  [336] getlocal 0 .............................. <tempPoint>
+  [338] pushint8 1 .............................. <1>
+  [341] pusharglist 2 ........................... <tempPoint, 1>
+  [343] objcall 87 .............................. <tempPoint[1]>
+  [346] mul ..................................... <tempPoint[1] * tempPoint[1]>
+  [347] getlocal 0 .............................. <tempPoint>
+  [349] pushint8 2 .............................. <2>
+  [352] pusharglist 2 ........................... <tempPoint, 2>
+  [354] objcall 87 .............................. <tempPoint[2]>
+  [357] getlocal 0 .............................. <tempPoint>
+  [359] pushint8 2 .............................. <2>
+  [362] pusharglist 2 ........................... <tempPoint, 2>
+  [364] objcall 87 .............................. <tempPoint[2]>
+  [367] mul ..................................... <tempPoint[2] * tempPoint[2]>
+  [368] add ..................................... <(tempPoint[1] * tempPoint[1]) + (tempPoint[2] * tempPoint[2])>
+  [369] pushcons 600 ............................ <250.0>
+  [372] div ..................................... <((tempPoint[1] * tempPoint[1]) + (tempPoint[2] * tempPoint[2])) / 250.0>
+  [373] setlocal 8 .............................. tempSpeed = ((tempPoint[1] * tempPoint[1]) + (tempPoint[2] * tempPoint[2])) / 250.0
+  [375] getprop 146 ............................. <pSHoopT>
+  [378] getobjprop 152 .......................... <pSHoopT.loc>
+  [381] getprop 140 ............................. <pSprite>
+  [384] getobjprop 152 .......................... <pSprite.loc>
+  [387] sub ..................................... <pSHoopT.loc - pSprite.loc>
+  [388] pusharglist 1 ........................... <pSHoopT.loc - pSprite.loc>
+  [390] extcall 30 .............................. <rotationAngle(pSHoopT.loc - pSprite.loc)>
+  [392] setlocal 16 ............................. tempAngle = rotationAngle(pSHoopT.loc - pSprite.loc)
+  [394] pushzero ................................ <0>
+  [395] pushzero ................................ <0>
+  [396] pusharglist 2 ........................... <0, 0>
+  [398] extcall 94 .............................. <point(0, 0)>
+  [401] getlocal 16 ............................. <tempAngle>
+  [403] getlocal 8 .............................. <tempSpeed>
+  [405] pusharglist 3 ........................... <point(0, 0), tempAngle, tempSpeed>
+  [407] extcall 32 .............................. <findPoint(point(0, 0), tempAngle, tempSpeed)>
+  [410] setlocal 24 ............................. tempVector = findPoint(point(0, 0), tempAngle, tempSpeed)
+  [412] getlocal 24 ............................. <tempVector>
+  [414] pushint8 1 .............................. <1>
+  [417] pusharglist 2 ........................... <tempVector, 1>
+  [419] objcall 87 .............................. <tempVector[1]>
+  [422] setprop 180 ............................. pVX = tempVector[1]
+  [425] getlocal 24 ............................. <tempVector>
+  [427] pushint8 2 .............................. <2>
+  [430] pusharglist 2 ........................... <tempVector, 2>
+  [432] objcall 87 .............................. <tempVector[2]>
+  [435] setprop 181 ............................. pVY = tempVector[2]
+  [438] getlocal 0 .............................. <tempPoint>
+  [440] pusharglist 1 ........................... <tempPoint>
+  [442] extcall 31 .............................. <distance(tempPoint)>
+  [444] getprop 180 ............................. <pVX>
+  [447] getprop 181 ............................. <pVY>
+  [450] pusharglist 2 ........................... <pVX, pVY>
+  [452] extcall 94 .............................. <point(pVX, pVY)>
+  [455] pusharglist 1 ........................... <point(pVX, pVY)>
+  [457] extcall 31 .............................. <distance(point(pVX, pVY))>
+  [459] div ..................................... <distance(tempPoint) / distance(point(pVX, pVY))>
+  [460] pushint8 1 .............................. <1>
+  [463] add ..................................... <(distance(tempPoint) / distance(point(pVX, pVY))) + 1>
+  [464] pusharglist 1 ........................... <(distance(tempPoint) / distance(point(pVX, pVY))) + 1>
+  [466] extcall 71 .............................. <integer((distance(tempPoint) / distance(point(pVX, pVY))) + 1)>
+  [469] setprop 187 ............................. pFrameCount = integer((distance(tempPoint) / distance(point(pVX, pVY))) + 1)
+  [472] ret
+end
+
+on snappingFrame
+  [  0] getprop 177 ............................. <pPoint>
+  [  3] getprop 180 ............................. <pVX>
+  [  6] getprop 181 ............................. <pVY>
+  [  9] pusharglist 2 ........................... <pVX, pVY>
+  [ 11] extcall 94 .............................. <point(pVX, pVY)>
+  [ 14] add ..................................... <pPoint + point(pVX, pVY)>
+  [ 15] setprop 177 ............................. pPoint = pPoint + point(pVX, pVY)
+  [ 18] getprop 140 ............................. <pSprite>
+  [ 21] getprop 177 ............................. <pPoint>
+  [ 24] setobjprop 152 .......................... pSprite.loc = pPoint
+  [ 27] getprop 187 ............................. <pFrameCount>
+  [ 30] pushint8 1 .............................. <1>
+  [ 33] sub ..................................... <pFrameCount - 1>
+  [ 34] setprop 187 ............................. pFrameCount = pFrameCount - 1
+  [ 37] getprop 187 ............................. <pFrameCount>
+  [ 40] pushint8 1 .............................. <1>
+  [ 43] lt ...................................... <pFrameCount < 1>
+  [ 44] jmpifz [ 54] ............................ if pFrameCount < 1 then / else
+  [ 47] pusharglistnoret 0 ...................... <>
+  [ 49] localcall 3 ............................. setUpSoaring()
+  [ 51] jmp [ 75]
+  [ 54] getprop 140 ............................. <pSprite>
+  [ 57] getobjprop 152 .......................... <pSprite.loc>
+  [ 60] getprop 146 ............................. <pSHoopT>
+  [ 63] getobjprop 152 .......................... <pSHoopT.loc>
+  [ 66] sub ..................................... <pSprite.loc - pSHoopT.loc>
+  [ 67] pusharglist 1 ........................... <pSprite.loc - pSHoopT.loc>
+  [ 69] extcall 31 .............................. <distance(pSprite.loc - pSHoopT.loc)>
+  [ 71] pusharglistnoret 1 ...................... <distance(pSprite.loc - pSHoopT.loc)>
+  [ 73] localcall 19 ............................ setRubberBands(distance(pSprite.loc - pSHoopT.loc))
+  [ 75] getprop 140 ............................. <pSprite>
+  [ 78] getobjprop 152 .......................... <pSprite.loc>
+  [ 81] pusharglist 1 ........................... <pSprite.loc>
+  [ 83] localcall 9 ............................. <intersectsPlanets(pSprite.loc)>
+  [ 85] setlocal 0 .............................. tempHitPlanet = intersectsPlanets(pSprite.loc)
+  [ 87] getlocal 0 .............................. <tempHitPlanet>
+  [ 89] jmpifz [ 98] ............................ if tempHitPlanet then
+  [ 92] getlocal 0 .............................. <tempHitPlanet>
+  [ 94] pusharglistnoret 1 ...................... <tempHitPlanet>
+  [ 96] localcall 5 ............................. setUpCrashed(tempHitPlanet)
+  [ 98] ret
+end
+
+on mouseDown me
+  [  0] getprop 163 ............................. <pState>
+  [  3] pushsymb 204 ............................ <#iddle>
+  [  6] eq ...................................... <pState = #iddle>
+  [  7] jmpifz [ 19] ............................ if pState = #iddle then / else
+  [ 10] pushsymb 165 ............................ <#pullback>
+  [ 13] setprop 163 ............................. pState = #pullback
+  [ 16] jmp [ 40]
+  [ 19] getprop 163 ............................. <pState>
+  [ 22] pushsymb 164 ............................ <#soaring>
+  [ 25] eq ...................................... <pState = #soaring>
+  [ 26] jmpifz [ 40] ............................ if pState = #soaring then
+  [ 29] pushsymb 167 ............................ <#crashed>
+  [ 32] setprop 163 ............................. pState = #crashed
+  [ 35] pushint8 1 .............................. <1>
+  [ 38] setlocal 0 .............................. pCount = 1
+  [ 40] ret
+end
+
+on getPropertyDescriptionList me
+  [  0] pusharglist 0 ........................... <[:]>
+  [  2] pushproplist ............................ <[:]>
+  [  3] setlocal 0 .............................. tempVPList = [:]
+  [  5] getlocal 0 .............................. <tempVPList>
+  [  7] pushsymb 185 ............................ <#pTarget>
+  [ 10] pushsymb 236 ............................ <#comment>
+  [ 13] pushcons 608 ............................ <"Target Sprite">
+  [ 16] pushsymb 237 ............................ <#format>
+  [ 19] pushsymb 71 ............................. <#integer>
+  [ 22] pushsymb 238 ............................ <#default>
+  [ 25] pushint8 7 .............................. <7>
+  [ 28] pusharglist 6 ........................... <[#comment: "Target Sprite", #format: #integer, #default: 7]>
+  [ 30] pushproplist ............................ <[#comment: "Target Sprite", #format: #integer, #default: 7]>
+  [ 31] pusharglistnoret 3 ...................... <tempVPList, #pTarget, [#comment: "Target Sprite", #format: #integer, #default: 7]>
+  [ 33] objcall 104 ............................. tempVPList.addProp(#pTarget, [#comment: "Target Sprite", #format: #integer, #default: 7])
+  [ 36] getlocal 0 .............................. <tempVPList>
+  [ 38] pushsymb 158 ............................ <#pBorder>
+  [ 41] pushsymb 236 ............................ <#comment>
+  [ 44] pushcons 616 ............................ <"Out of bounds Grace distance:">
+  [ 47] pushsymb 237 ............................ <#format>
+  [ 50] pushsymb 71 ............................. <#integer>
+  [ 53] pushsymb 238 ............................ <#default>
+  [ 56] pushint8 100 ............................ <100>
+  [ 59] pushsymb 239 ............................ <#range>
+  [ 62] pushsymb 240 ............................ <#min>
+  [ 65] pushzero ................................ <0>
+  [ 66] pushsymb 241 ............................ <#max>
+  [ 69] pushint8 1000 ........................... <1000>
+  [ 72] pusharglist 4 ........................... <[#min: 0, #max: 1000]>
+  [ 74] pushproplist ............................ <[#min: 0, #max: 1000]>
+  [ 75] pusharglist 8 ........................... <[#comment: "Out of bounds Grace distance:", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]]>
+  [ 77] pushproplist ............................ <[#comment: "Out of bounds Grace distance:", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]]>
+  [ 78] pusharglistnoret 3 ...................... <tempVPList, #pBorder, [#comment: "Out of bounds Grace distance:", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]]>
+  [ 80] objcall 104 ............................. tempVPList.addProp(#pBorder, [#comment: "Out of bounds Grace distance:", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]])
+  [ 83] getlocal 0 .............................. <tempVPList>
+  [ 85] pushsymb 170 ............................ <#plastLevel>
+  [ 88] pushsymb 236 ............................ <#comment>
+  [ 91] pushcons 624 ............................ <"Is this the last level?:">
+  [ 94] pushsymb 237 ............................ <#format>
+  [ 97] pushsymb 242 ............................ <#boolean>
+  [100] pushsymb 238 ............................ <#default>
+  [103] pushzero ................................ <0>
+  [104] pusharglist 6 ........................... <[#comment: "Is this the last level?:", #format: #boolean, #default: 0]>
+  [106] pushproplist ............................ <[#comment: "Is this the last level?:", #format: #boolean, #default: 0]>
+  [107] pusharglistnoret 3 ...................... <tempVPList, #plastLevel, [#comment: "Is this the last level?:", #format: #boolean, #default: 0]>
+  [109] objcall 104 ............................. tempVPList.addProp(#plastLevel, [#comment: "Is this the last level?:", #format: #boolean, #default: 0])
+  [112] getlocal 0 .............................. <tempVPList>
+  [114] pushsymb 229 ............................ <#pStretchLimit>
+  [117] pushsymb 236 ............................ <#comment>
+  [120] pushcons 632 ............................ <"Limit of stretch:">
+  [123] pushsymb 237 ............................ <#format>
+  [126] pushsymb 71 ............................. <#integer>
+  [129] pushsymb 238 ............................ <#default>
+  [132] pushint8 100 ............................ <100>
+  [135] pushsymb 239 ............................ <#range>
+  [138] pushsymb 240 ............................ <#min>
+  [141] pushint8 30 ............................. <30>
+  [144] pushsymb 241 ............................ <#max>
+  [147] pushint8 120 ............................ <120>
+  [150] pusharglist 4 ........................... <[#min: 30, #max: 120]>
+  [152] pushproplist ............................ <[#min: 30, #max: 120]>
+  [153] pusharglist 8 ........................... <[#comment: "Limit of stretch:", #format: #integer, #default: 100, #range: [#min: 30, #max: 120]]>
+  [155] pushproplist ............................ <[#comment: "Limit of stretch:", #format: #integer, #default: 100, #range: [#min: 30, #max: 120]]>
+  [156] pusharglistnoret 3 ...................... <tempVPList, #pStretchLimit, [#comment: "Limit of stretch:", #format: #integer, #default: 100, #range: [#min: 30, #max: 120]]>
+  [158] objcall 104 ............................. tempVPList.addProp(#pStretchLimit, [#comment: "Limit of stretch:", #format: #integer, #default: 100, #range: [#min: 30, #max: 120]])
+  [161] getlocal 0 .............................. <tempVPList>
+  [163] pusharglistnoret 1 ...................... <tempVPList>
+  [165] extcall 57 .............................. return tempVPList
+  [168] ret
+end

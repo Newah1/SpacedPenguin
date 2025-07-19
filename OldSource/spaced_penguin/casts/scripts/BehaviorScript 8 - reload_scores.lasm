@@ -1,0 +1,5 @@
+on beginSprite me
+  [  0] pusharglistnoret 0 ...................... <>
+  [  2] extcall 33 .............................. reloadScores()
+  [  5] ret
+end

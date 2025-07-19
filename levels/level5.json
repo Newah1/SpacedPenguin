@@ -1,0 +1,63 @@
+{
+    "name": "Precision Challenge",
+    "description": "Hit the target with perfect accuracy - collect ALL bonuses or fail!",
+    "startPosition": { "x": 80, "y": 400 },
+    "targetPosition": { "x": 720, "y": 100 },
+    "objects": [
+        {
+            "type": "planet",
+            "position": { "x": 200, "y": 200 },
+            "properties": {
+                "radius": 25,
+                "mass": 60
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 400, "y": 300 },
+            "properties": {
+                "radius": 40,
+                "mass": 180
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 600, "y": 250 },
+            "properties": {
+                "radius": 30,
+                "mass": 100
+            }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 150, "y": 150 },
+            "properties": { "value": 1000 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 320, "y": 240 },
+            "properties": { "value": 1200 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 480, "y": 180 },
+            "properties": { "value": 1500 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 650, "y": 200 },
+            "properties": { "value": 2000 }
+        }
+    ],
+    "rules": {
+        "maxTries": null,
+        "timeLimit": null,
+        "scoreMultiplier": 3.0,
+        "requiredBonuses": 4,
+        "allowedMisses": 0,
+        "gravitationalConstant": 300,
+        "customBehaviors": [
+            "precision_mode"
+        ]
+    }
+} 

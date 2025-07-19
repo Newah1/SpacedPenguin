@@ -1,0 +1,1 @@
+on beginSprite me  reloadScores()end

@@ -1,0 +1,59 @@
+{
+  "unknown0": 0,
+  "unknown1": 0,
+  "entryCount": 7,
+  "entryCount2": 7,
+  "entriesOffset": 96,
+  "unknown2": 12,
+  "unknown3": 0,
+  "unknown4": 1,
+  "unknown5": -1,
+  "lnamSectionID": 1443,
+  "validCount": 6,
+  "flags": 5,
+  "freePointer": 6,
+  "sectionMap": [
+    {
+      "unknown0": 2158756,
+      "sectionID": 1444,
+      "unknown1": 4,
+      "unknown2": 0
+    },
+    {
+      "unknown0": 2158736,
+      "sectionID": 1445,
+      "unknown1": 4,
+      "unknown2": 0
+    },
+    {
+      "unknown0": 2158716,
+      "sectionID": 1446,
+      "unknown1": 4,
+      "unknown2": 0
+    },
+    {
+      "unknown0": 2158696,
+      "sectionID": 1447,
+      "unknown1": 4,
+      "unknown2": 0
+    },
+    {
+      "unknown0": 2192640,
+      "sectionID": -1,
+      "unknown1": 0,
+      "unknown2": 65535
+    },
+    {
+      "unknown0": 2188300,
+      "sectionID": -1,
+      "unknown1": 0,
+      "unknown2": 65535
+    },
+    {
+      "unknown0": 0,
+      "sectionID": -1,
+      "unknown1": 0,
+      "unknown2": 65535
+    }
+  ]
+}

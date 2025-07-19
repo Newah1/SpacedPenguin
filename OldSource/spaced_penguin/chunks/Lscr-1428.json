@@ -1,0 +1,662 @@
+{
+  "totalLength": 4620,
+  "totalLength2": 4620,
+  "headerLength": 92,
+  "scriptNumber": 2,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 2,
+  "unk42": 0,
+  "castID": 131073,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 13,
+  "handlerVectorsOffset": 4594,
+  "handlerVectorsSize": 4096,
+  "propertiesCount": 0,
+  "propertiesOffset": 92,
+  "globalsCount": 9,
+  "globalsOffset": 92,
+  "handlersCount": 16,
+  "handlersOffset": 110,
+  "literalsCount": 73,
+  "literalsOffset": 3146,
+  "literalsDataCount": 864,
+  "literalsDataOffset": 3730,
+  "propertyNameIDs": [],
+  "globalNameIDs": [
+    36,
+    42,
+    44,
+    6,
+    45,
+    52,
+    8,
+    46,
+    37
+  ],
+  "handlers": [
+    {
+      "nameID": 21,
+      "vectorPos": 65535,
+      "compiledLen": 376,
+      "compiledOffset": 782,
+      "argumentCount": 0,
+      "argumentOffset": 1158,
+      "localsCount": 1,
+      "localsOffset": 1158,
+      "globalsCount": 0,
+      "globalsOffset": 1160,
+      "unknown1": 129,
+      "unknown2": 4,
+      "lineCount": 26,
+      "lineOffset": 1160
+    },
+    {
+      "nameID": 22,
+      "vectorPos": 65535,
+      "compiledLen": 78,
+      "compiledOffset": 1186,
+      "argumentCount": 0,
+      "argumentOffset": 1264,
+      "localsCount": 0,
+      "localsOffset": 1264,
+      "globalsCount": 0,
+      "globalsOffset": 1264,
+      "unknown1": 1407,
+      "unknown2": 45,
+      "lineCount": 8,
+      "lineOffset": 1264
+    },
+    {
+      "nameID": 23,
+      "vectorPos": 65535,
+      "compiledLen": 97,
+      "compiledOffset": 1272,
+      "argumentCount": 1,
+      "argumentOffset": 1370,
+      "localsCount": 2,
+      "localsOffset": 1372,
+      "globalsCount": 0,
+      "globalsOffset": 1376,
+      "unknown1": 1648,
+      "unknown2": 56,
+      "lineCount": 7,
+      "lineOffset": 1376
+    },
+    {
+      "nameID": 3,
+      "vectorPos": 65535,
+      "compiledLen": 104,
+      "compiledOffset": 1384,
+      "argumentCount": 1,
+      "argumentOffset": 1488,
+      "localsCount": 0,
+      "localsOffset": 1490,
+      "globalsCount": 0,
+      "globalsOffset": 1490,
+      "unknown1": 1900,
+      "unknown2": 66,
+      "lineCount": 7,
+      "lineOffset": 1490
+    },
+    {
+      "nameID": 7,
+      "vectorPos": 65535,
+      "compiledLen": 171,
+      "compiledOffset": 1498,
+      "argumentCount": 2,
+      "argumentOffset": 1670,
+      "localsCount": 3,
+      "localsOffset": 1674,
+      "globalsCount": 0,
+      "globalsOffset": 1680,
+      "unknown1": 2220,
+      "unknown2": 76,
+      "lineCount": 14,
+      "lineOffset": 1680
+    },
+    {
+      "nameID": 24,
+      "vectorPos": 65535,
+      "compiledLen": 75,
+      "compiledOffset": 1694,
+      "argumentCount": 1,
+      "argumentOffset": 1770,
+      "localsCount": 3,
+      "localsOffset": 1772,
+      "globalsCount": 0,
+      "globalsOffset": 1778,
+      "unknown1": 2693,
+      "unknown2": 93,
+      "lineCount": 7,
+      "lineOffset": 1778
+    },
+    {
+      "nameID": 25,
+      "vectorPos": 65535,
+      "compiledLen": 168,
+      "compiledOffset": 1786,
+      "argumentCount": 1,
+      "argumentOffset": 1954,
+      "localsCount": 1,
+      "localsOffset": 1956,
+      "globalsCount": 0,
+      "globalsOffset": 1958,
+      "unknown1": 2944,
+      "unknown2": 103,
+      "lineCount": 17,
+      "lineOffset": 1958
+    },
+    {
+      "nameID": 26,
+      "vectorPos": 65535,
+      "compiledLen": 136,
+      "compiledOffset": 1976,
+      "argumentCount": 4,
+      "argumentOffset": 2112,
+      "localsCount": 3,
+      "localsOffset": 2120,
+      "globalsCount": 0,
+      "globalsOffset": 2126,
+      "unknown1": 3241,
+      "unknown2": 123,
+      "lineCount": 15,
+      "lineOffset": 2126
+    },
+    {
+      "nameID": 27,
+      "vectorPos": 12,
+      "compiledLen": 151,
+      "compiledOffset": 2142,
+      "argumentCount": 0,
+      "argumentOffset": 2294,
+      "localsCount": 0,
+      "localsOffset": 2294,
+      "globalsCount": 0,
+      "globalsOffset": 2294,
+      "unknown1": 3699,
+      "unknown2": 141,
+      "lineCount": 9,
+      "lineOffset": 2294
+    },
+    {
+      "nameID": 28,
+      "vectorPos": 65535,
+      "compiledLen": 187,
+      "compiledOffset": 2304,
+      "argumentCount": 2,
+      "argumentOffset": 2492,
+      "localsCount": 1,
+      "localsOffset": 2496,
+      "globalsCount": 0,
+      "globalsOffset": 2498,
+      "unknown1": 4130,
+      "unknown2": 153,
+      "lineCount": 27,
+      "lineOffset": 2498
+    },
+    {
+      "nameID": 29,
+      "vectorPos": 65535,
+      "compiledLen": 40,
+      "compiledOffset": 2526,
+      "argumentCount": 0,
+      "argumentOffset": 2566,
+      "localsCount": 1,
+      "localsOffset": 2566,
+      "globalsCount": 0,
+      "globalsOffset": 2568,
+      "unknown1": 5229,
+      "unknown2": 183,
+      "lineCount": 4,
+      "lineOffset": 2568
+    },
+    {
+      "nameID": 30,
+      "vectorPos": 65535,
+      "compiledLen": 117,
+      "compiledOffset": 2572,
+      "argumentCount": 1,
+      "argumentOffset": 2690,
+      "localsCount": 1,
+      "localsOffset": 2692,
+      "globalsCount": 0,
+      "globalsOffset": 2694,
+      "unknown1": 5344,
+      "unknown2": 190,
+      "lineCount": 13,
+      "lineOffset": 2694
+    },
+    {
+      "nameID": 31,
+      "vectorPos": 65535,
+      "compiledLen": 54,
+      "compiledOffset": 2708,
+      "argumentCount": 1,
+      "argumentOffset": 2762,
+      "localsCount": 0,
+      "localsOffset": 2764,
+      "globalsCount": 0,
+      "globalsOffset": 2764,
+      "unknown1": 5719,
+      "unknown2": 206,
+      "lineCount": 1,
+      "lineOffset": 2764
+    },
+    {
+      "nameID": 32,
+      "vectorPos": 65535,
+      "compiledLen": 39,
+      "compiledOffset": 2766,
+      "argumentCount": 3,
+      "argumentOffset": 2806,
+      "localsCount": 0,
+      "localsOffset": 2812,
+      "globalsCount": 0,
+      "globalsOffset": 2812,
+      "unknown1": 5814,
+      "unknown2": 210,
+      "lineCount": 2,
+      "lineOffset": 2812
+    },
+    {
+      "nameID": 33,
+      "vectorPos": 65535,
+      "compiledLen": 27,
+      "compiledOffset": 2814,
+      "argumentCount": 0,
+      "argumentOffset": 2842,
+      "localsCount": 2,
+      "localsOffset": 2842,
+      "globalsCount": 1,
+      "globalsOffset": 2846,
+      "unknown1": 6033,
+      "unknown2": 215,
+      "lineCount": 4,
+      "lineOffset": 2848
+    },
+    {
+      "nameID": 34,
+      "vectorPos": 65535,
+      "compiledLen": 268,
+      "compiledOffset": 2852,
+      "argumentCount": 0,
+      "argumentOffset": 3120,
+      "localsCount": 4,
+      "localsOffset": 3120,
+      "globalsCount": 0,
+      "globalsOffset": 3128,
+      "unknown1": 6687,
+      "unknown2": 237,
+      "lineCount": 17,
+      "lineOffset": 3128
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "fld_level"
+    },
+    {
+      "type": 1,
+      "offset": 14,
+      "value": "0"
+    },
+    {
+      "type": 1,
+      "offset": 20,
+      "value": "fld_score"
+    },
+    {
+      "type": 1,
+      "offset": 34,
+      "value": "0"
+    },
+    {
+      "type": 9,
+      "offset": 40,
+      "value": 0.90000000000000002
+    },
+    {
+      "type": 1,
+      "offset": 52,
+      "value": "k1"
+    },
+    {
+      "type": 1,
+      "offset": 60,
+      "value": "k1"
+    },
+    {
+      "type": 1,
+      "offset": 68,
+      "value": "k1"
+    },
+    {
+      "type": 1,
+      "offset": 76,
+      "value": "Kev_Alph"
+    },
+    {
+      "type": 1,
+      "offset": 90,
+      "value": "k2"
+    },
+    {
+      "type": 1,
+      "offset": 98,
+      "value": "k2"
+    },
+    {
+      "type": 1,
+      "offset": 106,
+      "value": "k2"
+    },
+    {
+      "type": 1,
+      "offset": 114,
+      "value": "Kev_Alph"
+    },
+    {
+      "type": 1,
+      "offset": 128,
+      "value": "k3"
+    },
+    {
+      "type": 1,
+      "offset": 136,
+      "value": "k3"
+    },
+    {
+      "type": 1,
+      "offset": 144,
+      "value": "k3"
+    },
+    {
+      "type": 1,
+      "offset": 152,
+      "value": "Kev_Alph"
+    },
+    {
+      "type": 1,
+      "offset": 166,
+      "value": "fld_high_score_end"
+    },
+    {
+      "type": 1,
+      "offset": 190,
+      "value": "fld_score_end"
+    },
+    {
+      "type": 1,
+      "offset": 208,
+      "value": "HS FM"
+    },
+    {
+      "type": 1,
+      "offset": 218,
+      "value": "End_Stats"
+    },
+    {
+      "type": 1,
+      "offset": 232,
+      "value": " "
+    },
+    {
+      "type": 1,
+      "offset": 238,
+      "value": " "
+    },
+    {
+      "type": 1,
+      "offset": 244,
+      "value": "A"
+    },
+    {
+      "type": 1,
+      "offset": 250,
+      "value": "a"
+    },
+    {
+      "type": 1,
+      "offset": 256,
+      "value": "B"
+    },
+    {
+      "type": 1,
+      "offset": 262,
+      "value": "b"
+    },
+    {
+      "type": 1,
+      "offset": 268,
+      "value": "C"
+    },
+    {
+      "type": 1,
+      "offset": 274,
+      "value": "c"
+    },
+    {
+      "type": 1,
+      "offset": 280,
+      "value": "D"
+    },
+    {
+      "type": 1,
+      "offset": 286,
+      "value": "d"
+    },
+    {
+      "type": 1,
+      "offset": 292,
+      "value": "E"
+    },
+    {
+      "type": 1,
+      "offset": 298,
+      "value": "e"
+    },
+    {
+      "type": 1,
+      "offset": 304,
+      "value": "F"
+    },
+    {
+      "type": 1,
+      "offset": 310,
+      "value": "f"
+    },
+    {
+      "type": 1,
+      "offset": 316,
+      "value": ""
+    },
+    {
+      "type": 1,
+      "offset": 322,
+      "value": "txt_at_top10"
+    },
+    {
+      "type": 1,
+      "offset": 340,
+      "value": "Loading High Scores ...."
+    },
+    {
+      "type": 1,
+      "offset": 370,
+      "value": "txt_day_top10"
+    },
+    {
+      "type": 1,
+      "offset": 388,
+      "value": "Loading High Scores ...."
+    },
+    {
+      "type": 1,
+      "offset": 418,
+      "value": "k1"
+    },
+    {
+      "type": 1,
+      "offset": 426,
+      "value": "bar_bk"
+    },
+    {
+      "type": 1,
+      "offset": 438,
+      "value": "k2"
+    },
+    {
+      "type": 1,
+      "offset": 446,
+      "value": "bar_bk"
+    },
+    {
+      "type": 1,
+      "offset": 458,
+      "value": "k3"
+    },
+    {
+      "type": 1,
+      "offset": 466,
+      "value": "bar_bk"
+    },
+    {
+      "type": 1,
+      "offset": 478,
+      "value": "fld_high_score_end"
+    },
+    {
+      "type": 1,
+      "offset": 502,
+      "value": "0"
+    },
+    {
+      "type": 1,
+      "offset": 508,
+      "value": "fld_score_end"
+    },
+    {
+      "type": 1,
+      "offset": 526,
+      "value": "0"
+    },
+    {
+      "type": 1,
+      "offset": 532,
+      "value": "fld_fname"
+    },
+    {
+      "type": 1,
+      "offset": 546,
+      "value": ""
+    },
+    {
+      "type": 1,
+      "offset": 552,
+      "value": "fld_state"
+    },
+    {
+      "type": 1,
+      "offset": 566,
+      "value": ""
+    },
+    {
+      "type": 1,
+      "offset": 572,
+      "value": "fld_Alert"
+    },
+    {
+      "type": 9,
+      "offset": 586,
+      "value": 90.0
+    },
+    {
+      "type": 9,
+      "offset": 598,
+      "value": 90.0
+    },
+    {
+      "type": 9,
+      "offset": 610,
+      "value": 57.29577951308232286
+    },
+    {
+      "type": 9,
+      "offset": 622,
+      "value": 57.29577951308232286
+    },
+    {
+      "type": 1,
+      "offset": 634,
+      "value": "http://www.bigideafun.com/cgi/high_scores.pl"
+    },
+    {
+      "type": 1,
+      "offset": 684,
+      "value": "game"
+    },
+    {
+      "type": 1,
+      "offset": 694,
+      "value": "spaced_penguin"
+    },
+    {
+      "type": 1,
+      "offset": 714,
+      "value": "|"
+    },
+    {
+      "type": 1,
+      "offset": 720,
+      "value": "There was an error loading the cake"
+    },
+    {
+      "type": 1,
+      "offset": 760,
+      "value": "|"
+    },
+    {
+      "type": 1,
+      "offset": 766,
+      "value": "="
+    },
+    {
+      "type": 1,
+      "offset": 772,
+      "value": "lowScore"
+    },
+    {
+      "type": 1,
+      "offset": 786,
+      "value": "AllTime"
+    },
+    {
+      "type": 1,
+      "offset": 798,
+      "value": "txt_at_top10"
+    },
+    {
+      "type": 1,
+      "offset": 816,
+      "value": "Today"
+    },
+    {
+      "type": 1,
+      "offset": 826,
+      "value": "txt_day_top10"
+    },
+    {
+      "type": 1,
+      "offset": 844,
+      "value": "Error"
+    },
+    {
+      "type": 1,
+      "offset": 854,
+      "value": "Error"
+    }
+  ]
+}

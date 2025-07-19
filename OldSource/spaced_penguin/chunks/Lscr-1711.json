@@ -1,0 +1,95 @@
+{
+  "totalLength": 446,
+  "totalLength2": 446,
+  "headerLength": 92,
+  "scriptNumber": 10,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131081,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 15,
+  "handlerVectorsOffset": 416,
+  "handlerVectorsSize": 16384,
+  "propertiesCount": 1,
+  "propertiesOffset": 92,
+  "globalsCount": 0,
+  "globalsOffset": 94,
+  "handlersCount": 2,
+  "handlersOffset": 94,
+  "literalsCount": 6,
+  "literalsOffset": 276,
+  "literalsDataCount": 92,
+  "literalsDataOffset": 324,
+  "propertyNameIDs": [
+    2
+  ],
+  "globalNameIDs": [],
+  "handlers": [
+    {
+      "nameID": 0,
+      "vectorPos": 65535,
+      "compiledLen": 6,
+      "compiledOffset": 178,
+      "argumentCount": 1,
+      "argumentOffset": 184,
+      "localsCount": 0,
+      "localsOffset": 186,
+      "globalsCount": 0,
+      "globalsOffset": 186,
+      "unknown1": 42,
+      "unknown2": 3,
+      "lineCount": 1,
+      "lineOffset": 186
+    },
+    {
+      "nameID": 1,
+      "vectorPos": 14,
+      "compiledLen": 70,
+      "compiledOffset": 188,
+      "argumentCount": 1,
+      "argumentOffset": 258,
+      "localsCount": 1,
+      "localsOffset": 260,
+      "globalsCount": 1,
+      "globalsOffset": 262,
+      "unknown1": 106,
+      "unknown2": 7,
+      "lineCount": 12,
+      "lineOffset": 264
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "complete"
+    },
+    {
+      "type": 1,
+      "offset": 14,
+      "value": ""
+    },
+    {
+      "type": 1,
+      "offset": 20,
+      "value": "OK"
+    },
+    {
+      "type": 1,
+      "offset": 28,
+      "value": "Sorry, there was an error loading"
+    },
+    {
+      "type": 1,
+      "offset": 66,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 72,
+      "value": "the highscores."
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+property pNotifyglobal gHighScore, gScoreon beginSprite me  pNotify = 1endon enterFrame me  if sprite(36).pDistance > 1500.0 then    if pNotify then      if gHighScore = gScore then        dAlert(#message, "Ooops! Looks like you're in an orbit.  When you want to try again click anywhere on the screen.")        pNotify = 0      end if    end if  end ifend

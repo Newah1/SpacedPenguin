@@ -1,0 +1,5 @@
+on mouseUp
+  [  0] pusharglistnoret 0 ...................... <>
+  [  2] extcall 5 ............................... endDAlert()
+  [  4] ret
+end

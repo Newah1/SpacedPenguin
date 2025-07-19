@@ -1,0 +1,102 @@
+{
+    "name": "Gravitational Maze",
+    "description": "Navigate through a complex field of planets with varying gravitational forces",
+    "startPosition": { "x": 100, "y": 300 },
+    "targetPosition": { "x": 750, "y": 200 },
+    "objects": [
+        {
+            "type": "slingshot",
+            "position": { "x": 100, "y": 300 },
+            "properties": {
+                "anchorX": 100,
+                "anchorY": 300,
+                "stretchLimit": 120,
+                "velocityMultiplier": 18
+            }
+        },
+        {
+            "type": "target",
+            "position": { "x": 750, "y": 200 },
+            "properties": {
+                "width": 80,
+                "height": 80
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 300, "y": 150 },
+            "properties": {
+                "radius": 35,
+                "mass": 150,
+                "gravitationalReach": 4000
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 400, "y": 350 },
+            "properties": {
+                "radius": 45,
+                "mass": 250,
+                "gravitationalReach": 6000
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 600, "y": 250 },
+            "properties": {
+                "radius": 20,
+                "mass": 80,
+                "orbit": {
+                    "center": { "x": 500, "y": 200 },
+                    "radius": 120,
+                    "speed": 0.8
+                }
+            }
+        },
+        {
+            "type": "planet",
+            "position": { "x": 550, "y": 400 },
+            "properties": {
+                "radius": 30,
+                "mass": 120
+            }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 250, "y": 200 },
+            "properties": { "value": 300 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 350, "y": 280 },
+            "properties": { "value": 400 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 500, "y": 150 },
+            "properties": { "value": 500 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 650, "y": 320 },
+            "properties": { "value": 600 }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 700, "y": 150 },
+            "properties": { "value": 800 }
+        }
+    ],
+    "rules": {
+        "maxTries": null,
+        "timeLimit": null,
+        "scoreMultiplier": 2.0,
+        "requiredBonuses": 3,
+        "allowedMisses": 2,
+        "gravitationalConstant": 400,
+        "customBehaviors": [
+            "orbital_mechanics",
+            "enhanced_gravity"
+        ]
+    }
+} 

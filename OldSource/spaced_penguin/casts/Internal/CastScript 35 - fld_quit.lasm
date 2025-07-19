@@ -1,0 +1,14 @@
+global gAlert
+
+on mouseUp
+  [  0] getglobal 1 ............................. <gAlert>
+  [  2] pushzero ................................ <0>
+  [  3] nteq .................................... <gAlert <> 0>
+  [  4] jmpifz [ 11] ............................ if gAlert <> 0 then
+  [  7] pusharglistnoret 0 ...................... <>
+  [  9] extcall 2 ............................... return 
+  [ 11] pushsymb 4 .............................. <#reallyquit>
+  [ 13] pusharglistnoret 1 ...................... <#reallyquit>
+  [ 15] extcall 3 ............................... dAlert(#reallyquit)
+  [ 17] ret
+end

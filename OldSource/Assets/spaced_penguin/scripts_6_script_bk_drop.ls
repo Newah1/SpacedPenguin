@@ -1,0 +1,1 @@
+on beginSprite me  tempMem = sprite(me.spriteNum).member  tempMem.image = image(500, 400, 8)  tempMem.image.fill(0, 0, 500, 400, rgb(0, 0, 0))  tempMem.regPoint = point(0, 0)endon endSprite me  sprite(me.spriteNum).member.image = image(1, 1, 8)end

@@ -1,0 +1,48 @@
+property pScoresNotUpdated
+
+on beginSprite me
+  [  0] pushint8 1 .............................. <1>
+  [  3] setprop 2 ............................... pScoresNotUpdated = 1
+  [  5] ret
+end
+
+on enterFrame me
+  [  0] getprop 2 ............................... <pScoresNotUpdated>
+  [  2] jmpifz [ 69] ............................ if pScoresNotUpdated then
+  [  5] getglobal 8 ............................. <gHSNetID>
+  [  7] pusharglist 1 ........................... <gHSNetID>
+  [  9] extcall 15 .............................. <getStreamStatus(gHSNetID)>
+  [ 11] setlocal 0 .............................. statusList = getStreamStatus(gHSNetID)
+  [ 13] getlocal 0 .............................. <statusList>
+  [ 15] getobjprop 16 ........................... <statusList.state>
+  [ 17] pushcons 0 .............................. <"complete">
+  [ 19] eq ...................................... <statusList.state = "complete">
+  [ 20] jmpifz [ 31] ............................ if statusList.state = "complete" then
+  [ 23] pusharglistnoret 0 ...................... <>
+  [ 25] extcall 34 .............................. processHSNetString()
+  [ 28] pushzero ................................ <0>
+  [ 29] setprop 2 ............................... pScoresNotUpdated = 0
+  [ 31] getglobal 8 ............................. <gHSNetID>
+  [ 33] pusharglist 1 ........................... <gHSNetID>
+  [ 35] extcall 18 .............................. <netError(gHSNetID)>
+  [ 37] pushcons 8 .............................. <EMPTY>
+  [ 39] eq ...................................... <netError(gHSNetID) = EMPTY>
+  [ 40] getglobal 8 ............................. <gHSNetID>
+  [ 42] pusharglist 1 ........................... <gHSNetID>
+  [ 44] extcall 18 .............................. <netError(gHSNetID)>
+  [ 46] pushcons 16 ............................. <"OK">
+  [ 48] eq ...................................... <netError(gHSNetID) = "OK">
+  [ 49] or ...................................... <(netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK")>
+  [ 50] not ..................................... <not ((netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK"))>
+  [ 51] jmpifz [ 69] ............................ if not ((netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK")) then
+  [ 54] pushcons 24 ............................. <"Sorry, there was an error loading">
+  [ 56] pushcons 32 ............................. <RETURN>
+  [ 58] joinstr ................................. <"Sorry, there was an error loading" & RETURN>
+  [ 59] pushcons 40 ............................. <"the highscores.">
+  [ 61] joinstr ................................. <"Sorry, there was an error loading" & RETURN & "the highscores.">
+  [ 62] pusharglistnoret 1 ...................... <"Sorry, there was an error loading" & RETURN & "the highscores.">
+  [ 64] extcall 19 .............................. alert("Sorry, there was an error loading" & RETURN & "the highscores.")
+  [ 66] pushzero ................................ <0>
+  [ 67] setprop 2 ............................... pScoresNotUpdated = 0
+  [ 69] ret
+end

@@ -1,0 +1,33 @@
+{
+  "dataOffset": 12,
+  "unk0": 0,
+  "itemsPerCast": 4,
+  "itemsPerCast": 4,
+  "unk1": 0,
+  "entries": [
+    {
+      "name": "Internal",
+      "filePath": "",
+      "preloadSettings": 0,
+      "minMember": 1,
+      "maxMember": 110,
+      "id": 66560
+    },
+    {
+      "name": "scripts",
+      "filePath": "",
+      "preloadSettings": 0,
+      "minMember": 1,
+      "maxMember": 17,
+      "id": 132096
+    },
+    {
+      "name": "Text",
+      "filePath": "",
+      "preloadSettings": 0,
+      "minMember": 1,
+      "maxMember": 40,
+      "id": 197632
+    }
+  ]
+}

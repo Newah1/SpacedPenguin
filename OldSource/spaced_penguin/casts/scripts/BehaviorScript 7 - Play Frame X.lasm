@@ -1,0 +1,128 @@
+property myTargetFrame
+global gAlert
+
+on getBehaviorDescription me
+  [  0] pushcons 0 .............................. <"PLAY FRAME X">
+  [  2] pushcons 8 .............................. <RETURN>
+  [  4] joinstr ................................. <"PLAY FRAME X" & RETURN>
+  [  5] pushcons 16 ............................. <RETURN>
+  [  7] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN>
+  [  8] pushcons 24 ............................. <"Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame.">
+  [ 10] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame.">
+  [ 11] pushcons 32 ............................. <RETURN>
+  [ 13] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN>
+  [ 14] pushcons 40 ............................. <RETURN>
+  [ 16] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN>
+  [ 17] pushcons 48 ............................. <"If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp).">
+  [ 19] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp).">
+  [ 20] pushcons 56 ............................. <RETURN>
+  [ 22] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN>
+  [ 23] pushcons 64 ............................. <RETURN>
+  [ 25] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN>
+  [ 26] pushcons 72 ............................. <"If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame).">
+  [ 28] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame).">
+  [ 29] pushcons 80 ............................. <RETURN>
+  [ 31] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN>
+  [ 32] pushcons 88 ............................. <RETURN>
+  [ 34] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN>
+  [ 35] pushcons 96 ............................. <"Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame.">
+  [ 37] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame.">
+  [ 38] pushcons 104 ............................ <RETURN>
+  [ 40] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN>
+  [ 41] pushcons 112 ............................ <RETURN>
+  [ 43] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN>
+  [ 44] pushcons 120 ............................ <"PARAMETERS:">
+  [ 46] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:">
+  [ 47] pushcons 128 ............................ <RETURN>
+  [ 49] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN>
+  [ 50] pushcons 136 ............................ <"* Play which frame on mouseUp?">
+  [ 52] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?">
+  [ 53] pushcons 144 ............................ <RETURN>
+  [ 55] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN>
+  [ 56] pushcons 152 ............................ <RETURN>
+  [ 58] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN>
+  [ 59] pushcons 160 ............................ <"ASSOCIATED BEHAVIORS:">
+  [ 61] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:">
+  [ 62] pushcons 168 ............................ <RETURN>
+  [ 64] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN>
+  [ 65] pushcons 176 ............................ <"+ Play Movie X">
+  [ 67] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN & "+ Play Movie X">
+  [ 68] pushcons 184 ............................ <RETURN>
+  [ 70] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN & "+ Play Movie X" & RETURN>
+  [ 71] pushcons 192 ............................ <"+ Play Done">
+  [ 73] joinstr ................................. <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN & "+ Play Movie X" & RETURN & "+ Play Done">
+  [ 74] pusharglistnoret 1 ...................... <"PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN & "+ Play Movie X" & RETURN & "+ Play Done">
+  [ 76] extcall 57 .............................. return "PLAY FRAME X" & RETURN & RETURN & "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame." & RETURN & RETURN & "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)." & RETURN & RETURN & "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)." & RETURN & RETURN & "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame." & RETURN & RETURN & "PARAMETERS:" & RETURN & "* Play which frame on mouseUp?" & RETURN & RETURN & "ASSOCIATED BEHAVIORS:" & RETURN & "+ Play Movie X" & RETURN & "+ Play Done"
+  [ 79] ret
+end
+
+on getBehaviorTooltip me
+  [  0] pushcons 200 ............................ <"Use with graphic members or as a frame behavior. ">
+  [  2] pushcons 208 ............................ <"Jumps the playback head to the given frame. ">
+  [  4] joinstr ................................. <"Use with graphic members or as a frame behavior. " & "Jumps the playback head to the given frame. ">
+  [  5] pushcons 216 ............................ <"Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. ">
+  [  7] joinstr ................................. <"Use with graphic members or as a frame behavior. " & "Jumps the playback head to the given frame. " & "Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. ">
+  [  8] pushcons 224 ............................ <"Use the Play Done behavior to return to this frame.">
+  [ 10] joinstr ................................. <"Use with graphic members or as a frame behavior. " & "Jumps the playback head to the given frame. " & "Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. " & "Use the Play Done behavior to return to this frame.">
+  [ 11] pusharglistnoret 1 ...................... <"Use with graphic members or as a frame behavior. " & "Jumps the playback head to the given frame. " & "Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. " & "Use the Play Done behavior to return to this frame.">
+  [ 13] extcall 57 .............................. return "Use with graphic members or as a frame behavior. " & "Jumps the playback head to the given frame. " & "Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. " & "Use the Play Done behavior to return to this frame."
+  [ 16] ret
+end
+
+on mouseUp me
+  [  0] getglobal 36 ............................ <gAlert>
+  [  3] pushzero ................................ <0>
+  [  4] nteq .................................... <gAlert <> 0>
+  [  5] jmpifz [ 13] ............................ if gAlert <> 0 then
+  [  8] pusharglistnoret 0 ...................... <>
+  [ 10] extcall 57 .............................. return 
+  [ 13] getprop 276 ............................. <myTargetFrame>
+  [ 16] pusharglistnoret 1 ...................... <myTargetFrame>
+  [ 18] extcall 277 ............................. play frame myTargetFrame
+  [ 21] ret
+end
+
+on exitFrame me
+  [  0] getmovieprop 278 ........................ <the currentSpriteNum>
+  [  3] pushzero ................................ <0>
+  [  4] eq ...................................... <the currentSpriteNum = 0>
+  [  5] jmpifz [ 16] ............................ if the currentSpriteNum = 0 then
+  [  8] getprop 276 ............................. <myTargetFrame>
+  [ 11] pusharglistnoret 1 ...................... <myTargetFrame>
+  [ 13] extcall 277 ............................. play frame myTargetFrame
+  [ 16] ret
+end
+
+on isOKToAttach me, aSpriteType, aSpriteNum
+  [  0] pushint8 1 .............................. <1>
+  [  3] pusharglistnoret 1 ...................... <1>
+  [  5] extcall 57 .............................. return 1
+  [  8] ret
+end
+
+on getPropertyDescriptionList me
+  [  0] getmovieprop 278 ........................ <the currentSpriteNum>
+  [  3] pushzero ................................ <0>
+  [  4] eq ...................................... <the currentSpriteNum = 0>
+  [  5] jmpifz [ 15] ............................ if the currentSpriteNum = 0 then / else
+  [  8] pushcons 232 ............................ <"Play which frame on exitFrame?">
+  [ 10] setlocal 0 .............................. theComment = "Play which frame on exitFrame?"
+  [ 12] jmp [ 19]
+  [ 15] pushcons 240 ............................ <"Play which frame on mouseUp?">
+  [ 17] setlocal 0 .............................. theComment = "Play which frame on mouseUp?"
+  [ 19] pushsymb 276 ............................ <#myTargetFrame>
+  [ 22] pushsymb 236 ............................ <#comment>
+  [ 25] getlocal 0 .............................. <theComment>
+  [ 27] pushsymb 237 ............................ <#format>
+  [ 30] pushsymb 71 ............................. <#integer>
+  [ 33] pushsymb 238 ............................ <#default>
+  [ 36] pusharglist 0 ........................... <>
+  [ 38] thebuiltin 171 .......................... <the frame>
+  [ 41] pusharglist 6 ........................... <[#comment: theComment, #format: #integer, #default: the frame]>
+  [ 43] pushproplist ............................ <[#comment: theComment, #format: #integer, #default: the frame]>
+  [ 44] pusharglist 2 ........................... <[#myTargetFrame: [#comment: theComment, #format: #integer, #default: the frame]]>
+  [ 46] pushproplist ............................ <[#myTargetFrame: [#comment: theComment, #format: #integer, #default: the frame]]>
+  [ 47] pusharglistnoret 1 ...................... <[#myTargetFrame: [#comment: theComment, #format: #integer, #default: the frame]]>
+  [ 49] extcall 57 .............................. return [#myTargetFrame: [#comment: theComment, #format: #integer, #default: the frame]]
+  [ 52] ret
+end

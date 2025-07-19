@@ -1,0 +1,77 @@
+{
+  "totalLength": 390,
+  "totalLength2": 390,
+  "headerLength": 92,
+  "scriptNumber": 15,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131087,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 16,
+  "handlerVectorsOffset": 358,
+  "handlerVectorsSize": 32768,
+  "propertiesCount": 0,
+  "propertiesOffset": 92,
+  "globalsCount": 0,
+  "globalsOffset": 92,
+  "handlersCount": 1,
+  "handlersOffset": 92,
+  "literalsCount": 6,
+  "literalsOffset": 220,
+  "literalsDataCount": 90,
+  "literalsDataOffset": 268,
+  "propertyNameIDs": [],
+  "globalNameIDs": [],
+  "handlers": [
+    {
+      "nameID": 115,
+      "vectorPos": 15,
+      "compiledLen": 80,
+      "compiledOffset": 134,
+      "argumentCount": 0,
+      "argumentOffset": 214,
+      "localsCount": 0,
+      "localsOffset": 214,
+      "globalsCount": 0,
+      "globalsOffset": 214,
+      "unknown1": 13,
+      "unknown2": 2,
+      "lineCount": 5,
+      "lineOffset": 214
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "HS_Sending"
+    },
+    {
+      "type": 1,
+      "offset": 16,
+      "value": "Arp"
+    },
+    {
+      "type": 1,
+      "offset": 24,
+      "value": "snd_bonus"
+    },
+    {
+      "type": 1,
+      "offset": 38,
+      "value": "snd_launch"
+    },
+    {
+      "type": 1,
+      "offset": 54,
+      "value": "snd_hitPlanet"
+    },
+    {
+      "type": 1,
+      "offset": 72,
+      "value": "snd_enterShip"
+    }
+  ]
+}

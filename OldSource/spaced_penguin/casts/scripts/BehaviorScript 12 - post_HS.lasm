@@ -1,0 +1,92 @@
+property pScoresNotUpdated
+global gHSNetID, gScore
+
+on beginSprite me
+  [  0] pushint8 1 .............................. <1>
+  [  3] setprop 2 ............................... pScoresNotUpdated = 1
+  [  5] pushcons 0 .............................. <"http://www.bigideafun.com/cgi/high_scores.pl">
+  [  7] setlocal 0 .............................. url = "http://www.bigideafun.com/cgi/high_scores.pl"
+  [  9] pushcons 8 .............................. <"fld_fname">
+  [ 11] pusharglist 1 ........................... <"fld_fname">
+  [ 13] extcall 4 ............................... <member("fld_fname")>
+  [ 15] getobjprop 5 ............................ <member("fld_fname").text>
+  [ 17] pusharglist 1 ........................... <member("fld_fname").text>
+  [ 19] extcall 3 ............................... <trimSpaces(member("fld_fname").text)>
+  [ 21] setlocal 8 .............................. tempFName = trimSpaces(member("fld_fname").text)
+  [ 23] pushcons 16 ............................. <"fld_state">
+  [ 25] pusharglist 1 ........................... <"fld_state">
+  [ 27] extcall 4 ............................... <member("fld_state")>
+  [ 29] getobjprop 5 ............................ <member("fld_state").text>
+  [ 31] pusharglist 1 ........................... <member("fld_state").text>
+  [ 33] extcall 3 ............................... <trimSpaces(member("fld_state").text)>
+  [ 35] setlocal 16 ............................. tempState = trimSpaces(member("fld_state").text)
+  [ 37] pushcons 24 ............................. <"game">
+  [ 39] pushcons 32 ............................. <"spaced_penguin">
+  [ 41] pushcons 40 ............................. <"score">
+  [ 43] getglobal 6 ............................. <gScore>
+  [ 45] pushcons 48 ............................. <"sc">
+  [ 47] getglobal 6 ............................. <gScore>
+  [ 49] getlocal 8 .............................. <tempFName>
+  [ 51] pusharglist 2 ........................... <gScore, tempFName>
+  [ 53] extcall 7 ............................... <encodeScore(gScore, tempFName)>
+  [ 55] pushcons 56 ............................. <"fname">
+  [ 57] getlocal 8 .............................. <tempFName>
+  [ 59] pushcons 64 ............................. <"state">
+  [ 61] getlocal 16 ............................. <tempState>
+  [ 63] pusharglist 10 .......................... <["game": "spaced_penguin", "score": gScore, "sc": encodeScore(gScore, tempFName), "fname": tempFName, "state": tempState]>
+  [ 65] pushproplist ............................ <["game": "spaced_penguin", "score": gScore, "sc": encodeScore(gScore, tempFName), "fname": tempFName, "state": tempState]>
+  [ 66] setlocal 24 ............................. postText = ["game": "spaced_penguin", "score": gScore, "sc": encodeScore(gScore, tempFName), "fname": tempFName, "state": tempState]
+  [ 68] getlocal 0 .............................. <url>
+  [ 70] getlocal 24 ............................. <postText>
+  [ 72] pusharglist 2 ........................... <url, postText>
+  [ 74] extcall 9 ............................... <postNetText(url, postText)>
+  [ 76] setglobal 8 ............................. gHSNetID = postNetText(url, postText)
+  [ 78] ret
+end
+
+on enterFrame me
+  [  0] getglobal 8 ............................. <gHSNetID>
+  [  2] pusharglist 1 ........................... <gHSNetID>
+  [  4] extcall 15 .............................. <getStreamStatus(gHSNetID)>
+  [  6] setlocal 0 .............................. statusList = getStreamStatus(gHSNetID)
+  [  8] getlocal 0 .............................. <statusList>
+  [ 10] getobjprop 16 ........................... <statusList.state>
+  [ 12] pushcons 72 ............................. <"complete">
+  [ 14] eq ...................................... <statusList.state = "complete">
+  [ 15] jmpifz [ 24] ............................ if statusList.state = "complete" then
+  [ 18] pushcons 80 ............................. <"End_Stats">
+  [ 20] pusharglistnoret 1 ...................... <"End_Stats">
+  [ 22] extcall 17 .............................. go("End_Stats")
+  [ 24] getglobal 8 ............................. <gHSNetID>
+  [ 26] pusharglist 1 ........................... <gHSNetID>
+  [ 28] extcall 18 .............................. <netError(gHSNetID)>
+  [ 30] pushcons 88 ............................. <EMPTY>
+  [ 32] eq ...................................... <netError(gHSNetID) = EMPTY>
+  [ 33] getglobal 8 ............................. <gHSNetID>
+  [ 35] pusharglist 1 ........................... <gHSNetID>
+  [ 37] extcall 18 .............................. <netError(gHSNetID)>
+  [ 39] pushcons 96 ............................. <"OK">
+  [ 41] eq ...................................... <netError(gHSNetID) = "OK">
+  [ 42] or ...................................... <(netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK")>
+  [ 43] not ..................................... <not ((netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK"))>
+  [ 44] jmpifz [ 78] ............................ if not ((netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK")) then
+  [ 47] pushcons 104 ............................ <"Sorry, there was an error loading">
+  [ 49] pushcons 112 ............................ <RETURN>
+  [ 51] joinstr ................................. <"Sorry, there was an error loading" & RETURN>
+  [ 52] pushcons 120 ............................ <"the highscores.">
+  [ 54] joinstr ................................. <"Sorry, there was an error loading" & RETURN & "the highscores.">
+  [ 55] pushcons 128 ............................ <RETURN>
+  [ 57] joinstr ................................. <"Sorry, there was an error loading" & RETURN & "the highscores." & RETURN>
+  [ 58] pushcons 136 ............................ <"Net Error: ">
+  [ 60] joinstr ................................. <"Sorry, there was an error loading" & RETURN & "the highscores." & RETURN & "Net Error: ">
+  [ 61] getglobal 8 ............................. <gHSNetID>
+  [ 63] pusharglist 1 ........................... <gHSNetID>
+  [ 65] extcall 18 .............................. <netError(gHSNetID)>
+  [ 67] joinstr ................................. <"Sorry, there was an error loading" & RETURN & "the highscores." & RETURN & "Net Error: " & netError(gHSNetID)>
+  [ 68] pusharglistnoret 1 ...................... <"Sorry, there was an error loading" & RETURN & "the highscores." & RETURN & "Net Error: " & netError(gHSNetID)>
+  [ 70] extcall 19 .............................. alert("Sorry, there was an error loading" & RETURN & "the highscores." & RETURN & "Net Error: " & netError(gHSNetID))
+  [ 72] pushcons 144 ............................ <"End_Stats">
+  [ 74] pusharglistnoret 1 ...................... <"End_Stats">
+  [ 76] extcall 17 .............................. go("End_Stats")
+  [ 78] ret
+end

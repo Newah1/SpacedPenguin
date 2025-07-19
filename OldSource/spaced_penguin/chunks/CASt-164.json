@@ -1,0 +1,15 @@
+{
+  "type": 7,
+  "infoLen": 41,
+  "specificDataLen": 30,
+  "info": {
+    "dataOffset": 20,
+    "unk1": 0,
+    "unk2": 0,
+    "flags": 0,
+    "scriptId": 3,
+    "scriptSrcText": "",
+    "name": "btn_no"
+  },
+  "member": {}
+}

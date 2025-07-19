@@ -1,0 +1,23 @@
+property pScoresNotUpdated
+global gHSNetID, gScore
+
+on beginSprite me
+  pScoresNotUpdated = 1
+  url = "http://www.bigideafun.com/cgi/high_scores.pl"
+  tempFName = trimSpaces(member("fld_fname").text)
+  tempState = trimSpaces(member("fld_state").text)
+  postText = ["game": "spaced_penguin", "score": gScore, "sc": encodeScore(gScore, tempFName), "fname": tempFName, "state": tempState]
+  gHSNetID = postNetText(url, postText)
+end
+
+on enterFrame me
+  global gHSNetID
+  statusList = getStreamStatus(gHSNetID)
+  if statusList.state = "complete" then
+    go("End_Stats")
+  end if
+  if not ((netError(gHSNetID) = EMPTY) or (netError(gHSNetID) = "OK")) then
+    alert("Sorry, there was an error loading" & RETURN & "the highscores." & RETURN & "Net Error: " & netError(gHSNetID))
+    go("End_Stats")
+  end if
+end

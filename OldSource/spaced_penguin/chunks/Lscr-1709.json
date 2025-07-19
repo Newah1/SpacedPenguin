@@ -1,0 +1,286 @@
+{
+  "totalLength": 1972,
+  "totalLength2": 1972,
+  "headerLength": 92,
+  "scriptNumber": 8,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131079,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 16,
+  "handlerVectorsOffset": 1940,
+  "handlerVectorsSize": 32770,
+  "propertiesCount": 1,
+  "propertiesOffset": 92,
+  "globalsCount": 1,
+  "globalsOffset": 94,
+  "handlersCount": 6,
+  "handlersOffset": 96,
+  "literalsCount": 31,
+  "literalsOffset": 610,
+  "literalsDataCount": 1082,
+  "literalsDataOffset": 858,
+  "propertyNameIDs": [
+    276
+  ],
+  "globalNameIDs": [
+    36
+  ],
+  "handlers": [
+    {
+      "nameID": 273,
+      "vectorPos": 65535,
+      "compiledLen": 80,
+      "compiledOffset": 348,
+      "argumentCount": 1,
+      "argumentOffset": 428,
+      "localsCount": 0,
+      "localsOffset": 430,
+      "globalsCount": 0,
+      "globalsOffset": 430,
+      "unknown1": 58,
+      "unknown2": 4,
+      "lineCount": 11,
+      "lineOffset": 430
+    },
+    {
+      "nameID": 274,
+      "vectorPos": 65535,
+      "compiledLen": 17,
+      "compiledOffset": 442,
+      "argumentCount": 1,
+      "argumentOffset": 460,
+      "localsCount": 0,
+      "localsOffset": 462,
+      "globalsCount": 0,
+      "globalsOffset": 462,
+      "unknown1": 971,
+      "unknown2": 19,
+      "lineCount": 5,
+      "lineOffset": 462
+    },
+    {
+      "nameID": 247,
+      "vectorPos": 1,
+      "compiledLen": 22,
+      "compiledOffset": 468,
+      "argumentCount": 1,
+      "argumentOffset": 490,
+      "localsCount": 0,
+      "localsOffset": 492,
+      "globalsCount": 0,
+      "globalsOffset": 492,
+      "unknown1": 1457,
+      "unknown2": 39,
+      "lineCount": 2,
+      "lineOffset": 492
+    },
+    {
+      "nameID": 115,
+      "vectorPos": 15,
+      "compiledLen": 17,
+      "compiledOffset": 494,
+      "argumentCount": 1,
+      "argumentOffset": 512,
+      "localsCount": 0,
+      "localsOffset": 514,
+      "globalsCount": 0,
+      "globalsOffset": 514,
+      "unknown1": 1574,
+      "unknown2": 45,
+      "lineCount": 3,
+      "lineOffset": 514
+    },
+    {
+      "nameID": 275,
+      "vectorPos": 65535,
+      "compiledLen": 9,
+      "compiledOffset": 518,
+      "argumentCount": 3,
+      "argumentOffset": 528,
+      "localsCount": 0,
+      "localsOffset": 534,
+      "globalsCount": 0,
+      "globalsOffset": 534,
+      "unknown1": 1676,
+      "unknown2": 52,
+      "lineCount": 1,
+      "lineOffset": 534
+    },
+    {
+      "nameID": 137,
+      "vectorPos": 65535,
+      "compiledLen": 53,
+      "compiledOffset": 536,
+      "argumentCount": 1,
+      "argumentOffset": 590,
+      "localsCount": 1,
+      "localsOffset": 592,
+      "globalsCount": 0,
+      "globalsOffset": 594,
+      "unknown1": 1759,
+      "unknown2": 57,
+      "lineCount": 16,
+      "lineOffset": 594
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "PLAY FRAME X"
+    },
+    {
+      "type": 1,
+      "offset": 18,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 24,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 30,
+      "value": "Drop this behavior onto a Sprite, the Stage or into the Script Channel of the Score to start a sequence and move the playback head to a given frame."
+    },
+    {
+      "type": 1,
+      "offset": 184,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 190,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 196,
+      "value": "If you drop it onto a graphic member, the 'play' command is sent when the user clicks on the sprite (on mouseUp)."
+    },
+    {
+      "type": 1,
+      "offset": 314,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 320,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 326,
+      "value": "If you drop it onto the Stage or the Script Channel of the Score, it will be sent when the playback head leaves the frame (on exitFrame)."
+    },
+    {
+      "type": 1,
+      "offset": 468,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 474,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 480,
+      "value": "Use the 'Play Done' behavior to end the sequence and to tell the playback head to return to the current frame."
+    },
+    {
+      "type": 1,
+      "offset": 596,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 602,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 608,
+      "value": "PARAMETERS:"
+    },
+    {
+      "type": 1,
+      "offset": 624,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 630,
+      "value": "* Play which frame on mouseUp?"
+    },
+    {
+      "type": 1,
+      "offset": 666,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 672,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 678,
+      "value": "ASSOCIATED BEHAVIORS:"
+    },
+    {
+      "type": 1,
+      "offset": 704,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 710,
+      "value": "+ Play Movie X"
+    },
+    {
+      "type": 1,
+      "offset": 730,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 736,
+      "value": "+ Play Done"
+    },
+    {
+      "type": 1,
+      "offset": 752,
+      "value": "Use with graphic members or as a frame behavior. "
+    },
+    {
+      "type": 1,
+      "offset": 806,
+      "value": "Jumps the playback head to the given frame. "
+    },
+    {
+      "type": 1,
+      "offset": 856,
+      "value": "Acts on mouseUp or on exitFrame, depending on whether you drag it to a sprite or to the Stage. "
+    },
+    {
+      "type": 1,
+      "offset": 956,
+      "value": "Use the Play Done behavior to return to this frame."
+    },
+    {
+      "type": 1,
+      "offset": 1012,
+      "value": "Play which frame on exitFrame?"
+    },
+    {
+      "type": 1,
+      "offset": 1048,
+      "value": "Play which frame on mouseUp?"
+    }
+  ]
+}

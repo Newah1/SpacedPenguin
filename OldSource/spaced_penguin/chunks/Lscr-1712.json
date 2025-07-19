@@ -1,0 +1,77 @@
+{
+  "totalLength": 666,
+  "totalLength2": 666,
+  "headerLength": 92,
+  "scriptNumber": 11,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131082,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 2,
+  "handlerVectorsOffset": 662,
+  "handlerVectorsSize": 2,
+  "propertiesCount": 0,
+  "propertiesOffset": 92,
+  "globalsCount": 0,
+  "globalsOffset": 92,
+  "handlersCount": 1,
+  "handlersOffset": 92,
+  "literalsCount": 6,
+  "literalsOffset": 324,
+  "literalsDataCount": 290,
+  "literalsDataOffset": 372,
+  "propertyNameIDs": [],
+  "globalNameIDs": [],
+  "handlers": [
+    {
+      "nameID": 247,
+      "vectorPos": 1,
+      "compiledLen": 154,
+      "compiledOffset": 134,
+      "argumentCount": 1,
+      "argumentOffset": 288,
+      "localsCount": 4,
+      "localsOffset": 290,
+      "globalsCount": 0,
+      "globalsOffset": 298,
+      "unknown1": 10,
+      "unknown2": 1,
+      "lineCount": 25,
+      "lineOffset": 298
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "fld_fname"
+    },
+    {
+      "type": 1,
+      "offset": 14,
+      "value": "fld_state"
+    },
+    {
+      "type": 1,
+      "offset": 28,
+      "value": "Please enter your first name."
+    },
+    {
+      "type": 1,
+      "offset": 62,
+      "value": "Your first name must be made only of letters and cannot contain any spaces."
+    },
+    {
+      "type": 1,
+      "offset": 142,
+      "value": "Please enter your 2 letter state, province or country abbreviation."
+    },
+    {
+      "type": 1,
+      "offset": 214,
+      "value": "Your state, province or coutry abbreviation must be exactly 2 letters."
+    }
+  ]
+}

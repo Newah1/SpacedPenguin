@@ -1,0 +1,94 @@
+property pSprite, pMass, pGReach
+global gPlanets
+
+on beginSprite me
+  [  0] getparam 0 .............................. <me>
+  [  2] getobjprop 141 .......................... <me.spriteNum>
+  [  5] pusharglist 1 ........................... <me.spriteNum>
+  [  7] extcall 38 .............................. <sprite(me.spriteNum)>
+  [ 10] setprop 140 ............................. pSprite = sprite(me.spriteNum)
+  [ 13] getglobal 178 ........................... <gPlanets>
+  [ 16] pusharglist 0 ........................... <>
+  [ 18] extcall 107 ............................. <VOID>
+  [ 21] eq ...................................... <gPlanets = VOID>
+  [ 22] jmpifz [ 31] ............................ if gPlanets = VOID then
+  [ 25] pusharglist 0 ........................... <[]>
+  [ 27] pushlist ................................ <[]>
+  [ 28] setglobal 178 ........................... gPlanets = []
+  [ 31] getprop 140 ............................. <pSprite>
+  [ 34] getobjprop 182 .......................... <pSprite.width>
+  [ 37] pushint8 2 .............................. <2>
+  [ 40] div ..................................... <pSprite.width / 2>
+  [ 41] getprop 254 ............................. <pGReach>
+  [ 44] add ..................................... <(pSprite.width / 2) + pGReach>
+  [ 45] setlocal 0 .............................. tempReach = (pSprite.width / 2) + pGReach
+  [ 47] getprop 254 ............................. <pGReach>
+  [ 50] pushzero ................................ <0>
+  [ 51] eq ...................................... <pGReach = 0>
+  [ 52] jmpifz [ 60] ............................ if pGReach = 0 then
+  [ 55] pushint8 5000 ........................... <5000>
+  [ 58] setlocal 0 .............................. tempReach = 5000
+  [ 60] getglobal 178 ........................... <gPlanets>
+  [ 63] getprop 140 ............................. <pSprite>
+  [ 66] getobjprop 141 .......................... <pSprite.spriteNum>
+  [ 69] getprop 255 ............................. <pMass>
+  [ 72] getprop 140 ............................. <pSprite>
+  [ 75] getobjprop 182 .......................... <pSprite.width>
+  [ 78] pushint8 2 .............................. <2>
+  [ 81] div ..................................... <pSprite.width / 2>
+  [ 82] pushint8 8 .............................. <8>
+  [ 85] add ..................................... <(pSprite.width / 2) + 8>
+  [ 86] getlocal 0 .............................. <tempReach>
+  [ 88] pusharglist 4 ........................... <[pSprite.spriteNum, pMass, (pSprite.width / 2) + 8, tempReach]>
+  [ 90] pushlist ................................ <[pSprite.spriteNum, pMass, (pSprite.width / 2) + 8, tempReach]>
+  [ 91] pusharglistnoret 2 ...................... <gPlanets, [pSprite.spriteNum, pMass, (pSprite.width / 2) + 8, tempReach]>
+  [ 93] objcall 256 ............................. gPlanets.add([pSprite.spriteNum, pMass, (pSprite.width / 2) + 8, tempReach])
+  [ 96] ret
+end
+
+on endSprite me
+  [  0] pusharglist 0 ........................... <[]>
+  [  2] pushlist ................................ <[]>
+  [  3] setglobal 178 ........................... gPlanets = []
+  [  6] ret
+end
+
+on getPropertyDescriptionList
+  [  0] pushsymb 255 ............................ <#pMass>
+  [  3] pushsymb 236 ............................ <#comment>
+  [  6] pushcons 0 .............................. <"Mass of Planet (higher Mass greater gravitational effect):">
+  [  8] pushsymb 237 ............................ <#format>
+  [ 11] pushsymb 71 ............................. <#integer>
+  [ 14] pushsymb 238 ............................ <#default>
+  [ 17] pushint8 100 ............................ <100>
+  [ 20] pushsymb 239 ............................ <#range>
+  [ 23] pushsymb 240 ............................ <#min>
+  [ 26] pushzero ................................ <0>
+  [ 27] pushsymb 241 ............................ <#max>
+  [ 30] pushint8 1000 ........................... <1000>
+  [ 33] pusharglist 4 ........................... <[#min: 0, #max: 1000]>
+  [ 35] pushproplist ............................ <[#min: 0, #max: 1000]>
+  [ 36] pusharglist 8 ........................... <[#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]]>
+  [ 38] pushproplist ............................ <[#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]]>
+  [ 39] pushsymb 254 ............................ <#pGReach>
+  [ 42] pushsymb 236 ............................ <#comment>
+  [ 45] pushcons 8 .............................. <"Pixel reach of Gravity affect beyond radius (0 infinite):">
+  [ 47] pushsymb 237 ............................ <#format>
+  [ 50] pushsymb 71 ............................. <#integer>
+  [ 53] pushsymb 238 ............................ <#default>
+  [ 56] pushzero ................................ <0>
+  [ 57] pushsymb 239 ............................ <#range>
+  [ 60] pushsymb 240 ............................ <#min>
+  [ 63] pushzero ................................ <0>
+  [ 64] pushsymb 241 ............................ <#max>
+  [ 67] pushint8 200 ............................ <200>
+  [ 70] pusharglist 4 ........................... <[#min: 0, #max: 200]>
+  [ 72] pushproplist ............................ <[#min: 0, #max: 200]>
+  [ 73] pusharglist 8 ........................... <[#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]>
+  [ 75] pushproplist ............................ <[#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]>
+  [ 76] pusharglist 4 ........................... <[#pMass: [#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]], #pGReach: [#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]]>
+  [ 78] pushproplist ............................ <[#pMass: [#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]], #pGReach: [#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]]>
+  [ 79] pusharglistnoret 1 ...................... <[#pMass: [#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]], #pGReach: [#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]]>
+  [ 81] extcall 57 .............................. return [#pMass: [#comment: "Mass of Planet (higher Mass greater gravitational effect):", #format: #integer, #default: 100, #range: [#min: 0, #max: 1000]], #pGReach: [#comment: "Pixel reach of Gravity affect beyond radius (0 infinite):", #format: #integer, #default: 0, #range: [#min: 0, #max: 200]]]
+  [ 84] ret
+end

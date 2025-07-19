@@ -1,0 +1,17 @@
+{
+  "type": 11,
+  "infoLen": 45,
+  "specificDataLen": 2,
+  "info": {
+    "dataOffset": 20,
+    "unk1": 0,
+    "unk2": 0,
+    "flags": 0,
+    "scriptId": 13,
+    "scriptSrcText": "",
+    "name": "reset game"
+  },
+  "member": {
+    "scriptType": 1
+  }
+}

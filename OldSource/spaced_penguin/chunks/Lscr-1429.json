@@ -1,0 +1,163 @@
+{
+  "totalLength": 850,
+  "totalLength2": 850,
+  "headerLength": 92,
+  "scriptNumber": 0,
+  "unk20": 4,
+  "parentNumber": -1,
+  "scriptFlags": 0,
+  "unk42": 0,
+  "castID": 131084,
+  "factoryNameID": -1,
+  "handlerVectorsCount": 15,
+  "handlerVectorsOffset": 820,
+  "handlerVectorsSize": 16384,
+  "propertiesCount": 1,
+  "propertiesOffset": 92,
+  "globalsCount": 2,
+  "globalsOffset": 94,
+  "handlersCount": 2,
+  "handlersOffset": 98,
+  "literalsCount": 19,
+  "literalsOffset": 380,
+  "literalsDataCount": 288,
+  "literalsDataOffset": 532,
+  "propertyNameIDs": [
+    2
+  ],
+  "globalNameIDs": [
+    8,
+    6
+  ],
+  "handlers": [
+    {
+      "nameID": 0,
+      "vectorPos": 65535,
+      "compiledLen": 79,
+      "compiledOffset": 182,
+      "argumentCount": 1,
+      "argumentOffset": 262,
+      "localsCount": 4,
+      "localsOffset": 264,
+      "globalsCount": 0,
+      "globalsOffset": 272,
+      "unknown1": 67,
+      "unknown2": 5,
+      "lineCount": 11,
+      "lineOffset": 272
+    },
+    {
+      "nameID": 1,
+      "vectorPos": 14,
+      "compiledLen": 79,
+      "compiledOffset": 284,
+      "argumentCount": 1,
+      "argumentOffset": 364,
+      "localsCount": 1,
+      "localsOffset": 366,
+      "globalsCount": 1,
+      "globalsOffset": 368,
+      "unknown1": 576,
+      "unknown2": 19,
+      "lineCount": 10,
+      "lineOffset": 370
+    }
+  ],
+  "literals": [
+    {
+      "type": 1,
+      "offset": 0,
+      "value": "http://www.bigideafun.com/cgi/high_scores.pl"
+    },
+    {
+      "type": 1,
+      "offset": 50,
+      "value": "fld_fname"
+    },
+    {
+      "type": 1,
+      "offset": 64,
+      "value": "fld_state"
+    },
+    {
+      "type": 1,
+      "offset": 78,
+      "value": "game"
+    },
+    {
+      "type": 1,
+      "offset": 88,
+      "value": "spaced_penguin"
+    },
+    {
+      "type": 1,
+      "offset": 108,
+      "value": "score"
+    },
+    {
+      "type": 1,
+      "offset": 118,
+      "value": "sc"
+    },
+    {
+      "type": 1,
+      "offset": 126,
+      "value": "fname"
+    },
+    {
+      "type": 1,
+      "offset": 136,
+      "value": "state"
+    },
+    {
+      "type": 1,
+      "offset": 146,
+      "value": "complete"
+    },
+    {
+      "type": 1,
+      "offset": 160,
+      "value": "End_Stats"
+    },
+    {
+      "type": 1,
+      "offset": 174,
+      "value": ""
+    },
+    {
+      "type": 1,
+      "offset": 180,
+      "value": "OK"
+    },
+    {
+      "type": 1,
+      "offset": 188,
+      "value": "Sorry, there was an error loading"
+    },
+    {
+      "type": 1,
+      "offset": 226,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 232,
+      "value": "the highscores."
+    },
+    {
+      "type": 1,
+      "offset": 252,
+      "value": "\r"
+    },
+    {
+      "type": 1,
+      "offset": 258,
+      "value": "Net Error: "
+    },
+    {
+      "type": 1,
+      "offset": 274,
+      "value": "End_Stats"
+    }
+  ]
+}
