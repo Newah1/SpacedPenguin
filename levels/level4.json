@@ -92,8 +92,8 @@
         "timeLimit": null,
         "scoreMultiplier": 2.0,
         "requiredBonuses": 3,
-        "allowedMisses": 2,
-        "gravitationalConstant": 400,
+        "allowedMisses": null,
+        "gravitationalConstant": 3.0,
         "customBehaviors": [
             "orbital_mechanics",
             "enhanced_gravity"

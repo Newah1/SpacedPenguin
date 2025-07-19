@@ -54,8 +54,8 @@
         "timeLimit": null,
         "scoreMultiplier": 3.0,
         "requiredBonuses": 4,
-        "allowedMisses": 0,
-        "gravitationalConstant": 300,
+        "allowedMisses": null,
+        "gravitationalConstant": 3.0,
         "customBehaviors": [
             "precision_mode"
         ]

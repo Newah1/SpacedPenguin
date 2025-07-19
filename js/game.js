@@ -181,7 +181,7 @@ class Game {
                 break;
             case 'r':
                 if (this.state === 'playing') {
-                    this.resetLevel();
+                    this.tryAgain();
                 }
                 break;
             case ' ':

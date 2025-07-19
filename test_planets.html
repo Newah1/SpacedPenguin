@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet SVG Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .planet-test {
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #666;
+            background: #111;
+        }
+    </style>
+</head>
+<body>
+    <h1>Planet SVG Test</h1>
+    <div id="status">Loading...</div>
+    <div class="test-container" id="testContainer"></div>
+
+    <script type="module">
+        import { AssetLoader } from './js/assetLoader.js';
+
+        const statusDiv = document.getElementById('status');
+        const testContainer = document.getElementById('testContainer');
+
+        async function testPlanetLoading() {
+            try {
+                statusDiv.textContent = 'Initializing asset loader...';
+                
+                const assetLoader = new AssetLoader();
+                
+                await new Promise((resolve, reject) => {
+                    assetLoader.loadAssets(
+                        (loader) => {
+                            statusDiv.textContent = 'Assets loaded successfully!';
+                            testPlanets(loader);
+                            resolve();
+                        },
+                        (progress, assetName) => {
+                            statusDiv.textContent = `Loading: ${assetName} (${Math.round(progress)}%)`;
+                        }
+                    );
+                });
+
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+                console.error('Test failed:', error);
+            }
+        }
+
+        function testPlanets(assetLoader) {
+            const planetTypes = ['planet_sun', 'planet_saturn', 'planet_grey', 'planet_pink', 'planet_red_gumball'];
+            
+            planetTypes.forEach((planetType, index) => {
+                const planetDiv = document.createElement('div');
+                planetDiv.className = 'planet-test';
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 100;
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Get the planet sprite
+                const planetSprite = assetLoader.getPlanet(planetType);
+                
+                if (planetSprite && planetSprite.complete) {
+                    // Draw the planet
+                    ctx.save();
+                    ctx.translate(50, 50);
+                    
+                    // Scale to fit canvas
+                    const scale = Math.min(80 / planetSprite.width, 80 / planetSprite.height);
+                    ctx.scale(scale, scale);
+                    
+                    ctx.drawImage(
+                        planetSprite,
+                        -planetSprite.width / 2,
+                        -planetSprite.height / 2,
+                        planetSprite.width,
+                        planetSprite.height
+                    );
+                    
+                    ctx.restore();
+                    
+                    planetDiv.innerHTML = `
+                        <h3>${planetType}</h3>
+                        <p>Size: ${planetSprite.width} x ${planetSprite.height}</p>
+                        ${canvas.outerHTML}
+                    `;
+                } else {
+                    planetDiv.innerHTML = `
+                        <h3>${planetType}</h3>
+                        <p style="color: red;">Failed to load</p>
+                    `;
+                }
+                
+                testContainer.appendChild(planetDiv);
+            });
+        }
+
+        // Start the test
+        testPlanetLoading();
+    </script>
+</body>
+</html> 

@@ -27,11 +27,11 @@
     "title_spaced": "ui/title_spaced.png"
   },
   "planets": {
-    "planet_grey": "planets/planet_grey.swf",
-    "planet_pink": "planets/planet_pink.swf",
-    "planet_red_gumball": "planets/planet_red_gumball.swf",
-    "planet_saturn": "planets/planet_saturn.swf",
-    "planet_sun": "planets/planet_sun.swf"
+    "planet_grey": "planets/planet_grey.svg",
+    "planet_pink": "planets/planet_pink.svg",
+    "planet_red_gumball": "planets/planet_red_gumball.svg",
+    "planet_saturn": "planets/planet_saturn.svg",
+    "planet_sun": "planets/planet_sun.svg"
   },
   "animations": {
     "penguin_spin_xc_sheet": "animations/penguin_spin_xc_sheet.png",

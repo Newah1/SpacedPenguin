@@ -141,7 +141,7 @@ class PenguinOld extends GameObject {
 }
 
 class Planet extends GameObject {
-    constructor(x, y, radius, mass, gravitationalReach = 0) {
+    constructor(x, y, radius, mass, gravitationalReach = 0, planetType = null, assetLoader = null) {
         super(x, y, radius * 2, radius * 2);
         this.renderOrder = 2; // Render planets after bonuses (higher number = rendered later)
         this.radius = radius;
@@ -149,10 +149,20 @@ class Planet extends GameObject {
         this.gravitationalReach = gravitationalReach;
         this.collisionRadius = radius + 8; // Matching old GPS script collision radius
         this.color = this.getPlanetColor(mass);
+        this.planetType = planetType;
+        this.assetLoader = assetLoader;
+        this.planetSprite = null;
         this.orbitRadius = 0;
         this.orbitSpeed = 0;
         this.orbitAngle = 0;
         this.orbitCenter = null;
+        
+        // Initialize sprite if asset loader and planet type are available
+        if (this.assetLoader && this.planetType) {
+            this.initializeSprite().catch(error => {
+                console.error('Failed to initialize planet sprite:', error);
+            });
+        }
     }
     
     getPlanetColor(mass) {
@@ -166,6 +176,21 @@ class Planet extends GameObject {
         return '#C8C8C8'; // Gray
     }
     
+    async initializeSprite() {
+        try {
+            if (this.assetLoader && this.planetType) {
+                // Get the planet sprite from the asset loader
+                const sprite = this.assetLoader.getPlanet(this.planetType);
+                if (sprite) {
+                    this.planetSprite = sprite;
+                    console.log(`Planet sprite initialized for type: ${this.planetType}`);
+                }
+            }
+        } catch (error) {
+            console.error('Error initializing planet sprite:', error);
+        }
+    }
+    
     update(deltaTime) {
         // Update orbiting if applicable
         if (this.orbitCenter && this.orbitRadius > 0) {
@@ -176,6 +201,44 @@ class Planet extends GameObject {
     }
     
     drawSprite(ctx) {
+        // Draw SVG sprite if available
+        if (this.planetSprite && this.planetSprite.complete) {
+            // Scale the sprite to match our planet size
+            const scaleX = (this.radius * 2) / this.planetSprite.width;
+            const scaleY = (this.radius * 2) / this.planetSprite.height;
+            const scale = Math.min(scaleX, scaleY);
+            
+            ctx.save();
+            ctx.scale(scale, scale);
+            
+            // Draw the sprite centered
+            ctx.drawImage(
+                this.planetSprite,
+                -this.planetSprite.width / 2,
+                -this.planetSprite.height / 2,
+                this.planetSprite.width,
+                this.planetSprite.height
+            );
+            
+            ctx.restore();
+        } else {
+            // Fallback: draw simple planet
+            this.drawFallbackPlanet(ctx);
+        }
+        
+        // Draw gravitational reach indicator (if not infinite)
+        if (this.gravitationalReach > 0 && this.gravitationalReach < 5000) {
+            ctx.strokeStyle = this.color;
+            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + this.gravitationalReach, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+    
+    drawFallbackPlanet(ctx) {
         // Draw planet body
         ctx.fillStyle = this.color;
         ctx.beginPath();
@@ -188,17 +251,6 @@ class Planet extends GameObject {
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.stroke();
-        
-        // Draw gravitational reach indicator (if not infinite)
-        if (this.gravitationalReach > 0 && this.gravitationalReach < 5000) {
-            ctx.strokeStyle = this.color;
-            ctx.globalAlpha = 0.3;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.radius + this.gravitationalReach, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.globalAlpha = 1.0;
-        }
     }
     
     setOrbit(center, radius, speed) {

@@ -2,7 +2,6 @@
 export class Penguin {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
-        this.container = new PIXI.Container();
         this.currentAnimation = null;
         this.animations = {};
         
@@ -127,8 +126,7 @@ export class Penguin {
         
         this.setAnimation('xc');
         
-        this.container.x = this.x;
-        this.container.y = this.y;
+
         
         this.initialized = true;
         console.log('Penguin initialized with real sprites');
@@ -182,15 +180,11 @@ export class Penguin {
     set position(pos) {
         this.x = pos.x;
         this.y = pos.y;
-        this.container.x = pos.x;
-        this.container.y = pos.y;
     }
     
     setPosition(x, y) {
         this.x = x;
         this.y = y;
-        this.container.x = x;
-        this.container.y = y;
     }
     
     // Property for velocity (required by Game class)
@@ -235,10 +229,8 @@ export class Penguin {
             // Update position
             this.x += this.vx * deltaTime;
             this.y += this.vy * deltaTime;
-            
+
             // Update container position
-            this.container.x = this.x;
-            this.container.y = this.y;
         }
         
         // Update trail
@@ -301,11 +293,7 @@ export class Penguin {
         // Update animation
         this.updateAnimationFrames();
         
-        // Update PIXI container position if it exists
-        if (this.container) {
-            this.container.x = this.x;
-            this.container.y = this.y;
-        }
+
         
         console.log(`Penguin position updated to: (${this.x.toFixed(2)}, ${this.y.toFixed(2)}), velocity: (${this.vx.toFixed(2)}, ${this.vy.toFixed(2)})`);
     }

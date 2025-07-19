@@ -11,7 +11,7 @@ class GameObjectFactory {
         
         switch (type.toLowerCase()) {
             case 'planet':
-                return this.createPlanet(position, properties);
+                return this.createPlanet(position, properties, assetLoader);
             
             case 'bonus':
                 return this.createBonus(position, properties, assetLoader);
@@ -31,15 +31,16 @@ class GameObjectFactory {
         }
     }
     
-    static createPlanet(position, properties) {
+    static createPlanet(position, properties, assetLoader) {
         const {
             radius = 30,
             mass = 100,
             gravitationalReach = 5000,
-            orbit = null
+            orbit = null,
+            planetType = null
         } = properties;
         
-        const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach);
+        const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader);
         
         // Apply orbital properties if specified
         if (orbit) {
@@ -280,6 +281,7 @@ export class LevelLoader {
         };
         
         // Generate planets
+        const planetTypes = ['planet_sun', 'planet_saturn', 'planet_grey', 'planet_pink', 'planet_red_gumball'];
         for (let i = 0; i < numPlanets; i++) {
             levelDefinition.objects.push({
                 type: 'planet',
@@ -290,7 +292,8 @@ export class LevelLoader {
                 properties: {
                     radius: Utils.random(20, 40),
                     mass: Utils.random(50, 200),
-                    gravitationalReach: 5000
+                    gravitationalReach: 5000,
+                    planetType: planetTypes[i % planetTypes.length]
                 }
             });
         }
@@ -327,7 +330,8 @@ export class LevelLoader {
                     properties: {
                         radius: 30,
                         mass: 500,
-                        gravitationalReach: 5000
+                        gravitationalReach: 5000,
+                        planetType: 'planet_sun'
                     }
                 },
                 {
@@ -376,7 +380,8 @@ export class LevelLoader {
                     position: { x: 300, y: 200 },
                     properties: {
                         radius: 25,
-                        mass: 80
+                        mass: 80,
+                        planetType: 'planet_grey'
                     }
                 },
                 {
@@ -384,7 +389,8 @@ export class LevelLoader {
                     position: { x: 500, y: 400 },
                     properties: {
                         radius: 35,
-                        mass: 120
+                        mass: 120,
+                        planetType: 'planet_saturn'
                     }
                 },
                 {
@@ -422,7 +428,8 @@ export class LevelLoader {
                     position: { x: 350, y: 250 },
                     properties: {
                         radius: 40,
-                        mass: 200
+                        mass: 200,
+                        planetType: 'planet_red_gumball'
                     }
                 },
                 {
@@ -431,6 +438,7 @@ export class LevelLoader {
                     properties: {
                         radius: 20,
                         mass: 60,
+                        planetType: 'planet_pink',
                         orbit: {
                             center: { x: 350, y: 250 },
                             radius: 100,
