@@ -380,7 +380,7 @@ export class LevelLoader {
                     position: { x: 300, y: 200 },
                     properties: {
                         radius: 25,
-                        mass: 80,
+                        mass: 150,
                         planetType: 'planet_grey'
                     }
                 },
@@ -389,7 +389,7 @@ export class LevelLoader {
                     position: { x: 500, y: 400 },
                     properties: {
                         radius: 35,
-                        mass: 120,
+                        mass: 150,
                         planetType: 'planet_saturn'
                     }
                 },

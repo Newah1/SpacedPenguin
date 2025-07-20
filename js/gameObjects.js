@@ -831,14 +831,14 @@ class Arrow extends GameObject {
 }
 
 class Slingshot extends GameObject {
-    constructor(x, y, anchorX = null, anchorY = null, stretchLimit = 100) {
+    constructor(x, y, anchorX = null, anchorY = null, stretchLimit = 150) {
         super(x, y, 100, 100);
         this.renderOrder = 3; // Render slingshot after bonuses but before planets
         // Set position to anchor for consistency
         this.position = { x: anchorX !== null ? anchorX : x, y: anchorY !== null ? anchorY : y };
         this.anchor = this.position;
         this.pullback = { x: 0, y: 0 }; // Offset from anchor
-        this.maxPullback = stretchLimit; // pStretchLimit from Lingo
+        this.maxPullback = stretchLimit; // pStretchLimit from Lingo (increased by 50% for finer control)
         this.minPullback = 10;
         this.isPulling = false;
         // Colors matched from original game screenshot - glowing blue/cyan effect
@@ -848,7 +848,7 @@ class Slingshot extends GameObject {
         this.hoopRadiusX = 26;
         this.hoopRadiusY = 29;
         this.penguin = null; // Reference to penguin object
-        this.velocityMultiplier = 15; // Global velocity multiplier for snappier launches
+        this.velocityMultiplier = 11.25; // Global velocity multiplier (reduced by 25% to compensate for increased pullback range)
         this.rotation = 0; // Hoop rotation (like pSHoopT.rotation)
     }
 

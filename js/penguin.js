@@ -324,8 +324,8 @@ export class Penguin {
         const nx = normalX / normalLength;
         const ny = normalY / normalLength;
         
-        // Calculate velocity magnitude
-        const velocityMagnitude = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        // Calculate velocity magnitude before bounce
+        const velocityMagnitudeBefore = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
         
         // Reflect velocity using the collision normal (matching old GPS logic)
         // Formula: v' = v - 2n)n where n is the normalized normal
@@ -337,7 +337,31 @@ export class Penguin {
         this.vx *= 0.8;
         this.vy *= 0.8;
         
-        console.log('Bounce applied - New velocity:', this.vx, this.vy, 'Magnitude:', velocityMagnitude);
+        // Calculate velocity magnitude after bounce
+        const velocityMagnitudeAfter = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        
+        // If velocity is too small after bounce, give it a minimum push away from planet
+        const minVelocity = 50; // Minimum velocity to ensure penguin moves away
+        if (velocityMagnitudeAfter < minVelocity) {
+            // Push the penguin away from the planet with minimum velocity
+            this.vx = nx * minVelocity;
+            this.vy = ny * minVelocity;
+            console.log('Bounce applied - Minimum velocity push:', this.vx, this.vy, 'Magnitude:', minVelocity);
+        } else {
+            console.log('Bounce applied - New velocity:', this.vx, this.vy, 'Magnitude:', velocityMagnitudeAfter);
+        }
+        
+        // Ensure penguin is outside planet collision radius to prevent getting stuck
+        const distanceToPlanet = Math.sqrt(normalX * normalX + normalY * normalY);
+        const minDistance = planet.collisionRadius + 5; // Add small buffer
+        if (distanceToPlanet < minDistance) {
+            // Move penguin to safe distance from planet
+            const pushDistance = minDistance - distanceToPlanet;
+            this.x += nx * pushDistance;
+            this.y += ny * pushDistance;
+            this.position = { x: this.x, y: this.y };
+            console.log('Penguin repositioned to safe distance from planet');
+        }
     }
     
     // Update crashed state (matching old GPS script crashedFrame)
