@@ -71,6 +71,11 @@ class Game {
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
         
+        // Alpha mask system (matching original game's k1, k2, k3 sprites)
+        this.alphaMasks = []; // Array of last 3 launch positions with alpha masks
+        this.alphaMaskImage = null; // The Kev_Alph alpha mask image
+        this.loadAlphaMask();
+        
         // Input handling
         this.mouseDown = false;
         this.mousePosition = { x: 0, y: 0 };
@@ -200,6 +205,10 @@ class Game {
     
     launchPenguin(velocity) {
         console.log('Game launchPenguin called with velocity:', velocity);
+        
+        // Create alpha mask at current launch position (matching original game's setUpSnapping)
+        this.createAlphaMaskAtLaunchPosition();
+        
         this.penguin.launch(velocity.x, velocity.y);
         this.penguin.setState('soaring');
         this.tries++;
@@ -213,6 +222,8 @@ class Game {
         
         // Start recording shot path
         this.startRecordingShotPath();
+        
+
     }
     
     // Shot path recording methods (matching original game behavior)
@@ -296,6 +307,69 @@ class Game {
             }
             
             ctx.stroke();
+            ctx.restore();
+        }
+    }
+    
+    drawAlphaMasks(ctx) {
+        if (!this.alphaMaskImage || !this.alphaMaskImage.complete) return;
+        
+        if (this.alphaMasks.length === 0) return;
+        
+        // Draw alpha masks in reverse order (oldest first, newest last)
+        for (let i = this.alphaMasks.length - 1; i >= 0; i--) {
+            const mask = this.alphaMasks[i];
+            
+            ctx.save();
+            ctx.globalAlpha = mask.alpha;
+            ctx.translate(mask.x, mask.y);
+            
+            // Create a temporary canvas for the colored alpha mask
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = this.alphaMaskImage.width;
+            tempCanvas.height = this.alphaMaskImage.height;
+            
+            // Fill with the trace color
+            tempCtx.fillStyle = mask.color;
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Convert the black shape on white background to a proper alpha mask
+            // We want to keep the color only where the mask is black (the shape)
+            
+            // Get the alpha mask image data to convert black pixels to alpha
+            const maskCanvas = document.createElement('canvas');
+            const maskCtx = maskCanvas.getContext('2d');
+            maskCanvas.width = this.alphaMaskImage.width;
+            maskCanvas.height = this.alphaMaskImage.height;
+            
+            // Draw the alpha mask
+            maskCtx.drawImage(this.alphaMaskImage, 0, 0);
+            
+            // Get the mask image data
+            const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+            const maskData = maskImageData.data;
+            
+            // Convert grayscale values to alpha (black = opaque, white = transparent)
+            for (let i = 0; i < maskData.length; i += 4) {
+                const gray = (maskData[i] + maskData[i + 1] + maskData[i + 2]) / 3;
+                maskData[i] = 255;     // Red = white
+                maskData[i + 1] = 255; // Green = white
+                maskData[i + 2] = 255; // Blue = white
+                maskData[i + 3] = 255 - gray; // Alpha = inverted gray (black becomes opaque, white becomes transparent)
+            }
+            
+            // Put the converted mask back
+            maskCtx.putImageData(maskImageData, 0, 0);
+            
+            // Now use destination-in to apply this alpha mask
+            tempCtx.globalCompositeOperation = 'destination-in';
+            tempCtx.drawImage(maskCanvas, 0, 0);
+            
+            // Draw the result centered on the launch position
+            // Use the registration point from the original game: [8, 13]
+            ctx.drawImage(tempCanvas, -8, -13);
+            
             ctx.restore();
         }
     }
@@ -550,6 +624,7 @@ class Game {
         this.resetBonuses();
         this.physics.clearTrace();
         this.clearAllShotPaths();
+        this.clearAlphaMasks();
         this.arrow.visible = false; // Reset arrow visibility
         this.state = 'playing';
     }
@@ -584,6 +659,7 @@ class Game {
         
         // Clear all shot path traces for new level
         this.clearAllShotPaths();
+        this.clearAlphaMasks();
         
         // Load level through level loader first
         const result = this.levelLoader.loadLevel(level, this);
@@ -612,6 +688,9 @@ class Game {
         
         // Draw all shot paths (like original game)
         this.drawAllShotPaths(this.ctx);
+        
+        // Draw alpha masks (matching original game's k1, k2, k3 sprites)
+        this.drawAlphaMasks(this.ctx);
         
         // Draw physics trace
         this.physics.drawTrace(this.ctx);
@@ -782,6 +861,52 @@ class Game {
         console.log('tryAgain called - immediately resetting penguin');
         this.endRecordingShotPath();
         this.resetPenguinToSlingshot();
+    }
+
+
+    
+    createAlphaMaskAtLaunchPosition() {
+        if (!this.penguin) return;
+        
+        // Get current trace color (matching original game's pTraceColor)
+        const traceColor = this.shotColors[this.currentColorIndex];
+        
+        // Create alpha mask object (matching original game's k1, k2, k3 sprites)
+        const alphaMask = {
+            x: this.penguin.x,
+            y: this.penguin.y,
+            color: traceColor,
+            alpha: 0.6 // Semi-transparent like original
+        };
+        
+        // Shift existing masks (matching original game's setUpSnapping logic)
+        // k3 gets k2's position, k2 gets k1's position, k1 gets current position
+        if (this.alphaMasks.length >= 3) {
+            this.alphaMasks[2] = this.alphaMasks[1]; // k3 = k2
+            this.alphaMasks[1] = this.alphaMasks[0]; // k2 = k1
+            this.alphaMasks[0] = alphaMask; // k1 = new position
+        } else {
+            this.alphaMasks.unshift(alphaMask);
+        }
+        
+
+    }
+    
+    clearAlphaMasks() {
+        this.alphaMasks = [];
+        console.log('Cleared all alpha masks');
+    }
+    
+    loadAlphaMask() {
+        // Load the alpha mask image directly
+        this.alphaMaskImage = new Image();
+        this.alphaMaskImage.onload = () => {
+            console.log('Alpha mask image loaded successfully');
+        };
+        this.alphaMaskImage.onerror = () => {
+            console.error('Failed to load alpha mask image');
+        };
+        this.alphaMaskImage.src = 'assets/ui/alpha_mask.png';
     }
 }
 
