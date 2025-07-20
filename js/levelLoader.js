@@ -44,11 +44,7 @@ class GameObjectFactory {
         
         // Apply orbital properties if specified
         if (orbit) {
-            planet.setOrbit(
-                orbit.center || { x: 0, y: 0 },
-                orbit.radius || 0,
-                orbit.speed || 0
-            );
+            this.applyOrbitToObject(planet, orbit);
         }
         
         return planet;
@@ -60,11 +56,7 @@ class GameObjectFactory {
         const bonus = new Bonus(position.x, position.y, value, assetLoader);
 
         if (properties.orbit) {
-            bonus.setOrbit(
-                properties.orbit.center || { x: 0, y: 0 },
-                properties.orbit.radius || 0,
-                properties.orbit.speed || 0
-            );
+            this.applyOrbitToObject(bonus, properties.orbit);
         }
 
         return bonus;
@@ -94,6 +86,45 @@ class GameObjectFactory {
         // Would return new Obstacle(position.x, position.y, width, height, type);
         console.warn('Obstacle type not yet implemented');
         return null;
+    }
+    
+    static applyOrbitToObject(object, orbitConfig) {
+        const center = orbitConfig.center || { x: 0, y: 0 };
+        const speed = orbitConfig.speed || 0;
+        
+        switch (orbitConfig.type || 'circular') {
+            case 'circular':
+                object.setCircularOrbit(center, orbitConfig.radius || 0, speed);
+                break;
+                
+            case 'elliptical':
+                const semiMajorAxis = orbitConfig.semiMajorAxis || orbitConfig.radius || 100;
+                const semiMinorAxis = orbitConfig.semiMinorAxis || semiMajorAxis * 0.7;
+                const rotation = orbitConfig.rotation || 0;
+                object.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
+                break;
+                
+            case 'figure8':
+                const size = orbitConfig.size || orbitConfig.radius || 100;
+                object.setFigure8Orbit(center, size, speed);
+                break;
+                
+            case 'custom':
+                if (orbitConfig.xFunction && orbitConfig.yFunction) {
+                    // For custom orbits, we'd need to pass functions
+                    // This is more complex and would require special handling
+                    console.warn('Custom orbit functions not yet supported in JSON config');
+                    object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
+                } else {
+                    object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
+                }
+                break;
+                
+            default:
+                // Legacy support - treat as circular
+                object.setCircularOrbit(center, orbitConfig.radius || 0, speed);
+                break;
+        }
     }
 }
 
@@ -329,7 +360,7 @@ export class LevelLoader {
                     position: { x: 400, y: 200 },
                     properties: {
                         radius: 30,
-                        mass: 500,
+                        mass: 300,
                         gravitationalReach: 5000,
                         planetType: 'planet_sun'
                     }

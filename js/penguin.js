@@ -424,7 +424,7 @@ export class Penguin {
         // Update animation frame (matching old GPS script logic)
         if (this.isSpinning) {
             // Slow down animation by only updating every 4th call
-            this.aniSwap = (this.aniSwap + 1) % 4;
+            this.aniSwap = (this.aniSwap + 1) % 8;
             
             if (this.aniSwap === 0) {
                 this.aniFrame = this.aniFrame + this.aniDir;
@@ -558,7 +558,7 @@ export class Penguin {
         ctx.translate(-regPoint[0], -regPoint[1]);
         
         // Scale up the sprite slightly (1.5x for better visibility)
-        const scale = 1.5;
+        const scale = 1.2;
         ctx.scale(scale, scale);
         
         // Create a temporary canvas for color keying

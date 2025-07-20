@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaced Penguin - Orbit System Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00ffff;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #0099ff;
+        }
+        
+        canvas {
+            border: 2px solid #00ffff;
+            display: block;
+            margin: 0 auto;
+            background: #001122;
+        }
+        
+        .info {
+            text-align: center;
+            margin-top: 20px;
+            color: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Spaced Penguin - Orbit System Test</h1>
+    
+    <div class="controls">
+        <button onclick="testCircular()">Circular Orbits</button>
+        <button onclick="testElliptical()">Elliptical Orbits</button>
+        <button onclick="testFigure8()">Figure-8 Orbits</button>
+        <button onclick="testMixed()">Mixed Orbits</button>
+        <button onclick="clearCanvas()">Clear</button>
+    </div>
+    
+    <canvas id="orbitCanvas" width="800" height="600"></canvas>
+    
+    <div class="info">
+        <p>This test demonstrates the new consolidated orbit system with support for:</p>
+        <ul style="display: inline-block; text-align: left;">
+            <li>Circular orbits (original behavior)</li>
+            <li>Elliptical orbits with rotation</li>
+            <li>Figure-8 orbits (lemniscate)</li>
+            <li>Custom parametric orbits</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import { OrbitSystem, Planet, Bonus } from './js/gameObjects.js';
+        
+        const canvas = document.getElementById('orbitCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let animationId;
+        let objects = [];
+        let time = 0;
+        
+        // Create test objects
+        function createTestObjects() {
+            objects = [];
+            
+            // Central planet
+            const centralPlanet = new Planet(400, 300, 30, 200);
+            objects.push(centralPlanet);
+            
+            // Test bonuses with different orbits
+            const bonus1 = new Bonus(300, 200, 100);
+            const bonus2 = new Bonus(500, 200, 200);
+            const bonus3 = new Bonus(300, 400, 300);
+            const bonus4 = new Bonus(500, 400, 400);
+            
+            objects.push(bonus1, bonus2, bonus3, bonus4);
+            
+            return { centralPlanet, bonus1, bonus2, bonus3, bonus4 };
+        }
+        
+        function testCircular() {
+            clearCanvas();
+            const { centralPlanet, bonus1, bonus2, bonus3, bonus4 } = createTestObjects();
+            
+            // Set up circular orbits
+            bonus1.setCircularOrbit({ x: 400, y: 300 }, 100, 1.0);
+            bonus2.setCircularOrbit({ x: 400, y: 300 }, 100, -0.8);
+            bonus3.setCircularOrbit({ x: 400, y: 300 }, 150, 0.6);
+            bonus4.setCircularOrbit({ x: 400, y: 300 }, 150, -0.4);
+            
+            startAnimation();
+        }
+        
+        function testElliptical() {
+            clearCanvas();
+            const { centralPlanet, bonus1, bonus2, bonus3, bonus4 } = createTestObjects();
+            
+            // Set up elliptical orbits
+            bonus1.setEllipticalOrbit({ x: 400, y: 300 }, 120, 80, 0.8, 0);
+            bonus2.setEllipticalOrbit({ x: 400, y: 300 }, 100, 60, -0.6, Math.PI / 4);
+            bonus3.setEllipticalOrbit({ x: 400, y: 300 }, 140, 90, 0.5, Math.PI / 2);
+            bonus4.setEllipticalOrbit({ x: 400, y: 300 }, 110, 70, -0.7, Math.PI / 3);
+            
+            startAnimation();
+        }
+        
+        function testFigure8() {
+            clearCanvas();
+            const { centralPlanet, bonus1, bonus2, bonus3, bonus4 } = createTestObjects();
+            
+            // Set up figure-8 orbits
+            bonus1.setFigure8Orbit({ x: 400, y: 300 }, 80, 0.6);
+            bonus2.setFigure8Orbit({ x: 400, y: 300 }, 60, -0.4);
+            bonus3.setFigure8Orbit({ x: 400, y: 300 }, 100, 0.3);
+            bonus4.setFigure8Orbit({ x: 400, y: 300 }, 70, -0.5);
+            
+            startAnimation();
+        }
+        
+        function testMixed() {
+            clearCanvas();
+            const { centralPlanet, bonus1, bonus2, bonus3, bonus4 } = createTestObjects();
+            
+            // Mix of different orbit types
+            bonus1.setCircularOrbit({ x: 400, y: 300 }, 100, 1.0);
+            bonus2.setEllipticalOrbit({ x: 400, y: 300 }, 120, 80, 0.7, Math.PI / 6);
+            bonus3.setFigure8Orbit({ x: 400, y: 300 }, 90, 0.5);
+            bonus4.setEllipticalOrbit({ x: 400, y: 300 }, 140, 60, -0.6, Math.PI / 3);
+            
+            startAnimation();
+        }
+        
+        function clearCanvas() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            objects = [];
+        }
+        
+        function startAnimation() {
+            time = 0;
+            animate();
+        }
+        
+        function animate() {
+            time += 1/60; // 60 FPS
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw all objects
+            objects.forEach(obj => {
+                obj.update(1/60);
+                obj.draw(ctx);
+            });
+            
+            // Draw orbit paths (for visualization)
+            drawOrbitPaths();
+            
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        function drawOrbitPaths() {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            
+            objects.forEach(obj => {
+                if (obj.orbitSystem && obj.orbitSystem.orbitCenter) {
+                    const center = obj.orbitSystem.orbitCenter;
+                    
+                    if (obj.orbitSystem.orbitType === 'circular') {
+                        ctx.beginPath();
+                        ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+                        ctx.stroke();
+                    } else if (obj.orbitSystem.orbitType === 'elliptical') {
+                        const { semiMajorAxis, semiMinorAxis, rotation } = obj.orbitSystem.orbitParams;
+                        
+                        ctx.save();
+                        ctx.translate(center.x, center.y);
+                        ctx.rotate(rotation);
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, semiMajorAxis, semiMinorAxis, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    } else if (obj.orbitSystem.orbitType === 'figure8') {
+                        const { size } = obj.orbitSystem.orbitParams;
+                        
+                        ctx.beginPath();
+                        for (let angle = 0; angle < Math.PI * 2; angle += 0.1) {
+                            const denominator = 1 + Math.sin(angle) * Math.sin(angle);
+                            const x = center.x + size * Math.cos(angle) / denominator;
+                            const y = center.y + size * Math.sin(angle) * Math.cos(angle) / denominator;
+                            
+                            if (angle === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        ctx.stroke();
+                    }
+                }
+            });
+        }
+        
+        // Make functions global for button access
+        window.testCircular = testCircular;
+        window.testElliptical = testElliptical;
+        window.testFigure8 = testFigure8;
+        window.testMixed = testMixed;
+        window.clearCanvas = clearCanvas;
+        
+        // Start with circular orbits
+        testCircular();
+    </script>
+</body>
+</html> 

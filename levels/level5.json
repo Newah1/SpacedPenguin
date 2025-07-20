@@ -1,63 +1,133 @@
 {
-    "name": "Precision Challenge",
-    "description": "Hit the target with perfect accuracy - collect ALL bonuses or fail!",
-    "startPosition": { "x": 80, "y": 400 },
-    "targetPosition": { "x": 720, "y": 100 },
+    "name": "Orbit Showcase",
+    "description": "Demonstrates different orbit types: circular, elliptical, and figure-8",
+    "startPosition": { "x": 100, "y": 300 },
+    "targetPosition": { "x": 750, "y": 300 },
     "objects": [
         {
-            "type": "planet",
-            "position": { "x": 200, "y": 200 },
+            "type": "slingshot",
+            "position": { "x": 100, "y": 300 },
             "properties": {
-                "radius": 25,
-                "mass": 60
+                "anchorX": 100,
+                "anchorY": 300,
+                "stretchLimit": 120,
+                "velocityMultiplier": 15
+            }
+        },
+        {
+            "type": "target",
+            "position": { "x": 750, "y": 300 },
+            "properties": {
+                "width": 80,
+                "height": 80
             }
         },
         {
             "type": "planet",
-            "position": { "x": 400, "y": 300 },
+            "position": { "x": 400, "y": 200 },
             "properties": {
                 "radius": 40,
-                "mass": 180
+                "mass": 300,
+                "gravitationalReach": 5000,
+                "planetType": "planet_sun"
             }
         },
         {
             "type": "planet",
-            "position": { "x": 600, "y": 250 },
+            "position": { "x": 600, "y": 400 },
             "properties": {
-                "radius": 30,
-                "mass": 100
+                "radius": 25,
+                "mass": 150,
+                "gravitationalReach": 3000,
+                "planetType": "planet_saturn",
+                "orbit": {
+                    "type": "elliptical",
+                    "center": { "x": 400, "y": 200 },
+                    "semiMajorAxis": 200,
+                    "semiMinorAxis": 120,
+                    "speed": 0.5,
+                    "rotation": 0.3
+                }
             }
         },
         {
             "type": "bonus",
-            "position": { "x": 150, "y": 150 },
-            "properties": { "value": 1000 }
+            "position": { "x": 300, "y": 150 },
+            "properties": {
+                "value": 200,
+                "orbit": {
+                    "type": "circular",
+                    "center": { "x": 400, "y": 200 },
+                    "radius": 80,
+                    "speed": 1.2
+                }
+            }
         },
         {
             "type": "bonus",
-            "position": { "x": 320, "y": 240 },
-            "properties": { "value": 1200 }
+            "position": { "x": 500, "y": 250 },
+            "properties": {
+                "value": 300,
+                "orbit": {
+                    "type": "circular",
+                    "center": { "x": 400, "y": 200 },
+                    "radius": 80,
+                    "speed": -0.8
+                }
+            }
         },
         {
             "type": "bonus",
-            "position": { "x": 480, "y": 180 },
-            "properties": { "value": 1500 }
+            "position": { "x": 350, "y": 350 },
+            "properties": {
+                "value": 400,
+                "orbit": {
+                    "type": "elliptical",
+                    "center": { "x": 400, "y": 200 },
+                    "semiMajorAxis": 150,
+                    "semiMinorAxis": 80,
+                    "speed": 0.7,
+                    "rotation": 1.2
+                }
+            }
         },
         {
             "type": "bonus",
-            "position": { "x": 650, "y": 200 },
-            "properties": { "value": 2000 }
+            "position": { "x": 200, "y": 400 },
+            "properties": {
+                "value": 500,
+                "orbit": {
+                    "type": "figure8",
+                    "center": { "x": 400, "y": 200 },
+                    "size": 100,
+                    "speed": 0.6
+                }
+            }
+        },
+        {
+            "type": "bonus",
+            "position": { "x": 650, "y": 150 },
+            "properties": {
+                "value": 600,
+                "orbit": {
+                    "type": "figure8",
+                    "center": { "x": 600, "y": 400 },
+                    "size": 80,
+                    "speed": -0.4
+                }
+            }
         }
     ],
     "rules": {
         "maxTries": null,
         "timeLimit": null,
-        "scoreMultiplier": 3.0,
-        "requiredBonuses": 4,
+        "scoreMultiplier": 1.5,
+        "requiredBonuses": 3,
         "allowedMisses": null,
-        "gravitationalConstant": 3.0,
+        "gravitationalConstant": 2.5,
         "customBehaviors": [
-            "precision_mode"
+            "orbital_mechanics",
+            "enhanced_gravity"
         ]
     }
 } 

@@ -3,6 +3,143 @@
 
 import Utils from './utils.js';
 
+// New consolidated orbit system supporting non-circular orbits
+class OrbitSystem {
+    constructor() {
+        this.orbitCenter = null;
+        this.orbitRadius = 0;
+        this.orbitSpeed = 0;
+        this.orbitAngle = 0;
+        this.orbitType = 'circular'; // 'circular', 'elliptical', 'figure8', 'custom'
+        this.orbitParams = {}; // Additional parameters for complex orbits
+    }
+    
+    // Set up circular orbit (original behavior)
+    setCircularOrbit(center, radius, speed) {
+        this.orbitCenter = center;
+        this.orbitRadius = radius;
+        this.orbitSpeed = speed;
+        this.orbitType = 'circular';
+        this.orbitParams = {};
+    }
+    
+    // Set up elliptical orbit
+    setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation = 0) {
+        this.orbitCenter = center;
+        this.orbitRadius = semiMajorAxis; // Keep for compatibility
+        this.orbitSpeed = speed;
+        this.orbitType = 'elliptical';
+        this.orbitParams = {
+            semiMajorAxis: semiMajorAxis,
+            semiMinorAxis: semiMinorAxis,
+            rotation: rotation // Rotation of ellipse in radians
+        };
+    }
+    
+    // Set up figure-8 orbit (lemniscate)
+    setFigure8Orbit(center, size, speed) {
+        this.orbitCenter = center;
+        this.orbitRadius = size;
+        this.orbitSpeed = speed;
+        this.orbitType = 'figure8';
+        this.orbitParams = {
+            size: size
+        };
+    }
+    
+    // Set up custom parametric orbit
+    setCustomOrbit(center, speed, xFunction, yFunction) {
+        this.orbitCenter = center;
+        this.orbitSpeed = speed;
+        this.orbitType = 'custom';
+        this.orbitParams = {
+            xFunction: xFunction,
+            yFunction: yFunction
+        };
+    }
+    
+    // Update orbit position
+    update(deltaTime) {
+        if (!this.orbitCenter || this.orbitSpeed === 0) {
+            return { x: 0, y: 0 };
+        }
+        
+        this.orbitAngle += this.orbitSpeed * deltaTime;
+        
+        switch (this.orbitType) {
+            case 'circular':
+                return this.calculateCircularPosition();
+            case 'elliptical':
+                return this.calculateEllipticalPosition();
+            case 'figure8':
+                return this.calculateFigure8Position();
+            case 'custom':
+                return this.calculateCustomPosition();
+            default:
+                return this.calculateCircularPosition();
+        }
+    }
+    
+    calculateCircularPosition() {
+        return {
+            x: this.orbitCenter.x + Math.cos(this.orbitAngle) * this.orbitRadius,
+            y: this.orbitCenter.y + Math.sin(this.orbitAngle) * this.orbitRadius
+        };
+    }
+    
+    calculateEllipticalPosition() {
+        const { semiMajorAxis, semiMinorAxis, rotation } = this.orbitParams;
+        
+        // Calculate position on unrotated ellipse
+        const x = Math.cos(this.orbitAngle) * semiMajorAxis;
+        const y = Math.sin(this.orbitAngle) * semiMinorAxis;
+        
+        // Apply rotation
+        const cosRot = Math.cos(rotation);
+        const sinRot = Math.sin(rotation);
+        const rotatedX = x * cosRot - y * sinRot;
+        const rotatedY = x * sinRot + y * cosRot;
+        
+        return {
+            x: this.orbitCenter.x + rotatedX,
+            y: this.orbitCenter.y + rotatedY
+        };
+    }
+    
+    calculateFigure8Position() {
+        const { size } = this.orbitParams;
+        
+        // Lemniscate of Bernoulli formula
+        const denominator = 1 + Math.sin(this.orbitAngle) * Math.sin(this.orbitAngle);
+        const x = size * Math.cos(this.orbitAngle) / denominator;
+        const y = size * Math.sin(this.orbitAngle) * Math.cos(this.orbitAngle) / denominator;
+        
+        return {
+            x: this.orbitCenter.x + x,
+            y: this.orbitCenter.y + y
+        };
+    }
+    
+    calculateCustomPosition() {
+        const { xFunction, yFunction } = this.orbitParams;
+        
+        if (typeof xFunction === 'function' && typeof yFunction === 'function') {
+            return {
+                x: this.orbitCenter.x + xFunction(this.orbitAngle),
+                y: this.orbitCenter.y + yFunction(this.orbitAngle)
+            };
+        }
+        
+        // Fallback to circular
+        return this.calculateCircularPosition();
+    }
+    
+    // Legacy compatibility method
+    setOrbit(center, radius, speed) {
+        this.setCircularOrbit(center, radius, speed);
+    }
+}
+
 class GameObject {
     constructor(x, y, width, height) {
         this.position = { x: x, y: y };
@@ -152,10 +289,9 @@ class Planet extends GameObject {
         this.planetType = planetType;
         this.assetLoader = assetLoader;
         this.planetSprite = null;
-        this.orbitRadius = 0;
-        this.orbitSpeed = 0;
-        this.orbitAngle = 0;
-        this.orbitCenter = null;
+        
+        // Use consolidated orbit system
+        this.orbitSystem = new OrbitSystem();
         
         // Initialize sprite if asset loader and planet type are available
         if (this.assetLoader && this.planetType) {
@@ -192,11 +328,10 @@ class Planet extends GameObject {
     }
     
     update(deltaTime) {
-        // Update orbiting if applicable
-        if (this.orbitCenter && this.orbitRadius > 0) {
-            this.orbitAngle += this.orbitSpeed * deltaTime;
-            this.position.x = this.orbitCenter.x + Math.cos(this.orbitAngle) * this.orbitRadius;
-            this.position.y = this.orbitCenter.y + Math.sin(this.orbitAngle) * this.orbitRadius;
+        // Update orbiting using consolidated system
+        const newPosition = this.orbitSystem.update(deltaTime);
+        if (newPosition.x !== 0 || newPosition.y !== 0) {
+            this.position = newPosition;
         }
     }
     
@@ -253,10 +388,26 @@ class Planet extends GameObject {
         ctx.stroke();
     }
     
+    // Legacy orbit methods for compatibility
     setOrbit(center, radius, speed) {
-        this.orbitCenter = center;
-        this.orbitRadius = radius;
-        this.orbitSpeed = speed;
+        this.orbitSystem.setCircularOrbit(center, radius, speed);
+    }
+    
+    // New orbit methods
+    setCircularOrbit(center, radius, speed) {
+        this.orbitSystem.setCircularOrbit(center, radius, speed);
+    }
+    
+    setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation = 0) {
+        this.orbitSystem.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
+    }
+    
+    setFigure8Orbit(center, size, speed) {
+        this.orbitSystem.setFigure8Orbit(center, size, speed);
+    }
+    
+    setCustomOrbit(center, speed, xFunction, yFunction) {
+        this.orbitSystem.setCustomOrbit(center, speed, xFunction, yFunction);
     }
 }
 
@@ -277,11 +428,8 @@ class Bonus extends GameObject {
         this.pulseSpeed = 0.1;
         this.alpha = 1.0;
         
-        // Orbiting properties (like Planet class)
-        this.orbitRadius = 0;
-        this.orbitSpeed = 0;
-        this.orbitAngle = 0;
-        this.orbitCenter = null;
+        // Use consolidated orbit system
+        this.orbitSystem = new OrbitSystem();
         
         // Initialize sprites if asset loader is available
         if (this.assetLoader) {
@@ -348,11 +496,10 @@ class Bonus extends GameObject {
         // Apply rotation
         this.rotation += this.rotationSpeed * deltaTime;
         
-        // Update orbiting if applicable
-        if (this.orbitCenter && this.orbitRadius > 0) {
-            this.orbitAngle += this.orbitSpeed * deltaTime;
-            this.position.x = this.orbitCenter.x + Math.cos(this.orbitAngle) * this.orbitRadius;
-            this.position.y = this.orbitCenter.y + Math.sin(this.orbitAngle) * this.orbitRadius;
+        // Update orbiting using consolidated system
+        const newPosition = this.orbitSystem.update(deltaTime);
+        if (newPosition.x !== 0 || newPosition.y !== 0) {
+            this.position = newPosition;
         }
         
         // Pulse effect
@@ -377,8 +524,8 @@ class Bonus extends GameObject {
             ctx.rotate(this.rotation);
             
             // Draw the sprite centered
-            const spriteWidth = this.width;
-            const spriteHeight = this.height;
+            const spriteWidth = this.width * .8;
+            const spriteHeight = this.height * .8;
             ctx.drawImage(
                 this.currentSprite,
                 -spriteWidth / 2,
@@ -470,10 +617,26 @@ class Bonus extends GameObject {
         }
     }
     
+    // Legacy orbit methods for compatibility
     setOrbit(center, radius, speed) {
-        this.orbitCenter = center;
-        this.orbitRadius = radius;
-        this.orbitSpeed = speed;
+        this.orbitSystem.setCircularOrbit(center, radius, speed);
+    }
+    
+    // New orbit methods
+    setCircularOrbit(center, radius, speed) {
+        this.orbitSystem.setCircularOrbit(center, radius, speed);
+    }
+    
+    setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation = 0) {
+        this.orbitSystem.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
+    }
+    
+    setFigure8Orbit(center, size, speed) {
+        this.orbitSystem.setFigure8Orbit(center, size, speed);
+    }
+    
+    setCustomOrbit(center, speed, xFunction, yFunction) {
+        this.orbitSystem.setCustomOrbit(center, speed, xFunction, yFunction);
     }
 }
 
@@ -822,11 +985,6 @@ class Arrow extends GameObject {
         // Reset shadow
         ctx.shadowBlur = 0;
         
-        // Debug: Draw a simple red dot to verify arrow is being drawn
-        // ctx.fillStyle = '#FF0000';
-        // ctx.beginPath();
-        // ctx.arc(0, 0, 5, 0, Math.PI * 2);
-        // ctx.fill();
     }
 }
 
@@ -845,10 +1003,10 @@ class Slingshot extends GameObject {
         this.rubberBandColor = '#FFFF00'; // Bright cyan for rubber bands
         this.hoopColor = '#00FFFF'; // Bright cyan for hoop
         this.glowColor = '#0099FF'; // Slightly darker blue for the glow effect
-        this.hoopRadiusX = 26;
+        this.hoopRadiusX = 16;
         this.hoopRadiusY = 29;
         this.penguin = null; // Reference to penguin object
-        this.velocityMultiplier = 11.25; // Global velocity multiplier (reduced by 25% to compensate for increased pullback range)
+        this.velocityMultiplier = 10; // Global velocity multiplier (reduced by 25% to compensate for increased pullback range)
         this.rotation = 0; // Hoop rotation (like pSHoopT.rotation)
     }
 
@@ -895,8 +1053,27 @@ class Slingshot extends GameObject {
         if (this.isPulling) {
             let bandTarget;
             if (this.penguin && typeof this.penguin.x === 'number' && typeof this.penguin.y === 'number') {
-                // bandTarget is the vector from anchor to penguin in world-space
-                bandTarget = { x: this.penguin.x - this.anchor.x, y: this.penguin.y - this.anchor.y };
+                // Calculate the visual center of the penguin sprite
+                let visualCenterX = this.penguin.x;
+                let visualCenterY = this.penguin.y;
+                
+                // If penguin has animation metadata, adjust for registration point and scaling
+                if (this.penguin.metadata && this.penguin.currentAnimationType) {
+                    const metadata = this.penguin.metadata[this.penguin.currentAnimationType];
+                    if (metadata && metadata.registration_points) {
+                        const regPoint = metadata.registration_points[this.penguin.aniFrame] || metadata.registration_points[0];
+                        const scale = 1.5; // Same scale as in penguin drawing
+                        
+                        // Adjust for registration point offset and scaling
+                        // The sprite is drawn at (x - regPoint[0], y - regPoint[1]) then scaled
+                        // So the visual center is at (x + regPoint[0]*(scale-1), y + regPoint[1]*(scale-1))
+                        visualCenterX = this.penguin.x + (regPoint[0] * (scale - 1));
+                        visualCenterY = this.penguin.y + (regPoint[1] * (scale - 1));
+                    }
+                }
+                
+                // bandTarget is the vector from anchor to penguin's visual center in world-space
+                bandTarget = { x: visualCenterX - this.anchor.x, y: visualCenterY - this.anchor.y };
             } else {
                 bandTarget = { x: this.pullback.x, y: this.pullback.y };
             }
@@ -977,9 +1154,20 @@ class Slingshot extends GameObject {
             x: this.anchor.x - (this.penguin ? this.penguin.x : this.anchor.x),
             y: this.anchor.y - (this.penguin ? this.penguin.y : this.anchor.y)
         };
-        // Scale to 100 / maxPullback
-        const scale = 100 / this.maxPullback;
-        const scaledPoint = { x: tempPoint.x * scale, y: tempPoint.y * scale };
+        
+        // Calculate distance from anchor
+        const distance = Math.sqrt(tempPoint.x * tempPoint.x + tempPoint.y * tempPoint.y);
+        
+        // Apply non-linear scaling: 1:1 at low distances, exponential at higher distances
+        const normalizedDistance = distance / this.maxPullback; // 0 to 1
+        const nonLinearScale = this.calculateNonLinearScale(normalizedDistance);
+        
+        // Scale the pullback vector with non-linear scaling
+        const scaledPoint = { 
+            x: tempPoint.x * nonLinearScale, 
+            y: tempPoint.y * nonLinearScale 
+        };
+        
         // tempSpeed = (x^2 + y^2) / 250.0
         const tempSpeed = (scaledPoint.x * scaledPoint.x + scaledPoint.y * scaledPoint.y) / 250.0;
         // tempAngle = Utils.rotationAngle(anchor - penguin)
@@ -990,7 +1178,16 @@ class Slingshot extends GameObject {
         this.pullback = { x: 0, y: 0 };
         return { x: tempVector.x * this.velocityMultiplier, y: tempVector.y * this.velocityMultiplier };
     }
+    
+    calculateNonLinearScale(normalizedDistance) {
+        // normalizedDistance is 0 to 1
+        // At low distances (0-0.3): linear 1:1 scaling
+        // At medium distances (0.3-0.7): gradual increase
+        // At high distances (0.7-1.0): exponential increase
+        
+        return normalizedDistance;
+    }
 }
 
 // Export all classes
-export { GameObject, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot }; 
+export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot }; 
