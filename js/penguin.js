@@ -372,7 +372,7 @@ export class Penguin {
                     
                     // Play hit planet sound for additional bounces
                     if (window.game && window.game.playSound) {
-                        window.game.playSound('hitPlanet');
+                        window.game.playSound('20_snd_HitPlanet');
                     }
                     
                     console.log('Penguin bounced off planet during crash');

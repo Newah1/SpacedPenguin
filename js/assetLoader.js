@@ -1,6 +1,8 @@
 // Asset Loader for Spaced Penguin
 // Handles loading manifest, assets, and creating animations
 
+import { AudioManager } from './audioManager.js';
+
 export class AssetLoader {
     constructor() {
         this.manifest = null;
@@ -10,6 +12,9 @@ export class AssetLoader {
         this.onProgress = null;
         this.loadedCount = 0;
         this.totalCount = 0;
+        
+        // Initialize audio manager
+        this.audioManager = new AudioManager();
     }
 
     async loadAssets(onComplete, onProgress) {
@@ -100,8 +105,10 @@ export class AssetLoader {
                     
                     this.resources[asset.name] = { image: img };
                 } else if (asset.type === 'audio') {
-                    // For audio, we'll just store the URL for now
-                    this.resources[asset.name] = { url: asset.url };
+                    // Load audio using audio manager
+                    const soundName = asset.name.replace('audio_', '');
+                    await this.audioManager.loadSound(soundName, asset.url);
+                    this.resources[asset.name] = { audioManager: this.audioManager, soundName: soundName };
                 }
                 
                 this.loadedCount++;
@@ -211,6 +218,11 @@ export class AssetLoader {
         };
         
         return titleContainer;
+    }
+    
+    // Get audio manager
+    getAudioManager() {
+        return this.audioManager;
     }
 }
 

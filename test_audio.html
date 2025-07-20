@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test - Spaced Penguin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .success {
+            background: #28a745;
+        }
+        
+        .error {
+            background: #dc3545;
+        }
+        
+        .warning {
+            background: #ffc107;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Spaced Penguin Audio Test</h1>
+    
+    <div class="test-section">
+        <h2>Audio System Status</h2>
+        <div id="audioStatus">Loading...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Sound Effects Test</h2>
+        <p>Click the buttons below to test each sound effect:</p>
+        
+        <button onclick="testSound('17_snd_launch')">Launch Sound</button>
+        <button onclick="testSound('16_snd_bonus')">Bonus Sound</button>
+        <button onclick="testSound('20_snd_HitPlanet')">Hit Planet Sound</button>
+        <button onclick="testSound('21_snd_enterShip')">Enter Ship Sound</button>
+        <button onclick="testSound('15_Arp')">Arp Sound</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Volume Control</h2>
+        <label for="volumeSlider">Master Volume: </label>
+        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+        <span id="volumeValue">70%</span>
+        <br><br>
+        <button onclick="toggleAudio()">Toggle Audio On/Off</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Loaded Sounds</h2>
+        <div id="loadedSounds">Loading...</div>
+    </div>
+
+    <script type="module">
+        import { AudioManager } from './js/audioManager.js';
+        import { AssetLoader } from './js/assetLoader.js';
+        
+        let audioManager = null;
+        let assetLoader = null;
+        
+        // Initialize audio system
+        async function initAudio() {
+            try {
+                // Create asset loader
+                assetLoader = new AssetLoader();
+                
+                // Load assets
+                await assetLoader.loadAssets(
+                    (loader) => {
+                        console.log('Assets loaded successfully');
+                        audioManager = loader.getAudioManager();
+                        updateStatus();
+                        updateLoadedSounds();
+                    },
+                    (progress, assetName) => {
+                        console.log(`Loading: ${assetName} (${progress.toFixed(1)}%)`);
+                    }
+                );
+                
+            } catch (error) {
+                console.error('Failed to initialize audio:', error);
+                document.getElementById('audioStatus').innerHTML = 
+                    '<div class="status error">Failed to initialize audio system</div>';
+            }
+        }
+        
+        function updateStatus() {
+            const statusDiv = document.getElementById('audioStatus');
+            if (audioManager) {
+                const enabled = audioManager.enabled;
+                const loadedCount = audioManager.getLoadedSoundsCount();
+                const contextState = audioManager.audioContext ? audioManager.audioContext.state : 'none';
+                
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        <strong>Audio System: ${enabled ? 'Enabled' : 'Disabled'}</strong><br>
+                        Audio Context: ${contextState}<br>
+                        Loaded Sounds: ${loadedCount}<br>
+                        Master Volume: ${Math.round(audioManager.masterVolume * 100)}%
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = '<div class="status error">Audio manager not available</div>';
+            }
+        }
+        
+        function updateLoadedSounds() {
+            const soundsDiv = document.getElementById('loadedSounds');
+            if (audioManager) {
+                const sounds = [
+                    '17_snd_launch',
+                    '16_snd_bonus', 
+                    '20_snd_HitPlanet',
+                    '21_snd_enterShip',
+                    '15_Arp'
+                ];
+                
+                const loadedList = sounds.map(sound => {
+                    const loaded = audioManager.isSoundLoaded(sound);
+                    return `<li style="color: ${loaded ? '#28a745' : '#dc3545'}">${sound}: ${loaded ? 'Loaded' : 'Not Loaded'}</li>`;
+                }).join('');
+                
+                soundsDiv.innerHTML = `<ul>${loadedList}</ul>`;
+            } else {
+                soundsDiv.innerHTML = '<div class="status error">Audio manager not available</div>';
+            }
+        }
+        
+        // Test sound function
+        window.testSound = function(soundName) {
+            if (audioManager) {
+                console.log(`Testing sound: ${soundName}`);
+                audioManager.playSound(soundName);
+            } else {
+                console.error('Audio manager not available');
+            }
+        };
+        
+        // Volume control
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+        
+        volumeSlider.addEventListener('input', function() {
+            const volume = this.value / 100;
+            volumeValue.textContent = this.value + '%';
+            if (audioManager) {
+                audioManager.setMasterVolume(volume);
+                updateStatus();
+            }
+        });
+        
+        // Toggle audio
+        window.toggleAudio = function() {
+            if (audioManager) {
+                audioManager.setEnabled(!audioManager.enabled);
+                updateStatus();
+            }
+        };
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initAudio);
+    </script>
+</body>
+</html> 

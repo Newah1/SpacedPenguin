@@ -205,6 +205,9 @@ class Game {
         this.tries++;
         this.updateUI();
         
+        // Play launch sound
+        this.playSound('17_snd_launch');
+        
         // Clear physics trace
         this.physics.clearTrace();
         
@@ -399,7 +402,7 @@ class Game {
             if (distance < planet.collisionRadius) {
                 console.log('Planet collision detected in physics update');
                 this.penguin.crashIntoPlanet(planet);
-                this.playSound('hitPlanet');
+                this.playSound('20_snd_HitPlanet');
                 
                 // Register the collision for level rules
                 this.registerPlanetCollision();
@@ -469,7 +472,7 @@ class Game {
         
         if (collectedValue > 0) {
             this.score += collectedValue;
-            this.playSound('bonus');
+            this.playSound('16_snd_bonus');
             
             // Show bonus popup at bonus location
             this.bonusPopup.show(collectedValue, bonus.position);
@@ -484,7 +487,7 @@ class Game {
     }
     
     handleTargetHit() {
-        this.playSound('enterShip');
+        this.playSound('21_snd_enterShip');
         
         // Stop the target's hit timer so ship stays closed during scoring
         if (this.target && this.target.isHit) {
@@ -699,13 +702,12 @@ class Game {
     }
     
     playSound(soundName) {
-        // Enhanced sound system with fallback
-        try {
-            console.log(`Playing sound: ${soundName}`);
-            // TODO: Implement actual sound loading and playback
-            // For now, just log the sound that would be played
-        } catch (error) {
-            console.warn('Sound playback failed:', error);
+        // Use audio manager to play sounds
+        if (this.assetLoader && this.assetLoader.getAudioManager) {
+            const audioManager = this.assetLoader.getAudioManager();
+            if (audioManager) {
+                audioManager.playSound(soundName);
+            }
         }
     }
     

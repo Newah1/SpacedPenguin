@@ -61,6 +61,9 @@ class GameManager {
         // Load high score
         this.game.loadHighScore();
         
+        // Set up volume control
+        this.setupVolumeControl();
+        
         // Hide loading screen
         this.hideLoadingScreen();
         
@@ -236,6 +239,30 @@ class GameManager {
     resume() {
         this.isRunning = true;
         this.gameLoop();
+    }
+    
+    setupVolumeControl() {
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+        
+        if (volumeSlider && volumeValue && this.game && this.game.assetLoader) {
+            const audioManager = this.game.assetLoader.getAudioManager();
+            
+            if (audioManager) {
+                // Set initial volume
+                const initialVolume = volumeSlider.value / 100;
+                audioManager.setMasterVolume(initialVolume);
+                
+                // Add event listener for volume changes
+                volumeSlider.addEventListener('input', function() {
+                    const volume = this.value / 100;
+                    volumeValue.textContent = this.value + '%';
+                    audioManager.setMasterVolume(volume);
+                });
+                
+                console.log('Volume control initialized');
+            }
+        }
     }
     
     destroy() {
