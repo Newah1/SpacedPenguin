@@ -51,10 +51,10 @@ export class AudioManager {
         }
     }
     
-    playSound(name, volume = 1.0, pitch = 1.0) {
+    playSound(name, volume = 1.0, pitch = 1.0, loop = false) {
         if (!this.enabled || !this.audioContext || !this.sounds.has(name)) {
             console.warn(`Cannot play sound: ${name} (enabled: ${this.enabled}, loaded: ${this.sounds.has(name)})`);
-            return;
+            return null;
         }
         
         try {
@@ -71,13 +71,30 @@ export class AudioManager {
             gainNode.gain.value = volume * this.masterVolume;
             source.playbackRate.value = pitch;
             
+            // Set looping
+            source.loop = loop;
+            
             // Play the sound
             source.start(0);
             
-            console.log(`Playing sound: ${name} (volume: ${volume}, pitch: ${pitch})`);
+            console.log(`Playing sound: ${name} (volume: ${volume}, pitch: ${pitch}, loop: ${loop})`);
+            
+            // Return source for stopping looped sounds
+            return source;
             
         } catch (error) {
             console.error(`Failed to play sound ${name}:`, error);
+            return null;
+        }
+    }
+    
+    stopSound(source) {
+        if (source) {
+            try {
+                source.stop();
+            } catch (error) {
+                console.warn('Error stopping sound:', error);
+            }
         }
     }
     

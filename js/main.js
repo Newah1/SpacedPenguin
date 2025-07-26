@@ -52,8 +52,9 @@ class GameManager {
         console.log('Assets loaded, initializing game...');
         this.assetsLoaded = true;
         
-        // Initialize game with loaded assets
-        this.game = new Game(this.canvas, assetLoader);
+        // Initialize game with loaded assets and audio manager
+        const audioManager = assetLoader.getAudioManager();
+        this.game = new Game(this.canvas, assetLoader, audioManager);
         
         // Make game globally accessible for sound effects
         window.game = this.game;

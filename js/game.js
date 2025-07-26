@@ -6,14 +6,20 @@ import { Penguin } from './penguin.js';
 import { Physics } from './physics.js';
 import Utils from './utils.js';
 import { LevelLoader } from './levelLoader.js';
+import { UIManager } from './uiManager.js';
+import { LevelEndScreen } from './levelEndScreen.js';
 
 class Game {
-    constructor(canvas, assetLoader) {
+    constructor(canvas, assetLoader, audioManager) {
         console.log('Game constructor called');
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.physics = new Physics();
         this.assetLoader = assetLoader;
+        this.audioManager = audioManager;
+        
+        // UI Manager for menus and overlays
+        this.uiManager = new UIManager(canvas, audioManager);
         
         // Game state
         this.state = 'menu'; // menu, playing, paused, gameOver, scoring
@@ -379,6 +385,14 @@ class Game {
     update(deltaTime) {
         this.deltaTime = deltaTime;
         
+        // Update UI Manager
+        this.uiManager.update(deltaTime);
+        
+        // Skip game updates if in scoring state
+        if (this.state === 'scoring') {
+            return;
+        }
+        
         // Update all game objects
         console.log('Game objects count:', this.gameObjects.length, 'types:', this.gameObjects.map(obj => obj.constructor.name));
         for (const obj of this.gameObjects) {
@@ -582,20 +596,16 @@ class Game {
             }
         }
         
-        this.state = 'scoring';
-        this.calculateFinalScore();
+        // Wait a moment before showing scoring (matches original 30 frame delay)
+        setTimeout(() => {
+            this.showLevelEndScreen();
+        }, 500);
     }
     
     calculateFinalScore() {
-        // Add distance bonus
-        this.score += Math.floor(this.distance / 10);
-        
-        // Add completion bonus
-        this.score += 1000;
-        
-        // Add efficiency bonus (fewer tries = more points)
-        const efficiencyBonus = Math.max(0, 500 - (this.tries * 50));
-        this.score += efficiencyBonus;
+        // Original game formula: tempScore = tempDist * tempLevel / tempTries
+        const levelScore = Math.floor(this.distance * this.level / this.tries);
+        this.score += levelScore;
         
         // Apply score multiplier from level rules
         if (this.levelRules && this.levelRules.scoreMultiplier !== 1.0) {
@@ -610,14 +620,28 @@ class Game {
             this.saveHighScore();
         }
         
-        setTimeout(() => {
-            this.nextLevel();
-        }, 2000);
+        return levelScore;
+    }
+    
+    showLevelEndScreen() {
+        this.state = 'scoring';
+        this.calculateFinalScore();
+        this.uiManager.showScreen(LevelEndScreen, this);
     }
     
     nextLevel() {
         this.level++;
+        this.tries = 0;
+        this.distance = 0;
+        this.planetCollisions = 0;
+        
+        // Close any UI screens
+        this.uiManager.closeAllScreens();
+        
+        // Load next level
         this.loadLevel(this.level);
+        
+        // Return to playing state
         this.state = 'playing';
     }
     
@@ -714,6 +738,9 @@ class Game {
         
         // Draw UI overlays
         this.drawUI();
+        
+        // Draw UI Manager screens on top
+        this.uiManager.render();
     }
     
     generateStars() {
@@ -784,12 +811,25 @@ class Game {
     
     playSound(soundName) {
         // Use audio manager to play sounds
-        if (this.assetLoader && this.assetLoader.getAudioManager) {
-            const audioManager = this.assetLoader.getAudioManager();
-            if (audioManager) {
-                audioManager.playSound(soundName);
-            }
+        if (this.audioManager) {
+            this.audioManager.playSound(soundName);
         }
+    }
+    
+    nextLevel() {
+        this.level++;
+        this.tries = 0;
+        this.distance = 0;
+        this.planetCollisions = 0;
+        
+        // Close any UI screens
+        this.uiManager.closeAllScreens();
+        
+        // Load next level
+        this.loadLevel(this.level);
+        
+        // Return to playing state
+        this.state = 'playing';
     }
     
     showQuitDialog() {

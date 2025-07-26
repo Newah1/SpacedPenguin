@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level End Screen Test - Spaced Penguin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #FFFFCC;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 2px solid #333;
+            background: #000;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #000;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        button {
+            background: #444;
+            color: #FFFFCC;
+            border: 2px solid #FFFFCC;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: Verdana, sans-serif;
+        }
+        
+        button:hover {
+            background: #666;
+        }
+        
+        .info {
+            margin: 20px 0;
+            text-align: center;
+            font-family: Verdana, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Level End Screen Test</h1>
+    
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button onclick="showTestScreen()">Show Level End Screen</button>
+        <button onclick="showTestScreen2()">Show High Score Level</button>
+        <button onclick="showTestScreen3()">Show Multi-Try Level</button>
+        <button onclick="clearScreens()">Clear Screens</button>
+    </div>
+    
+    <div class="info">
+        <p><strong>Test Instructions:</strong></p>
+        <ul style="text-align: left; display: inline-block;">
+            <li>Click "Show Level End Screen" to see basic scoring animation</li>
+            <li>Click "Show High Score Level" to see new high score display</li>
+            <li>Click "Show Multi-Try Level" to see lower score from multiple tries</li>
+            <li>Watch the <strong>very fast</strong> animated score counting (under 1 second total)</li>
+            <li>Listen for <strong>ALL sounds looping</strong> during their respective animations</li>
+            <li>Notice <strong>wider containers</strong> prevent score overflow</li>
+            <li>Use Space/Enter to continue or ESC to skip animation</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import { UIManager } from './js/uiManager.js';
+        import { LevelEndScreen } from './js/levelEndScreen.js';
+        import { AssetLoader } from './js/assetLoader.js';
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let uiManager;
+        let assetLoader;
+
+        // Initialize
+        async function init() {
+            // Create asset loader and load audio
+            assetLoader = new AssetLoader();
+            await new Promise((resolve) => {
+                assetLoader.loadAssets(resolve, () => {});
+            });
+            
+            const audioManager = assetLoader.getAudioManager();
+            uiManager = new UIManager(canvas, audioManager);
+            
+            // Animation loop
+            function animate() {
+                // Clear canvas
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw some stars for background
+                drawStars();
+                
+                // Update and render UI
+                uiManager.update(1/60);
+                uiManager.render();
+                
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+        
+        function drawStars() {
+            ctx.fillStyle = '#FFFFFF';
+            for (let i = 0; i < 100; i++) {
+                const x = (i * 7919) % canvas.width; // pseudo-random
+                const y = (i * 7823) % canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+
+        // Mock game object for testing
+        function createMockGame(level, distance, tries, score, highScore) {
+            return {
+                level: level,
+                distance: distance,
+                tries: tries,
+                score: score,
+                highScore: highScore,
+                levelRules: { isLastLevel: false },
+                nextLevel: () => {
+                    console.log('Next level called');
+                    clearScreens();
+                },
+                state: 'playing'
+            };
+        }
+
+        // Test functions
+        window.showTestScreen = function() {
+            clearScreens();
+            const mockGame = createMockGame(1, 350, 1, 350, 1200); // Score includes level calculation
+            console.log('Test 1 - Previous score:', 0, 'New total:', 350, 'Difference:', 350);
+            uiManager.showScreen(LevelEndScreen, mockGame);
+        };
+
+        window.showTestScreen2 = function() {
+            clearScreens();
+            const mockGame = createMockGame(3, 500, 2, 2750, 1800); // High score scenario (500*3/2 = 750)
+            uiManager.showScreen(LevelEndScreen, mockGame);
+        };
+
+        window.showTestScreen3 = function() {
+            clearScreens();
+            const mockGame = createMockGame(2, 800, 4, 1900, 2500); // Multi-try scenario (800*2/4 = 400)
+            uiManager.showScreen(LevelEndScreen, mockGame);
+        };
+
+        window.clearScreens = function() {
+            uiManager.closeAllScreens();
+        };
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
