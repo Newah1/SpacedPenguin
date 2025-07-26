@@ -1189,5 +1189,273 @@ class Slingshot extends GameObject {
     }
 }
 
+class TextObject extends GameObject {
+    constructor(x, y, content, options = {}) {
+        const width = options.width || 200;
+        const height = options.height || 100;
+        super(x, y, width, height);
+        this.renderOrder = options.renderOrder || 8; // Render text on top of most things
+        this.content = content; // HTML content
+        this.visible = options.visible !== undefined ? options.visible : true;
+        
+        // Text styling options (matching original HTML formatting)
+        this.textAlign = options.textAlign || 'left';
+        this.fontSize = options.fontSize || 16;
+        this.fontFamily = options.fontFamily || 'Arial, sans-serif';
+        this.color = options.color || '#FFFFCC'; // Default yellow like original
+        this.backgroundColor = options.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
+        this.borderRadius = options.borderRadius || 8;
+        this.padding = options.padding || 10;
+        this.maxWidth = options.maxWidth || width - (this.padding * 2);
+        
+        // Auto-sizing based on content
+        this.autoSize = options.autoSize !== undefined ? options.autoSize : true;
+        
+        // Animation properties
+        this.fadeIn = options.fadeIn || false;
+        this.fadeInDuration = options.fadeInDuration || 1.0; // seconds
+        this.fadeTimer = 0;
+        
+        // Parse HTML content to extract text and basic formatting
+        this.parsedContent = this.parseHTMLContent(content);
+    }
+    
+    parseHTMLContent(htmlContent) {
+        // Simple HTML parsing to extract text and basic formatting
+        // Remove HTML tags but preserve text content and basic formatting info
+        let text = htmlContent;
+        let isBold = false;
+        let fontSize = this.fontSize;
+        let color = this.color;
+        
+        // Extract font size
+        const sizeMatch = text.match(/<font[^>]*size[=\s]*[\"']?(\d+)[\"']?[^>]*>/i);
+        if (sizeMatch) {
+            fontSize = parseInt(sizeMatch[1]) * 4; // Convert HTML font size to pixels (rough approximation)
+        }
+        
+        // Extract color
+        const colorMatch = text.match(/<font[^>]*color[=\s]*[\"']?([^\"'>]+)[\"']?[^>]*>/i);
+        if (colorMatch) {
+            color = colorMatch[1];
+        }
+        
+        // Check for bold
+        isBold = /<b[^>]*>/.test(text) || /<strong[^>]*>/.test(text);
+        
+        // Handle line breaks before removing HTML tags
+        text = text.replace(/<br\s*\/?>/gi, '\n');
+        
+        // Remove all HTML tags
+        text = text.replace(/<[^>]*>/g, '');
+        
+        // Convert HTML entities
+        text = text.replace(/&nbsp;/g, ' ');
+        text = text.replace(/&lt;/g, '<');
+        text = text.replace(/&gt;/g, '>');
+        text = text.replace(/&amp;/g, '&');
+        text = text.replace(/&#58;/g, ':');
+        
+        return {
+            text: text.trim(),
+            isBold,
+            fontSize,
+            color
+        };
+    }
+    
+    update(deltaTime) {
+        // Handle fade-in animation
+        if (this.fadeIn && this.fadeTimer < this.fadeInDuration) {
+            this.fadeTimer += deltaTime;
+            this.alpha = Math.min(1.0, this.fadeTimer / this.fadeInDuration);
+        }
+    }
+    
+    drawSprite(ctx) {
+        const parsed = this.parsedContent;
+        
+        // Set up text properties
+        ctx.font = `${parsed.isBold ? 'bold ' : ''}${parsed.fontSize}px ${this.fontFamily}`;
+        ctx.textAlign = this.textAlign;
+        ctx.textBaseline = 'top';
+        
+        // Measure text for auto-sizing
+        const lines = this.wrapText(ctx, parsed.text, this.maxWidth);
+        const lineHeight = parsed.fontSize * 1.2;
+        const textHeight = lines.length * lineHeight;
+        const textWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
+        
+        if (this.autoSize) {
+            this.width = textWidth + (this.padding * 2);
+            this.height = textHeight + (this.padding * 2);
+        }
+        
+        // Draw background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(
+            -this.width / 2,
+            -this.height / 2,
+            this.width,
+            this.height
+        );
+        
+        // Draw border
+        // ctx.strokeStyle = parsed.color;
+        // ctx.lineWidth = 1;
+        // ctx.strokeRect(
+        //     -this.width / 2,
+        //     -this.height / 2,
+        //     this.width,
+        //     this.height
+        // );
+        
+        // Draw text
+        ctx.fillStyle = parsed.color;
+        const startY = -this.height / 2 + this.padding;
+        const startX = this.textAlign === 'center' ? 0 : -this.width / 2 + this.padding;
+        
+        lines.forEach((line, index) => {
+            const y = startY + (index * lineHeight);
+            ctx.fillText(line, startX, y);
+        });
+    }
+    
+    wrapText(ctx, text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+        
+        for (let i = 0; i < words.length; i++) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+            const metrics = ctx.measureText(testLine);
+            
+            if (metrics.width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = words[i];
+            } else {
+                currentLine = testLine;
+            }
+        }
+        
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        return lines;
+    }
+    
+    // Method to update content dynamically
+    setContent(newContent) {
+        this.content = newContent;
+        this.parsedContent = this.parseHTMLContent(newContent);
+    }
+    
+    // Method to show/hide with optional fade
+    show(fadeIn = false) {
+        this.visible = true;
+        if (fadeIn) {
+            this.fadeIn = true;
+            this.fadeTimer = 0;
+            this.alpha = 0;
+        } else {
+            this.alpha = 1.0;
+        }
+    }
+    
+    hide() {
+        this.visible = false;
+    }
+}
+
+class PointingArrow extends GameObject {
+    constructor(x, y, options = {}) {
+        super(x, y, 20, 20);
+        this.renderOrder = options.renderOrder || 9; // Render on top of text
+        this.color = options.color || '#00FFFF'; // Bright cyan like original
+        this.glowColor = options.glowColor || '#0099FF';
+        this.pointingAt = null; // Target position to point at
+        this.baseWidth = options.baseWidth || 20;
+        this.scaleWithDistance = options.scaleWithDistance !== undefined ? options.scaleWithDistance : true;
+        this.maxDistance = options.maxDistance || 300; // Max distance for scaling
+        this.minWidth = options.minWidth || 15;
+        this.maxWidth = options.maxWidth || 60;
+        
+        // Pulsing animation
+        this.pulseSpeed = options.pulseSpeed || 3.0;
+        this.pulseTimer = 0;
+        this.minAlpha = options.minAlpha || 0.6;
+        this.maxAlpha = options.maxAlpha || 1.0;
+    }
+    
+    // Set the target position this arrow should point to
+    pointTo(targetPosition) {
+        this.pointingAt = { x: targetPosition.x, y: targetPosition.y };
+        this.visible = true;
+    }
+    
+    // Stop pointing (hide arrow)
+    stopPointing() {
+        this.pointingAt = null;
+        this.visible = false;
+    }
+    
+    update(deltaTime) {
+        if (!this.pointingAt || !this.visible) {
+            return;
+        }
+        
+        // Calculate rotation to point at target
+        const dx = this.pointingAt.x - this.position.x;
+        const dy = this.pointingAt.y - this.position.y;
+        this.rotation = Utils.rotationAngle({ x: dx, y: dy });
+        
+        // Scale width based on distance if enabled
+        if (this.scaleWithDistance) {
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const normalizedDistance = Math.min(distance / this.maxDistance, 1.0);
+            this.width = this.minWidth + (normalizedDistance * (this.maxWidth - this.minWidth));
+        }
+        
+        // Pulsing animation
+        this.pulseTimer += deltaTime;
+        const pulse = Math.sin(this.pulseTimer * this.pulseSpeed) * 0.5 + 0.5;
+        this.alpha = this.minAlpha + (pulse * (this.maxAlpha - this.minAlpha));
+    }
+    
+    drawSprite(ctx) {
+        // Draw arrow with glow effect
+        ctx.shadowColor = this.glowColor;
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = this.color;
+        ctx.fillStyle = this.color;
+        ctx.lineWidth = 2;
+        
+        // Arrow dimensions
+        const arrowLength = this.width;
+        const arrowWidth = 8;
+        const headLength = 12;
+        const headWidth = 12;
+        
+        ctx.beginPath();
+        // Arrow shaft
+        ctx.moveTo(-arrowLength, -arrowWidth/2);
+        ctx.lineTo(-headLength, -arrowWidth/2);
+        // Arrow head
+        ctx.lineTo(-headLength, -headWidth/2);
+        ctx.lineTo(0, 0); // Tip pointing toward target
+        ctx.lineTo(-headLength, headWidth/2);
+        ctx.lineTo(-headLength, arrowWidth/2);
+        ctx.lineTo(-arrowLength, arrowWidth/2);
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+    }
+}
+
 // Export all classes
-export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot }; 
+export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow }; 

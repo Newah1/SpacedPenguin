@@ -1,7 +1,7 @@
 // Level Loading System for Spaced Penguin
 // Supports JSON-based level definitions with object factories and custom rules
 
-import { Planet, Bonus, Target, Slingshot } from './gameObjects.js';
+import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
 
@@ -21,6 +21,14 @@ class GameObjectFactory {
             
             case 'slingshot':
                 return this.createSlingshot(position, properties);
+            
+            case 'text':
+            case 'textobject':
+                return this.createTextObject(position, properties);
+            
+            case 'arrow':
+            case 'pointingarrow':
+                return this.createPointingArrow(position, properties);
             
             case 'obstacle':
                 return this.createObstacle(position, properties);
@@ -78,6 +86,82 @@ class GameObjectFactory {
         const slingshot = new Slingshot(position.x, position.y, anchorX, anchorY, stretchLimit);
         slingshot.velocityMultiplier = velocityMultiplier;
         return slingshot;
+    }
+    
+    static createTextObject(position, properties) {
+        const {
+            content = 'Sample Text',
+            width = 200,
+            height = 100,
+            visible = true,
+            textAlign = 'left',
+            fontSize = 16,
+            fontFamily = 'Arial, sans-serif',
+            color = '#FFFFCC',
+            backgroundColor = 'rgba(0, 0, 0, 0.7)',
+            padding = 10,
+            autoSize = true,
+            fadeIn = false,
+            fadeInDuration = 1.0,
+            renderOrder = 8
+        } = properties;
+        
+        const options = {
+            width, height, visible, textAlign, fontSize, fontFamily,
+            color, backgroundColor, padding, autoSize, fadeIn, 
+            fadeInDuration, renderOrder
+        };
+        
+        const textObject = new TextObject(position.x, position.y, content, options);
+        
+        // Handle delayed visibility (for tutorial timing)
+        if (properties.showAfterDelay) {
+            textObject.visible = false;
+            setTimeout(() => {
+                textObject.show(properties.fadeIn || false);
+            }, properties.showAfterDelay * 1000);
+        }
+        
+        return textObject;
+    }
+    
+    static createPointingArrow(position, properties) {
+        const {
+            color = '#00FFFF',
+            glowColor = '#0099FF',
+            baseWidth = 20,
+            scaleWithDistance = true,
+            maxDistance = 300,
+            minWidth = 15,
+            maxWidth = 60,
+            pulseSpeed = 3.0,
+            minAlpha = 0.6,
+            maxAlpha = 1.0,
+            renderOrder = 9,
+            pointTo = null // Target position {x, y}
+        } = properties;
+        
+        const options = {
+            color, glowColor, baseWidth, scaleWithDistance, maxDistance,
+            minWidth, maxWidth, pulseSpeed, minAlpha, maxAlpha, renderOrder
+        };
+        
+        const arrow = new PointingArrow(position.x, position.y, options);
+        
+        // Set initial pointing target if specified
+        if (pointTo) {
+            arrow.pointTo(pointTo);
+        }
+        
+        // Handle delayed pointing (for tutorial timing)
+        if (properties.pointAfterDelay && pointTo) {
+            arrow.visible = false;
+            setTimeout(() => {
+                arrow.pointTo(pointTo);
+            }, properties.pointAfterDelay * 1000);
+        }
+        
+        return arrow;
     }
     
     static createObstacle(position, properties) {
@@ -229,8 +313,14 @@ export class LevelLoader {
         game.gameObjects = [];
         game.planets = [];
         game.bonuses = [];
+        game.textObjects = game.textObjects || [];
+        game.pointingArrows = game.pointingArrows || [];
         game.physics.clear();
         game.planetCollisions = 0; // Reset collision counter
+        
+        // Clear text objects and arrows
+        game.textObjects.length = 0;
+        game.pointingArrows.length = 0;
         
         // Create penguin at start position
         const startPos = levelDefinition.startPosition || { x: 100, y: 300 };
@@ -276,6 +366,10 @@ export class LevelLoader {
                     } else if (gameObject instanceof Bonus) {
                         game.bonuses.push(gameObject);
                         game.physics.addBonus(gameObject);
+                    } else if (gameObject instanceof TextObject) {
+                        game.textObjects.push(gameObject);
+                    } else if (gameObject instanceof PointingArrow) {
+                        game.pointingArrows.push(gameObject);
                     }
                 }
             }
@@ -355,38 +449,58 @@ export class LevelLoader {
             startPosition: { x: 100, y: 300 },
             targetPosition: { x: 700, y: 300 },
             objects: [
+                // Tutorial text objects (based on original game text)
                 {
-                    type: 'planet',
-                    position: { x: 400, y: 200 },
+                    type: 'text',
+                    position: { x: 200, y: 150 },
                     properties: {
-                        radius: 30,
-                        mass: 300,
-                        gravitationalReach: 5000,
-                        planetType: 'planet_sun'
+                        content: '<font color="#FFFFCC">Click on Kevin and hold your mouse down. Then pull Kevin back to the tip of the arrow and let your mouse go.</font>',
+                        width: 280,
+                        fadeIn: true,
+                        fadeInDuration: 2.0,
+                        textAlign: 'left'
                     }
                 },
                 {
-                    type: 'bonus',
-                    position: { x: 300, y: 150 },
-                    properties: { 
-                        value: 100,
-                        orbit: {
-                            center: { x: 400, y: 200 },
-                            radius: 100,
-                            speed: 1.0
-                        }
+                    type: 'text',
+                    position: { x: 700, y: 100 },
+                    properties: {
+                        content: '<font color="#00FF00">Hit the ship to complete the level!</font>',
+                        width: 200,
+                        showAfterDelay: 3.0,
+                        fadeIn: true,
+                        color: '#00FF00'
                     }
                 },
                 {
-                    type: 'bonus',
-                    position: { x: 500, y: 250 },
-                    properties: { 
-                        value: 200,
-                        orbit: {
-                            center: { x: 400, y: 200 },
-                            radius: 100,
-                            speed: -1
-                        }
+                    type: 'text',
+                    position: { x: 400, y: 350 },
+                    properties: {
+                        content: '<font color="#FF6600"><b>Tips!</b></font><br><font color="#FFFFCC">Collect bonuses for extra points. Avoid hitting planets!</font>',
+                        width: 250,
+                        showAfterDelay: 5.0,
+                        fadeIn: true,
+                        textAlign: 'center'
+                    }
+                },
+                // Pointing arrows for tutorial guidance
+                {
+                    type: 'arrow',
+                    position: { x: 80, y: 250 },
+                    properties: {
+                        pointTo: { x: 100, y: 300 }, // Point to penguin start position
+                        scaleWithDistance: false,
+                        baseWidth: 30
+                    }
+                },
+                {
+                    type: 'arrow',
+                    position: { x: 650, y: 350 },
+                    properties: {
+                        pointTo: { x: 700, y: 300 }, // Point to target ship
+                        pointAfterDelay: 4.0,
+                        color: '#00FF00',
+                        glowColor: '#008800'
                     }
                 }
             ],
@@ -401,48 +515,39 @@ export class LevelLoader {
     
     getLevel2Definition() {
         return {
-            name: "Double Trouble",
-            description: "Navigate between two planets",
+            name: "Bonuses",
+            description: "Collect bonuses to increase your score",
             startPosition: { x: 100, y: 300 },
             targetPosition: { x: 700, y: 300 },
             objects: [
                 {
-                    type: 'planet',
-                    position: { x: 300, y: 200 },
+                    type: 'text',
+                    position: { x: 200, y: 150 },
                     properties: {
-                        radius: 25,
-                        mass: 150,
-                        planetType: 'planet_grey'
+                        content: '<font color="#FFFFCC">Collect bonuses to increase your score</font>',
+                        width: 280,
+                        fadeIn: true,
+                        fadeInDuration: 2.0,
+                        textAlign: 'left'
                     }
                 },
                 {
-                    type: 'planet',
-                    position: { x: 500, y: 400 },
+                    type: 'arrow',
+                    position: { x: 400, y: 240 },
                     properties: {
-                        radius: 35,
-                        mass: 150,
-                        planetType: 'planet_saturn'
+                        pointTo: { x: 450, y: 250 }, // Point to penguin start position
+                        scaleWithDistance: false,
+                        baseWidth: 30
                     }
                 },
                 {
                     type: 'bonus',
-                    position: { x: 250, y: 150 },
+                    position: { x: 450, y: 300 },
                     properties: { value: 150 }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 450, y: 250 },
-                    properties: { value: 250 }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 550, y: 350 },
-                    properties: { value: 300 }
                 }
             ],
             rules: {
-                scoreMultiplier: 1.2,
-                requiredBonuses: 2
+                scoreMultiplier: 1.2
             }
         };
     }
@@ -496,7 +601,6 @@ export class LevelLoader {
             rules: {
                 maxTries: null,
                 scoreMultiplier: 1.5,
-                requiredBonuses: 3,
                 gravitationalConstant: GRAVITATIONAL_CONSTANT * 1.2
             }
         };

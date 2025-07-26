@@ -1,7 +1,7 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow } from './gameObjects.js';
+import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { Physics } from './physics.js';
 import Utils from './utils.js';
@@ -44,6 +44,8 @@ class Game {
         this.target = null;
         this.planets = [];
         this.bonuses = [];
+        this.textObjects = [];
+        this.pointingArrows = [];
         this.gameObjects = [];
         
         // Bonus popup system
@@ -761,12 +763,12 @@ class Game {
             this.ctx.textAlign = 'left';
             
             // Show recorded shot paths count
-            this.ctx.fillText(`Shot Paths: ${this.shotPaths.length}`, 10, this.canvas.height - 60);
+            //this.ctx.fillText(`Shot Paths: ${this.shotPaths.length}`, 10, this.canvas.height - 60);
             
             // Show current recording status
             if (this.isRecordingPath) {
                 this.ctx.fillStyle = this.shotColors[this.currentColorIndex];
-                this.ctx.fillText(`Recording Path ${this.shotPaths.length + 1} (${this.currentShotPath.length} points)`, 10, this.canvas.height - 40);
+                //this.ctx.fillText(`Recording Path ${this.shotPaths.length + 1} (${this.currentShotPath.length} points)`, 10, this.canvas.height - 40);
             }
             
             this.ctx.restore();

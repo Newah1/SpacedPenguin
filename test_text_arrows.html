@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaced Penguin - Text & Arrow Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid #444;
+            background-color: #000;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: 1px solid #666;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Text Objects & Pointing Arrows Test</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="controls">
+        <button onclick="addTextObject()">Add Text Object</button>
+        <button onclick="addPointingArrow()">Add Pointing Arrow</button>
+        <button onclick="clearObjects()">Clear All</button>
+        <button onclick="toggleAnimation()">Toggle Animation</button>
+    </div>
+    
+    <p>This test demonstrates the new TextObject and PointingArrow classes that can be used in level definitions.</p>
+
+    <script type="module">
+        import { TextObject, PointingArrow } from './js/gameObjects.js';
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let objects = [];
+        let animating = true;
+        let lastTime = 0;
+        
+        // Test text content from original game
+        const testTexts = [
+            '<font color="#FFFFCC">Click on Kevin and hold your mouse down. Then pull Kevin back to the tip of the arrow and let your mouse go.</font>',
+            '<font color="#00FF00"><b>Hit the ship to complete the level!</b></font>',
+            '<font color="#FF6600"><b>Tips!</b></font><br><font color="#FFFFCC">Collect bonuses for extra points. Avoid hitting planets!</font>',
+            '<font size="4" color="#FF6600"><b>How to Play</b></font><br><font size="2">Hey there, space cadet! Kevin took a wrong turn and ended up lost in space!</font>',
+            '<font color="#FFFFCC">Use the highly advanced GPS (Giant Penguin Slingshot) to launch him back to the ship.</font>'
+        ];
+        
+        // Add initial test objects
+        function initializeTest() {
+            // Add a couple of text objects
+            const text1 = new TextObject(200, 100, testTexts[0], {
+                width: 280,
+                fadeIn: true,
+                fadeInDuration: 2.0,
+                textAlign: 'left'
+            });
+            objects.push(text1);
+            
+            const text2 = new TextObject(600, 200, testTexts[1], {
+                width: 200,
+                color: '#00FF00',
+                textAlign: 'center'
+            });
+            objects.push(text2);
+            
+            // Add pointing arrows
+            const arrow1 = new PointingArrow(150, 150, {
+                pointTo: { x: 200, y: 100 },
+                scaleWithDistance: false,
+                baseWidth: 30
+            });
+            objects.push(arrow1);
+            
+            const arrow2 = new PointingArrow(550, 250, {
+                pointTo: { x: 600, y: 200 },
+                color: '#00FF00',
+                glowColor: '#008800'
+            });
+            objects.push(arrow2);
+        }
+        
+        // Animation loop
+        function animate(currentTime) {
+            if (!animating) return;
+            
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw some background stars for context
+            ctx.fillStyle = '#FFFFFF';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 37) % canvas.width;
+                const y = (i * 23) % canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            
+            // Update and draw all objects
+            objects.forEach(obj => {
+                obj.update(deltaTime);
+                obj.draw(ctx);
+            });
+            
+            // Draw instructions
+            ctx.fillStyle = '#AAAAAA';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Objects: ' + objects.length, 10, 20);
+            ctx.fillText('Animation: ' + (animating ? 'ON' : 'OFF'), 10, 35);
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Controls
+        window.addTextObject = function() {
+            const textIndex = Math.floor(Math.random() * testTexts.length);
+            const x = Math.random() * (canvas.width - 200) + 100;
+            const y = Math.random() * (canvas.height - 100) + 50;
+            
+            const textObj = new TextObject(x, y, testTexts[textIndex], {
+                width: 250,
+                fadeIn: true,
+                textAlign: 'center'
+            });
+            objects.push(textObj);
+        };
+        
+        window.addPointingArrow = function() {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const targetX = Math.random() * canvas.width;
+            const targetY = Math.random() * canvas.height;
+            
+            const arrow = new PointingArrow(x, y, {
+                pointTo: { x: targetX, y: targetY },
+                color: '#' + Math.floor(Math.random()*16777215).toString(16)
+            });
+            objects.push(arrow);
+        };
+        
+        window.clearObjects = function() {
+            objects = [];
+        };
+        
+        window.toggleAnimation = function() {
+            animating = !animating;
+            if (animating) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        // Start the test
+        initializeTest();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html> 
