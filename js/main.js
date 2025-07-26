@@ -4,8 +4,9 @@
 import { Game } from './game.js';
 import { AssetLoader } from './assetLoader.js';
 import Utils from './utils.js';
+import plog from './penguinLogger.js';
 
-console.log('main.js loaded');
+plog.info('main.js loaded');
 
 class GameManager {
     constructor() {
@@ -24,7 +25,7 @@ class GameManager {
         const loading = document.getElementById('loading');
         if (loading) {
             loading.style.display = 'none';
-            console.log('Loading screen hidden');
+            plog.debug('Loading screen hidden');
         }
         
         // Show loading screen for assets
@@ -49,7 +50,7 @@ class GameManager {
     }
     
     onAssetsLoaded(assetLoader) {
-        console.log('Assets loaded, initializing game...');
+        plog.success('Assets loaded, initializing game...');
         this.assetsLoaded = true;
         
         // Initialize game with loaded assets and audio manager
@@ -148,7 +149,7 @@ class GameManager {
     showStartScreen() {
         if (!this.assetsLoaded || !this.game) return;
         
-        console.log('Showing start screen with real graphics');
+        plog.info('Showing start screen with real graphics');
         const ctx = this.canvas.getContext('2d');
         
         // Clear canvas
@@ -261,7 +262,7 @@ class GameManager {
                     audioManager.setMasterVolume(volume);
                 });
                 
-                console.log('Volume control initialized');
+                plog.audio('Volume control initialized');
             }
         }
     }
@@ -275,7 +276,7 @@ class GameManager {
 
 // Initialize the game when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, starting game manager...');
+    plog.waddle('DOM loaded, starting game manager...');
     const gameManager = new GameManager();
     window.gameManager = gameManager; // Make it globally accessible for debugging
 });

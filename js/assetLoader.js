@@ -2,6 +2,7 @@
 // Handles loading manifest, assets, and creating animations
 
 import { AudioManager } from './audioManager.js';
+import plog from './penguinLogger.js';
 
 export class AssetLoader {
     constructor() {
@@ -23,7 +24,7 @@ export class AssetLoader {
 
         try {
             // Load manifest first
-            console.log('Loading asset manifest...');
+            plog.info('Loading asset manifest...');
             const response = await fetch('assets/manifest.json');
             this.manifest = await response.json();
             
@@ -72,11 +73,11 @@ export class AssetLoader {
         });
         
         this.totalCount = this.assetsToLoad.length;
-        console.log(`Prepared ${this.totalCount} assets to load`);
+        plog.debug(`Prepared ${this.totalCount} assets to load`);
     }
 
     async loadAllAssets() {
-        console.log(`Loading ${this.totalCount} assets...`);
+        plog.info(`Loading ${this.totalCount} assets...`);
         
         for (const asset of this.assetsToLoad) {
             try {
@@ -114,7 +115,7 @@ export class AssetLoader {
                 this.loadedCount++;
                 const progress = (this.loadedCount / this.totalCount) * 100;
                 
-                console.log(`Loaded: ${asset.name} (${this.loadedCount}/${this.totalCount})`);
+                plog.debug(`Loaded: ${asset.name} (${this.loadedCount}/${this.totalCount})`);
                 
                 if (this.onProgress) {
                     this.onProgress(progress, asset.name);
@@ -125,7 +126,7 @@ export class AssetLoader {
             }
         }
         
-        console.log('All assets loaded');
+        plog.success('All assets loaded');
         if (this.onComplete) {
             this.onComplete(this);
         }
@@ -157,7 +158,7 @@ export class AssetLoader {
                 registrationPoints: metadata.registration_points
             };
             
-            console.log(`Created penguin animation: ${animationType} (${metadata.frame_count} frames)`);
+            plog.success(`Created penguin animation: ${animationType} (${metadata.frame_count} frames)`);
             return animation;
             
         } catch (error) {

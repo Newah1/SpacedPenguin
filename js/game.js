@@ -8,10 +8,11 @@ import Utils from './utils.js';
 import { LevelLoader } from './levelLoader.js';
 import { UIManager } from './uiManager.js';
 import { LevelEndScreen } from './levelEndScreen.js';
+import plog from './penguinLogger.js';
 
 class Game {
     constructor(canvas, assetLoader, audioManager) {
-        console.log('Game constructor called');
+        plog.info('Game constructor called');
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.physics = new Physics();
@@ -101,11 +102,11 @@ class Game {
             tries: document.getElementById('tries')
         };
         
-        console.log('UI elements found:', this.ui);
-        console.log('Asset loader available:', !!this.assetLoader);
+        plog.debug('UI elements found:', this.ui);
+        plog.debug('Asset loader available:', !!this.assetLoader);
         
         this.setupEventListeners();
-        console.log('Game constructor completed');
+        plog.success('Game constructor completed');
         // Don't load level immediately - wait for start
         this.stars = [];
     }
@@ -212,7 +213,7 @@ class Game {
     }
     
     launchPenguin(velocity) {
-        console.log('Game launchPenguin called with velocity:', velocity);
+        plog.soar('Game launchPenguin called with velocity:', velocity);
         
         // Create alpha mask at current launch position (matching original game's setUpSnapping)
         this.createAlphaMaskAtLaunchPosition();
@@ -238,7 +239,7 @@ class Game {
     startRecordingShotPath() {
         this.isRecordingPath = true;
         this.currentShotPath = [];
-        console.log(`Started recording shot path ${this.shotPaths.length + 1} with color ${this.shotColors[this.currentColorIndex]}`);
+        plog.waddle(`Started recording shot path ${this.shotPaths.length + 1} with color ${this.shotColors[this.currentColorIndex]}`);
     }
     
     recordPathPoint(x, y) {
@@ -257,7 +258,7 @@ class Game {
             };
             
             this.shotPaths.push(shotPath);
-            console.log(`Saved shot path ${shotPath.shotNumber} with ${shotPath.points.length} points in color ${shotPath.color}`);
+            plog.waddle(`Saved shot path ${shotPath.shotNumber} with ${shotPath.points.length} points in color ${shotPath.color}`);
             
             // Cycle to next color
             this.currentColorIndex = (this.currentColorIndex + 1) % this.shotColors.length;
@@ -272,7 +273,7 @@ class Game {
         this.currentShotPath = [];
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
-        console.log('Cleared all shot paths');
+        plog.debug('Cleared all shot paths');
     }
     
     drawAllShotPaths(ctx) {
@@ -394,15 +395,15 @@ class Game {
         }
         
         // Update all game objects
-        console.log('Game objects count:', this.gameObjects.length, 'types:', this.gameObjects.map(obj => obj.constructor.name));
+        plog.debug('Game objects count:', this.gameObjects.length, 'types:', this.gameObjects.map(obj => obj.constructor.name));
         for (const obj of this.gameObjects) {
             if (obj.constructor.name === 'Arrow') {
                 // Only update arrow if penguin exists and has position AND is soaring
                 if (this.penguin && this.penguin.position && this.penguin.state === 'soaring') {
-                    // console.log('Updating arrow with penguin at:', this.penguin.position, 'penguin state:', this.penguin.state);
+                    // plog.debug('Updating arrow with penguin at:', this.penguin.position, 'penguin state:', this.penguin.state);
                     obj.update(this.penguin);
                 } else {
-                    // console.log('Arrow update skipped - penguin:', !!this.penguin, 'position:', this.penguin?.position, 'state:', this.penguin?.state);
+                    // plog.debug('Arrow update skipped - penguin:', !!this.penguin, 'position:', this.penguin?.position, 'state:', this.penguin?.state);
                     // Make sure arrow is hidden when penguin is not soaring
                     obj.visible = false;
                 }
@@ -413,18 +414,18 @@ class Game {
         
         // Update physics for penguin based on state
         if (this.penguin) {
-            console.log('Game update - Penguin state:', this.penguin.state, 'Launched:', this.penguin.launched);
+            plog.physics('Game update - Penguin state:', this.penguin.state, 'Launched:', this.penguin.launched);
             if (this.penguin.state === 'soaring') {
-                console.log('Calling updatePenguinPhysics');
+                plog.physics('Calling updatePenguinPhysics');
                 this.updatePenguinPhysics();
             } else if (this.penguin.state === 'crashed') {
-                console.log('Calling updatePenguinCrashed');
+                plog.crash('Calling updatePenguinCrashed');
                 this.updatePenguinCrashed();
             } else if (this.penguin.state === 'hitTarget') {
                 // Stop all movement when target is hit
                 this.penguin.vx = 0;
                 this.penguin.vy = 0;
-                console.log('Penguin stopped - target hit');
+                plog.success('Penguin stopped - target hit');
             }
         }
         
@@ -449,7 +450,7 @@ class Game {
         // Check for out of bounds
         if (this.penguin && this.penguin.state === 'soaring') {
             if (!this.isInBounds(this.penguin.position, this.flightRect)) {
-                console.log('Penguin went out of bounds (flightRect) - setting crashed state');
+                plog.crash('Penguin went out of bounds (flightRect) - setting crashed state');
                 this.endRecordingShotPath(); // End recording when going out of bounds
                 this.penguin.state = 'crashed';
                 this.penguin.crashedFrameCount = 2; // Short countdown like original GPS script
@@ -467,7 +468,7 @@ class Game {
     }
     
     updatePenguinPhysics() {
-        console.log('updatePenguinPhysics called');
+        plog.physics('updatePenguinPhysics called');
         
         // Convert planets to the format expected by the new gravity system
         const planetData = this.planets.map(planet => ({
@@ -479,7 +480,7 @@ class Game {
         }));
         
         // Debug: Log planet data being passed (simplified)
-        console.log('Game passing', planetData.length, 'planets, GravConst:', this.physics.gravitationalConstant);
+        plog.physics('Game passing', planetData.length, 'planets, GravConst:', this.physics.gravitationalConstant);
         
         // Check for planet collisions first (like original GPS script)
         for (const planet of planetData) {
@@ -490,7 +491,7 @@ class Game {
             const distance = Math.sqrt(changeLoc.x * changeLoc.x + changeLoc.y * changeLoc.y);
             
             if (distance < planet.collisionRadius) {
-                console.log('Planet collision detected in physics update');
+                plog.crash('Planet collision detected in physics update');
                 this.penguin.crashIntoPlanet(planet);
                 this.playSound('20_snd_HitPlanet');
                 
@@ -541,7 +542,7 @@ class Game {
         
         // Check if crashed state is complete (original game logic)
         if (this.penguin.crashedFrameCount < 1 || !this.isInBounds(this.penguin.position, this.stageRect)) {
-            console.log('Crash ended - resetting penguin to slingshot');
+            plog.waddle('Crash ended - resetting penguin to slingshot');
             this.endRecordingShotPath(); // End recording when crash is complete
             this.resetPenguinToSlingshot();
         }
@@ -555,7 +556,7 @@ class Game {
     }
     
     collectBonus(bonus) {
-        console.log(`Game.collectBonus called with bonus value: ${bonus.value}, position:`, bonus.position);
+        plog.bonus(`Game.collectBonus called with bonus value: ${bonus.value}, position:`, bonus.position);
         
         // Use the new collect method that returns the value
         const collectedValue = bonus.collect();
@@ -573,7 +574,7 @@ class Game {
     
     registerPlanetCollision() {
         this.planetCollisions++;
-        console.log(`Planet collision ${this.planetCollisions} registered`);
+        plog.crash(`Planet collision ${this.planetCollisions} registered`);
     }
     
     handleTargetHit() {
@@ -589,7 +590,7 @@ class Game {
         if (this.levelRules) {
             const victoryCheck = this.levelRules.checkVictoryConditions(this);
             if (!victoryCheck.canProgress) {
-                console.log('Victory conditions not met:', victoryCheck.reason);
+                plog.warn('Victory conditions not met:', victoryCheck.reason);
                 this.showMessage(victoryCheck.reason);
                 this.penguin.setState('crashed');
                 return;
@@ -731,7 +732,7 @@ class Game {
         // Draw all game objects in render order
         for (const obj of sortedObjects) {
             if (obj.constructor.name === 'Arrow') {
-                console.log('Drawing arrow object - visible:', obj.visible, 'position:', obj.position);
+                plog.debug('Drawing arrow object - visible:', obj.visible, 'position:', obj.position);
             }
             obj.draw(this.ctx);
         }
@@ -864,7 +865,7 @@ class Game {
     }
 
     resetPenguinToSlingshot() {
-        console.log('Resetting penguin to slingshot position');
+        plog.waddle('Resetting penguin to slingshot position');
         
         if (!this.penguin || !this.slingshot) {
             console.error('Cannot reset - penguin or slingshot not initialized');
@@ -876,10 +877,10 @@ class Game {
         
         // Position penguin at slingshot anchor with 30 pixel offset (like original)
         const slingshotAnchor = this.slingshot.anchor;
-        console.log('Slingshot anchor position:', slingshotAnchor);
+        plog.debug('Slingshot anchor position:', slingshotAnchor);
         
         const penguinPosition = Utils.findPoint(slingshotAnchor, this.slingshot.rotation || 0, 30);
-        console.log('Calculated penguin position:', penguinPosition);
+        plog.debug('Calculated penguin position:', penguinPosition);
         
         this.penguin.x = penguinPosition.x;
         this.penguin.y = penguinPosition.y;
@@ -895,12 +896,12 @@ class Game {
         // Reset any physics state
         this.physics.clearTrace();
         
-        console.log(`Penguin reset to position: ${this.penguin.x}, ${this.penguin.y}, state: ${this.penguin.state}`);
+        plog.waddle(`Penguin reset to position: ${this.penguin.x}, ${this.penguin.y}, state: ${this.penguin.state}`);
     }
     
     // Add tryAgain method (matching original GPS script)
     tryAgain() {
-        console.log('tryAgain called - immediately resetting penguin');
+        plog.waddle('tryAgain called - immediately resetting penguin');
         this.endRecordingShotPath();
         this.resetPenguinToSlingshot();
     }
@@ -936,14 +937,14 @@ class Game {
     
     clearAlphaMasks() {
         this.alphaMasks = [];
-        console.log('Cleared all alpha masks');
+        plog.debug('Cleared all alpha masks');
     }
     
     loadAlphaMask() {
         // Load the alpha mask image directly
         this.alphaMaskImage = new Image();
         this.alphaMaskImage.onload = () => {
-            console.log('Alpha mask image loaded successfully');
+            plog.success('Alpha mask image loaded successfully');
         };
         this.alphaMaskImage.onerror = () => {
             console.error('Failed to load alpha mask image');

@@ -1,4 +1,6 @@
 // Penguin class with real sprite animations
+import plog from './penguinLogger.js';
+
 export class Penguin {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
@@ -57,12 +59,12 @@ export class Penguin {
     initSync() {
         this.loadRealSprites();
         this.initialized = true;
-        console.log('Penguin initialized (loading real sprites in background)');
+        plog.waddle('Penguin initialized (loading real sprites in background)');
     }
     
     async loadRealSprites() {
         try {
-            console.log('Starting to load real penguin sprites...');
+            plog.waddle('Starting to load real penguin sprites...');
             
             this.spriteSheets = {};
             
@@ -70,7 +72,7 @@ export class Penguin {
             const xcImage = new Image();
             xcImage.onload = () => {
                 this.spriteSheets.xc = xcImage;
-                console.log('XC sprite sheet loaded');
+                plog.debug('XC sprite sheet loaded');
                 this.loadMetadata();
             };
             xcImage.src = 'assets/animations/penguin_spin_xc_sheet.png';
@@ -79,7 +81,7 @@ export class Penguin {
             const ycImage = new Image();
             ycImage.onload = () => {
                 this.spriteSheets.yc = ycImage;
-                console.log('YC sprite sheet loaded');
+                plog.debug('YC sprite sheet loaded');
                 this.loadMetadata();
             };
             ycImage.src = 'assets/animations/penguin_spin_yc_sheet.png';
@@ -88,7 +90,7 @@ export class Penguin {
             const zcImage = new Image();
             zcImage.onload = () => {
                 this.spriteSheets.zc = zcImage;
-                console.log('ZC sprite sheet loaded');
+                plog.debug('ZC sprite sheet loaded');
                 this.loadMetadata();
             };
             zcImage.src = 'assets/animations/penguin_spin_zc_sheet.png';
@@ -109,7 +111,7 @@ export class Penguin {
                 
                 this.metadata = { xc: xcMeta, yc: ycMeta, zc: zcMeta };
                 
-                console.log('All metadata loaded:', this.metadata);
+                plog.success('All metadata loaded:', this.metadata);
                 this.realSpritesLoaded = true;
                 this.setAnimation('xc');
                 
@@ -129,11 +131,11 @@ export class Penguin {
 
         
         this.initialized = true;
-        console.log('Penguin initialized with real sprites');
+        plog.success('Penguin initialized with real sprites');
     }
     
     setAnimation(type) {
-        console.log(`setAnimation called with type: ${type}`);
+        plog.debug(`setAnimation called with type: ${type}`);
         
         if (this.spriteSheets && this.spriteSheets[type]) {
             this.currentAnimationType = type;
@@ -145,16 +147,16 @@ export class Penguin {
             this.aniDir = Math.random() < 0.5 ? 1 : -1; // Random direction like old script
             this.aniSwap = 1;
             
-            console.log(`Animation set to ${type} with direction ${this.aniDir}`);
+            plog.debug(`Animation set to ${type} with direction ${this.aniDir}`);
         } else {
-            console.log(`Animation ${type} not available yet`);
+            plog.warn(`Animation ${type} not available yet`);
         }
     }
     
     startSpinning() {
         this.isSpinning = true;
         this.setUpAnimation();
-        console.log('Penguin started spinning - isSpinning:', this.isSpinning, 'aniFrame:', this.aniFrame, 'aniDir:', this.aniDir);
+        plog.waddle('Penguin started spinning - isSpinning:', this.isSpinning, 'aniFrame:', this.aniFrame, 'aniDir:', this.aniDir);
     }
     
     setUpAnimation() {
@@ -164,12 +166,12 @@ export class Penguin {
         this.aniMax = 11; // 12 frames (0-11)
         this.aniMin = 0;
         this.aniDir = Math.random() < 0.5 ? 1 : -1;
-        console.log(`Animation setup: frame ${this.aniFrame}, direction ${this.aniDir}`);
+        plog.debug(`Animation setup: frame ${this.aniFrame}, direction ${this.aniDir}`);
     }
     
     stopSpinning() {
         this.isSpinning = false;
-        console.log('Penguin stopped spinning');
+        plog.waddle('Penguin stopped spinning');
     }
     
     // Property for position (required by Game class)
@@ -198,7 +200,7 @@ export class Penguin {
     }
     
     launch(vx, vy) {
-        console.log('Penguin launch called with velocity:', vx, vy);
+        plog.soar('Penguin launch called with velocity:', vx, vy);
         this.vx = vx;
         this.vy = vy;
         this.launched = true;
@@ -256,7 +258,7 @@ export class Penguin {
     updateWithPlanetGravity(planets, gravitationalConstant, deltaTime) {
         if (!this.launched || this.state !== 'soaring') return;
         
-        console.log('Penguin updateWithPlanetGravity called, state:', this.state);
+        plog.physics('Penguin updateWithPlanetGravity called, state:', this.state);
         
         // Apply gravitational forces from all planets (matching old GPS script)
         for (const planet of planets) {
@@ -275,7 +277,7 @@ export class Penguin {
                 this.vx += gravitationalForce * changeLoc.x;
                 this.vy += gravitationalForce * changeLoc.y;
                 
-                console.log(`Applied gravity from planet at (${planet.x}, ${planet.y}): force=${gravitationalForce.toFixed(4)}, vx=${this.vx.toFixed(2)}, vy=${this.vy.toFixed(2)}`);
+                plog.physics(`Applied gravity from planet at (${planet.x}, ${planet.y}): force=${gravitationalForce.toFixed(4)}, vx=${this.vx.toFixed(2)}, vy=${this.vy.toFixed(2)}`);
             }
         }
         
@@ -295,7 +297,7 @@ export class Penguin {
         
 
         
-        console.log(`Penguin position updated to: (${this.x.toFixed(2)}, ${this.y.toFixed(2)}), velocity: (${this.vx.toFixed(2)}, ${this.vy.toFixed(2)})`);
+        plog.physics(`Penguin position updated to: (${this.x.toFixed(2)}, ${this.y.toFixed(2)}), velocity: (${this.vx.toFixed(2)}, ${this.vy.toFixed(2)})`);
     }
     
     // Crash the penguin against a planet (matching old GPS script setUpCrashed)
@@ -310,7 +312,7 @@ export class Penguin {
         // Set up spinning animation
         this.setUpAnimation();
         
-        console.log(`Penguin crashed into planet with ${this.crashedFrameCount} frame countdown`);
+        plog.crash(`Penguin crashed into planet with ${this.crashedFrameCount} frame countdown`);
     }
     
     // New method to handle bounce off planet (matching old GPS setBounceOffPlanet)
@@ -346,9 +348,9 @@ export class Penguin {
             // Push the penguin away from the planet with minimum velocity
             this.vx = nx * minVelocity;
             this.vy = ny * minVelocity;
-            console.log('Bounce applied - Minimum velocity push:', this.vx, this.vy, 'Magnitude:', minVelocity);
+            plog.crash('Bounce applied - Minimum velocity push:', this.vx, this.vy, 'Magnitude:', minVelocity);
         } else {
-            console.log('Bounce applied - New velocity:', this.vx, this.vy, 'Magnitude:', velocityMagnitudeAfter);
+            plog.crash('Bounce applied - New velocity:', this.vx, this.vy, 'Magnitude:', velocityMagnitudeAfter);
         }
         
         // Ensure penguin is outside planet collision radius to prevent getting stuck
@@ -360,7 +362,7 @@ export class Penguin {
             this.x += nx * pushDistance;
             this.y += ny * pushDistance;
             this.position = { x: this.x, y: this.y };
-            console.log('Penguin repositioned to safe distance from planet');
+            plog.crash('Penguin repositioned to safe distance from planet');
         }
     }
     
@@ -368,7 +370,7 @@ export class Penguin {
     updateCrashed(deltaTime, planets) {
         // Decrease frame countdown (original GPS script logic)
         this.crashedFrameCount = this.crashedFrameCount - 1;
-        console.log(`Crash frame countdown: ${this.crashedFrameCount}`);
+        plog.crash(`Crash frame countdown: ${this.crashedFrameCount}`);
         
         // Check if penguin is out of stage bounds - if so, stop movement
         const stageRect = window.game ? window.game.stageRect : { x: 0, y: 0, width: 800, height: 600 };
@@ -379,7 +381,7 @@ export class Penguin {
             // Stop movement when out of bounds
             this.vx = 0;
             this.vy = 0;
-            console.log('Penguin stopped moving - out of stage bounds');
+            plog.waddle('Penguin stopped moving - out of stage bounds');
         } else {
             // Apply velocity (continue moving during crash) - RESTORE deltaTime!
             this.x += this.vx * deltaTime;
@@ -399,7 +401,7 @@ export class Penguin {
                         window.game.playSound('20_snd_HitPlanet');
                     }
                     
-                    console.log('Penguin bounced off planet during crash');
+                    plog.crash('Penguin bounced off planet during crash');
                     break;
                 }
             }
@@ -467,7 +469,7 @@ export class Penguin {
     
     setState(newState) {
         this.state = newState;
-        console.log(`Penguin state changed to: ${newState}`);
+        plog.waddle(`Penguin state changed to: ${newState}`);
     }
     
     reset() {

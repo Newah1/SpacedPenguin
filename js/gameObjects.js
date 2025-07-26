@@ -2,6 +2,7 @@
 // Based on the original behavior scripts
 
 import Utils from './utils.js';
+import plog from './penguinLogger.js';
 
 // New consolidated orbit system supporting non-circular orbits
 class OrbitSystem {
@@ -296,7 +297,7 @@ class Planet extends GameObject {
         // Initialize sprite if asset loader and planet type are available
         if (this.assetLoader && this.planetType) {
             this.initializeSprite().catch(error => {
-                console.error('Failed to initialize planet sprite:', error);
+                plog.error('Failed to initialize planet sprite:', error);
             });
         }
     }
@@ -319,11 +320,11 @@ class Planet extends GameObject {
                 const sprite = this.assetLoader.getPlanet(this.planetType);
                 if (sprite) {
                     this.planetSprite = sprite;
-                    console.log(`Planet sprite initialized for type: ${this.planetType}`);
+                    plog.info(`Planet sprite initialized for type: ${this.planetType}`);
                 }
             }
         } catch (error) {
-            console.error('Error initializing planet sprite:', error);
+            plog.error('Error initializing planet sprite:', error);
         }
     }
     
@@ -449,9 +450,9 @@ class Bonus extends GameObject {
             // Start with normal bonus sprite
             this.currentSprite = this.bonusSprite;
             
-            console.log('Bonus sprites initialized');
+            plog.bonus('Bonus sprites initialized');
         } catch (error) {
-            console.error('Error initializing bonus sprites:', error);
+            plog.error('Error initializing bonus sprites:', error);
         }
     }
     
@@ -475,7 +476,7 @@ class Bonus extends GameObject {
                 img.src = url;
             });
         } catch (error) {
-            console.error(`Error loading SVG sprite ${spriteName}:`, error);
+            plog.error(`Error loading SVG sprite ${spriteName}:`, error);
             return null;
         }
     }
@@ -665,7 +666,7 @@ class BonusPopup extends GameObject {
     }
     
     show(value, location) {
-        console.log(`BonusPopup.show called with value: ${value}, location:`, location);
+        plog.bonus(`BonusPopup.show called with value: ${value}, location:`, location);
         this.value = value;
         this.text = `+ ${value}`;
         // Start slightly above the bonus location like original
@@ -675,7 +676,7 @@ class BonusPopup extends GameObject {
         this.frame = this.maxFrames;
         this.alpha = 1.0;
         this.color = this.getBonusColor(value);
-        console.log(`BonusPopup positioned at:`, this.position, 'color:', this.color);
+        plog.bonus(`BonusPopup positioned at:`, this.position, 'color:', this.color);
     }
     
     update(deltaTime) {
@@ -689,7 +690,7 @@ class BonusPopup extends GameObject {
             this.alpha = this.frame / this.maxFrames;
             
             if (this.frame <= 0) {
-                console.log('BonusPopup finished - hiding');
+                plog.bonus('BonusPopup finished - hiding');
                 this.state = 'idle';
                 this.visible = false;
             }
@@ -742,7 +743,7 @@ class Target extends GameObject {
     
     initializeShip() {
         try {
-            console.log('Initializing ship sprites...');
+            plog.success('Initializing ship sprites...');
             
             // Create ship sprites using HTML Image elements
             this.shipSprites = {
@@ -752,17 +753,17 @@ class Target extends GameObject {
             
             // Set up error handling for image loading
             this.shipSprites.closed.onerror = () => {
-                console.error('Failed to load ship_closed.png');
+                plog.error('Failed to load ship_closed.png');
             };
             this.shipSprites.open.onerror = () => {
-                console.error('Failed to load ship_open.png');
+                plog.error('Failed to load ship_open.png');
             };
             
             this.shipSprites.closed.onload = () => {
-                console.log('Ship closed sprite loaded successfully');
+                plog.success('Ship closed sprite loaded successfully');
             };
             this.shipSprites.open.onload = () => {
-                console.log('Ship open sprite loaded successfully');
+                plog.success('Ship open sprite loaded successfully');
             };
             
             // Load the ship images
@@ -772,10 +773,10 @@ class Target extends GameObject {
             // Set current sprite to open by default
             this.currentShipSprite = this.shipSprites.open;
             
-            console.log('Ship sprites initialized - starting in open state');
+            plog.success('Ship sprites initialized - starting in open state');
             
         } catch (error) {
-            console.error('Error initializing ship sprite:', error);
+            plog.error('Error initializing ship sprite:', error);
         }
     }
     
@@ -800,7 +801,7 @@ class Target extends GameObject {
             
             // Check if sprite is loaded
             if (!sprite.complete) {
-                console.log('Ship sprite not yet loaded, using fallback');
+                plog.warn('Ship sprite not yet loaded, using fallback');
                 this.drawFallbackTarget(ctx);
                 return;
             }
@@ -854,7 +855,7 @@ class Target extends GameObject {
     
     // Called when penguin hits the target (like original setUpHitTarget)
     onHit() {
-        console.log('Target hit - closing ship');
+        plog.success('Target hit - closing ship');
         this.isHit = true;
         this.hitFrameCount = 0;
         this.shipState = 'closed';
@@ -883,11 +884,11 @@ class Arrow extends GameObject {
     
     draw(ctx) {
         if (!this.visible) {
-            console.log('Arrow draw skipped - not visible');
+            plog.debug('Arrow draw skipped - not visible');
             return;
         }
         
-        console.log('Arrow draw called - visible:', this.visible, 'position:', this.position);
+        plog.debug('Arrow draw called - visible:', this.visible, 'position:', this.position);
         
         ctx.save();
         ctx.globalAlpha = this.alpha;
@@ -900,10 +901,10 @@ class Arrow extends GameObject {
     }
     
     update(penguin) {
-        console.log('Arrow update called - visible:', this.visible, 'stageRect:', !!this.stageRect, 'flightRect:', !!this.flightRect);
+        plog.debug('Arrow update called - visible:', this.visible, 'stageRect:', !!this.stageRect, 'flightRect:', !!this.flightRect);
         
         if (!this.stageRect || !this.flightRect) {
-            console.log('Arrow update skipped - missing rects');
+            plog.debug('Arrow update skipped - missing rects');
             return;
         }
         
@@ -912,7 +913,7 @@ class Arrow extends GameObject {
         // Check if penguin is outside game bounds but inside flight bounds
         const isInsideStage = this.isInside(penguin.position, this.stageRect);
         const isInsideFlight = this.isInside(penguin.position, this.flightRect);
-        console.log('Penguin inside stage rect:', isInsideStage, 'inside flight rect:', isInsideFlight);
+        plog.debug('Penguin inside stage rect:', isInsideStage, 'inside flight rect:', isInsideFlight);
         
         // Show arrow when penguin is outside stage but inside flight bounds
         if (!isInsideStage && isInsideFlight) {
@@ -930,10 +931,10 @@ class Arrow extends GameObject {
             this.width = 20 + (distance / 2);
             this.height = 20; // Keep height constant
             
-            console.log('Arrow visible - penguin at:', penguin.position, 'arrow at:', this.position, 'distance:', distance, 'rotation:', this.rotation);
+            plog.debug('Arrow visible - penguin at:', penguin.position, 'arrow at:', this.position, 'distance:', distance, 'rotation:', this.rotation);
         } else {
             this.visible = false;
-            console.log('Arrow hidden - penguin inside stage bounds or outside flight bounds');
+            plog.debug('Arrow hidden - penguin inside stage bounds or outside flight bounds');
         }
     }
     
@@ -952,7 +953,7 @@ class Arrow extends GameObject {
     }
     
     drawSprite(ctx) {
-        console.log('Arrow drawSprite called - position:', this.position, 'rotation:', this.rotation, 'width:', this.width);
+        plog.debug('Arrow drawSprite called - position:', this.position, 'rotation:', this.rotation, 'width:', this.width);
         
         // Draw arrow with glow effect
         ctx.shadowColor = this.glowColor;

@@ -4,6 +4,7 @@
 import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
+import plog from './penguinLogger.js';
 
 class GameObjectFactory {
     static create(objectDefinition, assetLoader, game) {
@@ -34,7 +35,7 @@ class GameObjectFactory {
                 return this.createObstacle(position, properties);
             
             default:
-                console.warn(`Unknown object type: ${type}`);
+                plog.warn(`Unknown object type: ${type}`);
                 return null;
         }
     }
@@ -168,7 +169,7 @@ class GameObjectFactory {
         // Future extension point for obstacles
         const { width = 50, height = 50, type = 'static' } = properties;
         // Would return new Obstacle(position.x, position.y, width, height, type);
-        console.warn('Obstacle type not yet implemented');
+        plog.warn('Obstacle type not yet implemented');
         return null;
     }
     
@@ -197,7 +198,7 @@ class GameObjectFactory {
                 if (orbitConfig.xFunction && orbitConfig.yFunction) {
                     // For custom orbits, we'd need to pass functions
                     // This is more complex and would require special handling
-                    console.warn('Custom orbit functions not yet supported in JSON config');
+                    plog.warn('Custom orbit functions not yet supported in JSON config');
                     object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
                 } else {
                     object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
@@ -281,10 +282,10 @@ export class LevelLoader {
         try {
             const success = await this.loadLevelFromFile(levelNumber, filePath);
             if (success) {
-                console.log(`Successfully loaded ${filePath} as level ${levelNumber}`);
+                plog.level(`Successfully loaded ${filePath} as level ${levelNumber}`);
             }
         } catch (error) {
-            console.log(`Level file ${filePath} not found, using fallback generation`);
+            plog.warn(`Level file ${filePath} not found, using fallback generation`);
         }
     }
     
@@ -295,7 +296,7 @@ export class LevelLoader {
             this.levels.set(levelNumber, levelData);
             return true;
         } catch (error) {
-            console.error(`Failed to load level ${levelNumber} from ${filePath}:`, error);
+            plog.error(`Failed to load level ${levelNumber} from ${filePath}:`, error);
             return false;
         }
     }
@@ -303,11 +304,11 @@ export class LevelLoader {
     loadLevel(levelNumber, game) {
         const levelDefinition = this.levels.get(levelNumber);
         if (!levelDefinition) {
-            console.warn(`Level ${levelNumber} not found, generating random level`);
+            plog.warn(`Level ${levelNumber} not found, generating random level`);
             return this.generateRandomLevel(levelNumber, game);
         }
         
-        console.log(`Loading level ${levelNumber}: ${levelDefinition.name}`);
+        plog.level(`Loading level ${levelNumber}: ${levelDefinition.name}`);
         
         // Clear existing game state
         game.gameObjects = [];
@@ -384,12 +385,12 @@ export class LevelLoader {
         game.distance = 0;
         game.state = 'playing';
         
-        console.log(`Level ${levelNumber} loaded: ${game.planets.length} planets, ${game.bonuses.length} bonuses`);
+        plog.level(`Level ${levelNumber} loaded: ${game.planets.length} planets, ${game.bonuses.length} bonuses`);
         return levelDefinition;
     }
     
     generateRandomLevel(levelNumber, game) {
-        console.log(`Generating random level ${levelNumber}`);
+        plog.level(`Generating random level ${levelNumber}`);
         
         const numPlanets = Math.min(levelNumber + 1, 5);
         const numBonuses = Math.min(levelNumber * 2, 8);

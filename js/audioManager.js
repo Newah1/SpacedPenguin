@@ -1,6 +1,8 @@
 // Audio Manager for Spaced Penguin
 // Handles loading and playing sound effects
 
+import plog from './penguinLogger.js';
+
 export class AudioManager {
     constructor() {
         this.audioContext = null;
@@ -23,37 +25,37 @@ export class AudioManager {
                 await this.audioContext.resume();
             }
             
-            console.log('Audio context initialized successfully');
+            plog.audio('Audio context initialized successfully');
         } catch (error) {
-            console.warn('Failed to initialize audio context:', error);
+            plog.warn('Failed to initialize audio context:', error);
             this.enabled = false;
         }
     }
     
     async loadSound(name, url) {
         if (!this.enabled || !this.audioContext) {
-            console.warn('Audio not enabled, skipping sound load:', name);
+            plog.warn('Audio not enabled, skipping sound load:', name);
             return;
         }
         
         try {
-            console.log(`Loading sound: ${name} from ${url}`);
+            plog.audio(`Loading sound: ${name} from ${url}`);
             
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
             const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
             
             this.sounds.set(name, audioBuffer);
-            console.log(`Sound loaded successfully: ${name}`);
+            plog.audio(`Sound loaded successfully: ${name}`);
             
         } catch (error) {
-            console.error(`Failed to load sound ${name}:`, error);
+            plog.error(`Failed to load sound ${name}:`, error);
         }
     }
     
     playSound(name, volume = 1.0, pitch = 1.0, loop = false) {
         if (!this.enabled || !this.audioContext || !this.sounds.has(name)) {
-            console.warn(`Cannot play sound: ${name} (enabled: ${this.enabled}, loaded: ${this.sounds.has(name)})`);
+            plog.warn(`Cannot play sound: ${name} (enabled: ${this.enabled}, loaded: ${this.sounds.has(name)})`);
             return null;
         }
         
@@ -77,13 +79,13 @@ export class AudioManager {
             // Play the sound
             source.start(0);
             
-            console.log(`Playing sound: ${name} (volume: ${volume}, pitch: ${pitch}, loop: ${loop})`);
+            plog.audio(`Playing sound: ${name} (volume: ${volume}, pitch: ${pitch}, loop: ${loop})`);
             
             // Return source for stopping looped sounds
             return source;
             
         } catch (error) {
-            console.error(`Failed to play sound ${name}:`, error);
+            plog.error(`Failed to play sound ${name}:`, error);
             return null;
         }
     }
@@ -93,7 +95,7 @@ export class AudioManager {
             try {
                 source.stop();
             } catch (error) {
-                console.warn('Error stopping sound:', error);
+                plog.warn('Error stopping sound:', error);
             }
         }
     }
@@ -122,13 +124,13 @@ export class AudioManager {
     // Volume control
     setMasterVolume(volume) {
         this.masterVolume = Math.max(0, Math.min(1, volume));
-        console.log(`Master volume set to: ${this.masterVolume}`);
+        plog.audio(`Master volume set to: ${this.masterVolume}`);
     }
     
     // Enable/disable audio
     setEnabled(enabled) {
         this.enabled = enabled;
-        console.log(`Audio ${enabled ? 'enabled' : 'disabled'}`);
+        plog.audio(`Audio ${enabled ? 'enabled' : 'disabled'}`);
     }
     
     // Get loaded sounds count
