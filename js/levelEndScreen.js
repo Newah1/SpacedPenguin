@@ -77,14 +77,15 @@ export class LevelEndScreen extends UIScreen {
         
         // Main scoring panel (centered like original)
         const panelWidth = 400;
-        const panelHeight = 300;
+        const panelHeight = 400;
         const panelX = (800 - panelWidth) / 2;
         const panelY = (600 - panelHeight) / 2;
         
         this.panel = this.addElement(new Panel(panelX, panelY, panelWidth, panelHeight, {
-            backgroundColor: '#2C2C2C',
-            borderColor: '#FFFFCC',
-            borderWidth: 3
+            backgroundColor: '#f5e4aa',
+            borderColor: '#cb7928',
+            cornerRadius: 10,
+            borderWidth: 5
         }));
         
         // Title (matches original "Level Complete" display)
@@ -94,7 +95,7 @@ export class LevelEndScreen extends UIScreen {
             {
                 fontSize: 20,
                 fontFamily: 'Verdana, sans-serif',
-                color: '#FFFFCC',
+                color: '#cb7928',
                 align: 'center',
                 bold: true
             }
@@ -108,57 +109,57 @@ export class LevelEndScreen extends UIScreen {
         
         // Column headers
         this.addElement(new TextElement(leftCol, tableY, 'Distance:', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         this.distanceValue = this.addElement(new AnimatedNumber(rightCol, tableY, 0, {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
-            align: 'right', width: 120 // Wider to prevent overflow
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            align: 'right', width: 5 // Wider to prevent overflow
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight, 'Level:', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         this.levelValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight, 0, {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
-            align: 'right', width: 120
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            align: 'right', width: 5
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 2, 'Tries:', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         this.triesValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 2, 0, {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
-            align: 'right', width: 120
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            align: 'right', width: 5
         }));
         
         // Separator line
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 3, '________________________', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 4, 'Score:', {
-            fontSize: 18, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif', bold: true
+            fontSize: 18, color: '#cb7928', fontFamily: 'Verdana, sans-serif', bold: true
         }));
         this.scoreValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 4, 0, {
-            fontSize: 18, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
-            align: 'right', width: 150, bold: true // Much wider for scores
+            fontSize: 18, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            align: 'right', width: 5, bold: true // Much wider for scores
         }));
         
         // Total score display
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 5.5, 'Total Score:', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         this.totalScoreValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 5.5, this.scoringData.previousScore, {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
-            align: 'right', width: 150 // Wider for total scores
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            align: 'right', width: 5 // Wider for total scores
         }));
         
         // High score display (matches original fld_your_high_score)
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 7, 'Your Best:', {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
         }));
         this.highScoreValue = this.addElement(new TextElement(rightCol, tableY + lineHeight * 7, this.game.highScore.toString(), {
-            fontSize: 16, color: '#FFFFCC', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
             align: 'right'
         }));
         
@@ -171,10 +172,10 @@ export class LevelEndScreen extends UIScreen {
             {
                 fontSize: 14,
                 fontFamily: 'Verdana, sans-serif',
-                backgroundColor: '#444444',
-                hoverColor: '#666666',
-                borderColor: '#FFFFCC',
-                textColor: '#FFFFCC'
+                backgroundColor: '#cb7928',
+                hoverColor: '#cb7928',
+                borderColor: '#cb7928',
+                textColor: '#f5e4aa'
             }
         ));
         this.continueButton.visible = false;
