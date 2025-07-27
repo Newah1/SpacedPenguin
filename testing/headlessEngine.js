@@ -2,6 +2,7 @@
 // Reuses existing game logic without browser dependencies
 
 import { MockCanvas, MockAudioManager, mockLogger } from './nodeShims.js';
+import { GRAVITATIONAL_CONSTANT } from './constants.js';
 
 // Create minimal implementations of browser modules for Node.js
 const NodeUtils = {
@@ -31,9 +32,6 @@ const NodeUtils = {
         return parsed;
     }
 };
-
-// Constants
-const GRAVITATIONAL_CONSTANT = 3.0;
 
 // Minimal Physics class for Node.js
 class HeadlessPhysics {
