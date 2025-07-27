@@ -27,7 +27,7 @@ class LevelTester {
         const {
             samples = 100,
             angleRange = [0, 360],
-            powerRange = [10, 100],
+            powerRange = [10, 300],
             maxTime = 30,
             findAll = false
         } = options;
@@ -238,8 +238,28 @@ async function main() {
             const levelPath = args[levelIndex + 1];
             const samples = args.includes('--samples') ? parseInt(args[args.indexOf('--samples') + 1]) : 100;
             
+            // Parse custom angle range
+            let angleRange = [0, 360];
+            if (args.includes('--angle-range')) {
+                const rangeIndex = args.indexOf('--angle-range');
+                const rangeStr = args[rangeIndex + 1];
+                const [min, max] = rangeStr.split(':').map(parseFloat);
+                angleRange = [min, max];
+            }
+            
+            // Parse custom power range  
+            let powerRange = [100, 300];
+            if (args.includes('--power-range')) {
+                const rangeIndex = args.indexOf('--power-range');
+                const rangeStr = args[rangeIndex + 1];
+                const [min, max] = rangeStr.split(':').map(parseFloat);
+                powerRange = [min, max];
+            }
+            
             await tester.testLevel(levelPath, {
                 samples,
+                angleRange,
+                powerRange,
                 findAll: args.includes('--all')
             });
         }

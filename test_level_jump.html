@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level Jump Test - Spaced Penguin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #FFFFCC;
+            font-family: Arial, sans-serif;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        button {
+            background: #444;
+            color: #FFFFCC;
+            border: 2px solid #FFFFCC;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: Verdana, sans-serif;
+        }
+        
+        button:hover {
+            background: #666;
+        }
+        
+        input[type="number"] {
+            background: #333;
+            color: #FFFFCC;
+            border: 2px solid #FFFFCC;
+            padding: 8px;
+            margin: 5px;
+            width: 80px;
+            text-align: center;
+        }
+        
+        .info {
+            margin: 20px 0;
+            text-align: center;
+            font-family: Verdana, sans-serif;
+        }
+        
+        .current-level {
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+        
+        .examples {
+            margin: 20px 0;
+            background: #222;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .examples h3 {
+            margin-top: 0;
+        }
+        
+        .url-example {
+            background: #333;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Level Jump System Test</h1>
+    
+    <div class="info">
+        <div class="current-level">Current Level: <span id="currentLevel">Loading...</span></div>
+        <div>Current URL: <span id="currentUrl" style="font-family: monospace;"></span></div>
+    </div>
+    
+    <div class="controls">
+        <h3>Jump to Level:</h3>
+        <input type="number" id="levelInput" min="1" max="25" value="1" placeholder="1-25">
+        <button onclick="jumpToLevel()">Jump to Level</button>
+        <button onclick="jumpToRandom()">Random Level</button>
+        <button onclick="clearLevel()">Clear Level Param</button>
+    </div>
+    
+    <div class="controls">
+        <h3>Quick Access:</h3>
+        <button onclick="jumpToSpecific(1)">Level 1</button>
+        <button onclick="jumpToSpecific(4)">Level 4</button>
+        <button onclick="jumpToSpecific(5)">Level 5</button>
+        <button onclick="jumpToSpecific(10)">Level 10</button>
+        <button onclick="jumpToSpecific(25)">Level 25</button>
+    </div>
+    
+    <div class="examples">
+        <h3>URL Examples:</h3>
+        <p>You can use these URLs to jump directly to specific levels:</p>
+        <div class="url-example" onclick="copyToClipboard(this.textContent)">
+            http://localhost:8000/?level=5
+        </div>
+        <div class="url-example" onclick="copyToClipboard(this.textContent)">
+            http://localhost:8000/?level=10
+        </div>
+        <div class="url-example" onclick="copyToClipboard(this.textContent)">
+            http://localhost:8000/?level=25
+        </div>
+        <p><small>Click any URL example to copy to clipboard</small></p>
+    </div>
+    
+    <div class="info">
+        <h3>How it works:</h3>
+        <ul style="text-align: left; display: inline-block;">
+            <li>Add <code>?level=X</code> to the URL where X is 1-25</li>
+            <li>Game automatically jumps to that level on load</li>
+            <li>URL updates as you progress through levels</li>
+            <li>Invalid levels default to Level 1</li>
+            <li>Level parameter is removed for invalid values</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import Utils from './js/utils.js';
+        
+        function updateDisplay() {
+            const levelParam = Utils.getURLParameter('level');
+            const currentLevel = levelParam || 'Menu';
+            document.getElementById('currentLevel').textContent = currentLevel;
+            document.getElementById('currentUrl').textContent = window.location.href;
+            
+            // Update input field
+            if (levelParam) {
+                document.getElementById('levelInput').value = levelParam;
+            }
+        }
+        
+        function jumpToLevel() {
+            const level = document.getElementById('levelInput').value;
+            const validLevel = Utils.validateLevel(level, 25);
+            
+            if (validLevel) {
+                Utils.setURLParameter('level', validLevel.toString());
+                window.location.reload();
+            } else {
+                alert(`Invalid level: ${level}. Please enter a number between 1 and 25.`);
+            }
+        }
+        
+        function jumpToSpecific(level) {
+            Utils.setURLParameter('level', level.toString());
+            window.location.reload();
+        }
+        
+        function jumpToRandom() {
+            const randomLevel = Math.floor(Math.random() * 25) + 1;
+            Utils.setURLParameter('level', randomLevel.toString());
+            window.location.reload();
+        }
+        
+        function clearLevel() {
+            Utils.removeURLParameter('level');
+            window.location.reload();
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('URL copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy URL. Please copy manually.');
+            });
+        }
+        
+        // Make functions global
+        window.jumpToLevel = jumpToLevel;
+        window.jumpToSpecific = jumpToSpecific;
+        window.jumpToRandom = jumpToRandom;
+        window.clearLevel = clearLevel;
+        window.copyToClipboard = copyToClipboard;
+        
+        // Update display on load
+        updateDisplay();
+        
+        // Update display when URL changes
+        window.addEventListener('popstate', updateDisplay);
+        
+        // Handle enter key in input
+        document.getElementById('levelInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                jumpToLevel();
+            }
+        });
+    </script>
+</body>
+</html>

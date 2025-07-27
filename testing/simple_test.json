@@ -1,0 +1,26 @@
+{
+    "name": "Simple Test",
+    "description": "Basic test with no planets",
+    "startPosition": { "x": 100, "y": 300 },
+    "targetPosition": { "x": 750, "y": 300 },
+    "objects": [
+        {
+            "type": "slingshot",
+            "position": { "x": 100, "y": 300 },
+            "properties": {
+                "anchorX": 100,
+                "anchorY": 300,
+                "stretchLimit": 120,
+                "velocityMultiplier": 15
+            }
+        },
+        {
+            "type": "target",
+            "position": { "x": 750, "y": 300 },
+            "properties": {
+                "width": 80,
+                "height": 80
+            }
+        }
+    ]
+}

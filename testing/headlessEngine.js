@@ -60,12 +60,14 @@ class HeadlessPhysics {
     updatePenguinPhysics(penguin, deltaTime) {
         if (!penguin || penguin.state !== 'soaring') return;
 
-        // Apply gravitational forces from all planets
+        // Update orbiting planets first
+        this.updateOrbitingPlanets(deltaTime);
+
+        // Apply gravitational forces from all planets (matching real game physics)
         for (const planetData of this.planets) {
             const planet = planetData.sprite;
-            const dx = planet.x - penguin.x;
-            const dy = planet.y - penguin.y;
-            const distanceSquared = dx * dx + dy * dy;
+            const changeLoc = { x: planet.x - penguin.x, y: planet.y - penguin.y };
+            const distanceSquared = changeLoc.x * changeLoc.x + changeLoc.y * changeLoc.y;
             
             if (distanceSquared === 0) continue;
 
@@ -76,17 +78,32 @@ class HeadlessPhysics {
                 continue;
             }
 
-            // Calculate gravitational force (original formula)
+            // Calculate gravitational force (matching real game: mass * constant / distance^2)
             const gravitationalForce = (planetData.mass * this.gravitationalConstant) / distanceSquared;
             
-            // Apply force to velocity
-            penguin.velocity.x += (gravitationalForce * dx) * deltaTime;
-            penguin.velocity.y += (gravitationalForce * dy) * deltaTime;
+            // Apply force to velocity (NO deltaTime multiplication here, like real game)
+            penguin.velocity.x += gravitationalForce * changeLoc.x;
+            penguin.velocity.y += gravitationalForce * changeLoc.y;
         }
 
-        // Update position
+        // Update position (WITH deltaTime multiplication, like real game)
         penguin.x += penguin.velocity.x * deltaTime;
         penguin.y += penguin.velocity.y * deltaTime;
+    }
+    
+    updateOrbitingPlanets(deltaTime) {
+        for (const planetData of this.planets) {
+            const planet = planetData.sprite;
+            if (planet.orbit) {
+                // Update orbit time
+                planet.orbitTime += deltaTime * planet.orbit.speed;
+                
+                // Calculate new position based on circular orbit
+                const angle = planet.orbitTime;
+                planet.x = planet.orbit.center.x + Math.cos(angle) * planet.orbit.radius;
+                planet.y = planet.orbit.center.y + Math.sin(angle) * planet.orbit.radius;
+            }
+        }
     }
     
     checkCollisions(penguin) {
@@ -115,12 +132,18 @@ class HeadlessPhysics {
     checkTargetCollision(penguin, target) {
         if (!penguin || !target) return false;
 
-        const distance = NodeUtils.distance(
-            {x: penguin.x, y: penguin.y}, 
-            {x: target.x, y: target.y}
-        );
+        // Use rectangular collision detection like real game (80x80 target)
+        const targetRect = {
+            x: target.x - (target.width || 80) / 2,
+            y: target.y - (target.height || 80) / 2,
+            width: target.width || 80,
+            height: target.height || 80
+        };
 
-        return distance <= (target.radius || 25);
+        return NodeUtils.inside(
+            {x: penguin.x, y: penguin.y}, 
+            targetRect
+        );
     }
     
     checkBounds(penguin, bounds) {
@@ -145,10 +168,10 @@ class HeadlessPenguin {
         this.radius = 8; // From original game
     }
     
-    launch(angle, power) {
+    launch(angle, power, velocityMultiplier = 15) {
         // Convert angle/power to velocity (from original slingshot logic)
         const radians = (angle * Math.PI) / 180;
-        const speed = power / 10; // Scale power appropriately
+        const speed = power * velocityMultiplier / 100; // Scale like real game
         
         this.velocity.x = Math.cos(radians) * speed;
         this.velocity.y = Math.sin(radians) * speed;
@@ -175,6 +198,7 @@ export class HeadlessGameEngine {
         this.penguin = null;
         this.target = null;
         this.level = null;
+        this.slingshot = null;
         this.bounds = {
             left: -400,
             right: 1200,
@@ -219,7 +243,9 @@ export class HeadlessGameEngine {
                             y: obj.position.y,
                             mass: obj.properties.mass || 100,
                             radius: obj.properties.radius || 30,
-                            gravitationalReach: obj.properties.gravitationalReach || 5000
+                            gravitationalReach: obj.properties.gravitationalReach || 5000,
+                            orbit: obj.properties.orbit || null,
+                            orbitTime: 0  // Track orbit position
                         };
                         this.physics.addPlanet(planet);
                         break;
@@ -228,11 +254,13 @@ export class HeadlessGameEngine {
                         this.target = {
                             x: obj.position.x,
                             y: obj.position.y,
-                            radius: 25
+                            width: obj.properties.width || 80,
+                            height: obj.properties.height || 80
                         };
                         break;
                         
                     case 'slingshot':
+                        this.slingshot = obj.properties;
                         this.penguin = new HeadlessPenguin(
                             obj.position.x,
                             obj.position.y
@@ -287,7 +315,8 @@ export class HeadlessGameEngine {
         this.penguin.velocity = { x: 0, y: 0 };
         
         // Launch penguin
-        this.penguin.launch(angle, power);
+        const velocityMultiplier = this.slingshot?.velocityMultiplier || 15;
+        this.penguin.launch(angle, power, velocityMultiplier);
         
         const simulationTime = maxTime || this.maxSimulationTime;
         const maxSteps = Math.floor(simulationTime / this.timeStep);
@@ -359,10 +388,10 @@ export class HeadlessGameEngine {
     }
     
     // Test multiple trajectories to find successful ones
-    findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 100], samples = 100) {
+    findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 300], samples = 100) {
         const results = [];
-        const angleStep = (angleRange[1] - angleRange[0]) / Math.sqrt(samples);
-        const powerStep = (powerRange[1] - powerRange[0]) / Math.sqrt(samples);
+        const angleStep = (angleRange[1] - angleRange[0]) / Math.sqrt(samples / 1024); // Increased step size for faster testing
+        const powerStep = (powerRange[1] - powerRange[0]) / Math.sqrt(samples / 2);
         
         this.logger.info(`Testing ${samples} trajectory combinations...`);
         
@@ -385,7 +414,7 @@ export class HeadlessGameEngine {
                 
                 // Progress feedback
                 if (tested % 10 === 0) {
-                    this.logger.info(`Tested ${tested} trajectories, found ${successful} successful`);
+                    this.logger.info(`Tested ${tested} trajectories, found ${successful} successful. ${angle} ${power}`);
                 }
             }
         }
