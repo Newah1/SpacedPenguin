@@ -298,7 +298,10 @@ Examples:
 }
 
 // Run CLI if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const currentFile = new URL(import.meta.url).pathname;
+const scriptFile = process.argv[1];
+if (currentFile.endsWith(scriptFile) || currentFile.endsWith('levelTester.js')) {
+    console.log('🚀 Starting LevelTester...');
     main().catch(console.error);
 }
 
