@@ -88,10 +88,11 @@ export class LevelEndScreen extends UIScreen {
             borderWidth: 5
         }));
         
-        // Title (matches original "Level Complete" display)
+        // Title (matches original "Level x of x Complete!" display)
+        const totalLevels = this.game.totalLevels || 25; // Default to 25 if not set
         this.titleText = this.addElement(new TextElement(
             panelX + panelWidth / 2, panelY + 30,
-            `Level ${this.game.level} Complete!`,
+            `Level ${this.game.level} of ${totalLevels} Complete!`,
             {
                 fontSize: 20,
                 fontFamily: 'Verdana, sans-serif',
@@ -101,8 +102,33 @@ export class LevelEndScreen extends UIScreen {
             }
         ));
         
+        // Mathematical formula display (from original text_function member)
+        this.formulaText = this.addElement(new TextElement(
+            panelX + panelWidth / 2, panelY + 60,
+            'Distance x Level / Tries = Score',
+            {
+                fontSize: 14,
+                fontFamily: 'Courier New, monospace',
+                color: '#cb7928',
+                align: 'center',
+                bold: true
+            }
+        ));
+        
+        // "Click to skip" text (initially visible)
+        this.skipText = this.addElement(new TextElement(
+            panelX + panelWidth / 2, panelY + panelHeight - 25,
+            'click to skip',
+            {
+                fontSize: 12,
+                fontFamily: 'Verdana, sans-serif',
+                color: '#cb7928',
+                align: 'center'
+            }
+        ));
+        
         // Score breakdown table (matches original fld_score_actual format)
-        const tableY = panelY + 70;
+        const tableY = panelY + 95;
         const leftCol = panelX + 30;
         const rightCol = panelX + panelWidth - 30;
         const lineHeight = 25;
@@ -165,7 +191,7 @@ export class LevelEndScreen extends UIScreen {
         
         // Continue button (initially hidden)
         this.continueButton = this.addElement(new Button(
-            panelX + panelWidth / 2 - 60, panelY + panelHeight - 50,
+            panelX + panelWidth / 2 - 60, panelY + panelHeight - 70,
             120, 30,
             'Continue',
             () => this.handleContinue(),
@@ -282,6 +308,7 @@ export class LevelEndScreen extends UIScreen {
     finishAnimation() {
         this.isAnimating = false;
         this.continueButton.visible = true;
+        this.skipText.visible = false; // Hide skip text when animation is done
         
         // Stop any looping sounds
         this.stopAllLoopingSounds();
@@ -341,6 +368,22 @@ export class LevelEndScreen extends UIScreen {
         return false;
     }
     
+    handleClick(event) {
+        // Allow clicking anywhere to skip animation (original behavior)
+        if (this.isAnimating) {
+            this.skipAnimation();
+            return true;
+        }
+        
+        // If animation is done, clicking continues
+        if (!this.isAnimating) {
+            this.handleContinue();
+            return true;
+        }
+        
+        return false;
+    }
+    
     skipAnimation() {
         // Stop all looping sounds first
         this.stopAllLoopingSounds();
@@ -357,5 +400,15 @@ export class LevelEndScreen extends UIScreen {
         }
         
         this.finishAnimation();
+    }
+    
+    // Override update to handle click events
+    update(deltaTime) {
+        super.update(deltaTime);
+        
+        // Check for mouse clicks during animation
+        if (this.uiManager.inputManager && this.uiManager.inputManager.isMousePressed()) {
+            this.handleClick();
+        }
     }
 }
