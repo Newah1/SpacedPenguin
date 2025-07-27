@@ -63,6 +63,9 @@ class GameManager {
         // Load high score
         this.game.loadHighScore();
         
+        // Check for level parameter in URL and jump to specific level
+        this.checkLevelParameter();
+        
         // Set up volume control
         this.setupVolumeControl();
         
@@ -73,11 +76,11 @@ class GameManager {
         this.isRunning = true;
         this.gameLoop();
         
-        // Show start screen with real graphics
-        this.showStartScreen();
-        
-        // Set up start screen animation
-        this.startScreenAnimation();
+        // Show start screen with real graphics (unless jumping to level)
+        if (this.game.state === 'menu') {
+            this.showStartScreen();
+            this.startScreenAnimation();
+        }
     }
     
     showLoadingScreen() {
@@ -241,6 +244,33 @@ class GameManager {
     resume() {
         this.isRunning = true;
         this.gameLoop();
+    }
+    
+    checkLevelParameter() {
+        // Check for level parameter in URL (e.g., ?level=5)
+        const levelParam = Utils.getURLParameter('level');
+        if (levelParam) {
+            const targetLevel = Utils.validateLevel(levelParam, 25);
+            if (targetLevel) {
+                plog.info(`Jumping to level ${targetLevel} from URL parameter`);
+                this.game.jumpToLevel(targetLevel);
+                
+                // Show level info briefly
+                const loadingText = document.getElementById('loadingText');
+                if (loadingText) {
+                    loadingText.textContent = `Starting Level ${targetLevel}...`;
+                    setTimeout(() => {
+                        const loadingScreen = document.getElementById('loadingScreen');
+                        if (loadingScreen) {
+                            loadingScreen.style.display = 'none';
+                        }
+                    }, 1000);
+                }
+            } else {
+                plog.warn(`Invalid level parameter: ${levelParam}. Must be 1-25.`);
+                Utils.removeURLParameter('level');
+            }
+        }
     }
     
     setupVolumeControl() {

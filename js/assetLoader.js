@@ -13,6 +13,7 @@ export class AssetLoader {
         this.onProgress = null;
         this.loadedCount = 0;
         this.totalCount = 0;
+        this.loadAttempts = new Map(); // Track load attempts to prevent redundant loading
         
         // Initialize audio manager
         this.audioManager = new AudioManager();
@@ -42,44 +43,95 @@ export class AssetLoader {
     prepareAssetsToLoad() {
         this.assetsToLoad = [];
         
-        // Add animation sprite sheets
+        // Load essential assets first
+        const essential = this.manifest.essential || {};
+        
+        // Essential animations
         Object.entries(this.manifest.animations).forEach(([name, path]) => {
             if (path.endsWith('.png')) {
-                this.assetsToLoad.push({ name, url: `assets/${path}`, type: 'texture' });
+                const isEssential = essential.animations && essential.animations.includes(name);
+                this.assetsToLoad.push({ 
+                    name, 
+                    url: `assets/${path}`, 
+                    type: 'texture', 
+                    essential: isEssential 
+                });
             }
         });
 
-        // Add UI assets
+        // Essential UI assets
         Object.entries(this.manifest.ui).forEach(([name, path]) => {
             const type = path.endsWith('.svg') ? 'svg' : 'texture';
-            this.assetsToLoad.push({ name: `ui_${name}`, url: `assets/${path}`, type });
+            const isEssential = essential.ui && essential.ui.includes(name);
+            this.assetsToLoad.push({ 
+                name: `ui_${name}`, 
+                url: `assets/${path}`, 
+                type, 
+                essential: isEssential 
+            });
         });
 
-        // Add planet assets
+        // Essential planet assets
         Object.entries(this.manifest.planets).forEach(([name, path]) => {
             const type = path.endsWith('.svg') ? 'svg' : 'texture';
-            this.assetsToLoad.push({ name: `planet_${name}`, url: `assets/${path}`, type });
+            const isEssential = essential.planets && essential.planets.includes(name);
+            this.assetsToLoad.push({ 
+                name: `planet_${name}`, 
+                url: `assets/${path}`, 
+                type, 
+                essential: isEssential 
+            });
         });
 
-        // Add sprite assets
+        // Essential sprite assets
         Object.entries(this.manifest.sprites).forEach(([name, path]) => {
             const type = path.endsWith('.svg') ? 'svg' : 'texture';
-            this.assetsToLoad.push({ name: `sprite_${name}`, url: `assets/${path}`, type });
+            const isEssential = essential.sprites && essential.sprites.includes(name);
+            this.assetsToLoad.push({ 
+                name: `sprite_${name}`, 
+                url: `assets/${path}`, 
+                type, 
+                essential: isEssential 
+            });
         });
 
-        // Add audio assets (we'll handle these differently)
+        // Essential audio assets
         Object.entries(this.manifest.audio).forEach(([name, path]) => {
-            this.assetsToLoad.push({ name: `audio_${name}`, url: `assets/${path}`, type: 'audio' });
+            const isEssential = essential.audio && essential.audio.includes(name);
+            this.assetsToLoad.push({ 
+                name: `audio_${name}`, 
+                url: `assets/${path}`, 
+                type: 'audio', 
+                essential: isEssential 
+            });
         });
+
+        // Sort by priority (essential first)
+        this.assetsToLoad.sort((a, b) => (b.essential ? 1 : 0) - (a.essential ? 1 : 0));
         
         this.totalCount = this.assetsToLoad.length;
-        plog.debug(`Prepared ${this.totalCount} assets to load`);
+        const essentialCount = this.assetsToLoad.filter(a => a.essential).length;
+        plog.info(`Prepared ${this.totalCount} assets to load (${essentialCount} essential)`);
     }
 
     async loadAllAssets() {
         plog.info(`Loading ${this.totalCount} assets...`);
         
         for (const asset of this.assetsToLoad) {
+            // Skip if already attempted and failed
+            if (this.loadAttempts.has(asset.name)) {
+                this.loadedCount++;
+                continue;
+            }
+            
+            // Skip if already loaded
+            if (this.resources[asset.name]) {
+                this.loadedCount++;
+                continue;
+            }
+            
+            this.loadAttempts.set(asset.name, true);
+            
             try {
                 if (asset.type === 'texture') {
                     // Load regular images
@@ -122,13 +174,139 @@ export class AssetLoader {
                 }
                 
             } catch (error) {
-                console.error(`Error loading asset ${asset.name}:`, error);
+                plog.warn(`Failed to load asset ${asset.name}: ${error.message}`);
+                
+                // For essential assets, provide fallbacks
+                if (asset.essential) {
+                    this.createFallbackAsset(asset);
+                }
+                
+                // Still count as "loaded" to prevent hanging
+                this.loadedCount++;
+                const progress = (this.loadedCount / this.totalCount) * 100;
+                
+                if (this.onProgress) {
+                    this.onProgress(progress, asset.name + ' (fallback)');
+                }
             }
         }
         
-        plog.success('All assets loaded');
+        const failedCount = this.totalCount - Object.keys(this.resources).length;
+        if (failedCount > 0) {
+            plog.warn(`Asset loading completed with ${failedCount} failures`);
+        } else {
+            plog.success('All assets loaded successfully');
+        }
+        
         if (this.onComplete) {
             this.onComplete(this);
+        }
+    }
+
+    // Lazy load non-essential assets after initial loading
+    async loadAssetOnDemand(assetName) {
+        // Check if already loaded
+        if (this.resources[assetName]) {
+            return this.resources[assetName];
+        }
+
+        // Find asset in manifest
+        let assetInfo = null;
+        let assetPath = null;
+        
+        // Search through all asset categories
+        for (const [category, assets] of Object.entries(this.manifest)) {
+            if (category === 'essential') continue;
+            
+            for (const [name, path] of Object.entries(assets)) {
+                const fullName = category === 'animations' ? name : `${category.slice(0, -1)}_${name}`;
+                if (fullName === assetName) {
+                    assetInfo = { name: fullName, url: `assets/${path}`, type: path.endsWith('.svg') ? 'svg' : path.endsWith('.wav') ? 'audio' : 'texture' };
+                    break;
+                }
+            }
+            if (assetInfo) break;
+        }
+        
+        if (!assetInfo) {
+            plog.warn(`Asset ${assetName} not found in manifest for lazy loading`);
+            return null;
+        }
+        
+        // Load the asset
+        try {
+            plog.info(`Lazy loading asset: ${assetName}`);
+            
+            if (assetInfo.type === 'texture') {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = assetInfo.url;
+                });
+                
+                this.resources[assetName] = img;
+                return img;
+                
+            } else if (assetInfo.type === 'svg') {
+                const response = await fetch(assetInfo.url);
+                const svgText = await response.text();
+                this.resources[assetName] = svgText;
+                return svgText;
+                
+            } else if (assetInfo.type === 'audio') {
+                const soundName = assetName.replace('audio_', '');
+                await this.audioManager.loadSound(soundName, assetInfo.url);
+                this.resources[assetName] = { audioManager: this.audioManager, soundName: soundName };
+                return this.resources[assetName];
+            }
+            
+        } catch (error) {
+            plog.warn(`Failed to lazy load asset ${assetName}: ${error.message}`);
+            return null;
+        }
+    }
+
+    createFallbackAsset(asset) {
+        // Create simple fallback assets for essential resources
+        plog.info(`Creating fallback for essential asset: ${asset.name}`);
+        
+        if (asset.type === 'texture' || asset.type === 'svg') {
+            // Create a simple colored rectangle as fallback
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            // Different colors for different asset types
+            if (asset.name.includes('planet')) {
+                ctx.fillStyle = '#888888'; // Gray for planets
+            } else if (asset.name.includes('bonus')) {
+                ctx.fillStyle = '#FFD700'; // Gold for bonuses
+            } else if (asset.name.includes('ship')) {
+                ctx.fillStyle = '#4A90E2'; // Blue for ships
+            } else {
+                ctx.fillStyle = '#FF6B6B'; // Red for other sprites
+            }
+            
+            ctx.fillRect(0, 0, 64, 64);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, 62, 62);
+            
+            // Add text label
+            ctx.fillStyle = '#000000';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(asset.name.split('_').pop(), 32, 35);
+            
+            this.resources[asset.name] = canvas;
+            
+        } else if (asset.type === 'audio') {
+            // Create a silent audio context as fallback
+            this.resources[asset.name] = { audioManager: this.audioManager, soundName: 'silent' };
         }
     }
 

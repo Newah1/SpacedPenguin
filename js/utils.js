@@ -139,6 +139,42 @@ export default class Utils {
         return score.toLocaleString();
     }
     
+    // URL parameter utilities
+    static getURLParameters() {
+        const params = new URLSearchParams(window.location.search);
+        const result = {};
+        for (const [key, value] of params) {
+            result[key] = value;
+        }
+        return result;
+    }
+    
+    static getURLParameter(name, defaultValue = null) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name) || defaultValue;
+    }
+    
+    static setURLParameter(name, value) {
+        const url = new URL(window.location);
+        url.searchParams.set(name, value);
+        window.history.replaceState({}, '', url);
+    }
+    
+    static removeURLParameter(name) {
+        const url = new URL(window.location);
+        url.searchParams.delete(name);
+        window.history.replaceState({}, '', url);
+    }
+    
+    // Level validation
+    static validateLevel(level, maxLevel = 25) {
+        const parsed = parseInt(level);
+        if (isNaN(parsed) || parsed < 1 || parsed > maxLevel) {
+            return null;
+        }
+        return parsed;
+    }
+    
     // Deep clone object
     static deepClone(obj) {
         return JSON.parse(JSON.stringify(obj));

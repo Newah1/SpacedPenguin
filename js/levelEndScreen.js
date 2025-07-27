@@ -89,7 +89,7 @@ export class LevelEndScreen extends UIScreen {
         }));
         
         // Title (matches original "Level x of x Complete!" display)
-        const totalLevels = this.game.totalLevels || 25; // Default to 25 if not set
+        const totalLevels = 25; // Based on original game analysis
         this.titleText = this.addElement(new TextElement(
             panelX + panelWidth / 2, panelY + 30,
             `Level ${this.game.level} of ${totalLevels} Complete!`,

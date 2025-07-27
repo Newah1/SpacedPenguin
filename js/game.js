@@ -642,6 +642,9 @@ class Game {
         // Load next level
         this.loadLevel(this.level);
         
+        // Update URL parameter to reflect current level
+        Utils.setURLParameter('level', this.level.toString());
+        
         // Return to playing state
         this.state = 'playing';
     }
@@ -829,6 +832,9 @@ class Game {
         // Load next level
         this.loadLevel(this.level);
         
+        // Update URL parameter to reflect current level
+        Utils.setURLParameter('level', this.level.toString());
+        
         // Return to playing state
         this.state = 'playing';
     }
@@ -851,6 +857,49 @@ class Game {
         this.tries = 0;
         this.loadLevel(this.level);
         this.state = 'playing';
+    }
+    
+    jumpToLevel(targetLevel) {
+        // Validate level exists (check if level file is available)
+        const maxLevel = 25; // Based on original game analysis
+        if (targetLevel < 1 || targetLevel > maxLevel) {
+            plog.error(`Invalid level: ${targetLevel}. Must be 1-${maxLevel}.`);
+            return false;
+        }
+        
+        plog.info(`Jumping to level ${targetLevel}`);
+        
+        // Set up game state for the target level
+        this.level = targetLevel;
+        this.score = 0; // Start fresh for testing purposes
+        this.distance = 0;
+        this.tries = 0;
+        this.planetCollisions = 0;
+        
+        // Close any UI screens
+        this.uiManager.closeAllScreens();
+        
+        // Load the target level
+        try {
+            this.loadLevel(this.level);
+            this.state = 'playing';
+            
+            // Update URL parameter to reflect current level
+            Utils.setURLParameter('level', this.level.toString());
+            
+            plog.success(`Successfully jumped to level ${targetLevel}`);
+            return true;
+        } catch (error) {
+            plog.error(`Failed to load level ${targetLevel}: ${error.message}`);
+            
+            // Fall back to level 1 if the target level doesn't exist
+            this.level = 1;
+            this.loadLevel(this.level);
+            this.state = 'playing';
+            Utils.removeURLParameter('level');
+            
+            return false;
+        }
     }
     
     saveHighScore() {
