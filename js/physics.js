@@ -24,6 +24,11 @@ export class Physics {
         });
     }
     
+    // Remove a planet from the physics system
+    removePlanet(planet) {
+        this.planets = this.planets.filter(p => p.sprite !== planet);
+    }
+    
     // Add a bonus item to the physics system
     addBonus(bonus) {
         this.bonuses.push({

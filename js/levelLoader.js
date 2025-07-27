@@ -72,8 +72,8 @@ class GameObjectFactory {
     }
     
     static createTarget(position, properties, assetLoader) {
-        const { width = 60, height = 60 } = properties;
-        return new Target(position.x, position.y, width, height, assetLoader);
+        const { width = 60, height = 60, spriteType = 'ship_open' } = properties;
+        return new Target(position.x, position.y, width, height, spriteType, assetLoader);
     }
     
     static createSlingshot(position, properties) {
@@ -345,7 +345,7 @@ export class LevelLoader {
             game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         } else {
             const targetPos = levelDefinition.targetPosition || { x: 700, y: 300 };
-            game.target = new Target(targetPos.x, targetPos.y, 60, 60, this.assetLoader);
+            game.target = new Target(targetPos.x, targetPos.y, 60, 60, 'ship_open', this.assetLoader);
         }
         game.gameObjects.push(game.target);
         

@@ -8,6 +8,8 @@ import Utils from './utils.js';
 import { LevelLoader } from './levelLoader.js';
 import { UIManager } from './uiManager.js';
 import { LevelEndScreen } from './levelEndScreen.js';
+import Console from './console.js';
+import LevelEditor from './levelEditor.js';
 import plog from './penguinLogger.js';
 
 class Game {
@@ -26,6 +28,7 @@ class Game {
         this.state = 'menu'; // menu, playing, paused, gameOver, scoring
         this.level = 1;
         this.score = 0;
+        this.currentAttemptScore = 0; // Track score for current attempt only
         this.distance = 0;
         this.tries = 0;
         this.highScore = 0;
@@ -64,6 +67,22 @@ class Game {
         this.arrow.setStageRect(this.stageRect);
         this.arrow.setFlightRect(this.flightRect);
         this.gameObjects.push(this.arrow);
+        
+        // Initialize console and level editor
+        this.console = new Console(this);
+        this.levelEditor = new LevelEditor(this);
+        
+        // Pass ALL class references to level editor for object creation
+        this.levelEditor.gameObjectClasses = {
+            Planet,
+            Bonus,
+            BonusPopup,
+            Target,
+            Arrow,
+            Slingshot,
+            TextObject,
+            PointingArrow
+        };
         
         // Shot path tracing system (like original game)
         this.shotPaths = []; // Array of complete shot paths
@@ -135,7 +154,17 @@ class Game {
         this.mouseDown = true;
         this.mousePosition = this.getMousePosition(e);
         
-        if (this.state === 'playing' && this.penguin.state === 'idle') {
+        // Delegate to level editor if active AND in edit mode
+        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+            this.levelEditor.handleMouseDown(e);
+            return;
+        }
+        
+        // Allow slingshot in both playing state and level editor play mode
+        const canUseSlingshot = (this.state === 'playing') || 
+                              (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+        
+        if (canUseSlingshot && this.penguin.state === 'idle') {
             this.isDragging = true;
             this.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
             this.penguin.setState('pullback');
@@ -145,6 +174,12 @@ class Game {
     handleMouseMove(e) {
         this.mousePosition = this.getMousePosition(e);
         
+        // Delegate to level editor if active AND in edit mode
+        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+            this.levelEditor.handleMouseMove(e);
+            return;
+        }
+        
         if (this.isDragging && this.slingshot.isPulling) {
             this.slingshot.updatePullback(this.mousePosition.x, this.mousePosition.y);
         }
@@ -153,13 +188,21 @@ class Game {
     handleMouseUp(e) {
         this.mouseDown = false;
         
+        // Delegate to level editor if active AND in edit mode
+        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+            this.levelEditor.handleMouseUp(e);
+            return;
+        }
+        
         if (this.isDragging) {
             this.isDragging = false;
             const velocity = this.slingshot.release();
             this.launchPenguin(velocity);
         } else {
             // Mouse click during soaring triggers tryAgain (like original)
-            if (this.state === 'playing' && this.penguin && this.penguin.state === 'soaring') {
+            const canUseSlingshot = (this.state === 'playing') || 
+                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+            if (canUseSlingshot && this.penguin && this.penguin.state === 'soaring') {
                 this.tryAgain();
             }
         }
@@ -187,14 +230,30 @@ class Game {
     }
     
     handleKeyDown(e) {
+        // Handle console toggle first
+        if (e.key === '`') {
+            e.preventDefault();
+            this.console.toggle();
+            return;
+        }
+        
+        // Don't process other keys if console is open or in level editor mode
+        if (this.console.visible || this.state === 'levelEditor') {
+            return;
+        }
+        
         switch (e.key.toLowerCase()) {
             case 'q':
-                if (this.state === 'playing') {
+                const canUseKeys = (this.state === 'playing') || 
+                                 (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                if (canUseKeys) {
                     this.showQuitDialog();
                 }
                 break;
             case 'r':
-                if (this.state === 'playing') {
+                const canUseKeys2 = (this.state === 'playing') || 
+                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                if (canUseKeys2) {
                     this.tryAgain();
                 }
                 break;
@@ -205,7 +264,9 @@ class Game {
                 break;
             default:
                 // Any other key during playing triggers tryAgain (like original)
-                if (this.state === 'playing' && this.penguin && this.penguin.state === 'soaring') {
+                const canUseKeys3 = (this.state === 'playing') || 
+                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                if (canUseKeys3 && this.penguin && this.penguin.state === 'soaring') {
                     this.tryAgain();
                 }
                 break;
@@ -542,9 +603,8 @@ class Game {
         
         // Check if crashed state is complete (original game logic)
         if (this.penguin.crashedFrameCount < 1 || !this.isInBounds(this.penguin.position, this.stageRect)) {
-            plog.waddle('Crash ended - resetting penguin to slingshot');
-            this.endRecordingShotPath(); // End recording when crash is complete
-            this.resetPenguinToSlingshot();
+            plog.waddle('Crash ended - calling tryAgain to reset everything');
+            this.tryAgain(); // Use tryAgain instead of just resetPenguinToSlingshot
         }
         
         this.updateUI();
@@ -562,7 +622,7 @@ class Game {
         const collectedValue = bonus.collect();
         
         if (collectedValue > 0) {
-            this.score += collectedValue;
+            this.currentAttemptScore += collectedValue;
             this.playSound('16_snd_bonus');
             
             // Show bonus popup at bonus location
@@ -606,7 +666,9 @@ class Game {
     calculateFinalScore() {
         // Original game formula: tempScore = tempDist * tempLevel / tempTries
         const levelScore = Math.floor(this.distance * this.level / this.tries);
-        this.score += levelScore;
+        
+        // Add current attempt bonuses and level score to total
+        this.score += levelScore + this.currentAttemptScore;
         
         // Apply score multiplier from level rules
         if (this.levelRules && this.levelRules.scoreMultiplier !== 1.0) {
@@ -686,6 +748,7 @@ class Game {
         this.planetCollisions = 0;
         this.tries = 0;
         this.distance = 0;
+        this.currentAttemptScore = 0; // Reset attempt score for new level
         
         // Clear all shot path traces for new level
         this.clearAllShotPaths();
@@ -745,6 +808,9 @@ class Game {
         
         // Draw UI Manager screens on top
         this.uiManager.render();
+        
+        // Draw level editor overlay
+        this.levelEditor.render(this.ctx);
     }
     
     generateStars() {
@@ -808,7 +874,7 @@ class Game {
     
     updateUI() {
         this.ui.level.textContent = this.level;
-        this.ui.score.textContent = Utils.formatScore(this.score);
+        this.ui.score.textContent = Utils.formatScore(this.score + this.currentAttemptScore);
         this.ui.distance.textContent = Math.floor(this.distance);
         this.ui.tries.textContent = this.tries;
     }
@@ -853,6 +919,7 @@ class Game {
     startGame() {
         this.level = 1;
         this.score = 0;
+        this.currentAttemptScore = 0;
         this.distance = 0;
         this.tries = 0;
         this.loadLevel(this.level);
@@ -872,6 +939,7 @@ class Game {
         // Set up game state for the target level
         this.level = targetLevel;
         this.score = 0; // Start fresh for testing purposes
+        this.currentAttemptScore = 0;
         this.distance = 0;
         this.tries = 0;
         this.planetCollisions = 0;
@@ -950,9 +1018,226 @@ class Game {
     
     // Add tryAgain method (matching original GPS script)
     tryAgain() {
-        plog.waddle('tryAgain called - immediately resetting penguin');
+        plog.waddle('tryAgain called - immediately resetting penguin and bonuses');
         this.endRecordingShotPath();
         this.resetPenguinToSlingshot();
+        this.resetBonuses(); // Reset bonuses between tries
+        
+        // Reset current attempt score (don't add bonuses until level is completed)
+        this.currentAttemptScore = 0;
+        this.updateUI();
+    }
+    
+    // Level Editor Methods
+    enterLevelEditor() {
+        this.levelEditor.enter();
+    }
+    
+    exitLevelEditor() {
+        this.levelEditor.exit();
+    }
+    
+    exportCurrentLevel() {
+        console.log('=== STARTING COMPREHENSIVE LEVEL EXPORT ===');
+        
+        const levelData = {
+            levelNumber: this.level,
+            objects: [],
+            rules: this.levelRules ? this.exportLevelRules() : {},
+            metadata: {
+                exportedAt: new Date().toISOString(),
+                totalObjects: 0,
+                objectTypes: {}
+            }
+        };
+        
+        // GREEDY EXPORT: Get ALL objects from ALL arrays
+        const allObjects = this.getAllObjectsForExport();
+        
+        console.log(`Found ${allObjects.length} total objects to export`);
+        
+        // Export each object with ALL its properties
+        for (const obj of allObjects) {
+            const exportedObj = this.exportObjectComprehensively(obj);
+            if (exportedObj) {
+                levelData.objects.push(exportedObj);
+                
+                // Update metadata
+                const type = exportedObj.type;
+                levelData.metadata.objectTypes[type] = (levelData.metadata.objectTypes[type] || 0) + 1;
+            }
+        }
+        
+        levelData.metadata.totalObjects = levelData.objects.length;
+        
+        console.log('Export complete:', levelData.metadata);
+        return levelData;
+    }
+    
+    getAllObjectsForExport() {
+        const allObjects = new Set(); // Use Set to avoid duplicates
+        
+        // Add from gameObjects array
+        this.gameObjects.forEach(obj => {
+            if (this.shouldExportObject(obj)) {
+                allObjects.add(obj);
+            }
+        });
+        
+        // Add from specific arrays (in case something's missing from gameObjects)
+        this.planets.forEach(obj => allObjects.add(obj));
+        this.bonuses.forEach(obj => allObjects.add(obj));
+        this.textObjects.forEach(obj => allObjects.add(obj));
+        this.pointingArrows.forEach(obj => allObjects.add(obj));
+        
+        // Add penguin if it exists
+        if (this.penguin && this.shouldExportObject(this.penguin)) {
+            allObjects.add(this.penguin);
+        }
+        
+        console.log('Objects found in arrays:');
+        console.log('- gameObjects:', this.gameObjects.length);
+        console.log('- planets:', this.planets.length);
+        console.log('- bonuses:', this.bonuses.length);
+        console.log('- textObjects:', this.textObjects.length);
+        console.log('- pointingArrows:', this.pointingArrows.length);
+        console.log('- penguin:', this.penguin ? 1 : 0);
+        
+        return Array.from(allObjects);
+    }
+    
+    shouldExportObject(obj) {
+        // Skip utility objects that shouldn't be exported
+        const skipTypes = ['BonusPopup', 'Arrow']; // Arrow is the UI arrow, not PointingArrow
+        return !skipTypes.includes(obj.constructor.name);
+    }
+    
+    exportObjectComprehensively(obj) {
+        const className = obj.constructor.name;
+        console.log(`Exporting ${className}:`, obj);
+        
+        // Start with base object data
+        const exportData = {
+            type: className.toLowerCase(),
+            className: className, // Keep original class name for precision
+        };
+        
+        // Export position (handle both coordinate systems)
+        const coords = this.getObjectCoordinates(obj);
+        if (coords) {
+            exportData.x = coords.x;
+            exportData.y = coords.y;
+        }
+        
+        // Export ALL properties using reflection
+        const properties = this.extractAllProperties(obj);
+        Object.assign(exportData, properties);
+        
+        // Export orbit system if present
+        if (obj.orbitSystem) {
+            exportData.orbitSystem = this.exportOrbitSystem(obj.orbitSystem);
+        }
+        
+        return exportData;
+    }
+    
+    getObjectCoordinates(obj) {
+        if (typeof obj.x === 'number' && typeof obj.y === 'number') {
+            return { x: obj.x, y: obj.y };
+        } else if (obj.position && typeof obj.position.x === 'number' && typeof obj.position.y === 'number') {
+            return { x: obj.position.x, y: obj.position.y };
+        }
+        return null;
+    }
+    
+    extractAllProperties(obj) {
+        const properties = {};
+        const className = obj.constructor.name;
+        
+        // Define properties to extract for each class type
+        const propertyMaps = {
+            'Planet': ['radius', 'mass', 'collisionRadius', 'gravitationalReach', 'color', 'planetType'],
+            'Bonus': ['value', 'rotationSpeed', 'state', 'collectedRotationSpeed'],
+            'Target': ['radius', 'innerRadius'],
+            'Slingshot': ['angle', 'isPulling'],
+            'TextObject': ['textContent', 'fontSize', 'color', 'fontFamily'],
+            'PointingArrow': ['targetX', 'targetY', 'length', 'color'],
+            'Penguin': ['state', 'vx', 'vy', 'radius']
+        };
+        
+        // Common GameObject properties
+        const commonProps = ['rotation', 'alpha', 'visible', 'width', 'height', 'renderOrder'];
+        
+        // Extract class-specific properties
+        const classProps = propertyMaps[className] || [];
+        const allProps = [...commonProps, ...classProps];
+        
+        allProps.forEach(prop => {
+            if (obj[prop] !== undefined && obj[prop] !== null) {
+                properties[prop] = obj[prop];
+            }
+        });
+        
+        // Also do a greedy scan for any other properties that look important
+        this.addDiscoveredProperties(obj, properties);
+        
+        return properties;
+    }
+    
+    addDiscoveredProperties(obj, properties) {
+        // Scan object for additional properties that might be important
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key) && 
+                !properties.hasOwnProperty(key) && 
+                !this.isInternalProperty(key) &&
+                obj[key] !== undefined && 
+                obj[key] !== null) {
+                
+                const value = obj[key];
+                
+                // Only export simple values and avoid functions/complex objects
+                if (typeof value === 'string' || 
+                    typeof value === 'number' || 
+                    typeof value === 'boolean') {
+                    properties[key] = value;
+                    console.log(`Discovered property ${key} = ${value}`);
+                }
+            }
+        }
+    }
+    
+    isInternalProperty(key) {
+        // Skip internal properties that shouldn't be exported
+        const internalProps = [
+            'position', 'orbitSystem', 'assetLoader', 'bonusSprite', 'bonusHitSprite',
+            'currentSprite', 'planet', 'canvas', 'ctx', 'sprites', 'animations'
+        ];
+        return internalProps.includes(key) || key.startsWith('_');
+    }
+    
+    exportOrbitSystem(orbitSystem) {
+        return {
+            orbitCenter: orbitSystem.orbitCenter ? { 
+                x: orbitSystem.orbitCenter.x, 
+                y: orbitSystem.orbitCenter.y 
+            } : null,
+            orbitRadius: orbitSystem.orbitRadius,
+            orbitSpeed: orbitSystem.orbitSpeed,
+            orbitAngle: orbitSystem.orbitAngle,
+            orbitType: orbitSystem.orbitType,
+            orbitParams: orbitSystem.orbitParams || {}
+        };
+    }
+    
+    exportLevelRules() {
+        return {
+            maxTries: this.levelRules.maxTries,
+            timeLimit: this.levelRules.timeLimit,
+            scoreMultiplier: this.levelRules.scoreMultiplier,
+            requiredBonuses: this.levelRules.requiredBonuses,
+            allowedMisses: this.levelRules.allowedMisses,
+            gravitationalConstant: this.levelRules.gravitationalConstant
+        };
     }
 
 

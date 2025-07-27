@@ -328,6 +328,17 @@ class Planet extends GameObject {
         }
     }
     
+    // Method to refresh sprite when planetType changes
+    refreshSprite() {
+        if (this.assetLoader && this.planetType) {
+            const sprite = this.assetLoader.getPlanet(this.planetType);
+            if (sprite) {
+                this.planetSprite = sprite;
+                plog.info(`Planet sprite refreshed to type: ${this.planetType}`);
+            }
+        }
+    }
+    
     update(deltaTime) {
         // Update orbiting using consolidated system
         const newPosition = this.orbitSystem.update(deltaTime);
@@ -724,10 +735,11 @@ class BonusPopup extends GameObject {
 }
 
 class Target extends GameObject {
-    constructor(x, y, width = 60, height = 60, assetLoader = null) {
+    constructor(x, y, width = 60, height = 60, spriteType = 'ship_open', assetLoader = null) {
         super(x, y, width, height);
         this.renderOrder = 4; // Render target after planets but before penguin
         this.assetLoader = assetLoader;
+        this.spriteType = spriteType; // Default sprite type
         this.shipState = 'open'; // open by default, closed when hit
         this.shipSprites = null;
         this.currentShipSprite = null;
@@ -770,14 +782,35 @@ class Target extends GameObject {
             this.shipSprites.closed.src = 'assets/sprites/ship_closed.png';
             this.shipSprites.open.src = 'assets/sprites/ship_open.png';
             
-            // Set current sprite to open by default
-            this.currentShipSprite = this.shipSprites.open;
+            // Set current sprite based on spriteType, fallback to open
+            if (this.spriteType === 'ship_closed') {
+                this.currentShipSprite = this.shipSprites.closed;
+                this.shipState = 'closed';
+            } else {
+                this.currentShipSprite = this.shipSprites.open;
+                this.shipState = 'open';
+            }
             
-            plog.success('Ship sprites initialized - starting in open state');
+            plog.success(`Ship sprites initialized - starting with ${this.spriteType}`);
             
         } catch (error) {
             plog.error('Error initializing ship sprite:', error);
         }
+    }
+    
+    // Method to refresh sprite when spriteType changes
+    refreshSprite() {
+        if (!this.shipSprites) return;
+        
+        if (this.spriteType === 'ship_closed' && this.shipSprites.closed) {
+            this.currentShipSprite = this.shipSprites.closed;
+            this.shipState = 'closed';
+        } else if (this.shipSprites.open) {
+            this.currentShipSprite = this.shipSprites.open;
+            this.shipState = 'open';
+        }
+        
+        plog.success(`Target sprite refreshed to ${this.spriteType}`);
     }
     
     update(deltaTime) {
@@ -787,7 +820,9 @@ class Target extends GameObject {
             if (this.hitFrameCount >= this.hitDuration) {
                 // Open the ship after duration (return to default state)
                 this.shipState = 'open';
-                this.currentShipSprite = this.shipSprites.open;
+                if (this.shipSprites && this.shipSprites.open) {
+                    this.currentShipSprite = this.shipSprites.open;
+                }
                 this.isHit = false;
                 this.hitFrameCount = 0;
             }
@@ -859,7 +894,11 @@ class Target extends GameObject {
         this.isHit = true;
         this.hitFrameCount = 0;
         this.shipState = 'closed';
-        this.currentShipSprite = this.shipSprites.closed;
+        
+        // Only update sprite if shipSprites are loaded
+        if (this.shipSprites && this.shipSprites.closed) {
+            this.currentShipSprite = this.shipSprites.closed;
+        }
     }
 }
 
