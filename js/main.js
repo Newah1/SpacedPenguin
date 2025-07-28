@@ -49,13 +49,18 @@ class GameManager {
         }
     }
     
-    onAssetsLoaded(assetLoader) {
+    async onAssetsLoaded(assetLoader) {
         plog.success('Assets loaded, initializing game...');
         this.assetsLoaded = true;
         
         // Initialize game with loaded assets and audio manager
         const audioManager = assetLoader.getAudioManager();
         this.game = new Game(this.canvas, assetLoader, audioManager);
+        
+        // Load levels before starting the game
+        plog.info('Loading level definitions...');
+        await this.game.levelLoader.loadDefaultLevels();
+        plog.success('Level definitions loaded');
         
         // Make game globally accessible for sound effects
         window.game = this.game;

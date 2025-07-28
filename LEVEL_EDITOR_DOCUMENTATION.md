@@ -21,7 +21,9 @@ The Spaced Penguin Level Editor is a comprehensive in-game tool that allows you 
 - **Visual Object Placement**: Click and drag to position objects
 - **Real-time Property Editing**: Modify object properties with instant visual feedback
 - **Reflection-based System**: Automatically discovers all available game object types and properties
-- **Comprehensive Export**: Generates complete JSON level definitions with full fidelity
+- **Comprehensive Export**: Generates complete JSON level definitions with full fidelity matching game format
+- **Robust Object Management**: Advanced deletion system with automatic cleanup from all game systems
+- **Sprite Selection**: Real-time sprite changing with dropdown menus for planets and targets
 - **Play Mode Testing**: Switch between edit and play modes to test levels immediately
 - **Visual Indicators**: Shows orbit centers, arrow targets, and selection highlights
 
@@ -42,8 +44,10 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 2. **Select Objects**: Left-click on any object to select it (highlighted in green)
 3. **Edit Properties**: Use the properties panel on the right to modify object settings
 4. **Move Objects**: Drag selected objects to reposition them
-5. **Test Level**: Press **E** to toggle between Edit and Play modes
-6. **Export Level**: Use the console command `/export_level` to generate JSON
+5. **Delete Objects**: Select object and press **Delete** key or use Delete button
+6. **Change Sprites**: Use dropdown menus in properties panel for visual appearance
+7. **Test Level**: Press **E** to toggle between Edit and Play modes
+8. **Export Level**: Use the console command `/export_level` to generate JSON
 
 ## Interface Components
 
@@ -60,6 +64,7 @@ Located on the right side of the screen when an object is selected:
 - **Object Type**: Shows the selected object's class name
 - **Position Controls**: X and Y coordinate inputs
 - **Object-Specific Properties**: Dynamically generated based on object type
+- **Sprite Selection**: Dropdown menus for visual appearance (planets, targets)
 - **Real-time Updates**: Changes apply immediately as you type
 
 ### Visual Indicators
@@ -83,7 +88,7 @@ Right-click context menu with available object types:
 
 1. **Right-click** in an empty area of the game canvas
 2. **Select object type** from the context menu
-3. **Object appears** at the click location with sensible defaults
+3. **Object appears** at the click location with sensible defaults and proper sprites
 4. **Automatically selected** for immediate property editing
 
 ### Default Properties by Object Type
@@ -104,6 +109,13 @@ Right-click context menu with available object types:
 - **Click to Select**: Left-click any object to select it
 - **Drag to Move**: Click and drag selected objects to new positions
 - **Coordinate Precision**: Use property panel for exact positioning
+
+### Object Deletion
+
+- **Delete Key**: Select object and press **Delete** key
+- **Delete Button**: Use the red "Delete Selected" button in the toolbar
+- **Robust Cleanup**: Automatic removal from all game systems and arrays
+- **Safe Operation**: Handles physics cleanup and special object references
 
 ### Property Editing
 
@@ -134,10 +146,10 @@ Gravitational bodies that affect penguin movement.
 - **Collision Radius**: Collision detection size
 - **Gravitational Reach**: Maximum influence distance (0 = infinite)
 - **Color**: Fallback rendering color
-- **Planet Sprite**: Visual appearance
+- **Planet Sprite**: Visual appearance (dropdown selection)
 
 **Available Sprites:**
-- `planet_grey` - Default grey planet
+- `planet_grey` - Default grey planet (sensible default)
 - `planet_pink` - Pink planet
 - `planet_red_gumball` - Red textured planet  
 - `planet_saturn` - Saturn with rings
@@ -171,12 +183,12 @@ The destination object that the penguin must reach to complete the level.
 
 **Core Properties:**
 - **Position**: X, Y coordinates
-- **Radius**: Hit detection size
-- **Inner Radius**: Inner collision area
-- **Ship Sprite**: Visual appearance
+- **Width**: Target width in pixels
+- **Height**: Target height in pixels
+- **Ship Sprite**: Visual appearance (dropdown selection)
 
 **Available Sprites:**
-- `ship_open` - Open ship (default state)
+- `ship_open` - Open ship (sensible default)
 - `ship_closed` - Closed ship (hit state)
 
 **Behavior:**
@@ -230,8 +242,8 @@ Animated arrows that point to specific locations.
 
 **Core Properties:**
 - **Position**: X, Y coordinates (arrow base)
-- **Target X**: X coordinate of pointing target
-- **Target Y**: Y coordinate of pointing target
+- **Target X**: X coordinate of pointing target (real-time updates)
+- **Target Y**: Y coordinate of pointing target (real-time updates)
 - **Color**: Arrow fill color
 - **Glow Color**: Shadow/glow effect color
 - **Base Width**: Arrow width in pixels (10+)
@@ -279,48 +291,59 @@ Animated arrows that point to specific locations.
 
 ### Export Format
 
-The export system generates comprehensive JSON with full object fidelity:
+The export system generates comprehensive JSON matching the game's level format:
 
 ```json
 {
-  "metadata": {
-    "name": "Custom Level",
-    "description": "Generated by Level Editor",
-    "version": "1.0",
-    "timestamp": "2024-01-01T12:00:00.000Z"
-  },
-  "penguinStartPosition": { "x": 100, "y": 300 },
+  "name": "Custom Level 1",
+  "description": "Generated by Level Editor",
+  "startPosition": { "x": 100, "y": 300 },
   "targetPosition": { "x": 700, "y": 300 },
   "objects": [
     {
-      "type": "Planet",
+      "type": "planet",
       "position": { "x": 400, "y": 300 },
       "properties": {
         "radius": 50,
         "mass": 1000,
         "gravitationalReach": 5000,
         "planetType": "planet_grey",
-        "orbit": null
+        "orbit": {
+          "center": { "x": 300, "y": 200 },
+          "radius": 120,
+          "speed": 0.8
+        }
+      }
+    },
+    {
+      "type": "target",
+      "position": { "x": 700, "y": 300 },
+      "properties": {
+        "width": 60,
+        "height": 60,
+        "spriteType": "ship_open"
       }
     }
   ],
   "rules": {
-    "maxTries": -1,
-    "timeLimit": 0,
+    "maxTries": null,
+    "timeLimit": null,
     "scoreMultiplier": 1.0
   }
 }
 ```
 
-### Greedy Export Features
+### Comprehensive Export Features
 
-The export system captures ALL objects and properties:
+The export system captures ALL objects and properties with full fidelity:
 
 - **Complete Object Lists**: All planets, bonuses, targets, text objects, arrows
-- **Full Property Extraction**: Every editable and non-editable property
-- **Nested Properties**: Orbit systems, pointing targets, sprite types
-- **Metadata**: Timestamps, versions, descriptions
-- **Game State**: Penguin position, target location, rules
+- **Proper Structure**: Objects nested under `properties` matching game format
+- **Position Objects**: Coordinates as `{x, y}` objects, not flat properties
+- **Sprite Information**: Complete sprite type data for visual fidelity
+- **Orbit Systems**: Full orbital motion parameters and center points
+- **Nested Properties**: Pointing targets, text content, all object-specific data
+- **Standard Format**: Compatible with existing level loading system
 
 ### Import Support
 
@@ -360,12 +383,13 @@ The editor automatically discovers object properties using JavaScript reflection
 
 ### Real-time Sprite Management
 
-Sprite changes apply immediately:
+Sprite changes apply immediately with proper defaults:
 
-- **Dropdown Selection**: Choose from available sprites
-- **Instant Updates**: Visual changes happen immediately
-- **Fallback Handling**: Graceful degradation if sprites fail to load
-- **Asset Validation**: Ensures sprites exist before applying
+- **Dropdown Selection**: Choose from available sprites in properties panel
+- **Sensible Defaults**: New objects start with appropriate sprites, not fallbacks
+- **Instant Updates**: Visual changes happen immediately without page refresh
+- **Proper Integration**: Uses object refreshSprite() methods for clean updates
+- **Asset Validation**: Ensures sprites exist and load correctly
 
 ### Play Mode Testing
 
@@ -395,10 +419,20 @@ Test levels without leaving the editor:
 - Verify sprite files exist in assets directory
 - Try refreshing the page to reload assets
 
+**Deleted Objects Still in Export:**
+- This should no longer occur with the robust deletion system
+- If it happens, check console for deletion log messages
+- Try deleting and re-creating the object
+
 **Export Not Working:**
 - Open browser developer tools to see console output
 - Check for JavaScript errors during export
 - Ensure all objects have valid properties
+
+**Sprite Dropdowns Empty:**
+- Verify assets are loaded before opening level editor
+- Check that manifest.json contains sprite definitions
+- Ensure asset loading completed successfully
 
 ### Performance Considerations
 
@@ -444,16 +478,16 @@ js/
 - UI overlay rendering
 
 **Level Editor (`levelEditor.js`):**
-- Object selection and manipulation
-- Property panel generation
-- Visual indicator rendering
-- Export/import functionality
+- Object selection and manipulation with robust deletion system
+- Dynamic property panel generation with sprite selection
+- Visual indicator rendering (orbits, arrows, selection)
+- Comprehensive export/import functionality with proper JSON format
 
 **Game Object Integration:**
-- Reflection-based property discovery
-- Real-time property updates
-- Sprite management
-- Coordinate system handling
+- Reflection-based property discovery with special handling for nested properties
+- Real-time property updates with immediate visual feedback
+- Advanced sprite management with dropdown selection and defaults
+- Coordinate system handling for both position.x/y and direct x/y properties
 
 ### Extension Points
 
@@ -474,10 +508,11 @@ js/
 
 ### Performance Optimizations
 
-- **Event Delegation**: Efficient mouse event handling
-- **Selective Rendering**: Only updates changed elements
-- **Property Caching**: Reduces reflection overhead
-- **Batch Updates**: Groups related property changes
+- **Event Delegation**: Efficient mouse event handling with mode-aware routing
+- **Selective Rendering**: Only updates changed elements and visual indicators
+- **Property Caching**: Reduces reflection overhead in property discovery
+- **Batch Updates**: Groups related property changes for smooth performance
+- **Robust Cleanup**: Efficient object deletion with comprehensive array management
 
 ### Browser API Usage
 

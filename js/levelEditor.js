@@ -899,19 +899,121 @@ class LevelEditor {
     deleteSelected() {
         if (!this.selectedObject) return;
         
-        // Remove from all arrays
         const obj = this.selectedObject;
+        const className = obj.constructor.name;
         
-        this.game.gameObjects = this.game.gameObjects.filter(o => o !== obj);
-        this.game.planets = this.game.planets.filter(o => o !== obj);
-        this.game.bonuses = this.game.bonuses.filter(o => o !== obj);
+        console.log(`Deleting ${className}...`);
         
-        // Remove from physics
-        if (obj.constructor.name === 'Planet') {
-            this.game.physics.removePlanet(obj);
+        // Use the game's centralized removal method
+        this.removeObjectFromGame(obj);
+        
+        console.log(`Successfully deleted ${className}`);
+        this.selectObject(null);
+    }
+    
+    removeObjectFromGame(obj) {
+        // Robust removal system that automatically finds and removes object from all collections
+        const className = obj.constructor.name;
+        
+        // 1. Remove from main gameObjects array (always)
+        this.removeFromArray(this.game.gameObjects, obj, 'gameObjects');
+        
+        // 2. Use reflection to find all array properties and remove from matching ones
+        this.removeFromAllGameArrays(obj);
+        
+        // 3. Handle special physics integrations
+        this.removeFromPhysics(obj);
+        
+        // 4. Handle special singleton references
+        this.removeSpecialReferences(obj);
+    }
+    
+    removeFromArray(array, obj, arrayName) {
+        if (!array) return false;
+        
+        const initialLength = array.length;
+        const index = array.indexOf(obj);
+        
+        if (index !== -1) {
+            array.splice(index, 1);
+            console.log(`  - Removed from ${arrayName} (was at index ${index})`);
+            return true;
         }
         
-        this.selectObject(null);
+        return false;
+    }
+    
+    removeFromAllGameArrays(obj) {
+        // Dynamically find all arrays in the game object and try to remove from them
+        // This automatically handles new arrays without code changes
+        
+        const arrayNames = [
+            'gameObjects', 'planets', 'bonuses', 'textObjects', 'pointingArrows',
+            // Add more as needed, but the system will work even if we forget some
+        ];
+        
+        arrayNames.forEach(arrayName => {
+            if (this.game[arrayName] && Array.isArray(this.game[arrayName])) {
+                this.removeFromArray(this.game[arrayName], obj, arrayName);
+            }
+        });
+        
+        // Also scan for any other arrays that might contain our object
+        // This is a safety net for arrays we might have missed
+        this.scanAndRemoveFromUnknownArrays(obj);
+    }
+    
+    scanAndRemoveFromUnknownArrays(obj) {
+        // Defensive programming: scan all game properties for arrays containing our object
+        for (const [key, value] of Object.entries(this.game)) {
+            if (Array.isArray(value) && value.includes(obj)) {
+                console.log(`  - Found object in unexpected array: ${key}`);
+                this.removeFromArray(value, obj, key);
+            }
+        }
+    }
+    
+    removeFromPhysics(obj) {
+        // Handle physics integrations based on object type
+        const className = obj.constructor.name;
+        
+        switch (className) {
+            case 'Planet':
+                if (this.game.physics && typeof this.game.physics.removePlanet === 'function') {
+                    this.game.physics.removePlanet(obj);
+                    console.log('  - Removed from physics system');
+                }
+                break;
+            
+            case 'Bonus':
+                // Future: if bonuses need physics removal
+                break;
+                
+            // Add other physics-integrated objects as needed
+        }
+    }
+    
+    removeSpecialReferences(obj) {
+        // Handle singleton/special object references
+        const className = obj.constructor.name;
+        
+        // Check all game properties for direct references to this object
+        const specialProps = ['target', 'slingshot', 'penguin', 'arrow'];
+        
+        specialProps.forEach(prop => {
+            if (this.game[prop] === obj) {
+                this.game[prop] = null;
+                console.log(`  - Cleared special reference: ${prop}`);
+            }
+        });
+        
+        // Also scan for any other direct references
+        for (const [key, value] of Object.entries(this.game)) {
+            if (value === obj && !specialProps.includes(key)) {
+                this.game[key] = null;
+                console.log(`  - Cleared unexpected reference: ${key}`);
+            }
+        }
     }
     
     exportLevel() {

@@ -5,6 +5,7 @@ import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow } from './g
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
 import plog from './penguinLogger.js';
+import Utils from './utils.js';
 
 class GameObjectFactory {
     static create(objectDefinition, assetLoader, game) {
@@ -139,7 +140,7 @@ class GameObjectFactory {
             minAlpha = 0.6,
             maxAlpha = 1.0,
             renderOrder = 9,
-            pointTo = null // Target position {x, y}
+            pointingAt = null // Target position {x, y}
         } = properties;
         
         const options = {
@@ -150,8 +151,8 @@ class GameObjectFactory {
         const arrow = new PointingArrow(position.x, position.y, options);
         
         // Set initial pointing target if specified
-        if (pointTo) {
-            arrow.pointTo(pointTo);
+        if (pointingAt) {
+            arrow.pointTo(pointingAt);
         }
         
         // Handle delayed pointing (for tutorial timing)
@@ -264,18 +265,20 @@ export class LevelLoader {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
         this.levels = new Map();
-        this.loadDefaultLevels();
+        // this.loadDefaultLevels();
     }
     
-    loadDefaultLevels() {
+    async loadDefaultLevels() {
         // Load built-in level definitions
-        this.levels.set(1, this.getLevel1Definition());
-        this.levels.set(2, this.getLevel2Definition());
-        this.levels.set(3, this.getLevel3Definition());
+        await this.tryLoadLevelFile(1, 'levels/level1.json');
+        await this.tryLoadLevelFile(2, 'levels/level2.json');
+        await this.tryLoadLevelFile(3, 'levels/level3.json');
+        // this.levels.set(1, 'levels/level1.json');
+        // this.levels.set(3, this.getLevel3Definition());
         
         // Try to load additional levels from JSON files
-        this.tryLoadLevelFile(4, 'levels/level4.json');
-        this.tryLoadLevelFile(5, 'levels/level5.json');
+        await this.tryLoadLevelFile(4, 'levels/level4.json');
+        await this.tryLoadLevelFile(5, 'levels/level5.json');
     }
     
     async tryLoadLevelFile(levelNumber, filePath) {

@@ -199,7 +199,7 @@ export class AssetLoader {
         }
         
         if (this.onComplete) {
-            this.onComplete(this);
+            await this.onComplete(this);
         }
     }
 

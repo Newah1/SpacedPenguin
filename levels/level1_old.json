@@ -1,0 +1,258 @@
+{
+  "levelNumber": 1,
+  "objects": [
+    {
+      "type": "penguin",
+      "className": "Penguin",
+      "position": {
+        "x": 650,
+        "y": 468
+      },
+      "renderOrder": 5,
+      "state": "idle",
+      "vx": 0,
+      "vy": 0,
+      "radius": 16,
+      "mass": 1,
+      "launched": false,
+      "maxTrailLength": 20,
+      "currentAnimationType": "xc",
+      "isSpinning": false,
+      "initialized": true,
+      "aniFrame": 0,
+      "aniDir": 1,
+      "aniMax": 11,
+      "aniMin": 0,
+      "aniSwap": 1,
+      "crashedTimer": 0,
+      "crashedDuration": 2,
+      "crashedFrameCount": 0,
+      "realSpritesLoaded": true
+    },
+    {
+      "type": "slingshot",
+      "className": "Slingshot",
+      "position": {
+        "x": 637,
+        "y": 450
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 100,
+      "height": 100,
+      "renderOrder": 3,
+      "isPulling": false,
+      "maxPullback": 100,
+      "minPullback": 10,
+      "rubberBandColor": "#FFFF00",
+      "hoopColor": "#00FFFF",
+      "glowColor": "#0099FF",
+      "hoopRadiusX": 16,
+      "hoopRadiusY": 29,
+      "velocityMultiplier": 10
+    },
+    {
+      "type": "target",
+      "className": "Target",
+      "position": {
+        "x": 73,
+        "y": 97
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 60,
+      "height": 60,
+      "renderOrder": 4,
+      "spriteType": "ship_open",
+      "shipState": "open",
+      "hitFrameCount": 0,
+      "hitDuration": 30,
+      "isHit": false
+    },
+    {
+      "type": "textobject",
+      "className": "TextObject",
+      "position": {
+        "x": 576,
+        "y": 295
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 275.25,
+      "height": 96.8,
+      "renderOrder": 8,
+      "fontSize": 16,
+      "color": "#FFFFCC",
+      "fontFamily": "Arial, sans-serif",
+      "content": "<font color=\"#FFFFCC\">Click on Kevin and hold your mouse down. Then pull Kevin back to the tip of the arrow and let your mouse go.</font>",
+      "textAlign": "left",
+      "backgroundColor": "rgba(0, 0, 0, 0.7)",
+      "borderRadius": 8,
+      "padding": 10,
+      "maxWidth": 260,
+      "autoSize": true,
+      "fadeIn": true,
+      "fadeInDuration": 2,
+      "fadeTimer": 2.0074333333333327
+    },
+    {
+      "type": "pointingarrow",
+      "className": "PointingArrow",
+      "position": {
+        "x": 67,
+        "y": 140
+      },
+      "rotation": -89.94974055717776,
+      "alpha": 0.9687098897839399,
+      "visible": true,
+      "width": 60,
+      "height": 20,
+      "renderOrder": 9,
+      "color": "#00FFFF",
+      "glowColor": "#0099FF",
+      "baseWidth": 30,
+      "scaleWithDistance": true,
+      "maxDistance": 300,
+      "minWidth": 15,
+      "maxWidth": 60,
+      "pulseSpeed": 3,
+      "pulseTimer": 176.64176666665617,
+      "minAlpha": 0.6,
+      "maxAlpha": 1
+    },
+    {
+      "type": "pointingarrow",
+      "className": "PointingArrow",
+      "position": {
+        "x": 689,
+        "y": 390
+      },
+      "rotation": 90,
+      "alpha": 0.9025505125009234,
+      "visible": true,
+      "width": 60,
+      "height": 20,
+      "renderOrder": 9,
+      "color": "#00FF00",
+      "glowColor": "#008800",
+      "baseWidth": 20,
+      "scaleWithDistance": true,
+      "maxDistance": 300,
+      "minWidth": 15,
+      "maxWidth": 60,
+      "pulseSpeed": 3,
+      "pulseTimer": 172.60813333332285,
+      "minAlpha": 0.6,
+      "maxAlpha": 1
+    },
+    {
+      "type": "textobject",
+      "className": "TextObject",
+      "position": {
+        "x": 119,
+        "y": 231
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 187.484375,
+      "height": 58.4,
+      "renderOrder": 8,
+      "fontSize": 16,
+      "color": "#FFFFCC",
+      "fontFamily": "Arial, sans-serif",
+      "content": "Try to get Kevin back to the ship!",
+      "textAlign": "left",
+      "backgroundColor": "rgba(0, 0, 0, 0.7)",
+      "borderRadius": 8,
+      "padding": 10,
+      "maxWidth": 180,
+      "autoSize": true,
+      "fadeIn": false,
+      "fadeInDuration": 1,
+      "fadeTimer": 0
+    },
+    {
+      "type": "textobject",
+      "className": "TextObject",
+      "position": {
+        "x": 322,
+        "y": 123
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 187.1953125,
+      "height": 58.4,
+      "renderOrder": 8,
+      "fontSize": 16,
+      "properties" :{
+        "color": "#00FF00",
+        "fontFamily": "Arial, sans-serif",
+        "content": "<font color=\"#00FF00\">Hit the ship to complete the level!</font>",
+        "textAlign": "left",
+        "backgroundColor": "rgba(0, 0, 0, 0.7)",
+        "borderRadius": 8,
+        "padding": 10,
+        "maxWidth": 180,
+        "autoSize": true,
+        "fadeIn": true,
+        "fadeInDuration": 1
+
+      },
+      "fadeTimer": 1.0000000000000004
+    },
+    {
+      "type": "textobject",
+      "className": "TextObject",
+      "position": {
+        "x": 227,
+        "y": 394
+      },
+      "properties":{
+
+      },
+      "rotation": 0,
+      "alpha": 1,
+      "visible": true,
+      "width": 216.7421875,
+      "height": 77.6,
+      "renderOrder": 8,
+      "fontSize": 16,
+      "color": "#FFFFCC",
+      "fontFamily": "Arial, sans-serif",
+      "content": "<font color=\"#FF6600\"><b>Tips!</b></font><br><font color=\"#FFFFCC\">Collect bonuses for extra points. Avoid hitting planets!</font>",
+      "textAlign": "center",
+      "backgroundColor": "rgba(0, 0, 0, 0.7)",
+      "borderRadius": 8,
+      "padding": 10,
+      "maxWidth": 230,
+      "autoSize": true,
+      "fadeIn": true,
+      "fadeInDuration": 1,
+      "fadeTimer": 1.0001999999999998
+    }
+  ],
+  "rules": {
+    "maxTries": null,
+    "timeLimit": null,
+    "scoreMultiplier": 1,
+    "requiredBonuses": null,
+    "allowedMisses": null,
+    "gravitationalConstant": 3
+  },
+  "metadata": {
+    "exportedAt": "2025-07-27T22:58:36.742Z",
+    "totalObjects": 9,
+    "objectTypes": {
+      "penguin": 1,
+      "slingshot": 1,
+      "target": 1,
+      "textobject": 4,
+      "pointingarrow": 2
+    }
+  }
+}
