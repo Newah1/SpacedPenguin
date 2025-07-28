@@ -1025,6 +1025,10 @@ class Game {
         
         // Reset current attempt score (don't add bonuses until level is completed)
         this.currentAttemptScore = 0;
+        
+        // Reset distance (prevents accumulation across retries affecting score)
+        this.distance = 0;
+        
         this.updateUI();
     }
     
