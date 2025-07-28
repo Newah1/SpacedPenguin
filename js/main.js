@@ -16,8 +16,16 @@ class GameManager {
         this.isRunning = false;
         this.lastTime = 0;
         this.assetsLoaded = false;
+        this.isMobile = this.detectMobile();
+        this.debugMode = false; // Set to true to enable debug logging
         
         this.init();
+    }
+    
+    detectMobile() {
+        // Detect mobile devices
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (window.innerWidth <= 768 && window.innerHeight <= 1024);
     }
     
     init() {
@@ -27,6 +35,9 @@ class GameManager {
             loading.style.display = 'none';
             plog.debug('Loading screen hidden');
         }
+        
+        // Set up responsive canvas sizing
+        this.setupResponsiveCanvas();
         
         // Show loading screen for assets
         this.showLoadingScreen();
@@ -39,6 +50,100 @@ class GameManager {
             this.onAssetsLoaded.bind(this),
             this.onAssetProgress.bind(this)
         );
+    }
+    
+    setupResponsiveCanvas() {
+        const canvas = this.canvas;
+        const container = canvas.parentElement;
+        
+        // Set up responsive sizing
+        const resizeCanvas = () => {
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            // Target aspect ratio (800x600 = 4:3)
+            const targetAspectRatio = 4/3;
+            
+            let newWidth, newHeight;
+            
+            if (this.isMobile) {
+                // On mobile, use full screen with padding
+                const padding = 20;
+                newWidth = Math.min(containerWidth - padding, 800);
+                newHeight = newWidth / targetAspectRatio;
+                
+                // If height is too tall, scale down
+                if (newHeight > containerHeight - padding) {
+                    newHeight = containerHeight - padding;
+                    newWidth = newHeight * targetAspectRatio;
+                }
+            } else {
+                // On desktop, maintain original size but scale if needed
+                // Set minimum size to prevent infinite shrinking
+                const minWidth = 600;
+                const minHeight = 450;
+                
+                // Start with original size
+                newWidth = 800;
+                newHeight = 600;
+                
+                // Only scale down if container is smaller than original
+                if (containerWidth < 800 + 40) {
+                    newWidth = Math.max(containerWidth - 40, minWidth);
+                    newHeight = newWidth / targetAspectRatio;
+                }
+                
+                if (containerHeight < 600 + 40) {
+                    newHeight = Math.max(containerHeight - 40, minHeight);
+                    newWidth = newHeight * targetAspectRatio;
+                }
+                
+                // Ensure we don't go below minimum size
+                if (newWidth < minWidth) {
+                    newWidth = minWidth;
+                    newHeight = minWidth / targetAspectRatio;
+                }
+                
+                if (newHeight < minHeight) {
+                    newHeight = minHeight;
+                    newWidth = minHeight * targetAspectRatio;
+                }
+            }
+            
+            // Debug logging
+            if (window.gameManager && window.gameManager.debugMode) {
+                console.log('Canvas resize:', {
+                    container: `${containerWidth}x${containerHeight}`,
+                    canvas: `${newWidth}x${newHeight}`,
+                    isMobile: this.isMobile,
+                    scale: `${(newWidth / 800).toFixed(2)}x${(newHeight / 600).toFixed(2)}`
+                });
+            }
+            
+            // Safety check - ensure canvas never gets too small
+            const finalWidth = Math.max(newWidth, 800);
+            const finalHeight = Math.max(newHeight, 600);
+            
+            // Set canvas size
+            canvas.style.width = finalWidth + 'px';
+            canvas.style.height = finalHeight + 'px';
+            canvas.width = 800; // Keep internal resolution
+            canvas.height = 600;
+            
+            // Update game scale if game exists
+            if (this.game) {
+                this.game.setCanvasScale(finalWidth / 800, finalHeight / 600);
+            }
+        };
+        
+        // Initial resize
+        resizeCanvas();
+        
+        // Resize on window resize
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 100);
+        });
     }
     
     onAssetProgress(progress, resourceName) {
@@ -185,11 +290,17 @@ class GameManager {
         ctx.fillText('Collect bonuses and land in the target', this.canvas.width / 2, 360);
         ctx.fillText('Avoid crashing into planets', this.canvas.width / 2, 390);
         
-        // Draw controls
-        ctx.font = '14px Arial';
-        ctx.fillText('Press SPACE to start', this.canvas.width / 2, 450);
-        ctx.fillText('Press R to reset level', this.canvas.width / 2, 480);
-        ctx.fillText('Press Q to quit', this.canvas.width / 2, 510);
+        // Draw controls based on device type
+        if (this.isMobile) {
+            ctx.font = '14px Arial';
+            ctx.fillText('Tap START to begin', this.canvas.width / 2, 450);
+            ctx.fillText('Tap screen to reset level', this.canvas.width / 2, 480);
+        } else {
+            ctx.font = '14px Arial';
+            ctx.fillText('Press SPACE to start', this.canvas.width / 2, 450);
+            ctx.fillText('Press R to reset level', this.canvas.width / 2, 480);
+            ctx.fillText('Press Q to quit', this.canvas.width / 2, 510);
+        }
         
         // Draw high score
         if (this.game.highScore > 0) {
@@ -198,6 +309,81 @@ class GameManager {
         
         // Draw penguin animation (now using real sprites)
         this.drawStartPenguin(ctx);
+        
+        // Add mobile start button if on mobile
+        if (this.isMobile) {
+            this.createMobileStartButton();
+        }
+    }
+    
+    createMobileStartButton() {
+        // Remove existing button if any
+        const existingButton = document.getElementById('mobileStartButton');
+        if (existingButton) {
+            existingButton.remove();
+        }
+        
+        // Create mobile start button
+        const startButton = document.createElement('button');
+        startButton.id = 'mobileStartButton';
+        startButton.textContent = 'START GAME';
+        startButton.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 100;
+            min-width: 150px;
+            touch-action: manipulation;
+        `;
+        
+        // Add hover effect for desktop
+        if (!this.isMobile) {
+            startButton.addEventListener('mouseenter', () => {
+                startButton.style.background = 'linear-gradient(45deg, #45a049, #4CAF50)';
+            });
+            startButton.addEventListener('mouseleave', () => {
+                startButton.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
+            });
+        }
+        
+        // Add click/tap handler
+        startButton.addEventListener('click', () => {
+            this.startGame();
+        });
+        
+        // Add touch feedback
+        startButton.addEventListener('touchstart', () => {
+            startButton.style.transform = 'translate(-50%, 50%) scale(0.95)';
+        });
+        
+        startButton.addEventListener('touchend', () => {
+            startButton.style.transform = 'translate(-50%, 50%) scale(1)';
+        });
+        
+        document.body.appendChild(startButton);
+    }
+    
+    startGame() {
+        // Remove mobile start button
+        const startButton = document.getElementById('mobileStartButton');
+        if (startButton) {
+            startButton.remove();
+        }
+        
+        // Start the game
+        if (this.game && this.game.state === 'menu') {
+            this.game.startGame();
+        }
     }
     
     drawStartPenguin(ctx) {
@@ -281,6 +467,7 @@ class GameManager {
     setupVolumeControl() {
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeValue = document.getElementById('volumeValue');
+        const volumeContainer = volumeSlider ? volumeSlider.parentElement : null;
         
         if (volumeSlider && volumeValue && this.game && this.game.assetLoader) {
             const audioManager = this.game.assetLoader.getAudioManager();
@@ -296,6 +483,11 @@ class GameManager {
                     volumeValue.textContent = this.value + '%';
                     audioManager.setMasterVolume(volume);
                 });
+                
+                // Hide volume controls on mobile for space
+                if (this.isMobile && volumeContainer) {
+                    volumeContainer.style.display = 'none';
+                }
                 
                 plog.audio('Volume control initialized');
             }
@@ -329,14 +521,9 @@ document.addEventListener('visibilitychange', () => {
 
 // Handle window resize
 window.addEventListener('resize', () => {
-    if (window.gameManager && window.gameManager.game) {
-        // Recalculate canvas size if needed
-        const canvas = window.gameManager.canvas;
-        const container = canvas.parentElement;
-        
-        // Keep canvas at fixed size for now
-        canvas.width = 800;
-        canvas.height = 600;
+    if (window.gameManager) {
+        // The responsive canvas system will handle resizing
+        window.gameManager.setupResponsiveCanvas();
     }
 });
 

@@ -21,6 +21,10 @@ class Game {
         this.assetLoader = assetLoader;
         this.audioManager = audioManager;
         
+        // Canvas scaling for responsive design
+        this.canvasScaleX = 1;
+        this.canvasScaleY = 1;
+        
         // UI Manager for menus and overlays
         this.uiManager = new UIManager(canvas, audioManager);
         
@@ -134,20 +138,109 @@ class Game {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        
+        // Enhanced touch handling for mobile
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        
+        // Prevent default touch behaviors that interfere with game
+        this.canvas.style.touchAction = 'none';
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        
+        // Add mobile-specific controls
+        this.setupMobileControls();
+    }
+    
+    setupMobileControls() {
+        // Create mobile control buttons if on mobile
+        if (this.isMobileDevice()) {
+            this.createMobileControlButtons();
+        }
+    }
+    
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+    }
+    
+    createMobileControlButtons() {
+        // Remove existing buttons if any
+        const existingButtons = document.querySelectorAll('.mobile-control-button');
+        existingButtons.forEach(btn => btn.remove());
+        
+        // Create reset button
+        const resetButton = document.createElement('button');
+        resetButton.className = 'mobile-control-button';
+        resetButton.textContent = 'RESET';
+        resetButton.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 200;
+            touch-action: manipulation;
+        `;
+        
+        resetButton.addEventListener('click', () => {
+            if (this.state === 'playing') {
+                this.tryAgain();
+            }
+        });
+        
+        // Create quit button
+        const quitButton = document.createElement('button');
+        quitButton.className = 'mobile-control-button';
+        quitButton.textContent = 'QUIT';
+        quitButton.style.cssText = `
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background: rgba(128, 128, 128, 0.8);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 200;
+            touch-action: manipulation;
+        `;
+        
+        quitButton.addEventListener('click', () => {
+            if (this.state === 'playing') {
+                this.showQuitDialog();
+            }
+        });
+        
+        document.body.appendChild(resetButton);
+        document.body.appendChild(quitButton);
     }
     
     getMousePosition(e) {
         const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
         };
+    }
+    
+    setCanvasScale(scaleX, scaleY) {
+        this.canvasScaleX = scaleX;
+        this.canvasScaleY = scaleY;
     }
     
     handleMouseDown(e) {
@@ -210,23 +303,61 @@ class Game {
     
     handleTouchStart(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         if (e.touches.length > 0) {
             const touch = e.touches[0];
-            this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                preventDefault: () => {},
+                stopPropagation: () => {}
+            };
+            
+            this.handleMouseDown(mouseEvent);
         }
     }
     
     handleTouchMove(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         if (e.touches.length > 0) {
             const touch = e.touches[0];
-            this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                preventDefault: () => {},
+                stopPropagation: () => {}
+            };
+            
+            this.handleMouseMove(mouseEvent);
         }
     }
     
     handleTouchEnd(e) {
         e.preventDefault();
-        this.handleMouseUp(e);
+        e.stopPropagation();
+        
+        // Create a synthetic mouse event
+        const mouseEvent = {
+            clientX: 0,
+            clientY: 0,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        };
+        
+        this.handleMouseUp(mouseEvent);
     }
     
     handleKeyDown(e) {
@@ -906,9 +1037,106 @@ class Game {
     }
     
     showQuitDialog() {
-        if (confirm('Are you sure you want to quit?')) {
-            this.state = 'menu';
+        if (this.isMobileDevice()) {
+            this.showMobileQuitDialog();
+        } else {
+            if (confirm('Are you sure you want to quit?')) {
+                this.state = 'menu';
+            }
         }
+    }
+    
+    showMobileQuitDialog() {
+        // Remove existing dialog if any
+        const existingDialog = document.getElementById('mobileQuitDialog');
+        if (existingDialog) {
+            existingDialog.remove();
+        }
+        
+        // Create mobile quit dialog
+        const dialog = document.createElement('div');
+        dialog.id = 'mobileQuitDialog';
+        dialog.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        `;
+        
+        const dialogContent = document.createElement('div');
+        dialogContent.style.cssText = `
+            background: #333;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            max-width: 300px;
+            width: 90%;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = 'Quit Game?';
+        title.style.cssText = 'margin: 0 0 20px 0; font-size: 20px;';
+        
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        `;
+        
+        const yesButton = document.createElement('button');
+        yesButton.textContent = 'YES';
+        yesButton.style.cssText = `
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        `;
+        
+        const noButton = document.createElement('button');
+        noButton.textContent = 'NO';
+        noButton.style.cssText = `
+            background: #666;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        `;
+        
+        yesButton.addEventListener('click', () => {
+            dialog.remove();
+            this.state = 'menu';
+        });
+        
+        noButton.addEventListener('click', () => {
+            dialog.remove();
+        });
+        
+        buttonContainer.appendChild(yesButton);
+        buttonContainer.appendChild(noButton);
+        dialogContent.appendChild(title);
+        dialogContent.appendChild(buttonContainer);
+        dialog.appendChild(dialogContent);
+        document.body.appendChild(dialog);
     }
     
     showMessage(message) {

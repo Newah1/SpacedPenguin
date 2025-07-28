@@ -27,7 +27,7 @@ class LevelEditor {
             display: none;
         `;
         
-        // Create toolbar
+        // Create toolbar with mobile-friendly styling
         this.toolbar = document.createElement('div');
         this.toolbar.style.cssText = `
             position: absolute;
@@ -39,19 +39,25 @@ class LevelEditor {
             color: white;
             font-family: Arial, sans-serif;
             pointer-events: auto;
+            max-width: 90vw;
+            overflow-x: auto;
+            white-space: nowrap;
         `;
         
-        // Mode toggle button
+        // Mode toggle button with mobile-friendly styling
         this.modeButton = document.createElement('button');
         this.modeButton.textContent = 'Switch to Play Mode';
         this.modeButton.style.cssText = `
             margin-right: 10px;
-            padding: 5px 10px;
+            padding: 8px 12px;
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 5px;
             cursor: pointer;
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
         `;
         this.modeButton.onclick = () => this.toggleMode();
         
@@ -61,31 +67,37 @@ class LevelEditor {
         this.addButtonContainer.style.display = 'inline-block';
         this.toolbar.appendChild(this.addButtonContainer);
         
-        // Delete button
+        // Delete button with mobile-friendly styling
         this.deleteButton = document.createElement('button');
         this.deleteButton.textContent = 'Delete Selected';
         this.deleteButton.style.cssText = `
             margin-right: 10px;
-            padding: 5px 10px;
+            padding: 8px 12px;
             background: #f44336;
             color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 5px;
             cursor: pointer;
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
         `;
         this.deleteButton.onclick = () => this.deleteSelected();
         
-        // Export button
+        // Export button with mobile-friendly styling
         this.exportButton = document.createElement('button');
         this.exportButton.textContent = 'Export Level';
         this.exportButton.style.cssText = `
             margin-right: 10px;
-            padding: 5px 10px;
+            padding: 8px 12px;
             background: #FF9800;
             color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 5px;
             cursor: pointer;
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
         `;
         this.exportButton.onclick = () => this.exportLevel();
         
@@ -93,7 +105,10 @@ class LevelEditor {
         this.toolbar.appendChild(this.deleteButton);
         this.toolbar.appendChild(this.exportButton);
         
-        // Create properties panel
+        // Create mobile toolbar for touch-friendly controls
+        this.createMobileToolbar();
+        
+        // Create properties panel with mobile-responsive styling
         this.propertiesPanel = document.createElement('div');
         this.propertiesPanel.style.cssText = `
             position: absolute;
@@ -108,7 +123,19 @@ class LevelEditor {
             pointer-events: auto;
             max-height: 80vh;
             overflow-y: auto;
+            touch-action: auto;
         `;
+        
+        // Add mobile responsive behavior
+        if (window.innerWidth < 768) {
+            this.propertiesPanel.style.cssText += `
+                width: calc(100vw - 40px);
+                max-width: 350px;
+                right: 20px;
+                top: 80px;
+                max-height: 60vh;
+            `;
+        }
         this.propertiesPanel.innerHTML = '<h3>Properties</h3><p>Select an object to edit its properties</p>';
         
         this.container.appendChild(this.toolbar);
@@ -116,8 +143,104 @@ class LevelEditor {
         document.body.appendChild(this.container);
     }
     
+    createMobileToolbar() {
+        // Create mobile-specific toolbar for touch controls
+        this.mobileToolbar = document.createElement('div');
+        this.mobileToolbar.style.cssText = `
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 25px;
+            color: white;
+            font-family: Arial, sans-serif;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        `;
+        
+        // Add instructions for mobile users
+        const instructionText = document.createElement('span');
+        instructionText.textContent = 'Long press to add objects';
+        instructionText.style.cssText = `
+            font-size: 12px;
+            color: #ccc;
+            margin-right: 10px;
+        `;
+        
+        // Clear selection button (useful on mobile)
+        const clearButton = document.createElement('button');
+        clearButton.textContent = '✕';
+        clearButton.title = 'Clear selection';
+        clearButton.style.cssText = `
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            background: #666;
+            color: white;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            touch-action: manipulation;
+        `;
+        clearButton.onclick = () => this.selectObject(null);
+        
+        // Add object button (alternative to long press)
+        const addButton = document.createElement('button');
+        addButton.textContent = '+';
+        addButton.title = 'Add object';
+        addButton.style.cssText = `
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            touch-action: manipulation;
+        `;
+        addButton.onclick = () => this.showMobileAddMenu();
+        
+        this.mobileToolbar.appendChild(instructionText);
+        this.mobileToolbar.appendChild(clearButton);
+        this.mobileToolbar.appendChild(addButton);
+        
+        this.container.appendChild(this.mobileToolbar);
+        
+        // Hide mobile toolbar on desktop
+        if (window.innerWidth >= 768) {
+            this.mobileToolbar.style.display = 'none';
+        }
+    }
+    
+    showMobileAddMenu() {
+        if (this.mode !== 'edit') return;
+        
+        // Show context menu at center of screen
+        const centerX = this.game.canvas.width / 2;
+        const centerY = this.game.canvas.height / 2;
+        this.showContextMenu(centerX, centerY);
+    }
+    
     setupEventListeners() {
-        // Keyboard shortcuts
+        // Set up unified pointer event handlers (mouse + touch)
+        this.game.canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+        this.game.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
+        this.game.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+        this.game.canvas.addEventListener('contextmenu', (e) => this.handleRightClick(e));
+        
+        // Touch-specific handlers for mobile gestures
+        this.game.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.game.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        
+        // Prevent default touch behaviors that interfere with editor
+        this.game.canvas.style.touchAction = 'none';
+        
+        // Keyboard shortcuts (still useful for desktop)
         document.addEventListener('keydown', (e) => {
             if (!this.active) return;
             
@@ -127,41 +250,219 @@ class LevelEditor {
                 this.selectObject(null);
             }
         });
+        
+        // Initialize touch tracking variables
+        this.touchStartTime = null;
+        this.touchStartPos = null;
+        this.longPressTimer = null;
+        
+        // Add viewport responsiveness
+        window.addEventListener('resize', () => this.handleResize());
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.handleResize(), 100);
+        });
     }
     
-    // Mouse event handlers called from game
-    handleMouseDown(e) {
+    handleResize() {
+        if (!this.active) return;
+        
+        // Update mobile toolbar visibility
+        if (this.mobileToolbar) {
+            if (window.innerWidth < 768) {
+                this.mobileToolbar.style.display = 'flex';
+            } else {
+                this.mobileToolbar.style.display = 'none';
+            }
+        }
+        
+        // Update properties panel positioning for mobile
+        if (this.propertiesPanel && window.innerWidth < 768) {
+            this.propertiesPanel.style.cssText += `
+                width: calc(100vw - 40px);
+                max-width: 350px;
+                right: 20px;
+                top: 80px;
+                max-height: 60vh;
+            `;
+        } else if (this.propertiesPanel) {
+            // Reset to desktop styling
+            this.propertiesPanel.style.width = '300px';
+            this.propertiesPanel.style.right = '10px';
+            this.propertiesPanel.style.top = '10px';
+            this.propertiesPanel.style.maxHeight = '80vh';
+        }
+    }
+    
+    // Unified pointer event handlers (mouse + touch)
+    handlePointerDown(e) {
         if (!this.active || this.mode !== 'edit') return;
+        e.preventDefault();
         
-        const rect = this.game.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const coords = this.getEventCoordinates(e);
+        const clickedObject = this.getObjectAtPosition(coords.x, coords.y);
         
-        const clickedObject = this.getObjectAtPosition(x, y);
-        
-        console.log('Level Editor MouseDown:', x, y, 'Found object:', clickedObject);
+        console.log('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
         
         if (clickedObject) {
             this.selectObject(clickedObject);
-            this.startDragging(x, y);
+            this.startDragging(coords.x, coords.y);
         } else {
             this.selectObject(null);
         }
     }
     
-    handleMouseMove(e) {
+    handlePointerMove(e) {
         if (!this.active || this.mode !== 'edit' || !this.dragging) return;
+        e.preventDefault();
         
-        const rect = this.game.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const coords = this.getEventCoordinates(e);
+        this.updateDragging(coords.x, coords.y);
+    }
+    
+    handlePointerUp(e) {
+        if (!this.active || this.mode !== 'edit') return;
+        e.preventDefault();
         
-        this.updateDragging(x, y);
+        this.stopDragging();
+    }
+    
+    // Legacy mouse event handlers (delegate to pointer handlers)
+    handleMouseDown(e) {
+        this.handlePointerDown(e);
+    }
+    
+    handleMouseMove(e) {
+        this.handlePointerMove(e);
     }
     
     handleMouseUp(e) {
+        this.handlePointerUp(e);
+    }
+    
+    // Touch-specific event handlers
+    handleTouchStart(e) {
+        if (!this.active) return;
+        e.preventDefault();
+        
+        // Handle long press for context menu on mobile
+        if (e.touches.length === 1) {
+            this.touchStartTime = Date.now();
+            this.touchStartPos = this.getEventCoordinates(e.touches[0]);
+            
+            // Show visual feedback for long press
+            this.showLongPressIndicator(this.touchStartPos.x, this.touchStartPos.y);
+            
+            // Set up long press detection
+            this.longPressTimer = setTimeout(() => {
+                if (this.touchStartPos && this.mode === 'edit') {
+                    // Haptic feedback for long press
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(100);
+                    }
+                    this.showContextMenu(this.touchStartPos.x, this.touchStartPos.y);
+                    this.touchStartPos = null;
+                    this.hideLongPressIndicator();
+                }
+            }, 500); // 500ms long press
+        }
+    }
+    
+    handleTouchEnd(e) {
+        if (!this.active) return;
+        e.preventDefault();
+        
+        // Clear long press timer
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // Reset touch tracking
+        this.touchStartTime = null;
+        this.touchStartPos = null;
+        
+        // Hide long press indicator
+        this.hideLongPressIndicator();
+    }
+    
+    showLongPressIndicator(x, y) {
+        // Remove existing indicator
+        this.hideLongPressIndicator();
+        
+        // Create visual indicator for long press
+        this.longPressIndicator = document.createElement('div');
+        this.longPressIndicator.style.cssText = `
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            border: 3px solid #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1001;
+            animation: longPressAnimation 0.5s ease-out;
+            transform: translate(-50%, -50%);
+        `;
+        
+        // Convert canvas coordinates to screen coordinates
+        const rect = this.game.canvas.getBoundingClientRect();
+        const screenX = rect.left + x;
+        const screenY = rect.top + y;
+        
+        this.longPressIndicator.style.left = screenX + 'px';
+        this.longPressIndicator.style.top = screenY + 'px';
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes longPressAnimation {
+                0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+                50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+                100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(this.longPressIndicator);
+    }
+    
+    hideLongPressIndicator() {
+        if (this.longPressIndicator) {
+            this.longPressIndicator.remove();
+            this.longPressIndicator = null;
+        }
+    }
+    
+    handleRightClick(e) {
         if (!this.active || this.mode !== 'edit') return;
-        this.stopDragging();
+        e.preventDefault();
+        
+        const coords = this.getEventCoordinates(e);
+        this.showContextMenu(coords.x, coords.y);
+    }
+    
+    getEventCoordinates(e) {
+        const rect = this.game.canvas.getBoundingClientRect();
+        
+        // Handle both mouse and touch events
+        if (e.touches && e.touches.length > 0) {
+            // Touch event
+            return {
+                x: e.touches[0].clientX - rect.left,
+                y: e.touches[0].clientY - rect.top
+            };
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            // Touch end event
+            return {
+                x: e.changedTouches[0].clientX - rect.left,
+                y: e.changedTouches[0].clientY - rect.top
+            };
+        } else {
+            // Mouse/pointer event
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
     }
     
     enter() {
@@ -217,12 +518,17 @@ class LevelEditor {
             btn.textContent = `Add ${className}`;
             btn.style.cssText = `
                 margin-right: 10px;
-                padding: 5px 10px;
+                margin-bottom: 5px;
+                padding: 8px 12px;
                 background: #2196F3;
                 color: white;
                 border: none;
-                border-radius: 3px;
+                border-radius: 5px;
                 cursor: pointer;
+                min-height: 44px;
+                font-size: 14px;
+                touch-action: manipulation;
+                white-space: nowrap;
             `;
             btn.onclick = () => this.addObject(className);
             this.addButtons[className] = btn;
@@ -293,7 +599,11 @@ class LevelEditor {
             return false;
         }
         
-        const radius = obj.radius || obj.collisionRadius || 20;
+        // Use larger hit areas for mobile devices for easier touch selection
+        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
+        const baseRadius = obj.radius || obj.collisionRadius || 20;
+        const radius = isMobile ? Math.max(baseRadius, 30) : baseRadius; // Minimum 30px touch target on mobile
+        
         const dx = x - objX;
         const dy = y - objY;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -305,6 +615,12 @@ class LevelEditor {
     selectObject(obj) {
         this.selectedObject = obj;
         console.log('Selected object:', obj ? obj.constructor.name : 'null');
+        
+        // Provide haptic feedback on mobile devices
+        if (obj && 'vibrate' in navigator) {
+            navigator.vibrate(50); // Short vibration for selection
+        }
+        
         this.updatePropertiesPanel();
     }
     
@@ -380,6 +696,8 @@ class LevelEditor {
         const propertyMaps = {
             'Planet': [
                 { key: 'radius', label: 'Radius', type: 'number', min: 1 },
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'mass', label: 'Mass', type: 'number', min: 1 },
                 { key: 'collisionRadius', label: 'Collision Radius', type: 'number', min: 1 },
                 { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 },
@@ -387,30 +705,40 @@ class LevelEditor {
                 { key: 'planetType', label: 'Planet Sprite', type: 'select', options: this.getPlanetSpriteOptions() }
             ],
             'Bonus': [
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'value', label: 'Value', type: 'number', min: 1 },
                 { key: 'rotationSpeed', label: 'Rotation Speed', type: 'number' },
                 { key: 'state', label: 'State', type: 'select', options: ['notHit', 'Hit'] }
             ],
             'Target': [
-                { key: 'radius', label: 'Radius', type: 'number', min: 1 },
-                { key: 'innerRadius', label: 'Inner Radius', type: 'number', min: 1 },
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'spriteType', label: 'Ship Sprite', type: 'select', options: this.getShipSpriteOptions() }
             ],
             'Slingshot': [
-                { key: 'angle', label: 'Angle', type: 'number', min: 0, max: 360 }
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
+                { key: 'maxPullback', label: 'Max Pullback', type: 'number', min: 10 },
+                { key: 'velocityMultiplier', label: 'Velocity Multiplier', type: 'number', min: 1 }
             ],
             'TextObject': [
                 { key: 'content', label: 'Text Content', type: 'text' },
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 72 },
                 { key: 'color', label: 'Color', type: 'color' },
                 { key: 'fontFamily', label: 'Font Family', type: 'text' },
                 { key: 'textAlign', label: 'Text Align', type: 'select', options: ['left', 'center', 'right'] },
                 { key: 'backgroundColor', label: 'Background Color', type: 'color' },
+                { key: 'autoSize', label: 'Auto Size', type: 'checkbox' },
                 { key: 'visible', label: 'Visible', type: 'checkbox' }
             ],
             'PointingArrow': [
                 { key: 'pointingAtX', label: 'Target X', type: 'number' },
                 { key: 'pointingAtY', label: 'Target Y', type: 'number' },
+                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'color', label: 'Color', type: 'color' },
                 { key: 'glowColor', label: 'Glow Color', type: 'color' },
                 { key: 'baseWidth', label: 'Base Width', type: 'number', min: 10 },
@@ -512,7 +840,7 @@ class LevelEditor {
     
     createPropertyInput(label, property, value, type, options = {}) {
         let inputHtml = '';
-        const baseStyle = "width: 100%; padding: 5px; border: 1px solid #555; background: #333; color: white; border-radius: 3px;";
+        const baseStyle = "width: 100%; padding: 8px; border: 1px solid #555; background: #333; color: white; border-radius: 5px; font-size: 16px; min-height: 44px; touch-action: manipulation;";
         
         switch (type) {
             case 'checkbox':
@@ -628,6 +956,15 @@ class LevelEditor {
                 this.selectedObject.content = value;
                 this.selectedObject.parsedContent = this.selectedObject.parseHTMLContent(value);
                 console.log(`Updated text content to: ${value}`);
+            } else if ((property === 'width' || property === 'height') && this.selectedObject.constructor.name === 'Planet') {
+                // Handle Planet width/height changes - update radius to maintain consistency
+                this.selectedObject[property] = value;
+                if (property === 'width' || property === 'height') {
+                    // Keep radius in sync with the smaller dimension
+                    const newRadius = Math.min(this.selectedObject.width, this.selectedObject.height) / 2;
+                    this.selectedObject.radius = newRadius;
+                    console.log(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
+                }
             } else if (property in this.selectedObject) {
                 // Other properties
                 this.selectedObject[property] = value;
@@ -836,9 +1173,9 @@ class LevelEditor {
             'Planet': [x, y, 50, 1000, 0, 'planet_grey', this.game.assetLoader], // x, y, radius, mass, gravitationalReach, planetType, assetLoader
             'Bonus': [x, y, 100, this.game.assetLoader], // x, y, value, assetLoader
             'Target': [x, y, 60, 60, 'ship_open', this.game.assetLoader], // x, y, width, height, spriteType, assetLoader
-            'Slingshot': [x, y, 0], // x, y, angle
-            'TextObject': [x, y, 'Sample Text', 16, '#FFFFFF'], // x, y, text, fontSize, color
-            'PointingArrow': [x, y, x + 100, y + 50, 0] // x, y, targetX, targetY, length
+            'Slingshot': [x, y, null, null, 150], // x, y, anchorX, anchorY, stretchLimit
+            'TextObject': [x, y, 'Sample Text', { width: 200, height: 100, fontSize: 16, color: '#FFFFFF' }], // x, y, content, options
+            'PointingArrow': [x, y, { baseWidth: 20 }] // x, y, options
         };
         
         const params = defaults[className] || [x, y];
@@ -1016,6 +1353,113 @@ class LevelEditor {
         }
     }
     
+    showContextMenu(x, y) {
+        if (this.mode !== 'edit') return;
+        
+        // Remove existing context menu if any
+        const existingMenu = document.getElementById('level-editor-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+        
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.id = 'level-editor-context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 8px 0;
+            z-index: 1000;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        `;
+        
+        // Convert canvas coordinates to screen coordinates
+        const rect = this.game.canvas.getBoundingClientRect();
+        const screenX = rect.left + x;
+        const screenY = rect.top + y;
+        
+        // Position menu, ensuring it stays on screen
+        menu.style.left = Math.min(screenX, window.innerWidth - 200) + 'px';
+        menu.style.top = Math.min(screenY, window.innerHeight - 300) + 'px';
+        
+        // Add menu items for object creation
+        const editableClasses = this.getEditableObjectClasses();
+        editableClasses.forEach(className => {
+            const item = document.createElement('div');
+            item.textContent = `Add ${className}`;
+            item.style.cssText = `
+                padding: 12px 16px;
+                cursor: pointer;
+                border-bottom: 1px solid #333;
+                min-height: 20px;
+                touch-action: manipulation;
+            `;
+            item.style.borderBottom = '1px solid #333';
+            
+            item.addEventListener('mouseenter', () => {
+                item.style.background = '#333';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.background = 'transparent';
+            });
+            
+            item.addEventListener('click', () => {
+                this.addObjectAtPosition(className, x, y);
+                menu.remove();
+            });
+            
+            menu.appendChild(item);
+        });
+        
+        // Add menu to document
+        document.body.appendChild(menu);
+        
+        // Remove menu when clicking elsewhere
+        const removeMenu = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', removeMenu);
+                document.removeEventListener('touchstart', removeMenu);
+            }
+        };
+        
+        // Delay adding event listeners to prevent immediate removal
+        setTimeout(() => {
+            document.addEventListener('click', removeMenu);
+            document.addEventListener('touchstart', removeMenu);
+        }, 100);
+    }
+    
+    addObjectAtPosition(className, x, y) {
+        if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
+            console.error('Unknown class:', className);
+            return;
+        }
+        
+        const ClassConstructor = this.gameObjectClasses[className];
+        let newObject;
+        
+        try {
+            // Create object at the specified position
+            newObject = this.createObjectWithDefaults(ClassConstructor, className, x, y);
+            
+            if (newObject) {
+                // Add to appropriate arrays
+                this.addObjectToGame(newObject, className);
+                this.selectObject(newObject);
+                console.log('Created new', className, 'at', x, y);
+            }
+        } catch (error) {
+            console.error('Failed to create', className, ':', error);
+        }
+    }
+
     exportLevel() {
         const levelData = this.game.exportCurrentLevel();
         const filename = `custom_level_${Date.now()}.json`;
