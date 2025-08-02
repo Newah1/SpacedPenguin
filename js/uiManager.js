@@ -20,8 +20,54 @@ export class UIManager {
     }
     
     setupEventListeners() {
+        // Mouse events
         this.canvas.addEventListener('click', this.handleClick);
+        
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Keyboard events
         window.addEventListener('keydown', this.handleKeyPress);
+        
+        // Mobile device detection
+        this.isMobile = this.detectMobile();
+    }
+    
+    detectMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+    }
+    
+    handleTouchStart(event) {
+        event.preventDefault();
+        this.touchStartTime = Date.now();
+        this.touchStartPos = this.getEventCoordinates(event);
+    }
+    
+    handleTouchEnd(event) {
+        event.preventDefault();
+        
+        // Only process as click if it was a quick tap (< 500ms)
+        const touchDuration = Date.now() - this.touchStartTime;
+        if (touchDuration < 500 && this.touchStartPos) {
+            // Convert touch to click event
+            this.handleClick({
+                clientX: this.touchStartPos.x + this.canvas.getBoundingClientRect().left,
+                clientY: this.touchStartPos.y + this.canvas.getBoundingClientRect().top
+            });
+        }
+    }
+    
+    getEventCoordinates(event) {
+        const rect = this.canvas.getBoundingClientRect();
+        if (event.touches && event.touches.length > 0) {
+            return {
+                x: event.touches[0].clientX - rect.left,
+                y: event.touches[0].clientY - rect.top
+            };
+        }
+        return null;
     }
     
     showScreen(screenClass, ...args) {

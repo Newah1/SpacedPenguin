@@ -168,63 +168,192 @@ class Game {
     
     createMobileControlButtons() {
         // Remove existing buttons if any
-        const existingButtons = document.querySelectorAll('.mobile-control-button');
+        const existingButtons = document.querySelectorAll('.mobile-control-button, .mobile-ui-overlay');
         existingButtons.forEach(btn => btn.remove());
+        
+        // Create mobile UI overlay container
+        this.mobileUIOverlay = document.createElement('div');
+        this.mobileUIOverlay.className = 'mobile-ui-overlay';
+        this.mobileUIOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 150;
+            font-family: Arial, sans-serif;
+        `;
+        
+        // Create mobile control panel
+        const controlPanel = document.createElement('div');
+        controlPanel.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto;
+        `;
         
         // Create reset button
         const resetButton = document.createElement('button');
         resetButton.className = 'mobile-control-button';
-        resetButton.textContent = 'RESET';
+        resetButton.textContent = '↻ TRY AGAIN';
         resetButton.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255, 0, 0, 0.8);
+            background: rgba(255, 100, 100, 0.9);
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 20px;
+            padding: 12px 16px;
+            border-radius: 25px;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 200;
             touch-action: manipulation;
+            min-height: 44px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
         `;
         
         resetButton.addEventListener('click', () => {
-            if (this.state === 'playing') {
+            if (this.state === 'playing' || (this.state === 'levelEditor' && this.levelEditor.mode === 'play')) {
                 this.tryAgain();
+                // Haptic feedback
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(50);
+                }
             }
         });
         
         // Create quit button
         const quitButton = document.createElement('button');
         quitButton.className = 'mobile-control-button';
-        quitButton.textContent = 'QUIT';
+        quitButton.textContent = '✕ QUIT';
         quitButton.style.cssText = `
-            position: absolute;
-            top: 50px;
-            right: 10px;
-            background: rgba(128, 128, 128, 0.8);
+            background: rgba(128, 128, 128, 0.9);
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 20px;
+            padding: 12px 16px;
+            border-radius: 25px;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 200;
             touch-action: manipulation;
+            min-height: 44px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
         `;
         
         quitButton.addEventListener('click', () => {
-            if (this.state === 'playing') {
+            if (this.state === 'playing' || (this.state === 'levelEditor' && this.levelEditor.mode === 'play')) {
                 this.showQuitDialog();
             }
         });
         
-        document.body.appendChild(resetButton);
-        document.body.appendChild(quitButton);
+        controlPanel.appendChild(resetButton);
+        controlPanel.appendChild(quitButton);
+        
+        // Create mobile instruction overlay
+        this.mobileInstructions = document.createElement('div');
+        this.mobileInstructions.style.cssText = `
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            max-width: 90%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease;
+        `;
+        
+        // Create launch visual feedback
+        this.createLaunchFeedback();
+        
+        this.mobileUIOverlay.appendChild(controlPanel);
+        this.mobileUIOverlay.appendChild(this.mobileInstructions);
+        document.body.appendChild(this.mobileUIOverlay);
+        
+        // Update instructions based on current state
+        this.updateMobileInstructions();
+        
+        // Auto-hide instructions after 5 seconds
+        setTimeout(() => {
+            if (this.mobileInstructions) {
+                this.mobileInstructions.style.opacity = '0.6';
+            }
+        }, 5000);
+    }
+    
+    createLaunchFeedback() {
+        // Create visual feedback for slingshot aiming
+        this.launchIndicator = document.createElement('div');
+        this.launchIndicator.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border: 3px solid rgba(0, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        `;
+        
+        this.mobileUIOverlay.appendChild(this.launchIndicator);
+    }
+    
+    updateMobileInstructions() {
+        if (!this.mobileInstructions || !this.isMobileDevice()) return;
+        
+        let instructionText = '';
+        
+        switch (this.state) {
+            case 'menu':
+                instructionText = '👆 Tap anywhere to start';
+                break;
+            case 'playing':
+                if (this.penguin && this.penguin.state === 'idle') {
+                    instructionText = '🎯 Drag penguin to aim, release to launch';
+                } else if (this.penguin && this.penguin.state === 'pullback') {
+                    instructionText = '🎯 Release to launch!';
+                } else if (this.penguin && this.penguin.state === 'soaring') {
+                    instructionText = '👆 Tap to try again';
+                } else {
+                    instructionText = '🐧 Ready to launch!';
+                }
+                break;
+            case 'levelEditor':
+                if (this.levelEditor && this.levelEditor.mode === 'play') {
+                    instructionText = '🎮 Testing level - drag to launch';
+                } else {
+                    instructionText = '✏️ Level Editor - long press to add objects';
+                }
+                break;
+            default:
+                instructionText = '👆 Touch to interact';
+        }
+        
+        this.mobileInstructions.textContent = instructionText;
+    }
+    
+    showLaunchFeedback(show = true) {
+        if (this.launchIndicator) {
+            this.launchIndicator.style.opacity = show ? '1' : '0';
+            this.launchIndicator.style.transform = show ? 
+                'translate(-50%, -50%) scale(1.2)' : 
+                'translate(-50%, -50%) scale(1)';
+        }
     }
     
     getMousePosition(e) {
@@ -261,6 +390,12 @@ class Game {
             this.isDragging = true;
             this.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
             this.penguin.setState('pullback');
+            
+            // Show visual feedback for mobile
+            if (this.isMobileDevice()) {
+                this.showLaunchFeedback(true);
+                this.updateMobileInstructions();
+            }
         }
     }
     
@@ -291,6 +426,12 @@ class Game {
             this.isDragging = false;
             const velocity = this.slingshot.release();
             this.launchPenguin(velocity);
+            
+            // Hide visual feedback for mobile
+            if (this.isMobileDevice()) {
+                this.showLaunchFeedback(false);
+                this.updateMobileInstructions();
+            }
         } else {
             // Mouse click during soaring triggers tryAgain (like original)
             const canUseSlingshot = (this.state === 'playing') || 
@@ -389,7 +530,8 @@ class Game {
                 }
                 break;
             case ' ':
-                if (this.state === 'menu') {
+                // Only allow spacebar to start game on desktop
+                if (this.state === 'menu' && !this.isMobileDevice()) {
                     this.startGame();
                 }
                 break;
@@ -1256,6 +1398,12 @@ class Game {
         
         // Reset distance (prevents accumulation across retries affecting score)
         this.distance = 0;
+        
+        // Update mobile UI feedback
+        if (this.isMobileDevice()) {
+            this.showLaunchFeedback(false);
+            this.updateMobileInstructions();
+        }
         
         this.updateUI();
     }

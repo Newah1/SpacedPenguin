@@ -270,17 +270,12 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        await this.tryLoadLevelFile(1, 'levels/level1.json');
-        await this.tryLoadLevelFile(2, 'levels/level2.json');
-        await this.tryLoadLevelFile(3, 'levels/level3.json');
-        // this.levels.set(1, 'levels/level1.json');
-        // this.levels.set(3, this.getLevel3Definition());
-        
-        // Try to load additional levels from JSON files
-        await this.tryLoadLevelFile(4, 'levels/level4.json');
-        await this.tryLoadLevelFile(5, 'levels/level5.json');
+        const totalLevels = 5;
+        for (let i = 1; i <= totalLevels; i++) {
+            await this.tryLoadLevelFile(i, `levels/level${i}.json`);
+        }
     }
-    
+
     async tryLoadLevelFile(levelNumber, filePath) {
         try {
             const success = await this.loadLevelFromFile(levelNumber, filePath);
