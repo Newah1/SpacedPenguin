@@ -10,6 +10,7 @@ import { UIManager } from './uiManager.js';
 import { LevelEndScreen } from './levelEndScreen.js';
 import Console from './console.js';
 import LevelEditor from './levelEditor.js';
+import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
 
 class Game {
@@ -76,6 +77,9 @@ class Game {
         this.console = new Console(this);
         this.levelEditor = new LevelEditor(this);
         
+        // Initialize fullscreen manager
+        this.fullscreenManager = new FullscreenManager(canvas, canvas.parentElement);
+        
         // Pass ALL class references to level editor for object creation
         this.levelEditor.gameObjectClasses = {
             Planet,
@@ -128,27 +132,34 @@ class Game {
         plog.debug('UI elements found:', this.ui);
         plog.debug('Asset loader available:', !!this.assetLoader);
         
-        this.setupEventListeners();
+        // Note: Input handling now managed by InputActionManager
         plog.success('Game constructor completed');
         // Don't load level immediately - wait for start
         this.stars = [];
     }
     
+    setState(newState) {
+        if (this.state !== newState) {
+            plog.info(`Game state changing from ${this.state} to ${newState}`);
+            this.state = newState;
+            
+            // Notify InputActionManager of state change if available
+            if (window.gameManager?.inputActionManager) {
+                window.gameManager.inputActionManager.updateActiveActions();
+            }
+        }
+    }
+    
+    // Input handling methods - called by InputActionManager
+    // These methods are kept for backwards compatibility but input routing
+    // is now handled by the InputActionManager system
+    
     setupEventListeners() {
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        // This method is now deprecated - input handling managed by InputActionManager
+        console.warn('Game.setupEventListeners() is deprecated - input now managed by InputActionManager');
         
-        // Enhanced touch handling for mobile
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        
-        // Prevent default touch behaviors that interfere with game
+        // Still set touch action for mobile compatibility
         this.canvas.style.touchAction = 'none';
-        
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         
         // Add mobile-specific controls
         this.setupMobileControls();
@@ -357,6 +368,12 @@ class Game {
     }
     
     getMousePosition(e) {
+        // Use fullscreen manager for coordinate conversion if available
+        if (this.fullscreenManager) {
+            return this.fullscreenManager.screenToCanvas(e.clientX, e.clientY);
+        }
+        
+        // Fallback to original method
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
@@ -375,6 +392,11 @@ class Game {
     handleMouseDown(e) {
         this.mouseDown = true;
         this.mousePosition = this.getMousePosition(e);
+
+        if (this.state === 'menu') {
+            this.startGame();
+            return;
+        }
         
         // Delegate to level editor if active AND in edit mode
         if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
@@ -796,7 +818,7 @@ class Game {
             const failureCheck = this.levelRules.checkFailureConditions(this);
             if (failureCheck.failed) {
                 this.showMessage(failureCheck.reason);
-                this.state = 'gameOver';
+                this.setState('gameOver');
             }
         }
     }
@@ -960,7 +982,7 @@ class Game {
     }
     
     showLevelEndScreen() {
-        this.state = 'scoring';
+        this.setState('scoring');
         this.calculateFinalScore();
         this.uiManager.showScreen(LevelEndScreen, this);
     }
@@ -981,7 +1003,7 @@ class Game {
         Utils.setURLParameter('level', this.level.toString());
         
         // Return to playing state
-        this.state = 'playing';
+        this.setState('playing');
     }
     
     resetLevel() {
@@ -991,7 +1013,7 @@ class Game {
         this.clearAllShotPaths();
         this.clearAlphaMasks();
         this.arrow.visible = false; // Reset arrow visibility
-        this.state = 'playing';
+        this.setState('playing');
     }
     
     resetPenguin() {
@@ -1175,7 +1197,7 @@ class Game {
         Utils.setURLParameter('level', this.level.toString());
         
         // Return to playing state
-        this.state = 'playing';
+        this.setState('playing');
     }
     
     showQuitDialog() {
@@ -1183,7 +1205,7 @@ class Game {
             this.showMobileQuitDialog();
         } else {
             if (confirm('Are you sure you want to quit?')) {
-                this.state = 'menu';
+                this.setState('menu');
             }
         }
     }
@@ -1266,7 +1288,7 @@ class Game {
         
         yesButton.addEventListener('click', () => {
             dialog.remove();
-            this.state = 'menu';
+            this.setState('menu');
         });
         
         noButton.addEventListener('click', () => {
@@ -1293,7 +1315,7 @@ class Game {
         this.distance = 0;
         this.tries = 0;
         this.loadLevel(this.level);
-        this.state = 'playing';
+        this.setState('playing');
     }
     
     jumpToLevel(targetLevel) {
@@ -1320,7 +1342,7 @@ class Game {
         // Load the target level
         try {
             this.loadLevel(this.level);
-            this.state = 'playing';
+            this.setState('playing');
             
             // Update URL parameter to reflect current level
             Utils.setURLParameter('level', this.level.toString());
@@ -1333,7 +1355,7 @@ class Game {
             // Fall back to level 1 if the target level doesn't exist
             this.level = 1;
             this.loadLevel(this.level);
-            this.state = 'playing';
+            this.setState('playing');
             Utils.removeURLParameter('level');
             
             return false;

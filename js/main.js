@@ -3,6 +3,7 @@
 
 import { Game } from './game.js';
 import { AssetLoader } from './assetLoader.js';
+import { InputActionManager } from './inputActions.js';
 import Utils from './utils.js';
 import plog from './penguinLogger.js';
 
@@ -18,6 +19,7 @@ class GameManager {
         this.assetsLoaded = false;
         this.isMobile = this.detectMobile();
         this.debugMode = false; // Set to true to enable debug logging
+        this.inputActionManager = null;
         
         this.init();
     }
@@ -139,11 +141,7 @@ class GameManager {
         // Initial resize
         resizeCanvas();
         
-        // Resize on window resize
-        window.addEventListener('resize', resizeCanvas);
-        window.addEventListener('orientationchange', () => {
-            setTimeout(resizeCanvas, 100);
-        });
+        // Note: Window resize events are now handled by InputActionManager
     }
     
     onAssetProgress(progress, resourceName) {
@@ -161,6 +159,15 @@ class GameManager {
         // Initialize game with loaded assets and audio manager
         const audioManager = assetLoader.getAudioManager();
         this.game = new Game(this.canvas, assetLoader, audioManager);
+        
+        // Initialize input action manager with root context
+        this.inputActionManager = new InputActionManager({
+            canvas: this.canvas,
+            game: this.game,
+            setupResponsiveCanvas: this.setupResponsiveCanvas.bind(this),
+            pause: this.pause.bind(this),
+            resume: this.resume.bind(this)
+        });
         
         // Load levels before starting the game
         plog.info('Loading level definitions...');
@@ -251,6 +258,11 @@ class GameManager {
         
         // Update game
         if (this.game && this.assetsLoaded) {
+            // Update input actions based on current game state
+            if (this.inputActionManager) {
+                this.inputActionManager.updateActiveActions();
+            }
+            
             this.game.update(cappedDeltaTime);
             this.game.render();
         }
@@ -496,8 +508,12 @@ class GameManager {
     
     destroy() {
         this.isRunning = false;
+        if (this.inputActionManager) {
+            this.inputActionManager.destroy();
+        }
         this.game = null;
         this.assetLoader = null;
+        this.inputActionManager = null;
     }
 }
 
@@ -508,24 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.gameManager = gameManager; // Make it globally accessible for debugging
 });
 
-// Handle page visibility changes
-document.addEventListener('visibilitychange', () => {
-    if (window.gameManager) {
-        if (document.hidden) {
-            window.gameManager.pause();
-        } else {
-            window.gameManager.resume();
-        }
-    }
-});
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    if (window.gameManager) {
-        // The responsive canvas system will handle resizing
-        window.gameManager.setupResponsiveCanvas();
-    }
-});
+// Note: Page visibility and window resize events are now handled by InputActionManager
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {

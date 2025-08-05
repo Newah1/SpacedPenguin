@@ -183,7 +183,6 @@
     "maxTries": null,
     "timeLimit": null,
     "scoreMultiplier": 2,
-    "requiredBonuses": 3,
     "allowedMisses": null,
     "gravitationalConstant": 3
   }

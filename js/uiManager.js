@@ -16,19 +16,12 @@ export class UIManager {
         this.handleClick = this.handleClick.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
         
-        this.setupEventListeners();
+        // Note: Event listeners now managed by InputActionManager
     }
     
     setupEventListeners() {
-        // Mouse events
-        this.canvas.addEventListener('click', this.handleClick);
-        
-        // Touch events for mobile
-        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
-        
-        // Keyboard events
-        window.addEventListener('keydown', this.handleKeyPress);
+        // This method is now deprecated - input handling managed by InputActionManager
+        console.warn('UIManager.setupEventListeners() is deprecated - input now managed by InputActionManager');
         
         // Mobile device detection
         this.isMobile = this.detectMobile();

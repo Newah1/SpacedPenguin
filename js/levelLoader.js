@@ -9,7 +9,23 @@ import Utils from './utils.js';
 
 class GameObjectFactory {
     static create(objectDefinition, assetLoader, game) {
-        const { type, position, properties = {} } = objectDefinition;
+        let { type, position, properties = {} } = objectDefinition;
+        
+        // If position is not at top level, check if it's in properties
+        if (!position && properties.x !== undefined && properties.y !== undefined) {
+            position = { x: properties.x, y: properties.y };
+        }
+        
+        // Debug logging for problematic objects
+        if (!position && (type === 'bonus' || type === 'planet' || type === 'target')) {
+            console.error('Object creation failed: missing position', { 
+                type, 
+                position, 
+                properties,
+                objectDefinition 
+            });
+            return null;
+        }
         
         switch (type.toLowerCase()) {
             case 'planet':
@@ -42,6 +58,11 @@ class GameObjectFactory {
     }
     
     static createPlanet(position, properties, assetLoader) {
+        if (!position) {
+            console.error('Planet creation failed: position is undefined', { position, properties });
+            return null;
+        }
+        
         const {
             radius = 30,
             mass = 100,
@@ -63,6 +84,18 @@ class GameObjectFactory {
     static createBonus(position, properties, assetLoader) {
         const { value = 100 } = properties;
         
+        // Check if position is defined
+        if (!position) {
+            console.error('Bonus creation failed: position is undefined', { position, properties });
+            return null;
+        }
+        
+        // Ensure position has x and y properties
+        if (typeof position.x === 'undefined' || typeof position.y === 'undefined') {
+            console.error('Bonus creation failed: position missing x or y', { position, properties });
+            return null;
+        }
+        
         const bonus = new Bonus(position.x, position.y, value, assetLoader);
 
         if (properties.orbit) {
@@ -73,11 +106,21 @@ class GameObjectFactory {
     }
     
     static createTarget(position, properties, assetLoader) {
+        if (!position) {
+            console.error('Target creation failed: position is undefined', { position, properties });
+            return null;
+        }
+        
         const { width = 60, height = 60, spriteType = 'ship_open' } = properties;
         return new Target(position.x, position.y, width, height, spriteType, assetLoader);
     }
     
     static createSlingshot(position, properties) {
+        if (!position) {
+            console.error('Slingshot creation failed: position is undefined', { position, properties });
+            return null;
+        }
+        
         const {
             anchorX = position.x,
             anchorY = position.y,

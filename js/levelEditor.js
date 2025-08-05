@@ -9,7 +9,7 @@ class LevelEditor {
         this.propertiesPanel = null;
         
         this.createUI();
-        this.setupEventListeners();
+        // Note: Event listeners now managed by InputActionManager
     }
     
     createUI() {
@@ -227,40 +227,60 @@ class LevelEditor {
     }
     
     setupEventListeners() {
-        // Set up unified pointer event handlers (mouse + touch)
-        this.game.canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
-        this.game.canvas.addEventListener('pointermove', (e) => this.handlePointerMove(e));
-        this.game.canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e));
-        this.game.canvas.addEventListener('contextmenu', (e) => this.handleRightClick(e));
+        // This method is now deprecated - input handling managed by InputActionManager
+        console.warn('LevelEditor.setupEventListeners() is deprecated - input now managed by InputActionManager');
         
-        // Touch-specific handlers for mobile gestures
-        this.game.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        this.game.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        
-        // Prevent default touch behaviors that interfere with editor
+        // Still set touch action for mobile compatibility
         this.game.canvas.style.touchAction = 'none';
-        
-        // Keyboard shortcuts (still useful for desktop)
-        document.addEventListener('keydown', (e) => {
-            if (!this.active) return;
-            
-            if (e.key === 'Delete' && this.selectedObject) {
-                this.deleteSelected();
-            } else if (e.key === 'Escape') {
-                this.selectObject(null);
-            }
-        });
         
         // Initialize touch tracking variables
         this.touchStartTime = null;
         this.touchStartPos = null;
         this.longPressTimer = null;
-        
-        // Add viewport responsiveness
-        window.addEventListener('resize', () => this.handleResize());
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.handleResize(), 100);
-        });
+    }
+    
+    // Methods called by InputActionManager
+    handleMouseDown(e) {
+        if (!this.active) return;
+        this.handlePointerDown(e);
+    }
+    
+    handleMouseMove(e) {
+        if (!this.active) return;
+        this.handlePointerMove(e);
+    }
+    
+    handleMouseUp(e) {
+        if (!this.active) return;
+        this.handlePointerUp(e);
+    }
+    
+    handleClick(e) {
+        if (!this.active) return;
+        // Convert to pointer event
+        this.handlePointerDown(e);
+        this.handlePointerUp(e);
+    }
+    
+    deleteSelectedObject() {
+        if (this.selectedObject) {
+            this.deleteSelected();
+        }
+    }
+    
+    saveLevel() {
+        // Implement save functionality
+        console.log('Save level functionality not yet implemented');
+    }
+    
+    undo() {
+        // Implement undo functionality
+        console.log('Undo functionality not yet implemented');
+    }
+    
+    redo() {
+        // Implement redo functionality
+        console.log('Redo functionality not yet implemented');
     }
     
     handleResize() {
@@ -472,6 +492,11 @@ class LevelEditor {
         this.mode = 'edit';
         this.updateModeButton();
         this.populateObjectButtons();
+        
+        // Notify fullscreen manager about level editor state change
+        if (this.game.fullscreenManager) {
+            this.game.fullscreenManager.setLevelEditorMode(true);
+        }
     }
     
     exit() {
@@ -479,6 +504,19 @@ class LevelEditor {
         this.container.style.display = 'none';
         this.selectObject(null);
         this.game.state = 'playing';
+        
+        // Notify fullscreen manager about level editor state change
+        if (this.game.fullscreenManager) {
+            this.game.fullscreenManager.setLevelEditorMode(false);
+        }
+    }
+    
+    toggle() {
+        if (this.active) {
+            this.exit();
+        } else {
+            this.enter();
+        }
     }
     
     toggleMode() {
