@@ -1,3 +1,5 @@
+import { GameState } from './game.js';
+
 class LevelEditor {
     constructor(game) {
         this.game = game;
@@ -673,7 +675,7 @@ class LevelEditor {
     enter() {
         this.active = true;
         this.container.style.display = 'block';
-        this.game.state = 'levelEditor';
+        this.game.state = GameState.LEVEL_EDITOR;
         this.mode = 'edit';
         this.updateModeButton();
         this.populateObjectButtons();
@@ -715,7 +717,7 @@ class LevelEditor {
         this.active = false;
         this.container.style.display = 'none';
         this.selectObject(null);
-        this.game.state = 'playing';
+        this.game.state = GameState.PLAYING;
         
         // Notify fullscreen manager about level editor state change
         if (this.game.fullscreenManager) {

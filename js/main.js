@@ -2,10 +2,12 @@
 // Initializes the game and runs the game loop
 
 import { Game } from './game.js';
+import { GameState } from './game.js';
 import { AssetLoader } from './assetLoader.js';
+import { AudioManager } from './audioManager.js';
 import { InputActionManager } from './inputActions.js';
-import Utils from './utils.js';
 import plog from './penguinLogger.js';
+import Utils from './utils.js';
 
 plog.info('main.js loaded');
 
@@ -194,7 +196,7 @@ class GameManager {
         this.gameLoop();
         
         // Show start screen with real graphics (unless jumping to level)
-        if (this.game.state === 'menu') {
+        if (this.game.state === GameState.MENU) {
             this.showStartScreen();
             this.startScreenAnimation();
         }
@@ -393,7 +395,7 @@ class GameManager {
         }
         
         // Start the game
-        if (this.game && this.game.state === 'menu') {
+        if (this.game && this.game.state === GameState.MENU) {
             this.game.startGame();
         }
     }
@@ -434,7 +436,7 @@ class GameManager {
     }
     
     startScreenAnimation() {
-        if (this.game && this.game.state === 'menu') {
+        if (this.game && this.game.state === GameState.MENU) {
             this.showStartScreen();
             requestAnimationFrame(() => this.startScreenAnimation());
         }

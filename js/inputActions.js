@@ -1,6 +1,8 @@
 // Input Action System for Spaced Penguin
 // Centralized input handling with contextual actions
 
+import { GameState } from './game.js';
+
 export class InputAction {
     constructor(rootContext) {
         this.rootContext = rootContext;
@@ -69,42 +71,42 @@ export class GameplayInputAction extends InputAction {
     
     handleMouseDown(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleMouseDown(e);
     }
     
     handleMouseMove(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleMouseMove(e);
     }
     
     handleMouseUp(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleMouseUp(e);
     }
     
     handleTouchStart(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleTouchStart(e);
     }
     
     handleTouchMove(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleTouchMove(e);
     }
     
     handleTouchEnd(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'playing') return;
+        if (!game || this.getGameState() !== GameState.PLAYING) return;
         
         game.handleTouchEnd(e);
     }
@@ -122,9 +124,9 @@ export class MenuInputAction extends InputAction {
     
     handleClick(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'menu') return;
+        if (!game || this.getGameState() !== GameState.MENU) return;
 
-        if (game.state === 'menu') {
+        if (game.state === GameState.MENU) {
             game.startGame();
             return;
         }
@@ -140,7 +142,7 @@ export class MenuInputAction extends InputAction {
     
     handleTouchEnd(e) {
         const game = this.getGame();
-        if (!game || this.getGameState() !== 'menu') return;
+        if (!game || this.getGameState() !== GameState.MENU) return;
         
         // Convert touch to click for menu interaction
         const touchEndTime = Date.now();
@@ -194,8 +196,8 @@ export class KeyboardInputAction extends InputAction {
             case 'Escape':
                 if (this.isLevelEditorActive()) {
                     game.levelEditor.toggle();
-                } else if (gameState === 'playing') {
-                    game.setState('paused');
+                } else if (gameState === GameState.PLAYING) {
+                    game.setState(GameState.PAUSED);
                 }
                 break;
                 
@@ -209,13 +211,13 @@ export class KeyboardInputAction extends InputAction {
         
         // State-specific keyboard handling
         switch (gameState) {
-            case 'menu':
+            case GameState.MENU:
                 this.handleMenuKeys(e);
                 break;
-            case 'playing':
+            case GameState.PLAYING:
                 this.handleGameplayKeys(e);
                 break;
-            case 'paused':
+            case GameState.PAUSED:
                 this.handlePausedKeys(e);
                 break;
         }
@@ -267,7 +269,7 @@ export class KeyboardInputAction extends InputAction {
             case 'Space':
             case 'Enter':
                 e.preventDefault();
-                game.setState('playing');
+                game.setState(GameState.PLAYING);
                 break;
         }
     }
@@ -465,12 +467,12 @@ export class InputActionManager {
             this.deactivateAction('levelEditor');
             
             switch (gameState) {
-                case 'menu':
+                case GameState.MENU:
                     this.activateAction('menu');
                     this.deactivateAction('gameplay');
                     break;
-                case 'playing':
-                case 'paused':
+                case GameState.PLAYING:
+                case GameState.PAUSED:
                     this.activateAction('gameplay');
                     this.deactivateAction('menu');
                     break;

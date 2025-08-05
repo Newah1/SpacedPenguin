@@ -13,6 +13,15 @@ import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
 
+const GameState = {
+    MENU: 'menu',
+    PLAYING: 'playing',
+    PAUSED: 'paused',
+    GAME_OVER: 'gameOver',
+    SCORING: 'scoring',
+    LEVEL_EDITOR: 'levelEditor'
+};
+
 class Game {
     constructor(canvas, assetLoader, audioManager) {
         plog.info('Game constructor called');
@@ -30,7 +39,7 @@ class Game {
         this.uiManager = new UIManager(canvas, audioManager);
         
         // Game state
-        this.state = 'menu'; // menu, playing, paused, gameOver, scoring
+        this.state = GameState.MENU;
         this.level = 1;
         this.score = 0;
         this.currentAttemptScore = 0; // Track score for current attempt only
@@ -228,7 +237,7 @@ class Game {
         `;
         
         resetButton.addEventListener('click', () => {
-            if (this.state === 'playing' || (this.state === 'levelEditor' && this.levelEditor.mode === 'play')) {
+            if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
                 this.tryAgain();
                 // Haptic feedback
                 if ('vibrate' in navigator) {
@@ -257,7 +266,7 @@ class Game {
         `;
         
         quitButton.addEventListener('click', () => {
-            if (this.state === 'playing' || (this.state === 'levelEditor' && this.levelEditor.mode === 'play')) {
+            if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
                 this.showQuitDialog();
             }
         });
@@ -330,10 +339,10 @@ class Game {
         let instructionText = '';
         
         switch (this.state) {
-            case 'menu':
+            case GameState.MENU:
                 instructionText = '👆 Tap anywhere to start';
                 break;
-            case 'playing':
+            case GameState.PLAYING:
                 if (this.penguin && this.penguin.state === 'idle') {
                     instructionText = '🎯 Drag penguin to aim, release to launch';
                 } else if (this.penguin && this.penguin.state === 'pullback') {
@@ -344,7 +353,7 @@ class Game {
                     instructionText = '🐧 Ready to launch!';
                 }
                 break;
-            case 'levelEditor':
+            case GameState.LEVEL_EDITOR:
                 if (this.levelEditor && this.levelEditor.mode === 'play') {
                     instructionText = '🎮 Testing level - drag to launch';
                 } else {
@@ -393,20 +402,20 @@ class Game {
         this.mouseDown = true;
         this.mousePosition = this.getMousePosition(e);
 
-        if (this.state === 'menu') {
+        if (this.state === GameState.MENU) {
             this.startGame();
             return;
         }
         
         // Delegate to level editor if active AND in edit mode
-        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
             this.levelEditor.handleMouseDown(e);
             return;
         }
         
         // Allow slingshot in both playing state and level editor play mode
-        const canUseSlingshot = (this.state === 'playing') || 
-                              (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+        const canUseSlingshot = (this.state === GameState.PLAYING) || 
+                              (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
         
         if (canUseSlingshot && this.penguin.state === 'idle') {
             this.isDragging = true;
@@ -425,7 +434,7 @@ class Game {
         this.mousePosition = this.getMousePosition(e);
         
         // Delegate to level editor if active AND in edit mode
-        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
             this.levelEditor.handleMouseMove(e);
             return;
         }
@@ -439,7 +448,7 @@ class Game {
         this.mouseDown = false;
         
         // Delegate to level editor if active AND in edit mode
-        if (this.state === 'levelEditor' && this.levelEditor.active && this.levelEditor.mode === 'edit') {
+        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
             this.levelEditor.handleMouseUp(e);
             return;
         }
@@ -456,8 +465,8 @@ class Game {
             }
         } else {
             // Mouse click during soaring triggers tryAgain (like original)
-            const canUseSlingshot = (this.state === 'playing') || 
-                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+            const canUseSlingshot = (this.state === GameState.PLAYING) || 
+                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
             if (canUseSlingshot && this.penguin && this.penguin.state === 'soaring') {
                 this.tryAgain();
             }
@@ -532,35 +541,35 @@ class Game {
         }
         
         // Don't process other keys if console is open or in level editor mode
-        if (this.console.visible || this.state === 'levelEditor') {
+        if (this.console.visible || this.state === GameState.LEVEL_EDITOR) {
             return;
         }
         
         switch (e.key.toLowerCase()) {
             case 'q':
-                const canUseKeys = (this.state === 'playing') || 
-                                 (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                const canUseKeys = (this.state === GameState.PLAYING) || 
+                                 (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
                 if (canUseKeys) {
                     this.showQuitDialog();
                 }
                 break;
             case 'r':
-                const canUseKeys2 = (this.state === 'playing') || 
-                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                const canUseKeys2 = (this.state === GameState.PLAYING) || 
+                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
                 if (canUseKeys2) {
                     this.tryAgain();
                 }
                 break;
             case ' ':
                 // Only allow spacebar to start game on desktop
-                if (this.state === 'menu' && !this.isMobileDevice()) {
+                if (this.state === GameState.MENU && !this.isMobileDevice()) {
                     this.startGame();
                 }
                 break;
             default:
                 // Any other key during playing triggers tryAgain (like original)
-                const canUseKeys3 = (this.state === 'playing') || 
-                                  (this.state === 'levelEditor' && this.levelEditor.mode === 'play');
+                const canUseKeys3 = (this.state === GameState.PLAYING) || 
+                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
                 if (canUseKeys3 && this.penguin && this.penguin.state === 'soaring') {
                     this.tryAgain();
                 }
@@ -746,7 +755,7 @@ class Game {
         this.uiManager.update(deltaTime);
         
         // Skip game updates if in scoring state
-        if (this.state === 'scoring') {
+        if (this.state === GameState.SCORING) {
             return;
         }
         
@@ -814,11 +823,11 @@ class Game {
         }
         
         // Check level rules for failure conditions
-        if (this.levelRules && this.state === 'playing') {
+        if (this.levelRules && this.state === GameState.PLAYING) {
             const failureCheck = this.levelRules.checkFailureConditions(this);
             if (failureCheck.failed) {
                 this.showMessage(failureCheck.reason);
-                this.setState('gameOver');
+                this.setState(GameState.GAME_OVER);
             }
         }
     }
@@ -982,7 +991,7 @@ class Game {
     }
     
     showLevelEndScreen() {
-        this.setState('scoring');
+        this.setState(GameState.SCORING);
         this.calculateFinalScore();
         this.uiManager.showScreen(LevelEndScreen, this);
     }
@@ -1003,7 +1012,7 @@ class Game {
         Utils.setURLParameter('level', this.level.toString());
         
         // Return to playing state
-        this.setState('playing');
+        this.setState(GameState.PLAYING);
     }
     
     resetLevel() {
@@ -1013,7 +1022,7 @@ class Game {
         this.clearAllShotPaths();
         this.clearAlphaMasks();
         this.arrow.visible = false; // Reset arrow visibility
-        this.setState('playing');
+        this.setState(GameState.PLAYING);
     }
     
     resetPenguin() {
@@ -1148,7 +1157,7 @@ class Game {
     
     drawUI() {
         // Draw shot path info (debugging/status display)
-        if (this.state === 'playing') {
+        if (this.state === GameState.PLAYING) {
             this.ctx.save();
             this.ctx.fillStyle = '#FFFFFF';
             this.ctx.font = '14px Arial';
@@ -1197,7 +1206,7 @@ class Game {
         Utils.setURLParameter('level', this.level.toString());
         
         // Return to playing state
-        this.setState('playing');
+        this.setState(GameState.PLAYING);
     }
     
     showQuitDialog() {
@@ -1205,7 +1214,7 @@ class Game {
             this.showMobileQuitDialog();
         } else {
             if (confirm('Are you sure you want to quit?')) {
-                this.setState('menu');
+                this.setState(GameState.MENU);
             }
         }
     }
@@ -1288,7 +1297,7 @@ class Game {
         
         yesButton.addEventListener('click', () => {
             dialog.remove();
-            this.setState('menu');
+            this.setState(GameState.MENU);
         });
         
         noButton.addEventListener('click', () => {
@@ -1315,7 +1324,7 @@ class Game {
         this.distance = 0;
         this.tries = 0;
         this.loadLevel(this.level);
-        this.setState('playing');
+        this.setState(GameState.PLAYING);
     }
     
     jumpToLevel(targetLevel) {
@@ -1342,7 +1351,7 @@ class Game {
         // Load the target level
         try {
             this.loadLevel(this.level);
-            this.setState('playing');
+            this.setState(GameState.PLAYING);
             
             // Update URL parameter to reflect current level
             Utils.setURLParameter('level', this.level.toString());
@@ -1355,7 +1364,7 @@ class Game {
             // Fall back to level 1 if the target level doesn't exist
             this.level = 1;
             this.loadLevel(this.level);
-            this.setState('playing');
+            this.setState(GameState.PLAYING);
             Utils.removeURLParameter('level');
             
             return false;
@@ -1699,4 +1708,4 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = Game;
 } 
 
-export { Game }; 
+export { Game, GameState }; 

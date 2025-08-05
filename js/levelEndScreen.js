@@ -2,6 +2,7 @@
 // Based on the original GPS script's scoring system and UI layout
 
 import { UIScreen, BackgroundOverlay, Panel, TextElement, Button, AnimatedNumber } from './uiManager.js';
+import { GameState } from './game.js';
 
 export class LevelEndScreen extends UIScreen {
     constructor(uiManager, game) {
@@ -340,7 +341,7 @@ export class LevelEndScreen extends UIScreen {
         
         // Return to game for next level or end game
         if (this.game.levelRules && this.game.levelRules.isLastLevel) {
-            this.game.state = 'gameOver';
+            this.game.state = GameState.GAME_OVER;
         } else {
             this.game.nextLevel();
         }

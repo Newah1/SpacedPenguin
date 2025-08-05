@@ -6,6 +6,7 @@ import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
+import { GameState } from './game.js';
 
 class GameObjectFactory {
     static create(objectDefinition, assetLoader, game) {
@@ -469,7 +470,7 @@ export class LevelLoader {
         game.gameObjects.push(game.penguin);
         
         // Create slingshot - look for slingshot object or use default
-        const slingshotDef = levelDefinition.objects?.find(obj => obj.type === 'slingshot');
+        const slingshotDef = levelDefinition.objects?.find(obj => obj.type === Slingshot.constructor.name.toLowerCase());
         if (slingshotDef) {
             game.slingshot = GameObjectFactory.create(slingshotDef, this.assetLoader, game);
         } else {
@@ -479,7 +480,7 @@ export class LevelLoader {
         game.gameObjects.push(game.slingshot);
         
         // Create target - look for target object or use default
-        const targetDef = levelDefinition.objects?.find(obj => obj.type === 'target');
+        const targetDef = levelDefinition.objects?.find(obj => obj.type === Target.constructor.name.toLowerCase());
         if (targetDef) {
             game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         } else {
@@ -491,7 +492,7 @@ export class LevelLoader {
         // Create level objects
         if (levelDefinition.objects) {
             for (const objectDef of levelDefinition.objects) {
-                if (objectDef.type === 'slingshot' || objectDef.type === 'target') {
+                if (objectDef.type === Slingshot.constructor.name.toLowerCase() || objectDef.type === Target.constructor.name.toLowerCase()) {
                     continue; // Already handled above
                 }
                 
@@ -522,7 +523,7 @@ export class LevelLoader {
         // Reset game state
         game.tries = 0;
         game.distance = 0;
-        game.state = 'playing';
+        game.state = GameState.PLAYING;
         
         plog.level(`Level ${levelNumber} loaded: ${game.planets.length} planets, ${game.bonuses.length} bonuses`);
         return levelDefinition;
@@ -546,7 +547,7 @@ export class LevelLoader {
         };
         
         // Generate planets
-        const planetTypes = ['planet_sun', 'planet_saturn', 'planet_grey', 'planet_pink', 'planet_red_gumball'];
+        const planetTypes = Planet.planetTypes;
         for (let i = 0; i < numPlanets; i++) {
             levelDefinition.objects.push({
                 type: 'planet',

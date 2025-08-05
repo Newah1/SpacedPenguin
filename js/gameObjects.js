@@ -421,6 +421,8 @@ class Planet extends GameObject {
     setCustomOrbit(center, speed, xFunction, yFunction) {
         this.orbitSystem.setCustomOrbit(center, speed, xFunction, yFunction);
     }
+
+    static planetTypes = ['planet_grey', 'planet_pink', 'planet_red_gumball', 'planet_saturn', 'planet_sun'];
 }
 
 class Bonus extends GameObject {
