@@ -79,9 +79,11 @@ class GameObjectFactory {
             planet.name = name;
         }
         
-        // Apply orbital properties if specified
+        // Apply orbital properties if specified (check both old location and new properties location)
         if (orbit) {
             this.applyOrbitToObject(planet, orbit);
+        } else if (properties.orbit) {
+            this.applyOrbitToObject(planet, properties.orbit);
         }
         
         return planet;
@@ -130,6 +132,11 @@ class GameObjectFactory {
             target.name = name;
         }
         
+        // Apply orbital properties if specified
+        if (properties.orbit) {
+            this.applyOrbitToObject(target, properties.orbit);
+        }
+        
         return target;
     }
     
@@ -153,6 +160,11 @@ class GameObjectFactory {
         // Set name if provided
         if (name) {
             slingshot.name = name;
+        }
+        
+        // Apply orbital properties if specified
+        if (properties.orbit) {
+            this.applyOrbitToObject(slingshot, properties.orbit);
         }
         
         return slingshot;
@@ -198,6 +210,11 @@ class GameObjectFactory {
             }, properties.showAfterDelay * 1000);
         }
         
+        // Apply orbital properties if specified
+        if (properties.orbit) {
+            this.applyOrbitToObject(textObject, properties.orbit);
+        }
+        
         return textObject;
     }
     
@@ -241,6 +258,11 @@ class GameObjectFactory {
             setTimeout(() => {
                 arrow.pointTo(pointTo);
             }, properties.pointAfterDelay * 1000);
+        }
+        
+        // Apply orbital properties if specified
+        if (properties.orbit) {
+            this.applyOrbitToObject(arrow, properties.orbit);
         }
         
         return arrow;
