@@ -319,7 +319,6 @@ export class LevelEditorInputAction extends InputAction {
         
         switch (e.code) {
             case 'Delete':
-            case 'Backspace':
                 e.preventDefault();
                 game.levelEditor.deleteSelectedObject();
                 break;

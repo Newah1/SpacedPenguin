@@ -64,6 +64,7 @@ class GameObjectFactory {
         }
         
         const {
+            name = null,
             radius = 30,
             mass = 100,
             gravitationalReach = 5000,
@@ -72,6 +73,11 @@ class GameObjectFactory {
         } = properties;
         
         const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader);
+        
+        // Set name if provided
+        if (name) {
+            planet.name = name;
+        }
         
         // Apply orbital properties if specified
         if (orbit) {
@@ -82,7 +88,7 @@ class GameObjectFactory {
     }
     
     static createBonus(position, properties, assetLoader) {
-        const { value = 100 } = properties;
+        const { name = null, value = 100 } = properties;
         
         // Check if position is defined
         if (!position) {
@@ -97,6 +103,11 @@ class GameObjectFactory {
         }
         
         const bonus = new Bonus(position.x, position.y, value, assetLoader);
+        
+        // Set name if provided
+        if (name) {
+            bonus.name = name;
+        }
 
         if (properties.orbit) {
             this.applyOrbitToObject(bonus, properties.orbit);
@@ -111,8 +122,15 @@ class GameObjectFactory {
             return null;
         }
         
-        const { width = 60, height = 60, spriteType = 'ship_open' } = properties;
-        return new Target(position.x, position.y, width, height, spriteType, assetLoader);
+        const { name = null, width = 60, height = 60, spriteType = 'ship_open' } = properties;
+        const target = new Target(position.x, position.y, width, height, spriteType, assetLoader);
+        
+        // Set name if provided
+        if (name) {
+            target.name = name;
+        }
+        
+        return target;
     }
     
     static createSlingshot(position, properties) {
@@ -122,6 +140,7 @@ class GameObjectFactory {
         }
         
         const {
+            name = null,
             anchorX = position.x,
             anchorY = position.y,
             stretchLimit = 100,
@@ -130,11 +149,18 @@ class GameObjectFactory {
         
         const slingshot = new Slingshot(position.x, position.y, anchorX, anchorY, stretchLimit);
         slingshot.velocityMultiplier = velocityMultiplier;
+        
+        // Set name if provided
+        if (name) {
+            slingshot.name = name;
+        }
+        
         return slingshot;
     }
     
     static createTextObject(position, properties) {
         const {
+            name = null,
             content = 'Sample Text',
             width = 200,
             height = 100,
@@ -159,6 +185,11 @@ class GameObjectFactory {
         
         const textObject = new TextObject(position.x, position.y, content, options);
         
+        // Set name if provided
+        if (name) {
+            textObject.name = name;
+        }
+        
         // Handle delayed visibility (for tutorial timing)
         if (properties.showAfterDelay) {
             textObject.visible = false;
@@ -172,6 +203,7 @@ class GameObjectFactory {
     
     static createPointingArrow(position, properties) {
         const {
+            name = null,
             color = '#00FFFF',
             glowColor = '#0099FF',
             baseWidth = 20,
@@ -192,6 +224,11 @@ class GameObjectFactory {
         };
         
         const arrow = new PointingArrow(position.x, position.y, options);
+        
+        // Set name if provided
+        if (name) {
+            arrow.name = name;
+        }
         
         // Set initial pointing target if specified
         if (pointingAt) {
@@ -218,42 +255,81 @@ class GameObjectFactory {
     }
     
     static applyOrbitToObject(object, orbitConfig) {
-        const center = orbitConfig.center || { x: 0, y: 0 };
-        const speed = orbitConfig.speed || 0;
+        // Handle both old format (center, speed, radius, type) and new format (orbitCenter, orbitSpeed, etc.)
+        const center = orbitConfig.orbitCenter || orbitConfig.center || { x: 0, y: 0 };
+        const speed = orbitConfig.orbitSpeed || orbitConfig.speed || 0;
+        const radius = orbitConfig.orbitRadius || orbitConfig.radius || 0;
+        const type = orbitConfig.orbitType || orbitConfig.type || 'circular';
+        const angle = orbitConfig.orbitAngle || orbitConfig.angle || 0;
+        const params = orbitConfig.orbitParams || orbitConfig.params || {};
         
-        switch (orbitConfig.type || 'circular') {
-            case 'circular':
-                object.setCircularOrbit(center, orbitConfig.radius || 0, speed);
-                break;
-                
-            case 'elliptical':
-                const semiMajorAxis = orbitConfig.semiMajorAxis || orbitConfig.radius || 100;
-                const semiMinorAxis = orbitConfig.semiMinorAxis || semiMajorAxis * 0.7;
-                const rotation = orbitConfig.rotation || 0;
-                object.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
-                break;
-                
-            case 'figure8':
-                const size = orbitConfig.size || orbitConfig.radius || 100;
-                object.setFigure8Orbit(center, size, speed);
-                break;
-                
-            case 'custom':
-                if (orbitConfig.xFunction && orbitConfig.yFunction) {
-                    // For custom orbits, we'd need to pass functions
-                    // This is more complex and would require special handling
-                    plog.warn('Custom orbit functions not yet supported in JSON config');
-                    object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
-                } else {
-                    object.setCircularOrbit(center, orbitConfig.radius || 100, speed);
-                }
-                break;
-                
-            default:
-                // Legacy support - treat as circular
-                object.setCircularOrbit(center, orbitConfig.radius || 0, speed);
-                break;
+        // Skip if no meaningful orbit data
+        if (!center || (center.x === 0 && center.y === 0 && radius === 0)) {
+            return;
         }
+        
+        console.log('Applying orbit to object:', {
+            center, speed, radius, type, angle, params,
+            objectType: object.constructor.name
+        });
+        
+        // Import OrbitSystem dynamically and create orbit system
+        import('./gameObjects.js').then(module => {
+            const OrbitSystem = module.OrbitSystem;
+            
+            if (!object.orbitSystem) {
+                object.orbitSystem = new OrbitSystem();
+            }
+            
+            // Set basic orbit properties
+            object.orbitSystem.orbitCenter = center;
+            object.orbitSystem.orbitRadius = radius;
+            object.orbitSystem.orbitSpeed = speed;
+            object.orbitSystem.orbitAngle = angle;
+            object.orbitSystem.orbitType = type;
+            object.orbitSystem.orbitParams = params;
+            
+            // Set up specific orbit type
+            switch (type) {
+                case 'circular':
+                    object.orbitSystem.setCircularOrbit(center, radius, speed);
+                    break;
+                    
+                case 'elliptical':
+                    const semiMajorAxis = params.semiMajorAxis || radius;
+                    const semiMinorAxis = params.semiMinorAxis || radius * 0.7;
+                    const rotation = params.rotation || 0;
+                    object.orbitSystem.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
+                    break;
+                    
+                case 'figure8':
+                    const size = params.size || radius;
+                    object.orbitSystem.setFigure8Orbit(center, size, speed);
+                    break;
+                    
+                case 'custom':
+                    if (params.xFunction && params.yFunction) {
+                        // For custom orbits, we'd need to pass functions
+                        // This is more complex and would require special handling
+                        plog.warn('Custom orbit functions not yet supported in JSON config');
+                        object.orbitSystem.setCircularOrbit(center, radius, speed);
+                    } else {
+                        object.orbitSystem.setCircularOrbit(center, radius, speed);
+                    }
+                    break;
+                    
+                default:
+                    object.orbitSystem.setCircularOrbit(center, radius, speed);
+                    break;
+            }
+            
+            // Restore the angle
+            object.orbitSystem.orbitAngle = angle;
+            
+            console.log('Orbit system applied successfully');
+        }).catch(error => {
+            console.error('Failed to apply orbit system:', error);
+        });
     }
 }
 

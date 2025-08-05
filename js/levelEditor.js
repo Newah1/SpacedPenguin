@@ -8,6 +8,10 @@ class LevelEditor {
         this.dragOffset = { x: 0, y: 0 };
         this.propertiesPanel = null;
         
+        // Orbit center drag support
+        this.draggingOrbitCenter = false;
+        this.orbitCenterObject = null; // The object whose orbit center we're dragging
+        
         this.createUI();
         // Note: Event listeners now managed by InputActionManager
     }
@@ -27,30 +31,37 @@ class LevelEditor {
             display: none;
         `;
         
-        // Create toolbar with mobile-friendly styling
+        // Create toolbar with mobile-friendly styling and flexible layout
         this.toolbar = document.createElement('div');
         this.toolbar.style.cssText = `
             position: absolute;
             top: 10px;
             left: 10px;
+            right: 330px;
             background: rgba(0, 0, 0, 0.8);
             padding: 10px;
             border-radius: 5px;
             color: white;
             font-family: Arial, sans-serif;
             pointer-events: auto;
-            max-width: 90vw;
-            overflow-x: auto;
-            white-space: nowrap;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+            min-height: 44px;
         `;
         
-        // Mode toggle button with mobile-friendly styling
-        this.modeButton = document.createElement('button');
-        this.modeButton.textContent = 'Switch to Play Mode';
-        this.modeButton.style.cssText = `
-            margin-right: 10px;
+        // Create wrapper for relative positioning of collapsible content
+        this.toolbarWrapper = document.createElement('div');
+        this.toolbarWrapper.style.cssText = `
+            position: relative;
+            width: 100%;
+        `;
+        this.toolbarWrapper.appendChild(this.toolbar);
+        
+        // Common button style for all toolbar buttons
+        const buttonStyle = `
             padding: 8px 12px;
-            background: #4CAF50;
             color: white;
             border: none;
             border-radius: 5px;
@@ -58,52 +69,61 @@ class LevelEditor {
             min-height: 44px;
             font-size: 14px;
             touch-action: manipulation;
+            white-space: nowrap;
+            flex-shrink: 0;
+        `;
+        
+        // Mode toggle button with mobile-friendly styling
+        this.modeButton = document.createElement('button');
+        this.modeButton.textContent = 'Switch to Play Mode';
+        this.modeButton.style.cssText = buttonStyle + `
+            background: #4CAF50;
         `;
         this.modeButton.onclick = () => this.toggleMode();
         
         // Add object buttons - will be populated dynamically
         this.addButtons = {};
         this.addButtonContainer = document.createElement('div');
-        this.addButtonContainer.style.display = 'inline-block';
-        this.toolbar.appendChild(this.addButtonContainer);
+        this.addButtonContainer.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+        `;
         
         // Delete button with mobile-friendly styling
         this.deleteButton = document.createElement('button');
         this.deleteButton.textContent = 'Delete Selected';
-        this.deleteButton.style.cssText = `
-            margin-right: 10px;
-            padding: 8px 12px;
+        this.deleteButton.style.cssText = buttonStyle + `
             background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            min-height: 44px;
-            font-size: 14px;
-            touch-action: manipulation;
         `;
         this.deleteButton.onclick = () => this.deleteSelected();
+        
+        // Clone button with mobile-friendly styling
+        this.cloneButton = document.createElement('button');
+        this.cloneButton.textContent = 'Clone Selected';
+        this.cloneButton.style.cssText = buttonStyle + `
+            background: #9C27B0;
+        `;
+        this.cloneButton.onclick = () => this.cloneSelected();
         
         // Export button with mobile-friendly styling
         this.exportButton = document.createElement('button');
         this.exportButton.textContent = 'Export Level';
-        this.exportButton.style.cssText = `
-            margin-right: 10px;
-            padding: 8px 12px;
+        this.exportButton.style.cssText = buttonStyle + `
             background: #FF9800;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            min-height: 44px;
-            font-size: 14px;
-            touch-action: manipulation;
         `;
         this.exportButton.onclick = () => this.exportLevel();
         
+        // Create collapsible section for object creation buttons
+        this.createCollapsibleSection();
+        
         this.toolbar.appendChild(this.modeButton);
+        this.toolbar.appendChild(this.collapsibleToggle);
         this.toolbar.appendChild(this.deleteButton);
+        this.toolbar.appendChild(this.cloneButton);
         this.toolbar.appendChild(this.exportButton);
+        this.toolbarWrapper.appendChild(this.collapsibleSection);
         
         // Create mobile toolbar for touch-friendly controls
         this.createMobileToolbar();
@@ -138,9 +158,98 @@ class LevelEditor {
         }
         this.propertiesPanel.innerHTML = '<h3>Properties</h3><p>Select an object to edit its properties</p>';
         
-        this.container.appendChild(this.toolbar);
+        // Create object list panel
+        this.createObjectListPanel();
+        
+        this.container.appendChild(this.toolbarWrapper);
         this.container.appendChild(this.propertiesPanel);
+        this.container.appendChild(this.objectListPanel);
         document.body.appendChild(this.container);
+    }
+    
+    createObjectListPanel() {
+        // Create object list panel with mobile-responsive styling
+        this.objectListPanel = document.createElement('div');
+        this.objectListPanel.style.cssText = `
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 300px;
+            max-height: 400px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            font-family: Arial, sans-serif;
+            pointer-events: auto;
+            overflow-y: auto;
+            touch-action: auto;
+        `;
+        
+        // Add mobile responsive behavior
+        if (window.innerWidth < 768) {
+            this.objectListPanel.style.cssText += `
+                width: calc(100vw - 40px);
+                max-width: 350px;
+                left: 20px;
+                bottom: 80px;
+                max-height: 300px;
+            `;
+        }
+        
+        this.objectListPanel.innerHTML = '<h3>Objects</h3><div id="object-list-content">Loading...</div>';
+    }
+    
+    createCollapsibleSection() {
+        // Create toggle button for collapsible section
+        this.collapsibleToggle = document.createElement('button');
+        this.collapsibleToggle.textContent = 'Add Objects ▼';
+        this.collapsibleToggle.style.cssText = `
+            padding: 8px 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            min-height: 44px;
+            font-size: 14px;
+            touch-action: manipulation;
+            white-space: nowrap;
+            flex-shrink: 0;
+        `;
+        
+        // Create collapsible section
+        this.collapsibleSection = document.createElement('div');
+        this.collapsibleSection.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 5px;
+            z-index: 1001;
+        `;
+        
+        // Move add button container to collapsible section
+        this.collapsibleSection.appendChild(this.addButtonContainer);
+        
+        // Toggle functionality
+        this.collapsibleExpanded = false;
+        this.collapsibleToggle.onclick = () => {
+            this.collapsibleExpanded = !this.collapsibleExpanded;
+            if (this.collapsibleExpanded) {
+                this.collapsibleSection.style.display = 'flex';
+                this.collapsibleToggle.textContent = 'Add Objects ▲';
+            } else {
+                this.collapsibleSection.style.display = 'none';
+                this.collapsibleToggle.textContent = 'Add Objects ▼';
+            }
+        };
     }
     
     createMobileToolbar() {
@@ -295,21 +404,84 @@ class LevelEditor {
             }
         }
         
-        // Update properties panel positioning for mobile
-        if (this.propertiesPanel && window.innerWidth < 768) {
-            this.propertiesPanel.style.cssText += `
+        // Update toolbar and properties panel positioning for mobile
+        if (window.innerWidth < 768) {
+            // Mobile layout: stack vertically
+            if (this.toolbar) {
+                this.toolbar.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    right: 10px;
+                    background: rgba(0, 0, 0, 0.8);
+                    padding: 10px;
+                    border-radius: 5px;
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    pointer-events: auto;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    align-items: center;
+                    min-height: 44px;
+                `;
+            }
+            
+            if (this.propertiesPanel) {
+                this.propertiesPanel.style.cssText += `
+                    width: calc(100vw - 40px);
+                    max-width: 350px;
+                    right: 20px;
+                    top: 120px;
+                    max-height: 50vh;
+                `;
+            }
+        } else {
+            // Desktop layout: side by side
+            if (this.toolbar) {
+                this.toolbar.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    right: 330px;
+                    background: rgba(0, 0, 0, 0.8);
+                    padding: 10px;
+                    border-radius: 5px;
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    pointer-events: auto;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    align-items: center;
+                    min-height: 44px;
+                `;
+            }
+            
+            if (this.propertiesPanel) {
+                // Reset to desktop styling
+                this.propertiesPanel.style.width = '300px';
+                this.propertiesPanel.style.right = '10px';
+                this.propertiesPanel.style.top = '10px';
+                this.propertiesPanel.style.maxHeight = '80vh';
+            }
+        }
+        
+        // Update object list panel positioning for mobile
+        if (this.objectListPanel && window.innerWidth < 768) {
+            this.objectListPanel.style.cssText += `
                 width: calc(100vw - 40px);
                 max-width: 350px;
-                right: 20px;
-                top: 80px;
-                max-height: 60vh;
+                left: 20px;
+                bottom: 80px;
+                max-height: 300px;
             `;
-        } else if (this.propertiesPanel) {
+        } else if (this.objectListPanel) {
             // Reset to desktop styling
-            this.propertiesPanel.style.width = '300px';
-            this.propertiesPanel.style.right = '10px';
-            this.propertiesPanel.style.top = '10px';
-            this.propertiesPanel.style.maxHeight = '80vh';
+            this.objectListPanel.style.width = '300px';
+            this.objectListPanel.style.left = '10px';
+            this.objectListPanel.style.bottom = '10px';
+            this.objectListPanel.style.maxHeight = '400px';
         }
     }
     
@@ -324,19 +496,31 @@ class LevelEditor {
         console.log('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
         
         if (clickedObject) {
-            this.selectObject(clickedObject);
-            this.startDragging(coords.x, coords.y);
+            if (clickedObject.type === 'orbitCenter') {
+                // Handle orbit center selection and dragging
+                this.selectObject(clickedObject.object);
+                this.startOrbitCenterDragging(coords.x, coords.y, clickedObject.object);
+            } else {
+                // Handle normal object selection and dragging
+                this.selectObject(clickedObject);
+                this.startDragging(coords.x, coords.y);
+            }
         } else {
             this.selectObject(null);
         }
     }
     
     handlePointerMove(e) {
-        if (!this.active || this.mode !== 'edit' || !this.dragging) return;
+        if (!this.active || this.mode !== 'edit' || (!this.dragging && !this.draggingOrbitCenter)) return;
         e.preventDefault();
         
         const coords = this.getEventCoordinates(e);
-        this.updateDragging(coords.x, coords.y);
+        
+        if (this.draggingOrbitCenter) {
+            this.updateOrbitCenterDragging(coords.x, coords.y);
+        } else {
+            this.updateDragging(coords.x, coords.y);
+        }
     }
     
     handlePointerUp(e) {
@@ -344,6 +528,7 @@ class LevelEditor {
         e.preventDefault();
         
         this.stopDragging();
+        this.stopOrbitCenterDragging();
     }
     
     // Legacy mouse event handlers (delegate to pointer handlers)
@@ -493,10 +678,37 @@ class LevelEditor {
         this.updateModeButton();
         this.populateObjectButtons();
         
+        // Assign names to existing objects that don't have them
+        this.assignNamesToExistingObjects();
+        
+        this.updateObjectList();
+        
+        // Make this instance globally available for object list callbacks
+        window.levelEditor = this;
+        
         // Notify fullscreen manager about level editor state change
         if (this.game.fullscreenManager) {
             this.game.fullscreenManager.setLevelEditorMode(true);
         }
+    }
+    
+    assignNamesToExistingObjects() {
+        const allObjects = this.getAllGameObjects();
+        const typeCounters = {};
+        
+        allObjects.forEach(obj => {
+            if (!obj.name) {
+                const className = obj.constructor.name;
+                
+                // Initialize counter for this type if it doesn't exist
+                if (!typeCounters[className]) {
+                    typeCounters[className] = 0;
+                }
+                
+                typeCounters[className]++;
+                obj.name = `${className} ${typeCounters[className]}`;
+            }
+        });
     }
     
     exit() {
@@ -555,18 +767,17 @@ class LevelEditor {
             const btn = document.createElement('button');
             btn.textContent = `Add ${className}`;
             btn.style.cssText = `
-                margin-right: 10px;
-                margin-bottom: 5px;
-                padding: 8px 12px;
+                padding: 6px 10px;
                 background: #2196F3;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                min-height: 44px;
-                font-size: 14px;
+                min-height: 36px;
+                font-size: 12px;
                 touch-action: manipulation;
                 white-space: nowrap;
+                flex-shrink: 0;
             `;
             btn.onclick = () => this.addObject(className);
             this.addButtons[className] = btn;
@@ -590,6 +801,12 @@ class LevelEditor {
     }
     
     getObjectAtPosition(x, y) {
+        // First check if we clicked on an orbit center
+        const orbitCenterResult = this.getOrbitCenterAtPosition(x, y);
+        if (orbitCenterResult) {
+            return orbitCenterResult;
+        }
+        
         // Create a list of all objects to check, avoiding duplicates
         const allObjects = [];
         
@@ -618,6 +835,47 @@ class LevelEditor {
                 return obj;
             }
         }
+        return null;
+    }
+    
+    getOrbitCenterAtPosition(x, y) {
+        // Check all objects for orbit centers that could be clicked
+        const allObjects = [];
+        
+        // Add planets
+        for (let planet of this.game.planets) {
+            allObjects.push(planet);
+        }
+        
+        // Add bonuses
+        for (let bonus of this.game.bonuses) {
+            allObjects.push(bonus);
+        }
+        
+        // Add ALL game objects
+        for (let obj of this.game.gameObjects) {
+            if (!allObjects.includes(obj)) {
+                allObjects.push(obj);
+            }
+        }
+        
+        // Check each object for orbit center hits
+        for (let obj of allObjects) {
+            if (obj.orbitSystem && obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
+                const center = obj.orbitSystem.orbitCenter;
+                const distance = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+                
+                // Use larger hit area for mobile devices
+                const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
+                const hitRadius = isMobile ? 15 : 10; // Larger touch target on mobile
+                
+                if (distance <= hitRadius) {
+                    console.log('Selected orbit center for:', obj.constructor.name);
+                    return { type: 'orbitCenter', object: obj };
+                }
+            }
+        }
+        
         return null;
     }
     
@@ -660,6 +918,7 @@ class LevelEditor {
         }
         
         this.updatePropertiesPanel();
+        this.updateObjectList(); // Refresh list to show selection
     }
     
     updatePropertiesPanel() {
@@ -687,6 +946,14 @@ class LevelEditor {
     getEditableProperties(obj) {
         const properties = [];
         const className = obj.constructor.name;
+        
+        // Name property (always first)
+        properties.push({ 
+            label: 'Name', 
+            key: 'name', 
+            value: obj.name || this.generateObjectName(obj, className), 
+            type: 'text' 
+        });
         
         // Position properties (handled specially due to different coordinate systems)
         let objX, objY;
@@ -971,8 +1238,12 @@ class LevelEditor {
         }
         
         if (this.selectedObject) {
-            // Handle position properties specially
-            if (property === 'x' || property === 'y') {
+            // Handle name property specially
+            if (property === 'name') {
+                this.selectedObject.name = value;
+                this.updateObjectList(); // Update list to reflect name change
+                console.log(`Updated object name to: ${value}`);
+            } else if (property === 'x' || property === 'y') {
                 if (typeof this.selectedObject.x === 'number') {
                     // Penguin class uses direct x/y properties
                     this.selectedObject[property] = value;
@@ -1178,6 +1449,47 @@ class LevelEditor {
         this.dragging = false;
     }
     
+    startOrbitCenterDragging(x, y, obj) {
+        if (!obj || !obj.orbitSystem || !obj.orbitSystem.orbitCenter) return;
+        
+        this.draggingOrbitCenter = true;
+        this.orbitCenterObject = obj;
+        
+        // Calculate offset from click to orbit center
+        const center = obj.orbitSystem.orbitCenter;
+        this.dragOffset.x = x - center.x;
+        this.dragOffset.y = y - center.y;
+        
+        console.log('Started dragging orbit center for:', obj.constructor.name, 'at', x, y);
+    }
+    
+    updateOrbitCenterDragging(x, y) {
+        if (!this.draggingOrbitCenter || !this.orbitCenterObject) return;
+        
+        const newX = x - this.dragOffset.x;
+        const newY = y - this.dragOffset.y;
+        
+        // Update the orbit center
+        this.orbitCenterObject.orbitSystem.orbitCenter.x = newX;
+        this.orbitCenterObject.orbitSystem.orbitCenter.y = newY;
+        
+        // Recalculate orbit system with new center
+        this.updateOrbitSystem(this.orbitCenterObject);
+        
+        console.log('Dragging orbit center to:', x, y, 'Center now at:', newX, newY);
+        
+        // Update properties panel to reflect the change
+        this.updatePropertiesPanel();
+    }
+    
+    stopOrbitCenterDragging() {
+        if (this.draggingOrbitCenter) {
+            console.log('Stopped dragging orbit center');
+        }
+        this.draggingOrbitCenter = false;
+        this.orbitCenterObject = null;
+    }
+    
     addObject(className) {
         const centerX = this.game.canvas.width / 2;
         const centerY = this.game.canvas.height / 2;
@@ -1198,6 +1510,7 @@ class LevelEditor {
                 // Add to appropriate arrays
                 this.addObjectToGame(newObject, className);
                 this.selectObject(newObject);
+                this.updateObjectList();
                 console.log('Created new', className, 'at', centerX, centerY);
             }
         } catch (error) {
@@ -1249,6 +1562,11 @@ class LevelEditor {
     }
     
     addObjectToGame(obj, className) {
+        // Add name if it doesn't exist
+        if (!obj.name) {
+            obj.name = this.generateObjectName(obj, className);
+        }
+        
         // Add to gameObjects (all objects go here)
         this.game.gameObjects.push(obj);
         
@@ -1271,6 +1589,18 @@ class LevelEditor {
         }
     }
     
+    generateObjectName(obj, className) {
+        // Count existing objects of the same type
+        const allObjects = this.getAllGameObjects();
+        const sameTypeObjects = allObjects.filter(existingObj => 
+            existingObj.constructor.name === className
+        );
+        
+        // Generate name with number
+        const number = sameTypeObjects.length + 1;
+        return `${className} ${number}`;
+    }
+    
     deleteSelected() {
         if (!this.selectedObject) return;
         
@@ -1284,6 +1614,7 @@ class LevelEditor {
         
         console.log(`Successfully deleted ${className}`);
         this.selectObject(null);
+        this.updateObjectList();
     }
     
     removeObjectFromGame(obj) {
@@ -1491,6 +1822,7 @@ class LevelEditor {
                 // Add to appropriate arrays
                 this.addObjectToGame(newObject, className);
                 this.selectObject(newObject);
+                this.updateObjectList();
                 console.log('Created new', className, 'at', x, y);
             }
         } catch (error) {
@@ -1513,6 +1845,388 @@ class LevelEditor {
         console.log('Level exported:', filename);
     }
     
+    cloneSelected() {
+        if (!this.selectedObject) {
+            console.log('No object selected to clone');
+            return;
+        }
+        
+        const clonedObject = this.cloneObject(this.selectedObject);
+        if (clonedObject) {
+            // Offset the clone slightly so it's visible
+            const offsetX = 50;
+            const offsetY = 50;
+            
+            if (typeof clonedObject.x === 'number') {
+                clonedObject.x += offsetX;
+                clonedObject.y += offsetY;
+            } else if (clonedObject.position) {
+                clonedObject.position.x += offsetX;
+                clonedObject.position.y += offsetY;
+            }
+            
+            // Also offset orbit center if it exists
+            if (clonedObject.orbitSystem && clonedObject.orbitSystem.orbitCenter) {
+                clonedObject.orbitSystem.orbitCenter.x += offsetX;
+                clonedObject.orbitSystem.orbitCenter.y += offsetY;
+            }
+            
+            // Add to game
+            const className = clonedObject.constructor.name;
+            this.addObjectToGame(clonedObject, className);
+            
+            // Select the new clone
+            this.selectObject(clonedObject);
+            
+            // Update object list
+            this.updateObjectList();
+            
+            console.log('Cloned', className);
+        }
+    }
+    
+    cloneObject(obj) {
+        const className = obj.constructor.name;
+        const ClassConstructor = this.gameObjectClasses[className];
+        
+        if (!ClassConstructor) {
+            console.error('Cannot clone object - unknown class:', className);
+            return null;
+        }
+        
+        try {
+            // Create a deep copy by serializing and deserializing the object properties
+            const objData = this.serializeObject(obj);
+            const clonedObject = this.deserializeObject(objData, ClassConstructor);
+            
+            console.log('Cloned object data:', objData);
+            return clonedObject;
+        } catch (error) {
+            console.error('Failed to clone object:', error);
+            return null;
+        }
+    }
+    
+    serializeObject(obj) {
+        const data = {
+            className: obj.constructor.name,
+            properties: {}
+        };
+        
+        // Serialize basic properties including name
+        const basicProps = ['name', 'x', 'y', 'width', 'height', 'radius', 'mass', 'rotation', 'alpha', 'visible'];
+        basicProps.forEach(prop => {
+            if (obj[prop] !== undefined) {
+                data.properties[prop] = obj[prop];
+            }
+        });
+        
+        // Handle position object
+        if (obj.position) {
+            data.properties.position = { x: obj.position.x, y: obj.position.y };
+        }
+        
+        // Handle class-specific properties
+        switch (obj.constructor.name) {
+            case 'Planet':
+                ['planetType', 'collisionRadius', 'gravitationalReach', 'color'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
+            case 'Bonus':
+                ['value', 'rotationSpeed', 'state'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
+            case 'Target':
+                ['spriteType'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
+            case 'Slingshot':
+                ['maxPullback', 'velocityMultiplier', 'anchorX', 'anchorY'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
+            case 'TextObject':
+                ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'autoSize'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
+            case 'PointingArrow':
+                ['pointingAt', 'baseWidth', 'color', 'glowColor', 'scaleWithDistance'].forEach(prop => {
+                    if (obj[prop] !== undefined) {
+                        if (prop === 'pointingAt' && obj[prop]) {
+                            data.properties[prop] = { x: obj[prop].x, y: obj[prop].y };
+                        } else {
+                            data.properties[prop] = obj[prop];
+                        }
+                    }
+                });
+                break;
+        }
+        
+        // Handle orbit system
+        if (obj.orbitSystem) {
+            data.properties.orbitSystem = {
+                orbitCenter: obj.orbitSystem.orbitCenter ? { x: obj.orbitSystem.orbitCenter.x, y: obj.orbitSystem.orbitCenter.y } : null,
+                orbitRadius: obj.orbitSystem.orbitRadius,
+                orbitSpeed: obj.orbitSystem.orbitSpeed,
+                orbitAngle: obj.orbitSystem.orbitAngle,
+                orbitType: obj.orbitSystem.orbitType,
+                orbitParams: JSON.parse(JSON.stringify(obj.orbitSystem.orbitParams || {}))
+            };
+        }
+        
+        return data;
+    }
+    
+    deserializeObject(data, ClassConstructor) {
+        const props = data.properties;
+        let clonedObject;
+        
+        // Create object with appropriate constructor parameters
+        switch (data.className) {
+            case 'Planet':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    props.radius || 50,
+                    props.mass || 1000,
+                    props.gravitationalReach || 0,
+                    props.planetType || 'planet_grey',
+                    this.game.assetLoader
+                );
+                break;
+            case 'Bonus':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    props.value || 100,
+                    this.game.assetLoader
+                );
+                break;
+            case 'Target':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    props.width || 60,
+                    props.height || 60,
+                    props.spriteType || 'ship_open',
+                    this.game.assetLoader
+                );
+                break;
+            case 'Slingshot':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    props.anchorX,
+                    props.anchorY,
+                    props.maxPullback || 150
+                );
+                break;
+            case 'TextObject':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    props.content || 'Text',
+                    {
+                        width: props.width || 200,
+                        height: props.height || 100,
+                        fontSize: props.fontSize || 16,
+                        color: props.color || '#FFFFFF',
+                        fontFamily: props.fontFamily,
+                        textAlign: props.textAlign,
+                        backgroundColor: props.backgroundColor,
+                        autoSize: props.autoSize
+                    }
+                );
+                break;
+            case 'PointingArrow':
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0,
+                    {
+                        baseWidth: props.baseWidth || 20,
+                        color: props.color,
+                        glowColor: props.glowColor,
+                        scaleWithDistance: props.scaleWithDistance
+                    }
+                );
+                if (props.pointingAt) {
+                    clonedObject.pointingAt = { x: props.pointingAt.x, y: props.pointingAt.y };
+                }
+                break;
+            default:
+                // Generic fallback
+                clonedObject = new ClassConstructor(
+                    props.position?.x || props.x || 0,
+                    props.position?.y || props.y || 0
+                );
+        }
+        
+        // Copy other properties
+        Object.keys(props).forEach(key => {
+            if (key !== 'position' && key !== 'x' && key !== 'y' && key !== 'orbitSystem') {
+                if (key === 'name' || clonedObject[key] !== undefined) {
+                    clonedObject[key] = props[key];
+                }
+            }
+        });
+        
+        // Restore orbit system
+        if (props.orbitSystem) {
+            // Import OrbitSystem class dynamically
+            import('./gameObjects.js').then(module => {
+                clonedObject.orbitSystem = new module.OrbitSystem();
+                const orbit = props.orbitSystem;
+                
+                clonedObject.orbitSystem.orbitCenter = orbit.orbitCenter;
+                clonedObject.orbitSystem.orbitRadius = orbit.orbitRadius;
+                clonedObject.orbitSystem.orbitSpeed = orbit.orbitSpeed;
+                clonedObject.orbitSystem.orbitAngle = orbit.orbitAngle;
+                clonedObject.orbitSystem.orbitType = orbit.orbitType;
+                clonedObject.orbitSystem.orbitParams = orbit.orbitParams;
+            });
+        }
+        
+        return clonedObject;
+    }
+    
+    updateObjectList() {
+        if (!this.objectListPanel) return;
+        
+        const listContent = this.objectListPanel.querySelector('#object-list-content');
+        if (!listContent) return;
+        
+        // Save current scroll position
+        const currentScrollTop = listContent.scrollTop;
+        
+        // Get all objects
+        const allObjects = this.getAllGameObjects();
+        
+        if (allObjects.length === 0) {
+            listContent.innerHTML = '<p style="color: #999;">No objects in level</p>';
+            return;
+        }
+        
+        // Create object list HTML
+        let html = '<div style="max-height: 300px; overflow-y: auto;">';
+        
+        allObjects.forEach((obj, index) => {
+            const className = obj.constructor.name;
+            const isSelected = obj === this.selectedObject;
+            
+            // Get object position for display
+            let objX, objY;
+            if (typeof obj.x === 'number') {
+                objX = Math.round(obj.x);
+                objY = Math.round(obj.y);
+            } else if (obj.position) {
+                objX = Math.round(obj.position.x);
+                objY = Math.round(obj.position.y);
+            } else {
+                objX = '?';
+                objY = '?';
+            }
+            
+            // Create object identifier - use custom name if available, otherwise generate default
+            let identifier;
+            if (obj.name) {
+                identifier = obj.name;
+            } else {
+                identifier = `${className}`;
+                if (className === 'Planet' && obj.planetType) {
+                    identifier += ` (${obj.planetType})`;
+                } else if (className === 'Bonus' && obj.value) {
+                    identifier += ` (${obj.value})`;
+                } else if (className === 'TextObject' && obj.content) {
+                    const preview = obj.content.length > 20 ? obj.content.substring(0, 20) + '...' : obj.content;
+                    identifier += ` ("${preview}")`;
+                } else if (className === 'Target' && obj.spriteType) {
+                    identifier += ` (${obj.spriteType})`;
+                }
+            }
+            
+            // Add orbit indicator
+            if (obj.orbitSystem && obj.orbitSystem.orbitRadius > 0) {
+                identifier += ' 🔄'; // orbit emoji
+            }
+            
+            const backgroundColor = isSelected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)';
+            const textColor = isSelected ? '#00ffff' : '#ffffff';
+            
+            html += `
+                <div class="object-list-item" 
+                     data-object-index="${index}"
+                     style="
+                         padding: 8px;
+                         margin: 2px 0;
+                         background: ${backgroundColor};
+                         border: 1px solid ${isSelected ? '#00ffff' : 'rgba(255, 255, 255, 0.2)'};
+                         border-radius: 3px;
+                         cursor: pointer;
+                         color: ${textColor};
+                         font-size: 12px;
+                         user-select: none;
+                         touch-action: manipulation;
+                     "
+                     onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                     onmouseout="this.style.background='${backgroundColor}'"
+                     onclick="window.levelEditor.selectObjectFromList(${index})">
+                    <div style="font-weight: bold;">${identifier}</div>
+                    <div style="color: #ccc; font-size: 10px;">Position: (${objX}, ${objY})</div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        listContent.innerHTML = html;
+        
+        // Restore scroll position
+        listContent.scrollTop = currentScrollTop;
+        
+        // Store reference to all objects for selection
+        this.allObjectsCache = allObjects;
+    }
+    
+    getAllGameObjects() {
+        const allObjects = [];
+        
+        // Add planets
+        for (let planet of this.game.planets) {
+            allObjects.push(planet);
+        }
+        
+        // Add bonuses
+        for (let bonus of this.game.bonuses) {
+            allObjects.push(bonus);
+        }
+        
+        // Add ALL game objects (avoiding duplicates)
+        for (let obj of this.game.gameObjects) {
+            if (!allObjects.includes(obj)) {
+                allObjects.push(obj);
+            }
+        }
+        
+        return allObjects;
+    }
+    
+    selectObjectFromList(index) {
+        if (this.allObjectsCache && this.allObjectsCache[index]) {
+            const obj = this.allObjectsCache[index];
+            this.selectObject(obj);
+            
+            // Provide visual feedback
+            if ('vibrate' in navigator) {
+                navigator.vibrate(30);
+            }
+            
+            console.log('Selected from list:', obj.constructor.name);
+        }
+    }
+    
     render(ctx) {
         if (!this.active) return;
         
@@ -1521,10 +2235,14 @@ class LevelEditor {
             this.drawGrid(ctx);
         }
         
+        // Draw orbit centers for ALL objects with orbit systems (not just selected)
+        if (this.mode === 'edit') {
+            this.drawAllOrbitCenters(ctx);
+        }
+        
         // Draw selection highlight
         if (this.selectedObject && this.mode === 'edit') {
             this.drawSelectionHighlight(ctx, this.selectedObject);
-            this.drawOrbitCenter(ctx, this.selectedObject);
             this.drawArrowTarget(ctx, this.selectedObject);
         }
     }
@@ -1556,31 +2274,125 @@ class LevelEditor {
         ctx.restore();
     }
     
+    drawAllOrbitCenters(ctx) {
+        // Draw orbit centers for all objects with orbit systems
+        const allObjects = [];
+        
+        // Add planets
+        for (let planet of this.game.planets) {
+            allObjects.push(planet);
+        }
+        
+        // Add bonuses
+        for (let bonus of this.game.bonuses) {
+            allObjects.push(bonus);
+        }
+        
+        // Add ALL game objects
+        for (let obj of this.game.gameObjects) {
+            if (!allObjects.includes(obj)) {
+                allObjects.push(obj);
+            }
+        }
+        
+        // Draw orbit centers for all objects that have them
+        for (let obj of allObjects) {
+            if (obj.orbitSystem && obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
+                this.drawOrbitCenter(ctx, obj);
+            }
+        }
+    }
+    
     drawOrbitCenter(ctx, obj) {
         // Draw orbit center for objects with orbit systems
         if (obj.orbitSystem && obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
             const center = obj.orbitSystem.orbitCenter;
             
             ctx.save();
-            ctx.strokeStyle = '#ff9900';
-            ctx.fillStyle = '#ff9900';
+            
+            // Use different colors/styles if this orbit center is being dragged
+            const isDragging = this.draggingOrbitCenter && this.orbitCenterObject === obj;
+            const baseColor = isDragging ? '#ff6600' : '#ff9900';
+            const highlightColor = isDragging ? '#ffaa33' : '#ffbb33';
+            
+            ctx.strokeStyle = baseColor;
+            ctx.fillStyle = baseColor;
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
             
-            // Draw center point
+            // Draw larger, more prominent center point with visual indicators
+            const centerRadius = isDragging ? 8 : 6;
+            const outerRadius = isDragging ? 12 : 10;
+            
+            // Draw outer ring for better visibility and easier clicking
+            ctx.strokeStyle = highlightColor;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(center.x, center.y, 5, 0, Math.PI * 2);
+            ctx.arc(center.x, center.y, outerRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw center point
+            ctx.fillStyle = baseColor;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, centerRadius, 0, Math.PI * 2);
             ctx.fill();
             
-            // Draw orbit path
+            // Draw crosshair in center for precise positioning
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+            ctx.moveTo(center.x - 3, center.y);
+            ctx.lineTo(center.x + 3, center.y);
+            ctx.moveTo(center.x, center.y - 3);
+            ctx.lineTo(center.x, center.y + 3);
+            ctx.stroke();
+            
+            // Draw orbit path
+            ctx.strokeStyle = baseColor;
+            ctx.lineWidth = isDragging ? 3 : 2;
+            ctx.setLineDash(isDragging ? [10, 5] : []);
+            ctx.beginPath();
+            
+            // Draw different orbit shapes based on orbit type
+            switch (obj.orbitSystem.orbitType) {
+                case 'circular':
+                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+                    break;
+                case 'elliptical':
+                    if (obj.orbitSystem.orbitParams) {
+                        const { semiMajorAxis, semiMinorAxis, rotation } = obj.orbitSystem.orbitParams;
+                        ctx.save();
+                        ctx.translate(center.x, center.y);
+                        ctx.rotate(rotation || 0);
+                        ctx.scale(semiMajorAxis / obj.orbitSystem.orbitRadius, semiMinorAxis / obj.orbitSystem.orbitRadius);
+                        ctx.arc(0, 0, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+                        ctx.restore();
+                    } else {
+                        ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+                    }
+                    break;
+                case 'figure8':
+                    // Draw figure-8 approximation
+                    const size = obj.orbitSystem.orbitRadius;
+                    for (let t = 0; t <= Math.PI * 2; t += 0.1) {
+                        const denominator = 1 + Math.sin(t) * Math.sin(t);
+                        const x = center.x + size * Math.cos(t) / denominator;
+                        const y = center.y + size * Math.sin(t) * Math.cos(t) / denominator;
+                        if (t === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    break;
+                default:
+                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+            }
             ctx.stroke();
             
             // Draw line from object to center
             const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
             const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
             
+            ctx.strokeStyle = baseColor;
+            ctx.lineWidth = 1;
             ctx.setLineDash([5, 5]);
             ctx.beginPath();
             ctx.moveTo(objX, objY);
