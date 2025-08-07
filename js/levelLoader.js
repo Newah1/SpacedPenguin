@@ -412,7 +412,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 6;
+        const totalLevels = 7;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
@@ -492,7 +492,8 @@ export class LevelLoader {
         // Create level objects
         if (levelDefinition.objects) {
             for (const objectDef of levelDefinition.objects) {
-                if (objectDef.type === Slingshot.constructor.name.toLowerCase() || objectDef.type === Target.constructor.name.toLowerCase()) {
+                // Skip slingshots and targets that were already handled above
+                if (objectDef.type === 'slingshot' || objectDef.type === 'target') {
                     continue; // Already handled above
                 }
                 

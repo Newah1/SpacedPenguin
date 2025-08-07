@@ -291,55 +291,90 @@ export class LevelEditorInputAction extends InputAction {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
-        game.levelEditor.handleMouseDown(e);
+        // Check level editor mode
+        if (game.levelEditor.mode === 'play') {
+            // Delegate to game's handlers in play mode
+            game.handleMouseDown(e);
+        } else {
+            // Use level editor handlers in edit mode
+            game.levelEditor.handleMouseDown(e);
+        }
     }
     
     handleMouseMove(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
-        game.levelEditor.handleMouseMove(e);
+        // Check level editor mode
+        if (game.levelEditor.mode === 'play') {
+            // Delegate to game's handlers in play mode
+            game.handleMouseMove(e);
+        } else {
+            // Use level editor handlers in edit mode
+            game.levelEditor.handleMouseMove(e);
+        }
     }
     
     handleMouseUp(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
-        game.levelEditor.handleMouseUp(e);
+        // Check level editor mode
+        if (game.levelEditor.mode === 'play') {
+            // Delegate to game's handlers in play mode
+            game.handleMouseUp(e);
+        } else {
+            // Use level editor handlers in edit mode
+            game.levelEditor.handleMouseUp(e);
+        }
     }
     
     handleClick(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
-        game.levelEditor.handleClick(e);
+        // Check level editor mode
+        if (game.levelEditor.mode === 'play') {
+            // Delegate to game's handlers in play mode
+            // Note: game doesn't have handleClick, so we'll skip this in play mode
+        } else {
+            // Use level editor handlers in edit mode
+            game.levelEditor.handleClick(e);
+        }
     }
     
     handleKeyDown(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
-        switch (e.code) {
-            case 'Delete':
-                e.preventDefault();
-                game.levelEditor.deleteSelectedObject();
-                break;
-            case 'KeyS':
-                if (e.ctrlKey || e.metaKey) {
+        // Check level editor mode
+        if (game.levelEditor.mode === 'play') {
+            // Delegate to game's handlers in play mode
+            game.handleKeyDown(e);
+        } else {
+            // Use level editor handlers in edit mode
+            switch (e.code) {
+                case 'Delete':
                     e.preventDefault();
-                    game.levelEditor.saveLevel();
-                }
-                break;
-            case 'KeyZ':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    if (e.shiftKey) {
-                        game.levelEditor.redo();
-                    } else {
-                        game.levelEditor.undo();
+                    game.levelEditor.deleteSelectedObject();
+                    break;
+                case 'KeyS':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        game.levelEditor.saveLevel();
                     }
-                }
-                break;
+                    break;
+                case 'KeyZ':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            game.levelEditor.redo();
+                        } else {
+                            game.levelEditor.undo();
+                        }
+                    }
+                    break;
+            }
         }
     }
 }

@@ -540,23 +540,23 @@ class Game {
             return;
         }
         
-        // Don't process other keys if console is open or in level editor mode
-        if (this.console.visible || this.state === GameState.LEVEL_EDITOR) {
+        // Don't process other keys if console is open
+        if (this.console.visible) {
             return;
         }
         
+        // Check if we should allow play mode keys
+        const canUsePlayKeys = (this.state === GameState.PLAYING) || 
+                              (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
+        
         switch (e.key.toLowerCase()) {
             case 'q':
-                const canUseKeys = (this.state === GameState.PLAYING) || 
-                                 (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-                if (canUseKeys) {
+                if (canUsePlayKeys) {
                     this.showQuitDialog();
                 }
                 break;
             case 'r':
-                const canUseKeys2 = (this.state === GameState.PLAYING) || 
-                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-                if (canUseKeys2) {
+                if (canUsePlayKeys) {
                     this.tryAgain();
                 }
                 break;
@@ -568,9 +568,7 @@ class Game {
                 break;
             default:
                 // Any other key during playing triggers tryAgain (like original)
-                const canUseKeys3 = (this.state === GameState.PLAYING) || 
-                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-                if (canUseKeys3 && this.penguin && this.penguin.state === 'soaring') {
+                if (canUsePlayKeys && this.penguin && this.penguin.state === 'soaring') {
                     this.tryAgain();
                 }
                 break;
@@ -1383,38 +1381,32 @@ class Game {
     }
 
     resetPenguinToSlingshot() {
-        plog.waddle('Resetting penguin to slingshot position');
-        
-        if (!this.penguin || !this.slingshot) {
-            console.error('Cannot reset - penguin or slingshot not initialized');
-            return;
+        if (this.penguin && this.slingshot) {
+            this.penguin.setPosition(this.slingshot.anchor.x, this.slingshot.anchor.y);
+            this.penguin.setState('idle');
+            this.penguin.reset();
+            this.slingshot.isPulling = false;
+            this.isDragging = false;
+            this.mouseDown = false;
         }
-        
-        // Reset penguin state and physics
-        this.penguin.reset();
-        
-        // Position penguin at slingshot anchor with 30 pixel offset (like original)
-        const slingshotAnchor = this.slingshot.anchor;
-        plog.debug('Slingshot anchor position:', slingshotAnchor);
-        
-        const penguinPosition = Utils.findPoint(slingshotAnchor, this.slingshot.rotation || 0, 30);
-        plog.debug('Calculated penguin position:', penguinPosition);
-        
-        this.penguin.x = penguinPosition.x;
-        this.penguin.y = penguinPosition.y;
-        this.penguin.position = { x: penguinPosition.x, y: penguinPosition.y };
-        
-        // Make slingshot visible again (equivalent to original's resetGPS)
-        this.slingshot.visible = true;
-        this.slingshot.isPulling = false;
-        
-        // Set penguin to idle state
-        this.penguin.setState('idle');
-        
-        // Reset any physics state
-        this.physics.clearTrace();
-        
         plog.waddle(`Penguin reset to position: ${this.penguin.x}, ${this.penguin.y}, state: ${this.penguin.state}`);
+    }
+    
+    resetSlingshotState() {
+        if (this.slingshot) {
+            this.slingshot.isPulling = false;
+        }
+        this.isDragging = false;
+        this.mouseDown = false;
+        
+        // Reset penguin to idle state regardless of current state
+        if (this.penguin) {
+            this.penguin.setState('idle');
+            // Also reset penguin physics state
+            this.penguin.launched = false;
+            this.penguin.vx = 0;
+            this.penguin.vy = 0;
+        }
     }
     
     // Add tryAgain method (matching original GPS script)

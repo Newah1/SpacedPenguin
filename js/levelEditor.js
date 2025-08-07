@@ -89,8 +89,10 @@ class LevelEditor {
         this.addButtonContainer.style.cssText = `
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
-            align-items: center;
+            gap: 10px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            width: 100%;
         `;
         
         // Delete button with mobile-friendly styling
@@ -224,34 +226,98 @@ class LevelEditor {
         this.collapsibleSection = document.createElement('div');
         this.collapsibleSection.style.cssText = `
             position: absolute;
-            top: 100%;
+            top: calc(100% + 5px);
             left: 0;
             right: 0;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 5px;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 15px;
+            border-radius: 8px;
             display: none;
             flex-wrap: wrap;
-            gap: 5px;
-            z-index: 1001;
+            gap: 8px;
+            z-index: 1002;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-height: 300px;
+            overflow-y: auto;
+            pointer-events: auto;
         `;
+        
+        // Add close button to the collapsible section
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '✕';
+        closeButton.title = 'Close';
+        closeButton.style.cssText = `
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 30px;
+            height: 30px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1004;
+        `;
+        
+        closeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.closeCollapsibleSection();
+        });
+        
+        // Prevent clicks from bubbling to elements underneath
+        this.collapsibleSection.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        this.collapsibleSection.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+        });
+        
+        this.collapsibleSection.addEventListener('mouseup', (e) => {
+            e.stopPropagation();
+        });
         
         // Move add button container to collapsible section
         this.collapsibleSection.appendChild(this.addButtonContainer);
+        this.collapsibleSection.appendChild(closeButton);
         
         // Toggle functionality
         this.collapsibleExpanded = false;
         this.collapsibleToggle.onclick = () => {
-            this.collapsibleExpanded = !this.collapsibleExpanded;
             if (this.collapsibleExpanded) {
-                this.collapsibleSection.style.display = 'flex';
-                this.collapsibleToggle.textContent = 'Add Objects ▲';
+                this.closeCollapsibleSection();
             } else {
-                this.collapsibleSection.style.display = 'none';
-                this.collapsibleToggle.textContent = 'Add Objects ▼';
+                this.openCollapsibleSection();
             }
         };
+        
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (this.collapsibleExpanded && 
+                !this.collapsibleSection.contains(e.target) && 
+                !this.collapsibleToggle.contains(e.target)) {
+                this.closeCollapsibleSection();
+            }
+        });
+    }
+    
+    openCollapsibleSection() {
+        this.collapsibleExpanded = true;
+        this.collapsibleSection.style.display = 'flex';
+        this.collapsibleToggle.textContent = 'Add Objects ▲';
+    }
+    
+    closeCollapsibleSection() {
+        this.collapsibleExpanded = false;
+        this.collapsibleSection.style.display = 'none';
+        this.collapsibleToggle.textContent = 'Add Objects ▼';
     }
     
     createMobileToolbar() {
@@ -769,19 +835,52 @@ class LevelEditor {
             const btn = document.createElement('button');
             btn.textContent = `Add ${className}`;
             btn.style.cssText = `
-                padding: 6px 10px;
+                padding: 10px 15px;
                 background: #2196F3;
                 color: white;
                 border: none;
-                border-radius: 5px;
+                border-radius: 6px;
                 cursor: pointer;
-                min-height: 36px;
-                font-size: 12px;
+                min-height: 44px;
+                font-size: 13px;
+                font-weight: 500;
                 touch-action: manipulation;
                 white-space: nowrap;
                 flex-shrink: 0;
+                transition: background-color 0.2s ease;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                position: relative;
+                z-index: 1003;
             `;
-            btn.onclick = () => this.addObject(className);
+            
+            // Add hover effects
+            btn.addEventListener('mouseenter', () => {
+                btn.style.background = '#1976D2';
+                btn.style.transform = 'translateY(-1px)';
+                btn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+            });
+            
+            btn.addEventListener('mouseleave', () => {
+                btn.style.background = '#2196F3';
+                btn.style.transform = 'translateY(0)';
+                btn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+            });
+            
+            // Ensure click events are properly handled
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                this.addObject(className);
+            });
+            
+            btn.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            });
+            
+            btn.addEventListener('mouseup', (e) => {
+                e.stopPropagation();
+            });
+            
             this.addButtons[className] = btn;
             this.addButtonContainer.appendChild(btn);
         });
