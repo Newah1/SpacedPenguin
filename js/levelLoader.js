@@ -291,7 +291,7 @@ class GameObjectFactory {
             return;
         }
         
-        console.log('Applying orbit to object:', {
+        plog.debug('Applying orbit to object:', {
             center, speed, radius, type, angle, params,
             objectType: object.constructor.name
         });
@@ -349,9 +349,9 @@ class GameObjectFactory {
             // Restore the angle
             object.orbitSystem.orbitAngle = angle;
             
-            console.log('Orbit system applied successfully');
+            plog.success('Orbit system applied successfully');
         }).catch(error => {
-            console.error('Failed to apply orbit system:', error);
+            plog.error('Failed to apply orbit system:', error);
         });
     }
 }
@@ -412,7 +412,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 7;
+        const totalLevels = 8;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }

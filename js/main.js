@@ -116,7 +116,7 @@ class GameManager {
             
             // Debug logging
             if (window.gameManager && window.gameManager.debugMode) {
-                console.log('Canvas resize:', {
+                plog.debug('Canvas resize:', {
                     container: `${containerWidth}x${containerHeight}`,
                     canvas: `${newWidth}x${newHeight}`,
                     isMobile: this.isMobile,

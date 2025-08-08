@@ -1,4 +1,5 @@
 import { GameState } from './game.js';
+import plog from './penguinLogger.js';
 
 class LevelEditor {
     constructor(game) {
@@ -101,7 +102,7 @@ class LevelEditor {
         this.deleteButton.style.cssText = buttonStyle + `
             background: #f44336;
         `;
-        this.deleteButton.onclick = () => this.deleteSelected();
+        this.deleteButton.onclick = () => this.deleteSelectedObject();
         
         // Clone button with mobile-friendly styling
         this.cloneButton = document.createElement('button');
@@ -440,24 +441,34 @@ class LevelEditor {
     }
     
     deleteSelectedObject() {
-        if (this.selectedObject) {
-            this.deleteSelected();
-        }
+        if (!this.selectedObject) return;
+        
+        const obj = this.selectedObject;
+        const className = obj.constructor.name;
+        
+        plog.debug(`Deleting ${className}...`);
+        
+        // Use the game's centralized removal method
+        this.removeObjectFromGame(obj);
+        
+        plog.success(`Successfully deleted ${className}`);
+        this.selectObject(null);
+        this.updateObjectList();
     }
     
     saveLevel() {
         // Implement save functionality
-        console.log('Save level functionality not yet implemented');
+        plog.info('Save level functionality not yet implemented');
     }
     
     undo() {
         // Implement undo functionality
-        console.log('Undo functionality not yet implemented');
+        plog.info('Undo functionality not yet implemented');
     }
     
     redo() {
         // Implement redo functionality
-        console.log('Redo functionality not yet implemented');
+        plog.info('Redo functionality not yet implemented');
     }
     
     handleResize() {
@@ -561,7 +572,7 @@ class LevelEditor {
         const coords = this.getEventCoordinates(e);
         const clickedObject = this.getObjectAtPosition(coords.x, coords.y);
         
-        console.log('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
+        plog.debug('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
         
         if (clickedObject) {
             if (clickedObject.type === 'orbitCenter') {
@@ -808,7 +819,7 @@ class LevelEditor {
             this.mode = 'edit';
         }
         this.updateModeButton();
-        console.log('Level editor mode changed to:', this.mode);
+        plog.info('Level editor mode changed to:', this.mode);
     }
     
     updateModeButton() {
@@ -932,7 +943,7 @@ class LevelEditor {
         for (let i = allObjects.length - 1; i >= 0; i--) {
             const obj = allObjects[i];
             if (this.isPointInObject(x, y, obj)) {
-                console.log('Selected:', obj.constructor.name);
+                plog.debug('Selected:', obj.constructor.name);
                 return obj;
             }
         }
@@ -971,7 +982,7 @@ class LevelEditor {
                 const hitRadius = isMobile ? 15 : 10; // Larger touch target on mobile
                 
                 if (distance <= hitRadius) {
-                    console.log('Selected orbit center for:', obj.constructor.name);
+                    plog.debug('Selected orbit center for:', obj.constructor.name);
                     return { type: 'orbitCenter', object: obj };
                 }
             }
@@ -992,7 +1003,7 @@ class LevelEditor {
             objX = obj.position.x;
             objY = obj.position.y;
         } else {
-            console.log('Skipping object with invalid coordinates:', obj.constructor.name, obj.x, obj.y, obj.position);
+            plog.warn('Skipping object with invalid coordinates:', obj.constructor.name, obj.x, obj.y, obj.position);
             return false;
         }
         
@@ -1011,7 +1022,7 @@ class LevelEditor {
     
     selectObject(obj) {
         this.selectedObject = obj;
-        console.log('Selected object:', obj ? obj.constructor.name : 'null');
+        plog.debug('Selected object:', obj ? obj.constructor.name : 'null');
         
         // Provide haptic feedback on mobile devices
         if (obj && 'vibrate' in navigator) {
@@ -1037,11 +1048,28 @@ class LevelEditor {
         properties.forEach(prop => {
             html += this.createPropertyInput(prop.label, prop.key, prop.value, prop.type, prop);
         });
+
+        // Quick actions
+        html += `
+            <div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
+                <div style="font-weight: bold; margin-bottom: 6px;">Quick Actions</div>
+                <button id="center-object-btn" 
+                        style="width: 100%; padding: 10px; background: #4a90e2; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation;">
+                    Center on Canvas
+                </button>
+            </div>
+        `;
         
         this.propertiesPanel.innerHTML = html;
         
         // Add event listeners to property inputs
         this.setupPropertyInputs();
+
+        // Wire up quick action buttons
+        const centerBtn = this.propertiesPanel.querySelector('#center-object-btn');
+        if (centerBtn) {
+            centerBtn.addEventListener('click', () => this.centerSelectedObjectOnCanvas());
+        }
     }
     
     getEditableProperties(obj) {
@@ -1318,6 +1346,23 @@ class LevelEditor {
             }
         });
     }
+
+    centerSelectedObjectOnCanvas() {
+        if (!this.selectedObject || !this.game || !this.game.canvas) return;
+        const centerX = this.game.canvas.width / 2;
+        const centerY = this.game.canvas.height / 2;
+
+        if (typeof this.selectedObject.x === 'number' && typeof this.selectedObject.y === 'number') {
+            this.selectedObject.x = centerX;
+            this.selectedObject.y = centerY;
+        } else if (this.selectedObject.position && typeof this.selectedObject.position.x === 'number' && typeof this.selectedObject.position.y === 'number') {
+            this.selectedObject.position.x = centerX;
+            this.selectedObject.position.y = centerY;
+        }
+
+        plog.debug('Centered object on canvas at', centerX, centerY);
+        this.updatePropertiesPanel();
+    }
     
     handlePropertyChange(e) {
         const property = e.target.dataset.property;
@@ -1343,7 +1388,7 @@ class LevelEditor {
             if (property === 'name') {
                 this.selectedObject.name = value;
                 this.updateObjectList(); // Update list to reflect name change
-                console.log(`Updated object name to: ${value}`);
+                plog.debug(`Updated object name to: ${value}`);
             } else if (property === 'x' || property === 'y') {
                 if (typeof this.selectedObject.x === 'number') {
                     // Penguin class uses direct x/y properties
@@ -1365,7 +1410,7 @@ class LevelEditor {
                 // Handle TextObject content changes with re-parsing
                 this.selectedObject.content = value;
                 this.selectedObject.parsedContent = this.selectedObject.parseHTMLContent(value);
-                console.log(`Updated text content to: ${value}`);
+                plog.debug(`Updated text content to: ${value}`);
             } else if ((property === 'width' || property === 'height') && this.selectedObject.constructor.name === 'Planet') {
                 // Handle Planet width/height changes - update radius to maintain consistency
                 this.selectedObject[property] = value;
@@ -1373,12 +1418,12 @@ class LevelEditor {
                     // Keep radius in sync with the smaller dimension
                     const newRadius = Math.min(this.selectedObject.width, this.selectedObject.height) / 2;
                     this.selectedObject.radius = newRadius;
-                    console.log(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
+                    plog.debug(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
                 }
             } else if (property in this.selectedObject) {
                 // Other properties
                 this.selectedObject[property] = value;
-                console.log(`Updated ${property} to ${value}`);
+                plog.debug(`Updated ${property} to ${value}`);
             }
         }
     }
@@ -1420,7 +1465,7 @@ class LevelEditor {
                 break;
         }
         
-        console.log(`Updated orbit ${property} to ${value}`);
+        plog.debug(`Updated orbit ${property} to ${value}`);
     }
     
     updateOrbitSystem(obj) {
@@ -1451,11 +1496,11 @@ class LevelEditor {
         if (property === 'planetType' && obj.constructor.name === 'Planet') {
             obj.planetType = value;
             this.refreshPlanetSprite(obj);
-            console.log(`Updated planet sprite to ${value}`);
+            plog.debug(`Updated planet sprite to ${value}`);
         } else if (property === 'spriteType' && obj.constructor.name === 'Target') {
             obj.spriteType = value;
             this.refreshTargetSprite(obj);
-            console.log(`Updated target sprite to ${value}`);
+            plog.debug(`Updated target sprite to ${value}`);
         }
     }
     
@@ -1470,10 +1515,10 @@ class LevelEditor {
             
             if (property === 'pointingAtX') {
                 obj.pointingAt.x = value;
-                console.log(`Updated pointing target X to ${value}`);
+                plog.debug(`Updated pointing target X to ${value}`);
             } else if (property === 'pointingAtY') {
                 obj.pointingAt.y = value;
-                console.log(`Updated pointing target Y to ${value}`);
+                plog.debug(`Updated pointing target Y to ${value}`);
             }
             
             // Update visibility - show arrow if it has a target
@@ -1488,7 +1533,7 @@ class LevelEditor {
         if (typeof planet.refreshSprite === 'function') {
             planet.refreshSprite();
         } else {
-            console.warn('Planet object does not have refreshSprite method');
+            plog.warn('Planet object does not have refreshSprite method');
         }
     }
     
@@ -1497,7 +1542,7 @@ class LevelEditor {
         if (typeof target.refreshSprite === 'function') {
             target.refreshSprite();
         } else {
-            console.warn('Target object does not have refreshSprite method');
+            plog.warn('Target object does not have refreshSprite method');
         }
     }
     
@@ -1518,7 +1563,7 @@ class LevelEditor {
         
         this.dragOffset.x = x - objX;
         this.dragOffset.y = y - objY;
-        console.log('Started dragging:', this.selectedObject.constructor.name, 'at', x, y);
+        plog.debug('Started dragging:', this.selectedObject.constructor.name, 'at', x, y);
     }
     
     updateDragging(x, y) {
@@ -1538,14 +1583,14 @@ class LevelEditor {
             this.selectedObject.position.y = newY;
         }
         
-        console.log('Dragging to:', x, y, 'Object now at:', newX, newY);
+        plog.debug('Dragging to:', x, y, 'Object now at:', newX, newY);
         
         this.updatePropertiesPanel();
     }
     
     stopDragging() {
         if (this.dragging) {
-            console.log('Stopped dragging');
+            plog.debug('Stopped dragging');
         }
         this.dragging = false;
     }
@@ -1561,7 +1606,7 @@ class LevelEditor {
         this.dragOffset.x = x - center.x;
         this.dragOffset.y = y - center.y;
         
-        console.log('Started dragging orbit center for:', obj.constructor.name, 'at', x, y);
+        plog.debug('Started dragging orbit center for:', obj.constructor.name, 'at', x, y);
     }
     
     updateOrbitCenterDragging(x, y) {
@@ -1577,7 +1622,7 @@ class LevelEditor {
         // Recalculate orbit system with new center
         this.updateOrbitSystem(this.orbitCenterObject);
         
-        console.log('Dragging orbit center to:', x, y, 'Center now at:', newX, newY);
+        plog.debug('Dragging orbit center to:', x, y, 'Center now at:', newX, newY);
         
         // Update properties panel to reflect the change
         this.updatePropertiesPanel();
@@ -1585,7 +1630,7 @@ class LevelEditor {
     
     stopOrbitCenterDragging() {
         if (this.draggingOrbitCenter) {
-            console.log('Stopped dragging orbit center');
+            plog.debug('Stopped dragging orbit center');
         }
         this.draggingOrbitCenter = false;
         this.orbitCenterObject = null;
@@ -1596,7 +1641,7 @@ class LevelEditor {
         const centerY = this.game.canvas.height / 2;
         
         if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
-            console.error('Unknown class:', className);
+            plog.error('Unknown class:', className);
             return;
         }
         
@@ -1612,10 +1657,10 @@ class LevelEditor {
                 this.addObjectToGame(newObject, className);
                 this.selectObject(newObject);
                 this.updateObjectList();
-                console.log('Created new', className, 'at', centerX, centerY);
+                plog.debug('Created new', className, 'at', centerX, centerY);
             }
         } catch (error) {
-            console.error('Failed to create', className, ':', error);
+            plog.error('Failed to create', className, ':', error);
         }
     }
     
@@ -1702,22 +1747,6 @@ class LevelEditor {
         return `${className} ${number}`;
     }
     
-    deleteSelected() {
-        if (!this.selectedObject) return;
-        
-        const obj = this.selectedObject;
-        const className = obj.constructor.name;
-        
-        console.log(`Deleting ${className}...`);
-        
-        // Use the game's centralized removal method
-        this.removeObjectFromGame(obj);
-        
-        console.log(`Successfully deleted ${className}`);
-        this.selectObject(null);
-        this.updateObjectList();
-    }
-    
     removeObjectFromGame(obj) {
         // Robust removal system that automatically finds and removes object from all collections
         const className = obj.constructor.name;
@@ -1743,7 +1772,7 @@ class LevelEditor {
         
         if (index !== -1) {
             array.splice(index, 1);
-            console.log(`  - Removed from ${arrayName} (was at index ${index})`);
+            plog.debug(`  - Removed from ${arrayName} (was at index ${index})`);
             return true;
         }
         
@@ -1774,7 +1803,7 @@ class LevelEditor {
         // Defensive programming: scan all game properties for arrays containing our object
         for (const [key, value] of Object.entries(this.game)) {
             if (Array.isArray(value) && value.includes(obj)) {
-                console.log(`  - Found object in unexpected array: ${key}`);
+                plog.debug(`  - Found object in unexpected array: ${key}`);
                 this.removeFromArray(value, obj, key);
             }
         }
@@ -1788,7 +1817,7 @@ class LevelEditor {
             case 'Planet':
                 if (this.game.physics && typeof this.game.physics.removePlanet === 'function') {
                     this.game.physics.removePlanet(obj);
-                    console.log('  - Removed from physics system');
+                    plog.debug('  - Removed from physics system');
                 }
                 break;
             
@@ -1810,7 +1839,7 @@ class LevelEditor {
         specialProps.forEach(prop => {
             if (this.game[prop] === obj) {
                 this.game[prop] = null;
-                console.log(`  - Cleared special reference: ${prop}`);
+                plog.debug(`  - Cleared special reference: ${prop}`);
             }
         });
         
@@ -1818,7 +1847,7 @@ class LevelEditor {
         for (const [key, value] of Object.entries(this.game)) {
             if (value === obj && !specialProps.includes(key)) {
                 this.game[key] = null;
-                console.log(`  - Cleared unexpected reference: ${key}`);
+                plog.debug(`  - Cleared unexpected reference: ${key}`);
             }
         }
     }
@@ -1924,10 +1953,10 @@ class LevelEditor {
                 this.addObjectToGame(newObject, className);
                 this.selectObject(newObject);
                 this.updateObjectList();
-                console.log('Created new', className, 'at', x, y);
+                plog.debug('Created new', className, 'at', x, y);
             }
         } catch (error) {
-            console.error('Failed to create', className, ':', error);
+            plog.error('Failed to create', className, ':', error);
         }
     }
 
@@ -1943,12 +1972,12 @@ class LevelEditor {
         a.click();
         URL.revokeObjectURL(url);
         
-        console.log('Level exported:', filename);
+        plog.success('Level exported:', filename);
     }
     
     cloneSelected() {
         if (!this.selectedObject) {
-            console.log('No object selected to clone');
+            plog.warn('No object selected to clone');
             return;
         }
         
@@ -1982,7 +2011,7 @@ class LevelEditor {
             // Update object list
             this.updateObjectList();
             
-            console.log('Cloned', className);
+            plog.debug('Cloned', className);
         }
     }
     
@@ -1991,7 +2020,7 @@ class LevelEditor {
         const ClassConstructor = this.gameObjectClasses[className];
         
         if (!ClassConstructor) {
-            console.error('Cannot clone object - unknown class:', className);
+            plog.error('Cannot clone object - unknown class:', className);
             return null;
         }
         
@@ -2000,10 +2029,10 @@ class LevelEditor {
             const objData = this.serializeObject(obj);
             const clonedObject = this.deserializeObject(objData, ClassConstructor);
             
-            console.log('Cloned object data:', objData);
+            plog.debug('Cloned object data:', objData);
             return clonedObject;
         } catch (error) {
-            console.error('Failed to clone object:', error);
+            plog.error('Failed to clone object:', error);
             return null;
         }
     }
@@ -2324,7 +2353,7 @@ class LevelEditor {
                 navigator.vibrate(30);
             }
             
-            console.log('Selected from list:', obj.constructor.name);
+            plog.debug('Selected from list:', obj.constructor.name);
         }
     }
     
