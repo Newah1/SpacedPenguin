@@ -1667,6 +1667,7 @@ class Game {
                 x: orbitSystem.orbitCenter.x, 
                 y: orbitSystem.orbitCenter.y 
             } : null,
+            orbitTargetId: orbitSystem.orbitTargetId || null,
             orbitRadius: orbitSystem.orbitRadius,
             orbitSpeed: orbitSystem.orbitSpeed,
             orbitAngle: orbitSystem.orbitAngle,

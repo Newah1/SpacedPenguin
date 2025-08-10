@@ -1123,6 +1123,33 @@ class LevelEditor {
         return properties;
     }
     
+    getAvailableObjectIds() {
+        const objectIds = ['none'];
+        
+        // Get all game objects with IDs
+        if (this.game && this.game.gameObjects) {
+            for (const obj of this.game.gameObjects) {
+                if (obj.id && obj !== this.selectedObject) {
+                    objectIds.push(obj.id);
+                }
+            }
+        }
+        
+        // Add default names if no IDs are set yet
+        if (objectIds.length === 1) {
+            if (this.game) {
+                this.game.gameObjects.forEach((obj, index) => {
+                    if (obj !== this.selectedObject) {
+                        const className = obj.constructor.name.toLowerCase();
+                        objectIds.push(`${className}_${index + 1}`);
+                    }
+                });
+            }
+        }
+        
+        return objectIds;
+    }
+    
     getClassSpecificProperties(obj, className) {
         const properties = [];
         
@@ -1217,8 +1244,26 @@ class LevelEditor {
         const orbitSystem = obj.orbitSystem;
         
         if (orbitSystem) {
-            // Orbit center
-            if (orbitSystem.orbitCenter) {
+            // Orbit target selection (object vs fixed position)
+            properties.push({ 
+                label: 'Orbit Target', 
+                key: 'orbitTargetType', 
+                value: orbitSystem.orbitTargetId ? 'object' : 'position', 
+                type: 'select',
+                options: ['none', 'position', 'object']
+            });
+            
+            // Object target selection
+            if (orbitSystem.orbitTargetId) {
+                properties.push({ 
+                    label: 'Target Object ID', 
+                    key: 'orbitTargetId', 
+                    value: orbitSystem.orbitTargetId, 
+                    type: 'select',
+                    options: this.getAvailableObjectIds()
+                });
+            } else if (orbitSystem.orbitCenter) {
+                // Fixed position orbit
                 properties.push({ 
                     label: 'Orbit Center X', 
                     key: 'orbitCenterX', 
@@ -1232,6 +1277,7 @@ class LevelEditor {
                     type: 'number' 
                 });
             } else {
+                // Default to position mode
                 properties.push({ 
                     label: 'Orbit Center X', 
                     key: 'orbitCenterX', 
@@ -1433,11 +1479,49 @@ class LevelEditor {
         if (!obj.orbitSystem) return;
         
         switch (property) {
+            case 'orbitTargetType':
+                if (value === 'none') {
+                    // Disable orbit
+                    obj.orbitSystem.orbitCenter = null;
+                    obj.orbitSystem.orbitTargetId = null;
+                    obj.orbitSystem.orbitRadius = 0;
+                    obj.orbitSystem.orbitSpeed = 0;
+                } else if (value === 'position') {
+                    // Switch to fixed position
+                    obj.orbitSystem.orbitTargetId = null;
+                    if (!obj.orbitSystem.orbitCenter) {
+                        obj.orbitSystem.orbitCenter = { x: obj.position.x, y: obj.position.y };
+                    }
+                } else if (value === 'object') {
+                    // Switch to object targeting
+                    obj.orbitSystem.orbitCenter = null;
+                    if (!obj.orbitSystem.orbitTargetId) {
+                        const availableIds = this.getAvailableObjectIds();
+                        if (availableIds.length > 1) {
+                            obj.orbitSystem.orbitTargetId = availableIds[1]; // First non-'none' option
+                        }
+                    }
+                }
+                this.updateOrbitSystem(obj);
+                this.updatePropertiesPanel(); // Refresh UI
+                break;
+                
+            case 'orbitTargetId':
+                if (value === 'none') {
+                    obj.orbitSystem.orbitTargetId = null;
+                } else {
+                    obj.orbitSystem.orbitTargetId = value;
+                    obj.orbitSystem.orbitCenter = null; // Clear fixed position
+                }
+                this.updateOrbitSystem(obj);
+                break;
+                
             case 'orbitCenterX':
                 if (!obj.orbitSystem.orbitCenter) {
                     obj.orbitSystem.orbitCenter = { x: 0, y: 0 };
                 }
                 obj.orbitSystem.orbitCenter.x = value;
+                obj.orbitSystem.orbitTargetId = null; // Clear object targeting
                 this.updateOrbitSystem(obj);
                 break;
                 
@@ -1446,6 +1530,7 @@ class LevelEditor {
                     obj.orbitSystem.orbitCenter = { x: 0, y: 0 };
                 }
                 obj.orbitSystem.orbitCenter.y = value;
+                obj.orbitSystem.orbitTargetId = null; // Clear object targeting
                 this.updateOrbitSystem(obj);
                 break;
                 

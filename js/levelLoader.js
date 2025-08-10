@@ -9,7 +9,7 @@ import Utils from './utils.js';
 import { GameState } from './game.js';
 
 class GameObjectFactory {
-    static create(objectDefinition, assetLoader, game) {
+    static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
         let { type, position, properties = {} } = objectDefinition;
         
         // If position is not at top level, check if it's in properties
@@ -30,27 +30,27 @@ class GameObjectFactory {
         
         switch (type.toLowerCase()) {
             case 'planet':
-                return this.createPlanet(position, properties, assetLoader);
+                return this.createPlanet(position, properties, assetLoader, gameObjectLookup);
             
             case 'bonus':
-                return this.createBonus(position, properties, assetLoader);
+                return this.createBonus(position, properties, assetLoader, gameObjectLookup);
             
             case 'target':
-                return this.createTarget(position, properties, assetLoader);
+                return this.createTarget(position, properties, assetLoader, gameObjectLookup);
             
             case 'slingshot':
-                return this.createSlingshot(position, properties);
+                return this.createSlingshot(position, properties, gameObjectLookup);
             
             case 'text':
             case 'textobject':
-                return this.createTextObject(position, properties);
+                return this.createTextObject(position, properties, gameObjectLookup);
             
             case 'arrow':
             case 'pointingarrow':
-                return this.createPointingArrow(position, properties);
+                return this.createPointingArrow(position, properties, gameObjectLookup);
             
             case 'obstacle':
-                return this.createObstacle(position, properties);
+                return this.createObstacle(position, properties, gameObjectLookup);
             
             default:
                 plog.warn(`Unknown object type: ${type}`);
@@ -58,7 +58,7 @@ class GameObjectFactory {
         }
     }
     
-    static createPlanet(position, properties, assetLoader) {
+    static createPlanet(position, properties, assetLoader, gameObjectLookup = null) {
         if (!position) {
             console.error('Planet creation failed: position is undefined', { position, properties });
             return null;
@@ -70,28 +70,32 @@ class GameObjectFactory {
             mass = 100,
             gravitationalReach = 5000,
             orbit = null,
-            planetType = null
+            planetType = null,
+            id = null
         } = properties;
         
-        const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader);
+        const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader, gameObjectLookup);
         
-        // Set name if provided
+        // Set name and ID if provided
         if (name) {
             planet.name = name;
+        }
+        if (id) {
+            planet.id = id;
         }
         
         // Apply orbital properties if specified (check both old location and new properties location)
         if (orbit) {
-            this.applyOrbitToObject(planet, orbit);
+            this.applyOrbitToObject(planet, orbit, gameObjectLookup);
         } else if (properties.orbit) {
-            this.applyOrbitToObject(planet, properties.orbit);
+            this.applyOrbitToObject(planet, properties.orbit, gameObjectLookup);
         }
         
         return planet;
     }
     
-    static createBonus(position, properties, assetLoader) {
-        const { name = null, value = 100 } = properties;
+    static createBonus(position, properties, assetLoader, gameObjectLookup = null) {
+        const { name = null, value = 100, id = null } = properties;
         
         // Check if position is defined
         if (!position) {
@@ -105,37 +109,43 @@ class GameObjectFactory {
             return null;
         }
         
-        const bonus = new Bonus(position.x, position.y, value, assetLoader);
+        const bonus = new Bonus(position.x, position.y, value, assetLoader, gameObjectLookup);
         
-        // Set name if provided
+        // Set name and ID if provided
         if (name) {
             bonus.name = name;
         }
+        if (id) {
+            bonus.id = id;
+        }
 
         if (properties.orbit) {
-            this.applyOrbitToObject(bonus, properties.orbit);
+            this.applyOrbitToObject(bonus, properties.orbit, gameObjectLookup);
         }
 
         return bonus;
     }
     
-    static createTarget(position, properties, assetLoader) {
+    static createTarget(position, properties, assetLoader, gameObjectLookup = null) {
         if (!position) {
             console.error('Target creation failed: position is undefined', { position, properties });
             return null;
         }
         
-        const { name = null, width = 60, height = 60, spriteType = 'ship_open' } = properties;
+        const { name = null, width = 60, height = 60, spriteType = 'ship_open', id = null } = properties;
         const target = new Target(position.x, position.y, width, height, spriteType, assetLoader);
         
-        // Set name if provided
+        // Set name and ID if provided
         if (name) {
             target.name = name;
+        }
+        if (id) {
+            target.id = id;
         }
         
         // Apply orbital properties if specified
         if (properties.orbit) {
-            this.applyOrbitToObject(target, properties.orbit);
+            this.applyOrbitToObject(target, properties.orbit, gameObjectLookup);
         }
         
         return target;
@@ -277,57 +287,67 @@ class GameObjectFactory {
         return null;
     }
     
-    static applyOrbitToObject(object, orbitConfig) {
+    static applyOrbitToObject(object, orbitConfig, gameObjectLookup = null) {
         // Handle both old format (center, speed, radius, type) and new format (orbitCenter, orbitSpeed, etc.)
         const center = orbitConfig.orbitCenter || orbitConfig.center || { x: 0, y: 0 };
+        const targetId = orbitConfig.orbitTargetId || orbitConfig.targetId || null;
         const speed = orbitConfig.orbitSpeed || orbitConfig.speed || 0;
         const radius = orbitConfig.orbitRadius || orbitConfig.radius || 0;
         const type = orbitConfig.orbitType || orbitConfig.type || 'circular';
         const angle = orbitConfig.orbitAngle || orbitConfig.angle || 0;
         const params = orbitConfig.orbitParams || orbitConfig.params || {};
         
-        // Skip if no meaningful orbit data
-        if (!center || (center.x === 0 && center.y === 0 && radius === 0)) {
+        // Skip if no meaningful orbit data (either fixed center or object reference)
+        if (!targetId && (!center || (center.x === 0 && center.y === 0 && radius === 0))) {
             return;
         }
         
         plog.debug('Applying orbit to object:', {
-            center, speed, radius, type, angle, params,
+            center, targetId, speed, radius, type, angle, params,
             objectType: object.constructor.name
         });
         
-        // Import OrbitSystem dynamically and create orbit system
-        import('./gameObjects.js').then(module => {
-            const OrbitSystem = module.OrbitSystem;
-            
-            if (!object.orbitSystem) {
-                object.orbitSystem = new OrbitSystem();
-            }
-            
-            // Set basic orbit properties
-            object.orbitSystem.orbitCenter = center;
-            object.orbitSystem.orbitRadius = radius;
-            object.orbitSystem.orbitSpeed = speed;
-            object.orbitSystem.orbitAngle = angle;
-            object.orbitSystem.orbitType = type;
-            object.orbitSystem.orbitParams = params;
-            
-            // Set up specific orbit type
-            switch (type) {
-                case 'circular':
-                    object.orbitSystem.setCircularOrbit(center, radius, speed);
-                    break;
-                    
-                case 'elliptical':
-                    const semiMajorAxis = params.semiMajorAxis || radius;
-                    const semiMinorAxis = params.semiMinorAxis || radius * 0.7;
-                    const rotation = params.rotation || 0;
-                    object.orbitSystem.setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation);
-                    break;
-                    
-                case 'figure8':
-                    const size = params.size || radius;
-                    object.orbitSystem.setFigure8Orbit(center, size, speed);
+        // Create orbit system if it doesn't exist
+        if (!object.orbitSystem) {
+            // Import OrbitSystem dynamically
+            import('./gameObjects.js').then(module => {
+                const OrbitSystem = module.OrbitSystem;
+                object.orbitSystem = new OrbitSystem(gameObjectLookup);
+                this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
+            });
+        } else {
+            this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
+        }
+    }
+    
+    static configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params) {
+        // Set basic orbit properties
+        object.orbitSystem.orbitCenter = center;
+        object.orbitSystem.orbitTargetId = targetId;
+        object.orbitSystem.orbitRadius = radius;
+        object.orbitSystem.orbitSpeed = speed;
+        object.orbitSystem.orbitAngle = angle;
+        object.orbitSystem.orbitType = type;
+        object.orbitSystem.orbitParams = params;
+        
+        // Set up specific orbit type - use targetId if available, otherwise use center
+        const orbitCenter = targetId || center;
+        
+        switch (type) {
+            case 'circular':
+                object.orbitSystem.setCircularOrbit(orbitCenter, radius, speed);
+                break;
+                
+            case 'elliptical':
+                const semiMajorAxis = params.semiMajorAxis || radius;
+                const semiMinorAxis = params.semiMinorAxis || radius * 0.7;
+                const rotation = params.rotation || 0;
+                object.orbitSystem.setEllipticalOrbit(orbitCenter, semiMajorAxis, semiMinorAxis, speed, rotation);
+                break;
+                
+            case 'figure8':
+                const size = params.size || radius;
+                object.orbitSystem.setFigure8Orbit(orbitCenter, size, speed);
                     break;
                     
                 case 'custom':
@@ -335,24 +355,21 @@ class GameObjectFactory {
                         // For custom orbits, we'd need to pass functions
                         // This is more complex and would require special handling
                         plog.warn('Custom orbit functions not yet supported in JSON config');
-                        object.orbitSystem.setCircularOrbit(center, radius, speed);
+                        object.orbitSystem.setCircularOrbit(orbitCenter, radius, speed);
                     } else {
-                        object.orbitSystem.setCircularOrbit(center, radius, speed);
+                        object.orbitSystem.setCircularOrbit(orbitCenter, radius, speed);
                     }
                     break;
                     
                 default:
-                    object.orbitSystem.setCircularOrbit(center, radius, speed);
+                    object.orbitSystem.setCircularOrbit(orbitCenter, radius, speed);
                     break;
-            }
-            
-            // Restore the angle
-            object.orbitSystem.orbitAngle = angle;
-            
-            plog.success('Orbit system applied successfully');
-        }).catch(error => {
-            plog.error('Failed to apply orbit system:', error);
-        });
+        }
+        
+        // Restore the angle
+        object.orbitSystem.orbitAngle = angle;
+        
+        plog.success('Orbit system applied successfully');
     }
 }
 
@@ -412,7 +429,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 8;
+        const totalLevels = 10;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
@@ -489,7 +506,12 @@ export class LevelLoader {
         }
         game.gameObjects.push(game.target);
         
-        // Create level objects
+        // Create object lookup map for hierarchical orbits
+        const gameObjectMap = new Map();
+        const gameObjectLookup = (id) => gameObjectMap.get(id);
+        
+        // First pass: Create level objects without orbit configuration
+        const objectsToOrbit = [];
         if (levelDefinition.objects) {
             for (const objectDef of levelDefinition.objects) {
                 // Skip slingshots and targets that were already handled above
@@ -497,8 +519,23 @@ export class LevelLoader {
                     continue; // Already handled above
                 }
                 
-                const gameObject = GameObjectFactory.create(objectDef, this.assetLoader, game);
+                // Create object without orbit (we'll apply orbits in second pass)
+                const tempOrbit = objectDef.properties?.orbit;
+                if (tempOrbit) {
+                    // Temporarily remove orbit config
+                    delete objectDef.properties.orbit;
+                    objectsToOrbit.push({ objectDef, orbit: tempOrbit });
+                }
+                
+                const gameObject = GameObjectFactory.create(objectDef, this.assetLoader, game, gameObjectLookup);
                 if (gameObject) {
+                    // Generate ID if not provided
+                    if (!gameObject.id) {
+                        gameObject.id = `${objectDef.type}_${gameObjectMap.size + 1}`;
+                    }
+                    
+                    // Add to lookup map
+                    gameObjectMap.set(gameObject.id, gameObject);
                     game.gameObjects.push(gameObject);
                     
                     // Add to appropriate collections
@@ -514,6 +551,14 @@ export class LevelLoader {
                         game.pointingArrows.push(gameObject);
                     }
                 }
+            }
+        }
+        
+        // Second pass: Apply orbit configurations now that all objects exist
+        for (const { objectDef, orbit } of objectsToOrbit) {
+            const gameObject = gameObjectMap.get(objectDef.properties?.id || `${objectDef.type}_${Array.from(gameObjectMap.values()).filter(obj => obj.constructor.name.toLowerCase() === objectDef.type).length}`);
+            if (gameObject) {
+                GameObjectFactory.applyOrbitToObject(gameObject, orbit, gameObjectLookup);
             }
         }
         

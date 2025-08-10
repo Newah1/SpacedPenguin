@@ -4,20 +4,28 @@
 import Utils from './utils.js';
 import plog from './penguinLogger.js';
 
-// New consolidated orbit system supporting non-circular orbits
+// New consolidated orbit system supporting non-circular orbits and hierarchical targets
 class OrbitSystem {
-    constructor() {
-        this.orbitCenter = null;
+    constructor(gameObjectLookup = null) {
+        this.orbitCenter = null; // Can be a position {x, y} or object reference
+        this.orbitTargetId = null; // ID of target object for hierarchical orbits
         this.orbitRadius = 0;
         this.orbitSpeed = 0;
         this.orbitAngle = 0;
         this.orbitType = 'circular'; // 'circular', 'elliptical', 'figure8', 'custom'
         this.orbitParams = {}; // Additional parameters for complex orbits
+        this.gameObjectLookup = gameObjectLookup; // Function to resolve object IDs
     }
     
     // Set up circular orbit (original behavior)
     setCircularOrbit(center, radius, speed) {
-        this.orbitCenter = center;
+        if (typeof center === 'string') {
+            this.orbitTargetId = center;
+            this.orbitCenter = null;
+        } else {
+            this.orbitCenter = center;
+            this.orbitTargetId = null;
+        }
         this.orbitRadius = radius;
         this.orbitSpeed = speed;
         this.orbitType = 'circular';
@@ -26,7 +34,13 @@ class OrbitSystem {
     
     // Set up elliptical orbit
     setEllipticalOrbit(center, semiMajorAxis, semiMinorAxis, speed, rotation = 0) {
-        this.orbitCenter = center;
+        if (typeof center === 'string') {
+            this.orbitTargetId = center;
+            this.orbitCenter = null;
+        } else {
+            this.orbitCenter = center;
+            this.orbitTargetId = null;
+        }
         this.orbitRadius = semiMajorAxis; // Keep for compatibility
         this.orbitSpeed = speed;
         this.orbitType = 'elliptical';
@@ -39,7 +53,13 @@ class OrbitSystem {
     
     // Set up figure-8 orbit (lemniscate)
     setFigure8Orbit(center, size, speed) {
-        this.orbitCenter = center;
+        if (typeof center === 'string') {
+            this.orbitTargetId = center;
+            this.orbitCenter = null;
+        } else {
+            this.orbitCenter = center;
+            this.orbitTargetId = null;
+        }
         this.orbitRadius = size;
         this.orbitSpeed = speed;
         this.orbitType = 'figure8';
@@ -50,7 +70,13 @@ class OrbitSystem {
     
     // Set up custom parametric orbit
     setCustomOrbit(center, speed, xFunction, yFunction) {
-        this.orbitCenter = center;
+        if (typeof center === 'string') {
+            this.orbitTargetId = center;
+            this.orbitCenter = null;
+        } else {
+            this.orbitCenter = center;
+            this.orbitTargetId = null;
+        }
         this.orbitSpeed = speed;
         this.orbitType = 'custom';
         this.orbitParams = {
@@ -61,7 +87,8 @@ class OrbitSystem {
     
     // Update orbit position
     update(deltaTime) {
-        if (!this.orbitCenter || this.orbitSpeed === 0) {
+        const center = this.getResolvedCenter();
+        if (!center || this.orbitSpeed === 0) {
             return { x: 0, y: 0 };
         }
         
@@ -69,26 +96,37 @@ class OrbitSystem {
         
         switch (this.orbitType) {
             case 'circular':
-                return this.calculateCircularPosition();
+                return this.calculateCircularPosition(center);
             case 'elliptical':
-                return this.calculateEllipticalPosition();
+                return this.calculateEllipticalPosition(center);
             case 'figure8':
-                return this.calculateFigure8Position();
+                return this.calculateFigure8Position(center);
             case 'custom':
-                return this.calculateCustomPosition();
+                return this.calculateCustomPosition(center);
             default:
-                return this.calculateCircularPosition();
+                return this.calculateCircularPosition(center);
         }
     }
     
-    calculateCircularPosition() {
+    // Resolve orbit center - can be a fixed position or dynamic object reference
+    getResolvedCenter() {
+        if (this.orbitTargetId && this.gameObjectLookup) {
+            const targetObject = this.gameObjectLookup(this.orbitTargetId);
+            if (targetObject && targetObject.position) {
+                return targetObject.position;
+            }
+        }
+        return this.orbitCenter;
+    }
+    
+    calculateCircularPosition(center) {
         return {
-            x: this.orbitCenter.x + Math.cos(this.orbitAngle) * this.orbitRadius,
-            y: this.orbitCenter.y + Math.sin(this.orbitAngle) * this.orbitRadius
+            x: center.x + Math.cos(this.orbitAngle) * this.orbitRadius,
+            y: center.y + Math.sin(this.orbitAngle) * this.orbitRadius
         };
     }
     
-    calculateEllipticalPosition() {
+    calculateEllipticalPosition(center) {
         const { semiMajorAxis, semiMinorAxis, rotation } = this.orbitParams;
         
         // Calculate position on unrotated ellipse
@@ -102,12 +140,12 @@ class OrbitSystem {
         const rotatedY = x * sinRot + y * cosRot;
         
         return {
-            x: this.orbitCenter.x + rotatedX,
-            y: this.orbitCenter.y + rotatedY
+            x: center.x + rotatedX,
+            y: center.y + rotatedY
         };
     }
     
-    calculateFigure8Position() {
+    calculateFigure8Position(center) {
         const { size } = this.orbitParams;
         
         // Lemniscate of Bernoulli formula
@@ -116,23 +154,23 @@ class OrbitSystem {
         const y = size * Math.sin(this.orbitAngle) * Math.cos(this.orbitAngle) / denominator;
         
         return {
-            x: this.orbitCenter.x + x,
-            y: this.orbitCenter.y + y
+            x: center.x + x,
+            y: center.y + y
         };
     }
     
-    calculateCustomPosition() {
+    calculateCustomPosition(center) {
         const { xFunction, yFunction } = this.orbitParams;
         
         if (typeof xFunction === 'function' && typeof yFunction === 'function') {
             return {
-                x: this.orbitCenter.x + xFunction(this.orbitAngle),
-                y: this.orbitCenter.y + yFunction(this.orbitAngle)
+                x: center.x + xFunction(this.orbitAngle),
+                y: center.y + yFunction(this.orbitAngle)
             };
         }
         
         // Fallback to circular
-        return this.calculateCircularPosition();
+        return this.calculateCircularPosition(center);
     }
     
     // Legacy compatibility method
@@ -150,6 +188,8 @@ class GameObject {
         this.rotation = 0;
         this.alpha = 1.0;
         this.renderOrder = 0; // Default render order (0 = background, higher = foreground)
+        this.id = null; // Unique identifier for object references
+        this.name = ''; // Human-readable name for level editor
     }
     
     update(deltaTime) {
@@ -279,7 +319,7 @@ class PenguinOld extends GameObject {
 }
 
 class Planet extends GameObject {
-    constructor(x, y, radius, mass, gravitationalReach = 0, planetType = null, assetLoader = null) {
+    constructor(x, y, radius, mass, gravitationalReach = 0, planetType = null, assetLoader = null, gameObjectLookup = null) {
         super(x, y, radius * 2, radius * 2);
         this.renderOrder = 2; // Render planets after bonuses (higher number = rendered later)
         this.radius = radius;
@@ -292,7 +332,7 @@ class Planet extends GameObject {
         this.planetSprite = null;
         
         // Use consolidated orbit system
-        this.orbitSystem = new OrbitSystem();
+        this.orbitSystem = new OrbitSystem(gameObjectLookup);
         
         // Initialize sprite if asset loader and planet type are available
         if (this.assetLoader && this.planetType) {
@@ -426,7 +466,7 @@ class Planet extends GameObject {
 }
 
 class Bonus extends GameObject {
-    constructor(x, y, value, assetLoader = null) {
+    constructor(x, y, value, assetLoader = null, gameObjectLookup = null) {
         super(x, y, 85 / 2, 86 / 2); // Size based on SVG dimensions
         this.renderOrder = 1; // Render bonuses before planets (lower number = rendered first)
         this.value = value;
@@ -443,7 +483,7 @@ class Bonus extends GameObject {
         this.alpha = 1.0;
         
         // Use consolidated orbit system
-        this.orbitSystem = new OrbitSystem();
+        this.orbitSystem = new OrbitSystem(gameObjectLookup);
         
         // Initialize sprites if asset loader is available
         if (this.assetLoader) {
