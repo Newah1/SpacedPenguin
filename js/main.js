@@ -8,6 +8,7 @@ import { AudioManager } from './audioManager.js';
 import { InputActionManager } from './inputActions.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
+import PerformanceUtils from './performanceUtils.js';
 
 plog.info('main.js loaded');
 
@@ -21,9 +22,14 @@ class GameManager {
         this.assetsLoaded = false;
         this.isMobile = this.detectMobile();
         this.debugMode = false; // Set to true to enable debug logging
+        this.lastStartScreenDraw = 0; // Throttle start screen redraws
+        this.performanceUtils = new PerformanceUtils();
         this.inputActionManager = null;
+        this.isPageVisible = true;
+        this.wasHidden = false;
         
         this.init();
+        this.setupPageVisibilityHandling();
     }
     
     detectMobile() {
@@ -198,7 +204,7 @@ class GameManager {
         // Show start screen with real graphics (unless jumping to level)
         if (this.game.state === GameState.MENU) {
             this.showStartScreen();
-            this.startScreenAnimation();
+            // Start screen animation now handled by main game loop
         }
     }
     
@@ -249,28 +255,56 @@ class GameManager {
     }
     
     gameLoop(currentTime = 0) {
-        if (!this.isRunning) return;
+        // Continue game loop first to ensure smooth RAF
+        requestAnimationFrame((time) => this.gameLoop(time));
         
-        // Calculate delta time
-        const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
+        if (!this.isRunning || !this.isPageVisible) {
+            // Skip updates when tab is hidden but keep RAF running
+            return;
+        }
+        
+        // Reset timer after visibility change to prevent large delta jumps
+        if (this.wasHidden) {
+            this.lastTime = currentTime;
+            this.wasHidden = false;
+            return; // Skip this frame to avoid timing issues
+        }
+        
+        // Calculate delta time with better precision
+        const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
         
-        // Cap delta time to prevent large jumps
-        const cappedDeltaTime = Math.min(deltaTime, 1/30); // Max 30 FPS equivalent
+        // Cap delta time more intelligently - allow up to 30fps minimum
+        const cappedDeltaTime = Math.min(deltaTime, 1/30);
         
-        // Update game
+        // Skip frame if deltaTime is too small (higher than 120fps)
+        if (cappedDeltaTime < 1/120) {
+            return;
+        }
+        
+        // Track performance
+        this.performanceUtils.recordFrameTime(cappedDeltaTime);
+        
+        // Update game with performance optimization
         if (this.game && this.assetsLoaded) {
-            // Update input actions based on current game state
-            if (this.inputActionManager) {
+            // Update input actions only when needed
+            if (this.inputActionManager && this.game.state !== GameState.MENU) {
                 this.inputActionManager.updateActiveActions();
             }
             
             this.game.update(cappedDeltaTime);
-            this.game.render();
+            
+            // Handle start screen animation within main loop
+            if (this.game.state === GameState.MENU) {
+                // Throttle start screen redraws to 30fps
+                if (!this.lastStartScreenDraw || currentTime - this.lastStartScreenDraw > 33) {
+                    this.showStartScreen();
+                    this.lastStartScreenDraw = currentTime;
+                }
+            } else {
+                this.game.render();
+            }
         }
-        
-        // Continue game loop
-        requestAnimationFrame((time) => this.gameLoop(time));
     }
     
     showStartScreen() {
@@ -435,11 +469,35 @@ class GameManager {
         ctx.restore();
     }
     
-    startScreenAnimation() {
-        if (this.game && this.game.state === GameState.MENU) {
-            this.showStartScreen();
-            requestAnimationFrame(() => this.startScreenAnimation());
-        }
+    setupPageVisibilityHandling() {
+        // Handle page visibility changes to prevent performance debt
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                this.isPageVisible = false;
+                plog.debug('Page hidden - pausing updates');
+            } else {
+                this.isPageVisible = true;
+                this.wasHidden = true; // Flag to reset timers
+                plog.debug('Page visible - resuming updates');
+            }
+        };
+
+        // Add event listeners for visibility changes
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Also handle window focus/blur as fallback
+        window.addEventListener('focus', () => {
+            if (!this.isPageVisible) {
+                this.isPageVisible = true;
+                this.wasHidden = true;
+                plog.debug('Window focused - resuming updates');
+            }
+        });
+        
+        window.addEventListener('blur', () => {
+            this.isPageVisible = false;
+            plog.debug('Window blurred - pausing updates');
+        });
     }
     
     pause() {

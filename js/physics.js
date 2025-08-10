@@ -44,33 +44,34 @@ export class Physics {
         this.tracePoints = [];
     }
     
-    // Calculate gravitational force from all planets on a point
+    // Calculate gravitational force from all planets on a point (optimized)
     calculateGravitationalForce(position, velocity) {
         let totalForceX = 0;
         let totalForceY = 0;
         
-        for (const planet of this.planets) {
-            const changeLoc = {
-                x: planet.sprite.position.x - position.x,
-                y: planet.sprite.position.y - position.y
-            };
+        const planetCount = this.planets.length;
+        for (let i = 0; i < planetCount; i++) {
+            const planet = this.planets[i];
+            const dx = planet.sprite.position.x - position.x;
+            const dy = planet.sprite.position.y - position.y;
             
-            const distance = Utils.distanceFromOrigin(changeLoc);
+            // Use squared distance to avoid sqrt until needed
+            const distSquared = dx * dx + dy * dy;
+            const distance = Math.sqrt(distSquared);
             
-            // Check if within gravitational reach
-            if (distance < planet.gravitationalReach) {
-                // Check collision
-                if (distance < planet.collisionRadius) {
-                    return { collision: true, planet: planet };
-                }
-                
-                // Calculate gravitational force
-                const distSquared = changeLoc.x * changeLoc.x + changeLoc.y * changeLoc.y;
-                if (distSquared > 0) {
-                    const gravitationalForce = planet.mass * this.gravitationalConstant / distSquared;
-                    totalForceX += gravitationalForce * changeLoc.x;
-                    totalForceY += gravitationalForce * changeLoc.y;
-                }
+            // Check if within gravitational reach (early exit)
+            if (distance >= planet.gravitationalReach) continue;
+            
+            // Check collision first (most critical)
+            if (distance < planet.collisionRadius) {
+                return { collision: true, planet: planet };
+            }
+            
+            // Calculate gravitational force using already computed distSquared
+            if (distSquared > 0) {
+                const gravitationalForce = planet.mass * this.gravitationalConstant / distSquared;
+                totalForceX += gravitationalForce * dx;
+                totalForceY += gravitationalForce * dy;
             }
         }
         

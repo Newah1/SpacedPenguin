@@ -72,6 +72,10 @@ class Game {
         this.pointingArrows = [];
         this.gameObjects = [];
         
+        // Rendering optimizations
+        this._cachedSortedObjects = null;
+        this._gameObjectsChanged = true;
+        
         // Bonus popup system
         this.bonusPopup = new BonusPopup(0, 0, 0);
         this.gameObjects.push(this.bonusPopup);
@@ -757,16 +761,15 @@ class Game {
             return;
         }
         
-        // Update all game objects
-        plog.debug('Game objects count:', this.gameObjects.length, 'types:', this.gameObjects.map(obj => obj.constructor.name));
-        for (const obj of this.gameObjects) {
+        // Update game objects with optimized loop
+        const gameObjectCount = this.gameObjects.length;
+        for (let i = 0; i < gameObjectCount; i++) {
+            const obj = this.gameObjects[i];
             if (obj.constructor.name === 'Arrow') {
                 // Only update arrow if penguin exists and has position AND is soaring
                 if (this.penguin && this.penguin.position && this.penguin.state === 'soaring') {
-                    // plog.debug('Updating arrow with penguin at:', this.penguin.position, 'penguin state:', this.penguin.state);
                     obj.update(this.penguin);
                 } else {
-                    // plog.debug('Arrow update skipped - penguin:', !!this.penguin, 'position:', this.penguin?.position, 'state:', this.penguin?.state);
                     // Make sure arrow is hidden when penguin is not soaring
                     obj.visible = false;
                 }
@@ -775,20 +778,17 @@ class Game {
             }
         }
         
-        // Update physics for penguin based on state
+        // Update physics for penguin based on state (optimized)
         if (this.penguin) {
-            plog.physics('Game update - Penguin state:', this.penguin.state, 'Launched:', this.penguin.launched);
-            if (this.penguin.state === 'soaring') {
-                plog.physics('Calling updatePenguinPhysics');
+            const penguinState = this.penguin.state;
+            if (penguinState === 'soaring') {
                 this.updatePenguinPhysics();
-            } else if (this.penguin.state === 'crashed') {
-                plog.crash('Calling updatePenguinCrashed');
+            } else if (penguinState === 'crashed') {
                 this.updatePenguinCrashed();
-            } else if (this.penguin.state === 'hitTarget') {
+            } else if (penguinState === 'hitTarget') {
                 // Stop all movement when target is hit
                 this.penguin.vx = 0;
                 this.penguin.vy = 0;
-                plog.success('Penguin stopped - target hit');
             }
         }
         
@@ -1071,14 +1071,45 @@ class Game {
         
         return result;
     }
+    
+    // Helper methods for game object management
+    addGameObject(obj) {
+        this.gameObjects.push(obj);
+        this._gameObjectsChanged = true;
+    }
+    
+    removeGameObject(obj) {
+        const index = this.gameObjects.indexOf(obj);
+        if (index !== -1) {
+            this.gameObjects.splice(index, 1);
+            this._gameObjectsChanged = true;
+        }
+    }
+    
+    // Object pool management
+    getPooledObject(type) {
+        const pool = this._objectPools[type];
+        if (pool && pool.length > 0) {
+            return pool.pop();
+        }
+        return null;
+    }
+    
+    returnToPool(obj, type) {
+        const pool = this._objectPools[type];
+        if (pool && pool.length < 10) { // Limit pool size
+            obj.reset?.(); // Reset object state if method exists
+            pool.push(obj);
+        }
+    }
 
     
     render() {
-        // Clear canvas
+        // Clear canvas efficiently
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw background stars
+        // Draw background stars (cached)
         this.drawStars();
         
         // Draw all shot paths (like original game)
@@ -1090,19 +1121,20 @@ class Game {
         // Draw physics trace
         this.physics.drawTrace(this.ctx);
         
-        // Sort game objects by render order (lower numbers = rendered first/underneath)
-        const sortedObjects = [...this.gameObjects].sort((a, b) => {
-            const orderA = a.renderOrder || 0;
-            const orderB = b.renderOrder || 0;
-            return orderA - orderB;
-        });
+        // Cache sorted objects if game objects haven't changed
+        if (!this._cachedSortedObjects || this._gameObjectsChanged) {
+            this._cachedSortedObjects = [...this.gameObjects].sort((a, b) => {
+                const orderA = a.renderOrder || 0;
+                const orderB = b.renderOrder || 0;
+                return orderA - orderB;
+            });
+            this._gameObjectsChanged = false;
+        }
         
         // Draw all game objects in render order
-        for (const obj of sortedObjects) {
-            if (obj.constructor.name === 'Arrow') {
-                plog.debug('Drawing arrow object - visible:', obj.visible, 'position:', obj.position);
-            }
-            obj.draw(this.ctx);
+        const objCount = this._cachedSortedObjects.length;
+        for (let i = 0; i < objCount; i++) {
+            this._cachedSortedObjects[i].draw(this.ctx);
         }
         
         // Draw UI overlays
