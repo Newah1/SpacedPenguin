@@ -1048,7 +1048,7 @@ class Slingshot extends GameObject {
         this.hoopRadiusX = 16;
         this.hoopRadiusY = 29;
         this.penguin = null; // Reference to penguin object
-        this.velocityMultiplier = 10; // Global velocity multiplier (reduced by 25% to compensate for increased pullback range)
+        this.velocityMultiplier = 8; // Global velocity multiplier (reduced to work better with new non-linear scaling)
         this.rotation = 0; // Hoop rotation (like pSHoopT.rotation)
     }
 
@@ -1204,6 +1204,9 @@ class Slingshot extends GameObject {
         const normalizedDistance = distance / this.maxPullback; // 0 to 1
         const nonLinearScale = this.calculateNonLinearScale(normalizedDistance);
         
+        // Debug logging for scaling values
+        plog.log(`Pullback: distance=${distance.toFixed(1)}, normalized=${normalizedDistance.toFixed(2)}, scale=${nonLinearScale.toFixed(2)}`);
+        
         // Scale the pullback vector with non-linear scaling
         const scaledPoint = { 
             x: tempPoint.x * nonLinearScale, 
@@ -1223,11 +1226,24 @@ class Slingshot extends GameObject {
     
     calculateNonLinearScale(normalizedDistance) {
         // normalizedDistance is 0 to 1
-        // At low distances (0-0.3): linear 1:1 scaling
+        // At low distances (0-0.3): linear 1:1 scaling with boost
         // At medium distances (0.3-0.7): gradual increase
-        // At high distances (0.7-1.0): exponential increase
+        // At high distances (0.7-1.0): controlled exponential increase
         
-        return normalizedDistance;
+        if (normalizedDistance <= 0.3) {
+            // Boost small pullbacks to make them meaningful
+            // Use a curve that starts at 0.5 and goes to 1.0 over 0-0.3 range
+            return 0.5 + (normalizedDistance / 0.3) * 0.5;
+        } else if (normalizedDistance <= 0.7) {
+            // Medium range: gradual increase from 1.0 to 1.5
+            const t = (normalizedDistance - 0.3) / 0.4; // 0 to 1 over this range
+            return 1.0 + t * 0.5;
+        } else {
+            // High range: controlled exponential from 1.5 to 2.0
+            const t = (normalizedDistance - 0.7) / 0.3; // 0 to 1 over this range
+            // Use a power curve that's less aggressive than pure exponential
+            return 1.5 + Math.pow(t, 1.5) * 0.5;
+        }
     }
 }
 
