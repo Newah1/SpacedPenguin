@@ -2259,8 +2259,8 @@ class LevelEditor {
             obj.name = this.generateObjectName(obj, className);
         }
         
-        // Add to gameObjects (all objects go here)
-        this.game.gameObjects.push(obj);
+        // Add to gameObjects (all objects go here) - use addGameObject to invalidate render cache
+        this.game.addGameObject(obj);
         
         // Add to specific arrays based on type
         switch (className) {
@@ -2297,8 +2297,8 @@ class LevelEditor {
         // Robust removal system that automatically finds and removes object from all collections
         const className = obj.constructor.name;
         
-        // 1. Remove from main gameObjects array (always)
-        this.removeFromArray(this.game.gameObjects, obj, 'gameObjects');
+        // 1. Remove from main gameObjects array (always) - use proper game method to invalidate render cache
+        this.game.removeGameObject(obj);
         
         // 2. Use reflection to find all array properties and remove from matching ones
         this.removeFromAllGameArrays(obj);
@@ -2330,7 +2330,8 @@ class LevelEditor {
         // This automatically handles new arrays without code changes
         
         const arrayNames = [
-            'gameObjects', 'planets', 'bonuses', 'textObjects', 'pointingArrows',
+            'planets', 'bonuses', 'textObjects', 'pointingArrows',
+            // gameObjects excluded since it's handled by game.removeGameObject() above
             // Add more as needed, but the system will work even if we forget some
         ];
         

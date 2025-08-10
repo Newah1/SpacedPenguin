@@ -11,54 +11,21 @@
   },
   "objects": [
     {
-      "type": "penguin",
-      "className": "Penguin",
+      "type": "slingshot",
+      "className": "Slingshot",
       "position": {
         "x": 123.50519601945913,
         "y": 101.54628216548264
       },
       "properties": {
-        "name": "Penguin 1",
-        "renderOrder": 5,
-        "state": "idle",
-        "x": 123.50519601945913,
-        "y": 101.54628216548264,
-        "vx": 0,
-        "vy": 0,
-        "radius": 16,
-        "mass": 1,
-        "launched": false,
-        "maxTrailLength": 20,
-        "currentAnimationType": "xc",
-        "isSpinning": false,
-        "initialized": true,
-        "aniFrame": 0,
-        "aniDir": 1,
-        "aniMax": 11,
-        "aniMin": 0,
-        "aniSwap": 1,
-        "crashedTimer": 0,
-        "crashedDuration": 2,
-        "crashedFrameCount": 0,
-        "realSpritesLoaded": true
-      }
-    },
-    {
-      "type": "slingshot",
-      "className": "Slingshot",
-      "position": {
-        "x": 123.51714429479414,
-        "y": 142.54627978612783
-      },
-      "properties": {
         "name": "Slingshot 1",
-        "rotation": 269.97718047442487,
+        "rotation": 0,
         "alpha": 1,
         "visible": true,
         "width": 100,
         "height": 100,
         "renderOrder": 3,
-        "velocityMultiplier": 10,
+        "velocityMultiplier": 8,
         "maxPullback": 100,
         "minPullback": 10,
         "isPulling": false,
@@ -112,8 +79,10 @@
         "gravitationalReach": 5000,
         "color": "#C8C8C8",
         "planetType": "planet_pink",
+        "id": "planet_1",
         "orbit": {
           "orbitCenter": null,
+          "orbitTargetId": null,
           "orbitRadius": 0,
           "orbitSpeed": 0,
           "orbitAngle": 0,
@@ -126,13 +95,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 516.2056270497693,
-        "y": 423.2703055569001
+        "x": 362.02274032220447,
+        "y": 428.61441292032566
       },
       "properties": {
         "name": "Big Chungo1",
-        "rotation": 124.73034377999933,
-        "alpha": 0.6872871550406695,
+        "rotation": 134.01680799999838,
+        "alpha": 0.605980398660385,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -141,19 +110,20 @@
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,
+        "id": "bonus_2",
         "collected": false,
-        "pulseTimer": 37.40286800000068,
+        "pulseTimer": 44.67226933333437,
         "pulseSpeed": 0.1,
         "orbit": {
-          "orbitCenter": {
-            "x": 384,
-            "y": 359
-          },
-          "orbitRadius": 147,
+          "orbitCenter": null,
+          "orbitTargetId": "planet_1",
+          "orbitRadius": 76,
           "orbitSpeed": 3,
-          "orbitAngle": 339.7445039999796,
+          "orbitAngle": 278.36467466666113,
           "orbitType": "circular",
-          "orbitParams": {}
+          "orbitParams": {
+            "size": 76
+          }
         }
       }
     },
@@ -161,13 +131,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 258.5040433174732,
-        "y": 282.450899049451
+        "x": 347.4437915118765,
+        "y": 282.6601773843035
       },
       "properties": {
         "name": "Big Chungo2",
-        "rotation": 112.20860399999924,
-        "alpha": 0.6872871550406695,
+        "rotation": 134.01680799999838,
+        "alpha": 0.605980398660385,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -176,17 +146,16 @@
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,
+        "id": "bonus_3",
         "collected": false,
-        "pulseTimer": 37.40286800000068,
+        "pulseTimer": 44.67226933333437,
         "pulseSpeed": 0.1,
         "orbit": {
-          "orbitCenter": {
-            "x": 384,
-            "y": 359
-          },
-          "orbitRadius": 147,
-          "orbitSpeed": 1,
-          "orbitAngle": 179.6185013333339,
+          "orbitCenter": null,
+          "orbitTargetId": "planet_1",
+          "orbitRadius": 84,
+          "orbitSpeed": 3,
+          "orbitAngle": 249.26740799999578,
           "orbitType": "circular",
           "orbitParams": {}
         }
@@ -196,13 +165,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 237.7413439385265,
-        "y": 369.3212745470163
+        "x": 258.27206250634856,
+        "y": 304.164167987246
       },
       "properties": {
         "name": "Big Chungo3",
-        "rotation": 112.20860399999924,
-        "alpha": 0.6872871550406695,
+        "rotation": 134.01680799999838,
+        "alpha": 0.605980398660385,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -211,23 +180,18 @@
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,
+        "id": "bonus_4",
         "collected": false,
-        "pulseTimer": 37.40286800000068,
+        "pulseTimer": 44.67226933333437,
         "pulseSpeed": 0.1,
         "orbit": {
-          "orbitCenter": {
-            "x": 384,
-            "y": 359
-          },
-          "orbitRadius": 147,
-          "orbitSpeed": 2,
-          "orbitAngle": 266.9349026666687,
-          "orbitType": "elliptical",
-          "orbitParams": {
-            "semiMajorAxis": 147,
-            "semiMinorAxis": 102.89999999999999,
-            "rotation": 0
-          }
+          "orbitCenter": null,
+          "orbitTargetId": "planet_1",
+          "orbitRadius": 139,
+          "orbitSpeed": 1,
+          "orbitAngle": 9.81319999999997,
+          "orbitType": "circular",
+          "orbitParams": {}
         }
       }
     },
@@ -235,13 +199,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 412.33182885620033,
-        "y": 496.17376083673895
+        "x": 215.72475375589394,
+        "y": 463.34290345531633
       },
       "properties": {
         "name": "Big Chungo4",
-        "rotation": 115.05896195999932,
-        "alpha": 0.6872871550406695,
+        "rotation": 134.01680799999838,
+        "alpha": 0.605980398660385,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -250,23 +214,21 @@
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,
+        "id": "bonus_5",
         "collected": false,
-        "pulseTimer": 37.40286800000068,
+        "pulseTimer": 44.67226933333437,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": {
             "x": 384,
             "y": 359
           },
+          "orbitTargetId": null,
           "orbitRadius": 198,
-          "orbitSpeed": 4,
-          "orbitAngle": 347.00240533334176,
-          "orbitType": "elliptical",
-          "orbitParams": {
-            "semiMajorAxis": 198,
-            "semiMinorAxis": 138.6,
-            "rotation": 0
-          }
+          "orbitSpeed": 1,
+          "orbitAngle": 404.71040400001607,
+          "orbitType": "circular",
+          "orbitParams": {}
         }
       }
     },
@@ -274,13 +236,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 581.9825481283501,
-        "y": 361.6288089709093
+        "x": null,
+        "y": null
       },
       "properties": {
         "name": "Big Chungo5",
-        "rotation": 126.99102041999923,
-        "alpha": 0.6872871550406695,
+        "rotation": 134.01680799999838,
+        "alpha": 0.605980398660385,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -289,18 +251,17 @@
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,
+        "id": "bonus_6",
         "collected": false,
-        "pulseTimer": 37.40286800000068,
+        "pulseTimer": 44.67226933333437,
         "pulseSpeed": 0.1,
         "orbit": {
-          "orbitCenter": {
-            "x": 384,
-            "y": 359
-          },
-          "orbitRadius": 198,
+          "orbitCenter": null,
+          "orbitTargetId": "planet_1",
+          "orbitRadius": 98,
           "orbitSpeed": 1,
-          "orbitAngle": 289.0398013333353,
-          "orbitType": "circular",
+          "orbitAngle": 25.852700000000095,
+          "orbitType": "elliptical",
           "orbitParams": {}
         }
       }
