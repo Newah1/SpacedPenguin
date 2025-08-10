@@ -1662,7 +1662,7 @@ class Game {
     }
     
     exportOrbitSystem(orbitSystem) {
-        return {
+        const exportData = {
             orbitCenter: orbitSystem.orbitCenter ? { 
                 x: orbitSystem.orbitCenter.x, 
                 y: orbitSystem.orbitCenter.y 
@@ -1674,6 +1674,20 @@ class Game {
             orbitType: orbitSystem.orbitType,
             orbitParams: orbitSystem.orbitParams || {}
         };
+        
+        // Add gravity-specific properties if it's a gravity orbit
+        if (orbitSystem.orbitType === 'gravity') {
+            exportData.orbitParams = {
+                ...exportData.orbitParams,
+                gravityStrength: orbitSystem.gravityStrength || 1000,
+                initialVelocity: orbitSystem.velocity ? { 
+                    x: orbitSystem.velocity.x, 
+                    y: orbitSystem.velocity.y 
+                } : { x: 0, y: 50 }
+            };
+        }
+        
+        return exportData;
     }
     
     exportLevelRules() {

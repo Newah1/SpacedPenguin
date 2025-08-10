@@ -350,6 +350,14 @@ class GameObjectFactory {
                 object.orbitSystem.setFigure8Orbit(orbitCenter, size, speed);
                     break;
                     
+                case 'gravity':
+                    const initialVelocity = params.initialVelocity || { x: 0, y: 50 };
+                    const gravityStrength = params.gravityStrength || 1000;
+                    // Pass object position to store as initial position
+                    const objectPosition = object.position || { x: object.x, y: object.y };
+                    object.orbitSystem.setGravityOrbit(orbitCenter, initialVelocity, gravityStrength, objectPosition);
+                    break;
+                    
                 case 'custom':
                     if (params.xFunction && params.yFunction) {
                         // For custom orbits, we'd need to pass functions

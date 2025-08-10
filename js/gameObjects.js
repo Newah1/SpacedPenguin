@@ -12,9 +12,13 @@ class OrbitSystem {
         this.orbitRadius = 0;
         this.orbitSpeed = 0;
         this.orbitAngle = 0;
-        this.orbitType = 'circular'; // 'circular', 'elliptical', 'figure8', 'custom'
+        this.orbitType = 'circular'; // 'circular', 'elliptical', 'figure8', 'gravity', 'custom'
         this.orbitParams = {}; // Additional parameters for complex orbits
         this.gameObjectLookup = gameObjectLookup; // Function to resolve object IDs
+        
+        // Physics-based orbit properties
+        this.velocity = { x: 0, y: 0 }; // Current velocity for gravity orbits
+        this.gravityStrength = 1000; // Gravitational parameter (GM) for physics orbits
     }
     
     // Set up circular orbit (original behavior)
@@ -68,6 +72,64 @@ class OrbitSystem {
         };
     }
     
+    // Set up physics-based gravity orbit
+    setGravityOrbit(center, initialVelocity, gravityStrength = 1000, currentPosition = null) {
+        if (typeof center === 'string') {
+            this.orbitTargetId = center;
+            this.orbitCenter = null;
+        } else {
+            this.orbitCenter = center;
+            this.orbitTargetId = null;
+        }
+        this.orbitType = 'gravity';
+        this.velocity = { x: initialVelocity.x, y: initialVelocity.y };
+        this.gravityStrength = gravityStrength;
+        
+        // Store initial parameters for reset functionality
+        this.orbitParams = {
+            gravityStrength: gravityStrength,
+            initialVelocity: { ...initialVelocity }
+        };
+        
+        // If current position is provided, store it as initial position for resets
+        if (currentPosition) {
+            this.orbitParams.initialPosition = { 
+                x: currentPosition.x, 
+                y: currentPosition.y 
+            };
+        }
+    }
+    
+    // Helper method to calculate stable circular orbital velocity
+    static calculateOrbitalVelocity(distance, gravityStrength) {
+        // For circular orbit: v = sqrt(GM/r)
+        return Math.sqrt(gravityStrength / distance);
+    }
+    
+    // Helper method to set up a stable circular orbit given distance
+    setStableCircularOrbit(center, distance, gravityStrength = 1000, currentPosition = null) {
+        const orbitalSpeed = OrbitSystem.calculateOrbitalVelocity(distance, gravityStrength);
+        
+        // Calculate velocity vector perpendicular to position vector for circular orbit
+        let velocityX = 0;
+        let velocityY = orbitalSpeed;
+        
+        // If we have current position, calculate proper velocity direction
+        if (currentPosition && (typeof center === 'object')) {
+            const dx = currentPosition.x - center.x;
+            const dy = currentPosition.y - center.y;
+            const currentDistance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (currentDistance > 0) {
+                // Velocity perpendicular to radius vector (90 degrees rotated)
+                velocityX = -dy / currentDistance * orbitalSpeed;
+                velocityY = dx / currentDistance * orbitalSpeed;
+            }
+        }
+        
+        this.setGravityOrbit(center, { x: velocityX, y: velocityY }, gravityStrength);
+    }
+    
     // Set up custom parametric orbit
     setCustomOrbit(center, speed, xFunction, yFunction) {
         if (typeof center === 'string') {
@@ -86,9 +148,14 @@ class OrbitSystem {
     }
     
     // Update orbit position
-    update(deltaTime) {
+    update(deltaTime, currentPosition = null) {
         const center = this.getResolvedCenter();
-        if (!center || this.orbitSpeed === 0) {
+        if (!center) {
+            return { x: 0, y: 0 };
+        }
+        
+        // For non-gravity orbits, check if we need movement
+        if (this.orbitType !== 'gravity' && this.orbitSpeed === 0) {
             return { x: 0, y: 0 };
         }
         
@@ -101,6 +168,8 @@ class OrbitSystem {
                 return this.calculateEllipticalPosition(center);
             case 'figure8':
                 return this.calculateFigure8Position(center);
+            case 'gravity':
+                return this.calculateGravityPosition(center, deltaTime, currentPosition);
             case 'custom':
                 return this.calculateCustomPosition(center);
             default:
@@ -156,6 +225,91 @@ class OrbitSystem {
         return {
             x: center.x + x,
             y: center.y + y
+        };
+    }
+    
+    calculateGravityPosition(center, deltaTime, currentPosition) {
+        // Physics-based orbital mechanics using gravity
+        if (!currentPosition) {
+            return this.calculateCircularPosition(center);
+        }
+        
+        // Calculate distance from center
+        const dx = currentPosition.x - center.x;
+        const dy = currentPosition.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 1) return currentPosition;
+        
+        // Calculate gravitational acceleration: a = GM/r² (scaled for reasonable orbital mechanics)
+        // Use much gentler scaling to allow proper orbital motion
+        const gravityAccel = this.gravityStrength / (distance * distance + 1000);
+        
+        // Direction towards center (normalized)
+        const accelX = -(dx / distance) * gravityAccel;
+        const accelY = -(dy / distance) * gravityAccel;
+        
+        // Debug output every few frames - moved before velocity updates for accurate "before" state
+        if (this._debugCounter === undefined) this._debugCounter = 0;
+        if (++this._debugCounter % 10 === 0) {
+            const velocityChange = { x: accelX * deltaTime, y: accelY * deltaTime };
+            const beforeVel = { x: this.velocity.x, y: this.velocity.y };
+            plog.debug('🔍 GRAVITY DEBUG:', {
+                step: 'BEFORE_UPDATE',
+                currentPos: { x: currentPosition.x.toFixed(1), y: currentPosition.y.toFixed(1) },
+                center: { x: center.x.toFixed(1), y: center.y.toFixed(1) },
+                distance: distance.toFixed(1),
+                gravityAccel: gravityAccel.toFixed(2),
+                accel: { x: accelX.toFixed(3), y: accelY.toFixed(3) },
+                velocityBefore: { x: beforeVel.x.toFixed(3), y: beforeVel.y.toFixed(3) },
+                velocityChange: { x: velocityChange.x.toFixed(3), y: velocityChange.y.toFixed(3) },
+                deltaTime: deltaTime.toFixed(4)
+            });
+        }
+        
+        // Store acceleration for debugging
+        this._lastAccel = { x: accelX, y: accelY };
+        
+        // Apply gravitational acceleration
+        this.velocity.x += accelX * deltaTime;
+        this.velocity.y += accelY * deltaTime;
+        
+        // Apply minimal velocity damping to preserve orbital motion
+        const dampingFactor = distance < 50 ? 0.99 : 0.999;
+        this.velocity.x *= dampingFactor;
+        this.velocity.y *= dampingFactor;
+        
+        // Limit maximum velocity to prevent extreme slingshot escape
+        const maxVelocity = 50;
+        const velocityMagnitude = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
+        if (velocityMagnitude > maxVelocity) {
+            this.velocity.x = (this.velocity.x / velocityMagnitude) * maxVelocity;
+            this.velocity.y = (this.velocity.y / velocityMagnitude) * maxVelocity;
+        }
+        
+        // Update position based on velocity
+        const newX = currentPosition.x + this.velocity.x * deltaTime;
+        const newY = currentPosition.y + this.velocity.y * deltaTime;
+        
+        // Debug the final result
+        if (this._debugCounter % 10 === 0) {
+            const positionChange = { x: newX - currentPosition.x, y: newY - currentPosition.y };
+            const velocityAfter = { x: this.velocity.x, y: this.velocity.y };
+            plog.debug('🎯 GRAVITY RESULT:', {
+                step: 'AFTER_UPDATE',
+                velocityAfter: { x: velocityAfter.x.toFixed(3), y: velocityAfter.y.toFixed(3) },
+                positionChange: { x: positionChange.x.toFixed(3), y: positionChange.y.toFixed(3) },
+                newPosition: { x: newX.toFixed(1), y: newY.toFixed(1) },
+                velocityContribution: { 
+                    x: (this.velocity.x * deltaTime).toFixed(3), 
+                    y: (this.velocity.y * deltaTime).toFixed(3) 
+                }
+            });
+        }
+        
+        return {
+            x: newX,
+            y: newY
         };
     }
     
@@ -381,10 +535,35 @@ class Planet extends GameObject {
     
     update(deltaTime) {
         // Update orbiting using consolidated system
-        const newPosition = this.orbitSystem.update(deltaTime);
-        if (newPosition.x !== 0 || newPosition.y !== 0) {
+        if (this.orbitSystem.orbitType === 'gravity') {
+            // For gravity orbits, the orbit system modifies position based on physics
+            // Don't override position - let gravity system update it naturally
+            const newPosition = this.orbitSystem.update(deltaTime, this.position);
             this.position = newPosition;
+        } else {
+            // For other orbit types, use traditional position override
+            const newPosition = this.orbitSystem.update(deltaTime, this.position);
+            if (newPosition.x !== 0 || newPosition.y !== 0) {
+                this.position = newPosition;
+            }
         }
+        
+        // For gravity orbits, ensure we set up proper initial velocity if needed
+        // DISABLED FOR DEBUGGING - using manual setup
+        /*
+        if (this.orbitSystem.orbitType === 'gravity' && !this.orbitSystem._gravityInitialized) {
+            const center = this.orbitSystem.getResolvedCenter();
+            if (center) {
+                this.orbitSystem.setStableCircularOrbit(
+                    this.orbitSystem.orbitTargetId || center, 
+                    Math.sqrt((this.position.x - center.x)**2 + (this.position.y - center.y)**2),
+                    this.orbitSystem.gravityStrength,
+                    this.position
+                );
+                this.orbitSystem._gravityInitialized = true;
+            }
+        }
+        */
     }
     
     drawSprite(ctx) {
@@ -551,10 +730,35 @@ class Bonus extends GameObject {
         this.rotation += this.rotationSpeed * deltaTime;
         
         // Update orbiting using consolidated system
-        const newPosition = this.orbitSystem.update(deltaTime);
-        if (newPosition.x !== 0 || newPosition.y !== 0) {
+        if (this.orbitSystem.orbitType === 'gravity') {
+            // For gravity orbits, the orbit system modifies position based on physics
+            // Don't override position - let gravity system update it naturally
+            const newPosition = this.orbitSystem.update(deltaTime, this.position);
             this.position = newPosition;
+        } else {
+            // For other orbit types, use traditional position override
+            const newPosition = this.orbitSystem.update(deltaTime, this.position);
+            if (newPosition.x !== 0 || newPosition.y !== 0) {
+                this.position = newPosition;
+            }
         }
+        
+        // For gravity orbits, ensure we set up proper initial velocity if needed
+        // DISABLED FOR DEBUGGING - using manual setup
+        /*
+        if (this.orbitSystem.orbitType === 'gravity' && !this.orbitSystem._gravityInitialized) {
+            const center = this.orbitSystem.getResolvedCenter();
+            if (center) {
+                this.orbitSystem.setStableCircularOrbit(
+                    this.orbitSystem.orbitTargetId || center, 
+                    Math.sqrt((this.position.x - center.x)**2 + (this.position.y - center.y)**2),
+                    this.orbitSystem.gravityStrength,
+                    this.position
+                );
+                this.orbitSystem._gravityInitialized = true;
+            }
+        }
+        */
         
         // Pulse effect
         this.pulseTimer += deltaTime;
@@ -989,7 +1193,7 @@ class Arrow extends GameObject {
             return;
         }
         
-        // console.log('Penguin position:', penguin.position, 'flightRect:', this.flightRect);
+
         
         // Check if penguin is outside game bounds but inside flight bounds
         const isInsideStage = this.isInside(penguin.position, this.stageRect);

@@ -19,7 +19,7 @@
       },
       "properties": {
         "name": "Slingshot 1",
-        "rotation": 94.89909245378776,
+        "rotation": -17.098158834299912,
         "alpha": 1,
         "visible": true,
         "width": 100,
@@ -52,7 +52,7 @@
         "height": 60,
         "renderOrder": 4,
         "spriteType": "ship_open",
-        "shipState": "closed",
+        "shipState": "open",
         "hitFrameCount": 0,
         "hitDuration": 30,
         "isHit": false
@@ -95,20 +95,20 @@
       "type": "planet",
       "className": "Planet",
       "position": {
-        "x": 410.26746827797217,
-        "y": 180.94669447360383
+        "x": 427.98647519666247,
+        "y": 183.32624214603962
       },
       "properties": {
         "name": "Planet 2",
         "rotation": 0,
         "alpha": 1,
         "visible": true,
-        "width": 56.07936621976015,
-        "height": 56.07936621976015,
+        "width": 30,
+        "height": 30,
         "renderOrder": 2,
         "radius": 15,
         "mass": 138.70298143347972,
-        "collisionRadius": 15,
+        "collisionRadius": 23,
         "gravitationalReach": 5000,
         "color": "#FF00FF",
         "planetType": "planet_pink",
@@ -118,7 +118,7 @@
           "orbitTargetId": "planet_3",
           "orbitRadius": 38,
           "orbitSpeed": 2,
-          "orbitAngle": 430.6883333333324,
+          "orbitAngle": 575.7647333333157,
           "orbitType": "figure8",
           "orbitParams": {
             "size": 38
@@ -234,8 +234,8 @@
       },
       "properties": {
         "name": "Bonus 1",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -246,7 +246,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_6",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -268,8 +268,8 @@
       },
       "properties": {
         "name": "Bonus 2",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -280,7 +280,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_7",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -302,8 +302,8 @@
       },
       "properties": {
         "name": "Bonus 3",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -314,7 +314,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_8",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -331,13 +331,13 @@
       "type": "bonus",
       "className": "Bonus",
       "position": {
-        "x": 442.3330192900609,
-        "y": 220.60524258483872
+        "x": 1015.1930868035444,
+        "y": -661.3243002897511
       },
       "properties": {
         "name": "Bonus 4",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -348,16 +348,22 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_9",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
           "orbitTargetId": "planet_2",
-          "orbitRadius": 51,
-          "orbitSpeed": 6,
-          "orbitAngle": 629.2093999999757,
-          "orbitType": "circular",
-          "orbitParams": {}
+          "orbitRadius": 38,
+          "orbitSpeed": 22,
+          "orbitAngle": 1702.488333333347,
+          "orbitType": "gravity",
+          "orbitParams": {
+            "gravityStrength": 1000,
+            "initialVelocity": {
+              "x": 22.76638170142469,
+              "y": -32.86069971014011
+            }
+          }
         }
       }
     },
@@ -370,8 +376,8 @@
       },
       "properties": {
         "name": "Bonus 5",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -382,7 +388,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_10",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -404,8 +410,8 @@
       },
       "properties": {
         "name": "Bonus 6",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -416,7 +422,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_11",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -438,8 +444,8 @@
       },
       "properties": {
         "name": "Bonus 7",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -450,7 +456,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_12",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -472,8 +478,8 @@
       },
       "properties": {
         "name": "Bonus 8",
-        "rotation": 368.69069999998186,
-        "alpha": 0.7453671963371155,
+        "rotation": 217.61459999999585,
+        "alpha": 0.9650488677443672,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -484,7 +490,7 @@
         "collectedRotationSpeed": 30,
         "id": "bonus_13",
         "collected": false,
-        "pulseTimer": 122.89689999999763,
+        "pulseTimer": 72.53820000000118,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,

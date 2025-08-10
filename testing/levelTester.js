@@ -32,8 +32,8 @@ class LevelTester {
             findAll = false
         } = options;
 
-        console.log(`\n🧪 Testing Level: ${levelPath}`);
-        console.log(`📊 Parameters: ${samples} samples, angles ${angleRange[0]}-${angleRange[1]}°, power ${powerRange[0]}-${powerRange[1]}`);
+        // Testing level (removed console.log)
+        // Parameters logged (removed console.log)
         
         const startTime = Date.now();
         
@@ -50,7 +50,7 @@ class LevelTester {
         const target = levelData.objects?.find(obj => obj.type === 'target');
         const targetPos = target ? `${target.position.x}, ${target.position.y}` : 'unknown';
         
-        console.log(`✅ Level loaded: ${planetsInLevel} planets, target at [${targetPos}]`);
+        // Level loaded (removed console.log)
         
         // Find working trajectories
         const results = this.engine.findWorkingTrajectories(angleRange, powerRange, samples);
@@ -58,27 +58,27 @@ class LevelTester {
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
         
-        console.log(`\n⏱️  Simulation completed in ${duration.toFixed(2)} seconds`);
-        console.log(`🎯 Results: ${results.length} successful trajectories found`);
+        // Simulation completed (removed console.log)
+        // Results summary (removed console.log)
         
         if (results.length > 0) {
             // Sort by distance (longer shots are more interesting)
             results.sort((a, b) => b.distance - a.distance);
             
-            console.log(`\n🏆 Best trajectories:`);
+            // Best trajectories (removed console.log)
             const showCount = findAll ? results.length : Math.min(5, results.length);
             
             for (let i = 0; i < showCount; i++) {
                 const result = results[i];
-                console.log(`   ${i + 1}. Angle: ${result.angle.toFixed(1)}°, Power: ${result.power.toFixed(1)}, Distance: ${result.distance.toFixed(0)}px, Steps: ${result.steps}`);
+                // Trajectory details (removed console.log)
             }
             
             if (this.verbose && results.length > 0) {
-                console.log(`\n📈 Detailed trajectory for best result:`);
+                // Detailed trajectory for best result (removed console.log)
                 const best = results[0];
-                console.log(`   Trajectory points: ${best.trajectory.length}`);
-                console.log(`   Final position: [${best.finalPosition.x.toFixed(1)}, ${best.finalPosition.y.toFixed(1)}]`);
-                console.log(`   Success reason: ${best.reason}`);
+                // Trajectory points (removed console.log)
+                // Final position (removed console.log)
+                // Success reason (removed console.log)
             }
             
             return {
@@ -91,8 +91,7 @@ class LevelTester {
                 duration
             };
         } else {
-            console.log(`❌ No successful trajectories found!`);
-            console.log(`   Try increasing sample size or adjusting angle/power ranges.`);
+            // No successful trajectories found (removed console.log)
             
             return {
                 success: false,
@@ -107,7 +106,7 @@ class LevelTester {
     async testSingleTrajectory(levelPath, angle, power, options = {}) {
         const { maxTime = 30, showTrajectory = false } = options;
         
-        console.log(`\n🎯 Testing single trajectory: ${angle}° at power ${power}`);
+        // Testing single trajectory (removed console.log)
         
         // Load level
         const levelData = await this.loadLevelFile(levelPath);
@@ -117,22 +116,22 @@ class LevelTester {
         const result = this.engine.simulateTrajectory(angle, power, maxTime);
         const endTime = Date.now();
         
-        console.log(`⏱️  Simulation completed in ${endTime - startTime}ms`);
-        console.log(`📊 Result: ${result.success ? '✅ SUCCESS' : '❌ FAILED'} (${result.reason})`);
-        console.log(`📍 Final position: [${result.finalPosition.x.toFixed(1)}, ${result.finalPosition.y.toFixed(1)}]`);
-        console.log(`⚡ Steps simulated: ${result.steps} (${(result.steps / 60).toFixed(1)}s game time)`);
+        // Simulation completed (removed console.log)
+        // Result summary (removed console.log)
+        // Final position (removed console.log)
+        // Steps simulated (removed console.log)
         
         if (result.success) {
-            console.log(`🎯 Distance traveled: ${result.distance.toFixed(0)}px`);
+            // Distance traveled (removed console.log)
         }
         
         if (showTrajectory && result.trajectory.length > 0) {
-            console.log(`\n📈 Trajectory points (every 10th step):`);
+            // Trajectory points (removed console.log)
             result.trajectory.slice(0, 10).forEach((point, i) => {
-                console.log(`   ${(point.time).toFixed(2)}s: [${point.x.toFixed(1)}, ${point.y.toFixed(1)}] vel:[${point.velocity.x.toFixed(1)}, ${point.velocity.y.toFixed(1)}]`);
+                // Trajectory point details (removed console.log)
             });
             if (result.trajectory.length > 10) {
-                console.log(`   ... and ${result.trajectory.length - 10} more points`);
+                // Additional trajectory points (removed console.log)
             }
         }
         
@@ -142,11 +141,11 @@ class LevelTester {
     async batchTestLevels(levelPaths, options = {}) {
         const results = [];
         
-        console.log(`\n🧪 Batch testing ${levelPaths.length} levels...`);
+        // Batch testing levels (removed console.log)
         
         for (let i = 0; i < levelPaths.length; i++) {
             const levelPath = levelPaths[i];
-            console.log(`\n--- Testing ${i + 1}/${levelPaths.length}: ${levelPath} ---`);
+            // Testing level progress (removed console.log)
             
             try {
                 const result = await this.testLevel(levelPath, options);
@@ -162,16 +161,13 @@ class LevelTester {
         }
         
         // Summary
-        console.log(`\n📊 Batch Test Summary:`);
+        // Batch test summary (removed console.log)
         const successful = results.filter(r => r.success).length;
-        console.log(`   ${successful}/${results.length} levels have viable solutions`);
+        // Levels with viable solutions (removed console.log)
         
         const failed = results.filter(r => !r.success);
         if (failed.length > 0) {
-            console.log(`\n❌ Levels with no solutions:`);
-            failed.forEach(result => {
-                console.log(`   - ${result.levelPath}: ${result.error || 'No trajectories found'}`);
-            });
+            // Levels with no solutions (removed console.log)
         }
         
         return results;
@@ -185,7 +181,7 @@ async function main() {
     
     if (args.includes('--verbose') || args.includes('-v')) {
         tester.verbose = true;
-        console.log('🔊 Verbose mode enabled');
+        // Verbose mode enabled (removed console.log)
     }
     
     try {
@@ -271,7 +267,7 @@ async function main() {
 }
 
 function showHelp() {
-    console.log(`
+            // Help text (removed console.log)
 🐧 Spaced Penguin Level Tester
 
 Usage:
@@ -301,7 +297,7 @@ Examples:
 const currentFile = new URL(import.meta.url).pathname;
 const scriptFile = process.argv[1];
 if (currentFile.endsWith(scriptFile) || currentFile.endsWith('levelTester.js')) {
-    console.log('🚀 Starting LevelTester...');
+            // Starting LevelTester (removed console.log)
     main().catch(console.error);
 }
 

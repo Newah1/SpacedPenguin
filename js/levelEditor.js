@@ -1021,6 +1021,11 @@ class LevelEditor {
     }
     
     selectObject(obj) {
+        // Validate and fix the object before selection
+        if (obj) {
+            this.validateAndFixObjectValues(obj);
+        }
+        
         this.selectedObject = obj;
         plog.debug('Selected object:', obj ? obj.constructor.name : 'null');
         
@@ -1050,15 +1055,30 @@ class LevelEditor {
         });
 
         // Quick actions
-        html += `
+        let quickActionsHtml = `
             <div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
                 <div style="font-weight: bold; margin-bottom: 6px;">Quick Actions</div>
                 <button id="center-object-btn" 
-                        style="width: 100%; padding: 10px; background: #4a90e2; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation;">
+                        style="width: 100%; padding: 10px; background: #4a90e2; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation; margin-bottom: 8px;">
                     Center on Canvas
+                </button>`;
+        
+        // Add reset button for gravity orbits
+        if (obj.orbitSystem && obj.orbitSystem.orbitType === 'gravity') {
+            plog.debug('Adding reset button to quick actions');
+            quickActionsHtml += `
+                <button id="reset-gravity-orbit-btn" 
+                        style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation; margin-bottom: 8px;">
+                    Reset Position (Keep Current Velocity)
                 </button>
-            </div>
-        `;
+                <button id="test-velocity-btn" 
+                        style="width: 100%; padding: 10px; background: #f39c12; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; touch-action: manipulation;">
+                    TEST: Set Velocity (5, 0)
+                </button>`;
+        }
+        
+        quickActionsHtml += `</div>`;
+        html += quickActionsHtml;
         
         this.propertiesPanel.innerHTML = html;
         
@@ -1069,6 +1089,49 @@ class LevelEditor {
         const centerBtn = this.propertiesPanel.querySelector('#center-object-btn');
         if (centerBtn) {
             centerBtn.addEventListener('click', () => this.centerSelectedObjectOnCanvas());
+        }
+        
+        const resetBtn = this.propertiesPanel.querySelector('#reset-gravity-orbit-btn');
+        if (resetBtn) {
+            plog.debug('Found reset button, adding event listener');
+            resetBtn.addEventListener('click', () => {
+                plog.info('Reset button clicked in quick actions!');
+                this.resetGravityOrbit(obj);
+            });
+        } else {
+            plog.warn('No reset button found in DOM');
+        }
+        
+        const testBtn = this.propertiesPanel.querySelector('#test-velocity-btn');
+        if (testBtn) {
+            plog.debug('Found test velocity button, adding event listener');
+            testBtn.addEventListener('click', () => {
+                plog.info('🚀 TEST: Setting velocity to (5, 0)');
+                plog.debug('Before set - velocity:', obj.orbitSystem.velocity);
+                
+                obj.orbitSystem.velocity = { x: 5, y: 0 };
+                
+                plog.debug('After set - velocity:', obj.orbitSystem.velocity);
+                plog.debug('Object position:', obj.position || {x: obj.x, y: obj.y});
+                plog.debug('Orbit center:', obj.orbitSystem.getResolvedCenter());
+                plog.info('TEST: Velocity set to (5,0) - object should move RIGHT while being pulled by gravity');
+                
+                // Clear any accumulated state
+                if (obj.orbitSystem._lastAccel) {
+                    obj.orbitSystem._lastAccel = { x: 0, y: 0 };
+                }
+                if (obj.orbitSystem._debugCounter) {
+                    obj.orbitSystem._debugCounter = 0; // Reset to see immediate debug output
+                }
+                
+                // Update UI to show new velocity
+                const velocityXInput = this.propertiesPanel.querySelector('input[data-property="velocityX"]');
+                const velocityYInput = this.propertiesPanel.querySelector('input[data-property="velocityY"]');
+                if (velocityXInput) velocityXInput.value = '5';
+                if (velocityYInput) velocityYInput.value = '0';
+                
+                plog.success('✓ Test setup complete - watch for gravity debug output');
+            });
         }
     }
     
@@ -1311,7 +1374,41 @@ class LevelEditor {
                 key: 'orbitType', 
                 value: orbitSystem.orbitType || 'circular', 
                 type: 'select', 
-                options: ['circular', 'elliptical', 'figure8', 'custom'] 
+                options: ['circular', 'elliptical', 'figure8', 'gravity', 'custom'] 
+            });
+            
+            // Add gravity-specific properties
+            if (orbitSystem.orbitType === 'gravity') {
+                properties.push({ 
+                    label: 'Gravity Strength', 
+                    key: 'gravityStrength', 
+                    value: orbitSystem.gravityStrength || 1000, 
+                    type: 'number',
+                    min: 100,
+                    max: 10000,
+                    step: 100
+                });
+                properties.push({ 
+                    label: 'Initial Velocity X', 
+                    key: 'velocityX', 
+                    value: orbitSystem.velocity?.x || 0, 
+                    type: 'number'
+                });
+                properties.push({ 
+                    label: 'Initial Velocity Y', 
+                    key: 'velocityY', 
+                    value: orbitSystem.velocity?.y || 0, 
+                    type: 'number'
+                });
+                // Reset button added as quick action instead
+            }
+            
+            // Add validation button for all orbit types
+            properties.push({
+                label: 'Validate & Fix Values',
+                key: 'validateObject',
+                type: 'button',
+                buttonText: 'Fix Invalid Values'
             });
         }
         
@@ -1348,6 +1445,14 @@ class LevelEditor {
                                    style="${baseStyle}">`;
                 break;
                 
+            case 'button':
+                const buttonText = options.buttonText || 'Click';
+                inputHtml = `<button data-property="${property}" 
+                                   style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation;">
+                               ${buttonText}
+                             </button>`;
+                break;
+                
             case 'text':
                 inputHtml = `<input type="text" 
                                    data-property="${property}" 
@@ -1359,12 +1464,14 @@ class LevelEditor {
             default:
                 const min = options.min !== undefined ? `min="${options.min}"` : '';
                 const max = options.max !== undefined ? `max="${options.max}"` : '';
-                const step = options.step !== undefined ? `step="${options.step}"` : '';
+                const step = options.step !== undefined ? `step="${options.step}"` : 'step="any"';
                 
                 inputHtml = `<input type="number" 
                                    data-property="${property}" 
                                    value="${value}" 
                                    ${min} ${max} ${step}
+                                   oninput="this.setCustomValidity('')" 
+                                   oninvalid="this.setCustomValidity('Please enter a valid number')"
                                    style="${baseStyle}">`;
                 break;
         }
@@ -1378,17 +1485,30 @@ class LevelEditor {
     }
     
     setupPropertyInputs() {
-        const inputs = this.propertiesPanel.querySelectorAll('input[data-property], select[data-property]');
+        const inputs = this.propertiesPanel.querySelectorAll('input[data-property], select[data-property], button[data-property]');
+        plog.debug('Setting up property inputs, found:', inputs.length, 'elements');
+        
         inputs.forEach(input => {
-            input.addEventListener('input', (e) => {
-                this.handlePropertyChange(e);
-            });
-            
-            // Handle checkbox change events
-            if (input.type === 'checkbox') {
-                input.addEventListener('change', (e) => {
+            plog.debug('Setting up input:', input.tagName, input.dataset.property);
+            if (input.tagName === 'BUTTON') {
+                plog.debug('Setting up button click handler for:', input.dataset.property);
+                // Handle button clicks
+                input.addEventListener('click', (e) => {
+                    plog.debug('Button clicked:', input.dataset.property);
                     this.handlePropertyChange(e);
                 });
+            } else {
+                // Handle input/select changes
+                input.addEventListener('input', (e) => {
+                    this.handlePropertyChange(e);
+                });
+                
+                // Handle checkbox change events
+                if (input.type === 'checkbox') {
+                    input.addEventListener('change', (e) => {
+                        this.handlePropertyChange(e);
+                    });
+                }
             }
         });
     }
@@ -1421,6 +1541,12 @@ class LevelEditor {
                 break;
             case 'number':
                 value = parseFloat(e.target.value);
+                // Validate numeric values
+                if (isNaN(value) || !isFinite(value)) {
+                    plog.warn(`Invalid numeric value for ${property}: ${e.target.value}, using default`);
+                    value = this.getDefaultValue(property);
+                    e.target.value = value; // Update the input field
+                }
                 break;
             case 'text':
             case 'color':
@@ -1546,7 +1672,81 @@ class LevelEditor {
                 
             case 'orbitType':
                 obj.orbitSystem.orbitType = value;
+                
+                // If switching to gravity orbit and no initial state is stored, save current state
+                if (value === 'gravity' && (!obj.orbitSystem.orbitParams || !obj.orbitSystem.orbitParams.initialPosition)) {
+                    let objX, objY;
+                    if (typeof obj.x === 'number') {
+                        objX = obj.x;
+                        objY = obj.y;
+                    } else if (obj.position) {
+                        objX = obj.position.x;
+                        objY = obj.position.y;
+                    }
+                    
+                    if (objX !== undefined && objY !== undefined) {
+                        if (!obj.orbitSystem.orbitParams) {
+                            obj.orbitSystem.orbitParams = {};
+                        }
+                        
+                        obj.orbitSystem.orbitParams.initialPosition = { x: objX, y: objY };
+                        
+                        // Also set initial velocity if not already set
+                        if (!obj.orbitSystem.orbitParams.initialVelocity) {
+                            const defaultVelocity = obj.orbitSystem.velocity || { x: 0, y: 3 };
+                            obj.orbitSystem.orbitParams.initialVelocity = { ...defaultVelocity };
+                        }
+                        
+                        plog.info('Saved current state as initial state for new gravity orbit');
+                    }
+                }
+                
                 this.updateOrbitSystem(obj);
+                this.updatePropertiesPanel(); // Refresh UI to show/hide gravity properties
+                break;
+                
+            case 'gravityStrength':
+                obj.orbitSystem.gravityStrength = value;
+                if (obj.orbitSystem.orbitParams) {
+                    obj.orbitSystem.orbitParams.gravityStrength = value;
+                }
+                break;
+                
+            case 'velocityX':
+                if (!obj.orbitSystem.velocity) obj.orbitSystem.velocity = { x: 0, y: 0 };
+                obj.orbitSystem.velocity.x = value;
+                if (obj.orbitSystem.orbitParams) {
+                    if (!obj.orbitSystem.orbitParams.initialVelocity) {
+                        obj.orbitSystem.orbitParams.initialVelocity = { x: 0, y: 0 };
+                    }
+                    obj.orbitSystem.orbitParams.initialVelocity.x = value;
+                }
+                break;
+                
+            case 'velocityY':
+                if (!obj.orbitSystem.velocity) obj.orbitSystem.velocity = { x: 0, y: 0 };
+                obj.orbitSystem.velocity.y = value;
+                if (obj.orbitSystem.orbitParams) {
+                    if (!obj.orbitSystem.orbitParams.initialVelocity) {
+                        obj.orbitSystem.orbitParams.initialVelocity = { x: 0, y: 0 };
+                    }
+                    obj.orbitSystem.orbitParams.initialVelocity.y = value;
+                }
+                break;
+                
+            // Reset button is now handled as quick action, not property
+                
+            case 'validateObject':
+                // Validate and fix all object values
+                this.validateAndFixObjectValues(obj);
+                this.updatePropertiesPanel(); // Refresh to show fixed values
+                plog.success('Object values validated and fixed');
+                
+                // TEMPORARY: Also test reset if this is a gravity orbit
+                if (obj.orbitSystem && obj.orbitSystem.orbitType === 'gravity') {
+                    plog.debug('TEMP: Also testing reset since this is a gravity orbit');
+                    this.resetGravityOrbit(obj);
+                }
                 break;
         }
         
@@ -1571,8 +1771,269 @@ class LevelEditor {
                 case 'figure8':
                     obj.orbitSystem.setFigure8Orbit(center, radius, speed);
                     break;
+                case 'gravity':
+                    // For gravity orbits, set up initial conditions
+                    const initialVelocity = obj.orbitSystem.velocity || { x: 0, y: 50 }; // Default orbital velocity
+                    const gravityStrength = obj.orbitSystem.gravityStrength || 1000;
+                    obj.orbitSystem.setGravityOrbit(center, initialVelocity, gravityStrength);
+                    break;
             }
         }
+    }
+    
+    resetGravityOrbit(obj) {
+        plog.debug('resetGravityOrbit called with object:', obj);
+        plog.debug('Object orbit system:', obj.orbitSystem);
+        plog.debug('Orbit type:', obj.orbitSystem?.orbitType);
+        
+        if (!obj.orbitSystem || obj.orbitSystem.orbitType !== 'gravity') {
+            plog.warn('Cannot reset gravity orbit: object does not have a gravity orbit system');
+            plog.warn('Reset failed: no orbit system or not gravity type');
+            return;
+        }
+        
+        plog.info('Starting gravity orbit reset...');
+        
+        // First, fix any invalid values in the object
+        this.validateAndFixObjectValues(obj);
+        
+        // Set up default orbit center if none exists
+        let center = obj.orbitSystem.getResolvedCenter();
+        if (!center) {
+            // Default to canvas center if no center is defined
+            const canvasCenter = {
+                x: this.game.canvas ? this.game.canvas.width / 2 : 400,
+                y: this.game.canvas ? this.game.canvas.height / 2 : 300
+            };
+            obj.orbitSystem.orbitCenter = canvasCenter;
+            obj.orbitSystem.orbitTargetId = null;
+            center = canvasCenter;
+            plog.info('Set default orbit center to canvas center');
+        }
+        
+        // Try to get initial position from orbit parameters first
+        let initialX, initialY;
+        let hasInitialPosition = false;
+        
+        if (obj.orbitSystem.orbitParams && obj.orbitSystem.orbitParams.initialPosition) {
+            initialX = obj.orbitSystem.orbitParams.initialPosition.x;
+            initialY = obj.orbitSystem.orbitParams.initialPosition.y;
+            hasInitialPosition = !isNaN(initialX) && !isNaN(initialY);
+            if (hasInitialPosition) {
+                plog.info('Using stored initial position for reset');
+            }
+        }
+        
+        // If no initial position stored, save current position as initial (if valid)
+        if (!hasInitialPosition) {
+            let currentX, currentY;
+            if (typeof obj.x === 'number' && !isNaN(obj.x)) {
+                currentX = obj.x;
+                currentY = obj.y;
+            } else if (obj.position && typeof obj.position.x === 'number' && !isNaN(obj.position.x)) {
+                currentX = obj.position.x;
+                currentY = obj.position.y;
+            }
+            
+            if (currentX !== undefined && currentY !== undefined) {
+                const dx = currentX - center.x;
+                const dy = currentY - center.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Only use current position if it's at a reasonable distance from center
+                if (distance >= 50 && distance <= 400) {
+                    initialX = currentX;
+                    initialY = currentY;
+                    hasInitialPosition = true;
+                    plog.info('Using current valid position as initial position');
+                }
+            }
+        }
+        
+        // If still no valid initial position, create a default one
+        if (!hasInitialPosition) {
+            initialX = center.x + 150; // 150 pixels to the right of center
+            initialY = center.y;
+            plog.warn('Created default initial position at distance 150 from center');
+        }
+        
+        // Move object back to initial position
+        if (typeof obj.x === 'number') {
+            obj.x = initialX;
+            obj.y = initialY;
+        } else if (obj.position) {
+            obj.position.x = initialX;
+            obj.position.y = initialY;
+        }
+        
+        // Calculate distance from initial position to center
+        const dx = initialX - center.x;
+        const dy = initialY - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Set reasonable defaults for gravity system
+        const gravityStrength = obj.orbitSystem.gravityStrength && !isNaN(obj.orbitSystem.gravityStrength) ? 
+            obj.orbitSystem.gravityStrength : 5000;
+        
+        // Use current velocity from UI inputs instead of stored initial velocity
+        let resetVelocityX, resetVelocityY;
+        
+        // Get current velocity values from the UI inputs
+        const velocityXInput = this.propertiesPanel.querySelector('input[data-property="velocityX"]');
+        const velocityYInput = this.propertiesPanel.querySelector('input[data-property="velocityY"]');
+        
+        if (velocityXInput && velocityYInput) {
+            resetVelocityX = parseFloat(velocityXInput.value) || 0;
+            resetVelocityY = parseFloat(velocityYInput.value) || 0;
+            plog.info(`Using current UI velocity values: x=${resetVelocityX}, y=${resetVelocityY}`);
+        } else {
+            // Fallback to current orbit system velocity if inputs not found
+            resetVelocityX = obj.orbitSystem.velocity?.x || 0;
+            resetVelocityY = obj.orbitSystem.velocity?.y || 3;
+            plog.info('Using current orbit system velocity as fallback');
+        }
+        
+        // Reset the orbit system completely with initial values
+        obj.orbitSystem.orbitType = 'gravity';
+        obj.orbitSystem.gravityStrength = gravityStrength;
+        obj.orbitSystem.orbitRadius = distance;
+        obj.orbitSystem.orbitSpeed = 3; // Fixed orbital speed for consistency
+        obj.orbitSystem.orbitAngle = 0;
+        
+        // Set velocity from current UI inputs - create new object to avoid reference issues
+        obj.orbitSystem.velocity = { 
+            x: parseFloat(resetVelocityX), 
+            y: parseFloat(resetVelocityY) 
+        };
+        
+        // Clear any accumulated internal state that might interfere
+        if (obj.orbitSystem._lastAccel) {
+            obj.orbitSystem._lastAccel = { x: 0, y: 0 };
+        }
+        if (obj.orbitSystem._debugCounter) {
+            obj.orbitSystem._debugCounter = 0;
+        }
+        
+        // Store/update orbit parameters (keep initial values for reference, but don't use for reset)
+        obj.orbitSystem.orbitParams = {
+            gravityStrength: gravityStrength,
+            initialVelocity: obj.orbitSystem.orbitParams?.initialVelocity || { x: resetVelocityX, y: resetVelocityY },
+            initialPosition: { x: initialX, y: initialY } // Save for future resets
+        };
+        
+        // Validate the velocity was set correctly
+        const setVelocity = obj.orbitSystem.velocity;
+        if (!setVelocity || isNaN(setVelocity.x) || isNaN(setVelocity.y)) {
+            plog.error('Failed to set velocity correctly!', setVelocity);
+        } else {
+            plog.success('Velocity successfully set:', setVelocity);
+            
+            // Double-check after a brief moment to ensure it's not being overridden
+            setTimeout(() => {
+                const checkVelocity = obj.orbitSystem.velocity;
+                plog.debug('Velocity check after 100ms:', checkVelocity);
+                if (checkVelocity.x !== setVelocity.x || checkVelocity.y !== setVelocity.y) {
+                    console.error('ERROR: Velocity was changed after reset!', 
+                        'Expected:', setVelocity, 'Actual:', checkVelocity);
+                } else {
+                    plog.success('✓ Velocity remained stable');
+                }
+            }, 100);
+        }
+        
+        plog.success(`Reset position with current velocity: position=(${initialX.toFixed(1)}, ${initialY.toFixed(1)}), distance=${distance.toFixed(1)}, velocity=(${resetVelocityX.toFixed(2)}, ${resetVelocityY.toFixed(2)}), gravity=${gravityStrength}`);
+        
+        // Refresh the properties panel to show new values
+        this.updatePropertiesPanel();
+    }
+    
+    validateAndFixObjectValues(obj) {
+        // Fix position values
+        if (typeof obj.x === 'number') {
+            if (isNaN(obj.x) || !isFinite(obj.x)) {
+                obj.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                plog.warn('Fixed invalid x position');
+            }
+            if (isNaN(obj.y) || !isFinite(obj.y)) {
+                obj.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                plog.warn('Fixed invalid y position');
+            }
+        } else if (obj.position) {
+            if (isNaN(obj.position.x) || !isFinite(obj.position.x)) {
+                obj.position.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                plog.warn('Fixed invalid position.x');
+            }
+            if (isNaN(obj.position.y) || !isFinite(obj.position.y)) {
+                obj.position.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                plog.warn('Fixed invalid position.y');
+            }
+        }
+        
+        // Fix orbit system values if they exist
+        if (obj.orbitSystem) {
+            if (obj.orbitSystem.gravityStrength && (isNaN(obj.orbitSystem.gravityStrength) || !isFinite(obj.orbitSystem.gravityStrength))) {
+                obj.orbitSystem.gravityStrength = 5000;
+                plog.warn('Fixed invalid gravity strength');
+            }
+            
+            if (obj.orbitSystem.velocity) {
+                if (isNaN(obj.orbitSystem.velocity.x) || !isFinite(obj.orbitSystem.velocity.x)) {
+                    obj.orbitSystem.velocity.x = 0;
+                    plog.warn('Fixed invalid velocity.x');
+                }
+                if (isNaN(obj.orbitSystem.velocity.y) || !isFinite(obj.orbitSystem.velocity.y)) {
+                    obj.orbitSystem.velocity.y = 3;
+                    plog.warn('Fixed invalid velocity.y');
+                }
+            }
+            
+            if (obj.orbitSystem.orbitCenter) {
+                if (isNaN(obj.orbitSystem.orbitCenter.x) || !isFinite(obj.orbitSystem.orbitCenter.x)) {
+                    obj.orbitSystem.orbitCenter.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                    plog.warn('Fixed invalid orbit center x');
+                }
+                if (isNaN(obj.orbitSystem.orbitCenter.y) || !isFinite(obj.orbitSystem.orbitCenter.y)) {
+                    obj.orbitSystem.orbitCenter.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                    plog.warn('Fixed invalid orbit center y');
+                }
+            }
+        }
+    }
+    
+    getDefaultValue(property) {
+        const defaults = {
+            // Position properties
+            'x': this.game.canvas ? this.game.canvas.width / 2 : 400,
+            'y': this.game.canvas ? this.game.canvas.height / 2 : 300,
+            'position.x': this.game.canvas ? this.game.canvas.width / 2 : 400,
+            'position.y': this.game.canvas ? this.game.canvas.height / 2 : 300,
+            
+            // Size properties
+            'radius': 30,
+            'mass': 100,
+            'gravitationalReach': 5000,
+            'width': 60,
+            'height': 60,
+            'value': 100,
+            
+            // Orbit properties
+            'orbitRadius': 100,
+            'orbitSpeed': 1,
+            'orbitAngle': 0,
+            'orbitCenterX': this.game.canvas ? this.game.canvas.width / 2 : 400,
+            'orbitCenterY': this.game.canvas ? this.game.canvas.height / 2 : 300,
+            'gravityStrength': 5000,
+            'velocityX': 0,
+            'velocityY': 3,
+            
+            // Physics properties
+            'stretchLimit': 100,
+            'velocityMultiplier': 15,
+            'fontSize': 16,
+            'padding': 10
+        };
+        
+        return defaults[property] !== undefined ? defaults[property] : 0;
     }
     
     updateSpriteProperty(property, value) {
@@ -2595,6 +3056,36 @@ class LevelEditor {
                         const y = center.y + size * Math.sin(t) * Math.cos(t) / denominator;
                         if (t === 0) ctx.moveTo(x, y);
                         else ctx.lineTo(x, y);
+                    }
+                    break;
+                case 'gravity':
+                    // Draw dashed circle to indicate gravitational influence zone
+                    ctx.setLineDash([10, 10]);
+                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius || 100, 0, Math.PI * 2);
+                    ctx.setLineDash([]);
+                    // Draw velocity vector
+                    const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
+                    const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
+                    if (obj.orbitSystem.velocity) {
+                        const velScale = 2; // Scale velocity for visibility
+                        ctx.strokeStyle = '#FF6600'; // Orange for velocity vector
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(objX, objY);
+                        ctx.lineTo(objX + obj.orbitSystem.velocity.x * velScale, objY + obj.orbitSystem.velocity.y * velScale);
+                        ctx.stroke();
+                        // Draw arrowhead
+                        const endX = objX + obj.orbitSystem.velocity.x * velScale;
+                        const endY = objY + obj.orbitSystem.velocity.y * velScale;
+                        const angle = Math.atan2(obj.orbitSystem.velocity.y, obj.orbitSystem.velocity.x);
+                        ctx.beginPath();
+                        ctx.moveTo(endX, endY);
+                        ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6));
+                        ctx.moveTo(endX, endY);
+                        ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6));
+                        ctx.stroke();
+                        ctx.strokeStyle = baseColor; // Reset color
+                        ctx.lineWidth = 2; // Reset line width
                     }
                     break;
                 default:
