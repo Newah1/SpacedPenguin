@@ -610,7 +610,7 @@ class Game {
     }
     
     recordPathPoint(x, y) {
-        if (this.isRecordingPath) {
+        if (this.isRecordingPath && this.penguin.state != "crashed") {
             this.currentShotPath.push({ x: x, y: y });
         }
     }
@@ -1056,6 +1056,10 @@ class Game {
         this.clearAllShotPaths();
         this.clearAlphaMasks();
         
+        // IMPORTANT: Invalidate render cache when clearing gameObjects
+        this._cachedSortedObjects = null;
+        this._gameObjectsChanged = true;
+        
         // Load level through level loader first
         const result = this.levelLoader.loadLevel(level, this);
         
@@ -1068,6 +1072,9 @@ class Game {
         // Re-add bonus popup system
         this.bonusPopup = new BonusPopup(0, 0, 0);
         this.gameObjects.push(this.bonusPopup);
+        
+        // Force render cache update since we added objects
+        this._gameObjectsChanged = true;
         
         return result;
     }
@@ -1218,25 +1225,6 @@ class Game {
         if (this.audioManager) {
             this.audioManager.playSound(soundName);
         }
-    }
-    
-    nextLevel() {
-        this.level++;
-        this.tries = 0;
-        this.distance = 0;
-        this.planetCollisions = 0;
-        
-        // Close any UI screens
-        this.uiManager.closeAllScreens();
-        
-        // Load next level
-        this.loadLevel(this.level);
-        
-        // Update URL parameter to reflect current level
-        Utils.setURLParameter('level', this.level.toString());
-        
-        // Return to playing state
-        this.setState(GameState.PLAYING);
     }
     
     showQuitDialog() {

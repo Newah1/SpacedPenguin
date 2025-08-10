@@ -236,7 +236,10 @@ export class Penguin {
         }
         
         // Update trail
-        this.trail.push({ x: this.x, y: this.y });
+        console.log("update trail", this.state);
+        if(this.state != "crashed" && this.state != "hitTarget") {
+            this.trail.push({ x: this.x, y: this.y });
+        }
         if (this.trail.length > this.maxTrailLength) {
             this.trail.shift();
         }
@@ -287,7 +290,10 @@ export class Penguin {
         this.position = { x: this.x, y: this.y };
         
         // Update trail
-        this.trail.push({ x: this.x, y: this.y });
+        console.log("update trail", this.state);
+        if(this.state != "crashed" && this.state != "hitTarget") {
+            this.trail.push({ x: this.x, y: this.y });
+        }
         if (this.trail.length > this.maxTrailLength) {
             this.trail.shift();
         }

@@ -484,6 +484,10 @@ export class LevelLoader {
         game.physics.clear();
         game.planetCollisions = 0; // Reset collision counter
         
+        // IMPORTANT: Invalidate render cache when clearing gameObjects
+        game._cachedSortedObjects = null;
+        game._gameObjectsChanged = true;
+        
         // Clear text objects and arrows
         game.textObjects.length = 0;
         game.pointingArrows.length = 0;
@@ -492,7 +496,7 @@ export class LevelLoader {
         const startPos = levelDefinition.startPosition || { x: 100, y: 300 };
         game.penguin = new Penguin(this.assetLoader);
         game.penguin.setPosition(startPos.x, startPos.y);
-        game.gameObjects.push(game.penguin);
+        game.addGameObject(game.penguin);
         
         // Create slingshot - look for slingshot object or use default
         const slingshotDef = levelDefinition.objects?.find(obj => obj.type === Slingshot.constructor.name.toLowerCase());
@@ -502,7 +506,7 @@ export class LevelLoader {
             game.slingshot = new Slingshot(startPos.x, startPos.y, startPos.x, startPos.y, 100);
         }
         game.slingshot.setPenguin(game.penguin);
-        game.gameObjects.push(game.slingshot);
+        game.addGameObject(game.slingshot);
         
         // Create target - look for target object or use default
         const targetDef = levelDefinition.objects?.find(obj => obj.type === Target.constructor.name.toLowerCase());
@@ -512,7 +516,7 @@ export class LevelLoader {
             const targetPos = levelDefinition.targetPosition || { x: 700, y: 300 };
             game.target = new Target(targetPos.x, targetPos.y, 60, 60, 'ship_open', this.assetLoader);
         }
-        game.gameObjects.push(game.target);
+        game.addGameObject(game.target);
         
         // Create object lookup map for hierarchical orbits
         const gameObjectMap = new Map();
@@ -544,7 +548,7 @@ export class LevelLoader {
                     
                     // Add to lookup map
                     gameObjectMap.set(gameObject.id, gameObject);
-                    game.gameObjects.push(gameObject);
+                    game.addGameObject(gameObject);
                     
                     // Add to appropriate collections
                     if (gameObject instanceof Planet) {
