@@ -439,7 +439,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 16;
+        const totalLevels = 17;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }

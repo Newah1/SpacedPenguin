@@ -19,6 +19,7 @@ class OrbitSystem {
         // Physics-based orbit properties
         this.velocity = { x: 0, y: 0 }; // Current velocity for gravity orbits
         this.gravityStrength = 1000; // Gravitational parameter (GM) for physics orbits
+        this.maxGravityAccel = 10; // Cap on per-update acceleration magnitude to avoid extreme slingshot near center
     }
     
     // Set up circular orbit (original behavior)
@@ -258,7 +259,7 @@ class OrbitSystem {
         const distanceSquared = (changeLocX * changeLocX) + (changeLocY * changeLocY);
         const distance = Math.sqrt(distanceSquared);
         
-        if (distance < 1) return currentPosition;
+        //if (distance < 1) return currentPosition;
         
         // Optional gravitational reach check if target provides it
         if (target && typeof target.gravitationalReach === 'number' && target.gravitationalReach > 0) {
@@ -275,9 +276,21 @@ class OrbitSystem {
             gravitationalForce = (mass * this.gravityStrength) / distanceSquared;
         }
         
-        // Apply acceleration directly along non-normalized displacement
-        this.velocity.x += gravitationalForce * changeLocX;
-        this.velocity.y += gravitationalForce * changeLocY;
+        // Compute acceleration along non-normalized displacement
+        let accelX = gravitationalForce * changeLocX;
+        let accelY = gravitationalForce * changeLocY;
+        
+        // Clamp acceleration magnitude to avoid extreme slingshot near center
+        const accelMag = Math.sqrt(accelX * accelX + accelY * accelY);
+        if (accelMag > this.maxGravityAccel) {
+            const scale = this.maxGravityAccel / accelMag;
+            accelX *= scale;
+            accelY *= scale;
+        }
+        
+        // Apply acceleration
+        this.velocity.x += accelX;
+        this.velocity.y += accelY;
         
         // Integrate position
         const newX = currentPosition.x + this.velocity.x * deltaTime;
