@@ -435,12 +435,11 @@ export class LevelLoader {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
         this.levels = new Map();
-        // this.loadDefaultLevels();
     }
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 11;
+        const totalLevels = 12;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
