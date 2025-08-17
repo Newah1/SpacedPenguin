@@ -136,7 +136,7 @@ class GameObjectFactory {
         }
         
         const { name = null, width = 60, height = 60, spriteType = 'ship_open', id = null } = properties;
-        const target = new Target(position.x, position.y, width, height, spriteType, assetLoader);
+        const target = new Target(position.x, position.y, width, height, spriteType, assetLoader, gameObjectLookup);
         
         // Set name and ID if provided
         if (name) {
@@ -439,7 +439,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 17;
+        const totalLevels = 18;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
@@ -501,7 +501,7 @@ export class LevelLoader {
         game.addGameObject(game.penguin);
         
         // Create slingshot - look for slingshot object or use default
-        const slingshotDef = levelDefinition.objects?.find(obj => obj.type === Slingshot.constructor.name.toLowerCase());
+        const slingshotDef = levelDefinition.objects?.find(obj => obj.type && obj.type.toLowerCase() === 'slingshot');
         if (slingshotDef) {
             game.slingshot = GameObjectFactory.create(slingshotDef, this.assetLoader, game);
         } else {
@@ -511,7 +511,7 @@ export class LevelLoader {
         game.addGameObject(game.slingshot);
         
         // Create target - look for target object or use default
-        const targetDef = levelDefinition.objects?.find(obj => obj.type === Target.constructor.name.toLowerCase());
+        const targetDef = levelDefinition.objects?.find(obj => obj.type && obj.type.toLowerCase() === 'target');
         if (targetDef) {
             game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         } else {
@@ -576,6 +576,11 @@ export class LevelLoader {
             }
         }
         
+        // Include target's orbit in second pass if defined (so object-id references resolve)
+        if (targetDef && targetDef.properties?.orbit) {
+            objectsToOrbit.push({ gameObject: game.target, orbit: targetDef.properties.orbit });
+        }
+
         // Second pass: Apply orbit configurations now that all objects exist
         for (const { gameObject, orbit } of objectsToOrbit) {
             if (gameObject) {

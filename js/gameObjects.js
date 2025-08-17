@@ -967,7 +967,7 @@ class BonusPopup extends GameObject {
 }
 
 class Target extends GameObject {
-    constructor(x, y, width = 60, height = 60, spriteType = 'ship_open', assetLoader = null) {
+    constructor(x, y, width = 60, height = 60, spriteType = 'ship_open', assetLoader = null, gameObjectLookup = null) {
         super(x, y, width, height);
         this.renderOrder = 4; // Render target after planets but before penguin
         this.assetLoader = assetLoader;
@@ -978,6 +978,9 @@ class Target extends GameObject {
         this.hitFrameCount = 0;
         this.hitDuration = 30; // frames to show closed ship (like original)
         this.isHit = false;
+        
+        // Use consolidated orbit system (matches Planet/Bonus behavior)
+        this.orbitSystem = new OrbitSystem(gameObjectLookup);
         
         // Initialize ship sprite if asset loader is available
         if (this.assetLoader) {
@@ -1057,6 +1060,19 @@ class Target extends GameObject {
                 }
                 this.isHit = false;
                 this.hitFrameCount = 0;
+            }
+        }
+        
+        // Update orbiting using consolidated system (same pattern as Bonus/Planet)
+        if (this.orbitSystem && this.orbitSystem.orbitType) {
+            if (this.orbitSystem.orbitType === 'gravity') {
+                const newPosition = this.orbitSystem.update(deltaTime, this.position);
+                this.position = newPosition;
+            } else {
+                const newPosition = this.orbitSystem.update(deltaTime, this.position);
+                if (newPosition.x !== 0 || newPosition.y !== 0) {
+                    this.position = newPosition;
+                }
             }
         }
     }
