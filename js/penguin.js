@@ -236,7 +236,6 @@ export class Penguin {
         }
         
         // Update trail
-        console.log("update trail", this.state);
         if(this.state != "crashed" && this.state != "hitTarget") {
             this.trail.push({ x: this.x, y: this.y });
         }
@@ -290,7 +289,6 @@ export class Penguin {
         this.position = { x: this.x, y: this.y };
         
         // Update trail
-        console.log("update trail", this.state);
         if(this.state != "crashed" && this.state != "hitTarget") {
             this.trail.push({ x: this.x, y: this.y });
         }
