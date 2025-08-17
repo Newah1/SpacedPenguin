@@ -1595,7 +1595,7 @@ class Game {
         };
         
         // Common GameObject properties
-        const commonProps = ['name', 'rotation', 'alpha', 'visible', 'width', 'height', 'renderOrder'];
+        const commonProps = ['id', 'name', 'rotation', 'alpha', 'visible', 'width', 'height', 'renderOrder'];
         
         // Extract class-specific properties
         const classProps = propertyMaps[className] || [];

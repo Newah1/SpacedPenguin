@@ -30,6 +30,9 @@ class GameObjectFactory {
         
         switch (type.toLowerCase()) {
             case 'planet':
+                // Temporary debug: Check mass value being passed
+                console.log('GameObjectFactory.create - Planet properties:', properties);
+                console.log('GameObjectFactory.create - Planet mass:', properties.mass);
                 return this.createPlanet(position, properties, assetLoader, gameObjectLookup);
             
             case 'bonus':
@@ -437,7 +440,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 10;
+        const totalLevels = 11;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
@@ -524,53 +527,62 @@ export class LevelLoader {
         
         // First pass: Create level objects without orbit configuration
         const objectsToOrbit = [];
-        if (levelDefinition.objects) {
-            for (const objectDef of levelDefinition.objects) {
-                // Skip slingshots and targets that were already handled above
-                if (objectDef.type === 'slingshot' || objectDef.type === 'target') {
-                    continue; // Already handled above
+        const typeCounters = {}; // Track count by type for consistent ID generation
+
+        for (const objectDef of (levelDefinition.objects || [])) {
+            // Skip slingshots and targets that were already handled above
+            if (objectDef.type === 'slingshot' || objectDef.type === 'target') {
+                continue; // Already handled above
+            }
+            
+            const gameObject = GameObjectFactory.create(objectDef, this.assetLoader, game, gameObjectLookup);
+            if (gameObject) {
+                // Generate consistent ID if not provided
+                if (!gameObject.id) {
+                    // Use type-specific counters for consistent IDs
+                    const objectType = objectDef.type.toLowerCase();
+                    typeCounters[objectType] = (typeCounters[objectType] || 0) + 1;
+                    gameObject.id = `${objectType}_${typeCounters[objectType]}`;
                 }
                 
-                // Create object without orbit (we'll apply orbits in second pass)
+                // Store both the original properties ID and the generated ID for lookup
+                const lookupId = objectDef.properties?.id || gameObject.id;
+                
+                // Add to lookup map with both possible IDs
+                gameObjectMap.set(gameObject.id, gameObject);
+                if (lookupId !== gameObject.id) {
+                    gameObjectMap.set(lookupId, gameObject);
+                }
+                
+                // Store orbit config for second pass WITH direct object reference
                 const tempOrbit = objectDef.properties?.orbit;
                 if (tempOrbit) {
-                    // Temporarily remove orbit config
-                    delete objectDef.properties.orbit;
-                    objectsToOrbit.push({ objectDef, orbit: tempOrbit });
+                    objectsToOrbit.push({ gameObject: gameObject, orbit: tempOrbit });
                 }
                 
-                const gameObject = GameObjectFactory.create(objectDef, this.assetLoader, game, gameObjectLookup);
-                if (gameObject) {
-                    // Generate ID if not provided
-                    if (!gameObject.id) {
-                        gameObject.id = `${objectDef.type}_${gameObjectMap.size + 1}`;
-                    }
-                    
-                    // Add to lookup map
-                    gameObjectMap.set(gameObject.id, gameObject);
-                    game.addGameObject(gameObject);
-                    
-                    // Add to appropriate collections
-                    if (gameObject instanceof Planet) {
-                        game.planets.push(gameObject);
-                        game.physics.addPlanet(gameObject);
-                    } else if (gameObject instanceof Bonus) {
-                        game.bonuses.push(gameObject);
-                        game.physics.addBonus(gameObject);
-                    } else if (gameObject instanceof TextObject) {
-                        game.textObjects.push(gameObject);
-                    } else if (gameObject instanceof PointingArrow) {
-                        game.pointingArrows.push(gameObject);
-                    }
+                game.addGameObject(gameObject);
+                
+                // Add to appropriate collections
+                if (gameObject instanceof Planet) {
+                    game.planets.push(gameObject);
+                    game.physics.addPlanet(gameObject);
+                } else if (gameObject instanceof Bonus) {
+                    game.bonuses.push(gameObject);
+                    game.physics.addBonus(gameObject);
+                } else if (gameObject instanceof TextObject) {
+                    game.textObjects.push(gameObject);
+                } else if (gameObject instanceof PointingArrow) {
+                    game.pointingArrows.push(gameObject);
                 }
             }
         }
         
         // Second pass: Apply orbit configurations now that all objects exist
-        for (const { objectDef, orbit } of objectsToOrbit) {
-            const gameObject = gameObjectMap.get(objectDef.properties?.id || `${objectDef.type}_${Array.from(gameObjectMap.values()).filter(obj => obj.constructor.name.toLowerCase() === objectDef.type).length}`);
+        for (const { gameObject, orbit } of objectsToOrbit) {
             if (gameObject) {
                 GameObjectFactory.applyOrbitToObject(gameObject, orbit, gameObjectLookup);
+            } else {
+                plog.error(`Invalid gameObject reference for orbit application`);
             }
         }
         
@@ -639,169 +651,5 @@ export class LevelLoader {
         // Store and load the generated level
         this.levels.set(levelNumber, levelDefinition);
         return this.loadLevel(levelNumber, game);
-    }
-    
-    getLevel1Definition() {
-        return {
-            name: "Tutorial: First Flight",
-            description: "Learn to use the slingshot and avoid planets",
-            startPosition: { x: 100, y: 300 },
-            targetPosition: { x: 700, y: 300 },
-            objects: [
-                // Tutorial text objects (based on original game text)
-                {
-                    type: 'text',
-                    position: { x: 200, y: 150 },
-                    properties: {
-                        content: '<font color="#FFFFCC">Click on Kevin and hold your mouse down. Then pull Kevin back to the tip of the arrow and let your mouse go.</font>',
-                        width: 280,
-                        fadeIn: true,
-                        fadeInDuration: 2.0,
-                        textAlign: 'left'
-                    }
-                },
-                {
-                    type: 'text',
-                    position: { x: 700, y: 100 },
-                    properties: {
-                        content: '<font color="#00FF00">Hit the ship to complete the level!</font>',
-                        width: 200,
-                        showAfterDelay: 3.0,
-                        fadeIn: true,
-                        color: '#00FF00'
-                    }
-                },
-                {
-                    type: 'text',
-                    position: { x: 400, y: 350 },
-                    properties: {
-                        content: '<font color="#FF6600"><b>Tips!</b></font><br><font color="#FFFFCC">Collect bonuses for extra points. Avoid hitting planets!</font>',
-                        width: 250,
-                        showAfterDelay: 5.0,
-                        fadeIn: true,
-                        textAlign: 'center'
-                    }
-                },
-                // Pointing arrows for tutorial guidance
-                {
-                    type: 'arrow',
-                    position: { x: 80, y: 250 },
-                    properties: {
-                        pointTo: { x: 100, y: 300 }, // Point to penguin start position
-                        scaleWithDistance: false,
-                        baseWidth: 30
-                    }
-                },
-                {
-                    type: 'arrow',
-                    position: { x: 650, y: 350 },
-                    properties: {
-                        pointTo: { x: 700, y: 300 }, // Point to target ship
-                        pointAfterDelay: 4.0,
-                        color: '#00FF00',
-                        glowColor: '#008800'
-                    }
-                }
-            ],
-            rules: {
-                maxTries: null,
-                timeLimit: null,
-                scoreMultiplier: 1.0,
-                requiredBonuses: null
-            }
-        };
-    }
-    
-    getLevel2Definition() {
-        return {
-            name: "Bonuses",
-            description: "Collect bonuses to increase your score",
-            startPosition: { x: 100, y: 300 },
-            targetPosition: { x: 700, y: 300 },
-            objects: [
-                {
-                    type: 'text',
-                    position: { x: 200, y: 150 },
-                    properties: {
-                        content: '<font color="#FFFFCC">Collect bonuses to increase your score</font>',
-                        width: 280,
-                        fadeIn: true,
-                        fadeInDuration: 2.0,
-                        textAlign: 'left'
-                    }
-                },
-                {
-                    type: 'arrow',
-                    position: { x: 400, y: 240 },
-                    properties: {
-                        pointTo: { x: 450, y: 250 }, // Point to penguin start position
-                        scaleWithDistance: false,
-                        baseWidth: 30
-                    }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 450, y: 300 },
-                    properties: { value: 150 }
-                }
-            ],
-            rules: {
-                scoreMultiplier: 1.2
-            }
-        };
-    }
-    
-    getLevel3Definition() {
-        return {
-            name: "Orbital Challenge",
-            description: "Master gravitational slingshots with orbiting planets",
-            startPosition: { x: 100, y: 300 },
-            targetPosition: { x: 700, y: 300 },
-            objects: [
-                {
-                    type: 'planet',
-                    position: { x: 350, y: 250 },
-                    properties: {
-                        radius: 40,
-                        mass: 200,
-                        planetType: 'planet_red_gumball'
-                    }
-                },
-                {
-                    type: 'planet',
-                    position: { x: 450, y: 250 },
-                    properties: {
-                        radius: 20,
-                        mass: 60,
-                        planetType: 'planet_pink',
-                        orbit: {
-                            center: { x: 350, y: 250 },
-                            radius: 100,
-                            speed: 1.0
-                        }
-                    }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 350, y: 180 },
-                    properties: { value: 200 }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 420, y: 250 },
-                    properties: { value: 300 }
-                },
-                {
-                    type: 'bonus',
-                    position: { x: 350, y: 320 },
-                    properties: { value: 400 }
-                }
-            ],
-            rules: {
-                maxTries: null,
-                scoreMultiplier: 1.5,
-                gravitationalConstant: GRAVITATIONAL_CONSTANT * 1.2
-            }
-        };
     }
 } 

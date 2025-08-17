@@ -2259,6 +2259,11 @@ class LevelEditor {
             obj.name = this.generateObjectName(obj, className);
         }
         
+        // Add ID if it doesn't exist (for consistent export/import)
+        if (!obj.id) {
+            obj.id = this.generateObjectId(obj, className);
+        }
+        
         // Add to gameObjects (all objects go here) - use addGameObject to invalidate render cache
         this.game.addGameObject(obj);
         
@@ -2291,6 +2296,18 @@ class LevelEditor {
         // Generate name with number
         const number = sameTypeObjects.length + 1;
         return `${className} ${number}`;
+    }
+    
+    generateObjectId(obj, className) {
+        // Count existing objects of the same type for consistent ID generation
+        const allObjects = this.getAllGameObjects();
+        const sameTypeObjects = allObjects.filter(existingObj => 
+            existingObj.constructor.name === className
+        );
+        
+        // Generate ID with lowercase type and number (matching levelLoader format)
+        const number = sameTypeObjects.length + 1;
+        return `${className.toLowerCase()}_${number}`;
     }
     
     removeObjectFromGame(obj) {
