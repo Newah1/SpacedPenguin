@@ -188,6 +188,20 @@ class OrbitSystem {
         return this.orbitCenter;
     }
     
+    // Resolve the target object (not just its position) for gravity properties like mass/reach
+    getResolvedTarget() {
+        if (this.orbitTargetId && this.gameObjectLookup) {
+            const targetObject = this.gameObjectLookup(this.orbitTargetId);
+            if (targetObject) {
+                return targetObject;
+            }
+        }
+        if (this.orbitCenter && typeof this.orbitCenter === 'object' && (this.orbitCenter.position || this.orbitCenter.mass !== undefined || this.orbitCenter.gravitationalReach !== undefined)) {
+            return this.orbitCenter;
+        }
+        return null;
+    }
+    
     calculateCircularPosition(center) {
         return {
             x: center.x + Math.cos(this.orbitAngle) * this.orbitRadius,
@@ -229,88 +243,47 @@ class OrbitSystem {
     }
     
     calculateGravityPosition(center, deltaTime, currentPosition) {
-        // Physics-based orbital mechanics using gravity
+        // Penguin-style gravity toward a single selected target object
         if (!currentPosition) {
             return this.calculateCircularPosition(center);
         }
         
-        // Calculate distance from center
-        const dx = currentPosition.x - center.x;
-        const dy = currentPosition.y - center.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        // Resolve the target object to read mass/reach when available
+        const target = this.getResolvedTarget();
+        const targetPos = center;
+        
+        // Displacement vector from object to target (planet - object)
+        const changeLocX = targetPos.x - currentPosition.x;
+        const changeLocY = targetPos.y - currentPosition.y;
+        const distanceSquared = (changeLocX * changeLocX) + (changeLocY * changeLocY);
+        const distance = Math.sqrt(distanceSquared);
         
         if (distance < 1) return currentPosition;
         
-        // Calculate gravitational acceleration: a = GM/r² (scaled for reasonable orbital mechanics)
-        // Use much gentler scaling to allow proper orbital motion
-        const gravityAccel = this.gravityStrength / (distance * distance + 1000);
-        
-        // Direction towards center (normalized)
-        const accelX = -(dx / distance) * gravityAccel;
-        const accelY = -(dy / distance) * gravityAccel;
-        
-        // Debug output every few frames - moved before velocity updates for accurate "before" state
-        if (this._debugCounter === undefined) this._debugCounter = 0;
-        if (++this._debugCounter % 10 === 0) {
-            const velocityChange = { x: accelX * deltaTime, y: accelY * deltaTime };
-            const beforeVel = { x: this.velocity.x, y: this.velocity.y };
-            plog.debug('🔍 GRAVITY DEBUG:', {
-                step: 'BEFORE_UPDATE',
-                currentPos: { x: currentPosition.x.toFixed(1), y: currentPosition.y.toFixed(1) },
-                center: { x: center.x.toFixed(1), y: center.y.toFixed(1) },
-                distance: distance.toFixed(1),
-                gravityAccel: gravityAccel.toFixed(2),
-                accel: { x: accelX.toFixed(3), y: accelY.toFixed(3) },
-                velocityBefore: { x: beforeVel.x.toFixed(3), y: beforeVel.y.toFixed(3) },
-                velocityChange: { x: velocityChange.x.toFixed(3), y: velocityChange.y.toFixed(3) },
-                deltaTime: deltaTime.toFixed(4)
-            });
+        // Optional gravitational reach check if target provides it
+        if (target && typeof target.gravitationalReach === 'number' && target.gravitationalReach > 0) {
+            const effectiveReach = (target.radius || 0) + target.gravitationalReach;
+            if (distance > effectiveReach) {
+                return currentPosition;
+            }
         }
         
-        // Store acceleration for debugging
-        this._lastAccel = { x: accelX, y: accelY };
-        
-        // Apply gravitational acceleration
-        this.velocity.x += accelX * deltaTime;
-        this.velocity.y += accelY * deltaTime;
-        
-        // Apply minimal velocity damping to preserve orbital motion
-        const dampingFactor = distance < 50 ? 0.99 : 0.999;
-        this.velocity.x *= dampingFactor;
-        this.velocity.y *= dampingFactor;
-        
-        // Limit maximum velocity to prevent extreme slingshot escape
-        const maxVelocity = 50;
-        const velocityMagnitude = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
-        if (velocityMagnitude > maxVelocity) {
-            this.velocity.x = (this.velocity.x / velocityMagnitude) * maxVelocity;
-            this.velocity.y = (this.velocity.y / velocityMagnitude) * maxVelocity;
+        // Mass-weighted inverse-square gravity like penguin.js
+        const mass = (target && typeof target.mass === 'number') ? target.mass : 1;
+        let gravitationalForce = 0;
+        if (distanceSquared > 0) {
+            gravitationalForce = (mass * this.gravityStrength) / distanceSquared;
         }
         
-        // Update position based on velocity
+        // Apply acceleration directly along non-normalized displacement
+        this.velocity.x += gravitationalForce * changeLocX;
+        this.velocity.y += gravitationalForce * changeLocY;
+        
+        // Integrate position
         const newX = currentPosition.x + this.velocity.x * deltaTime;
         const newY = currentPosition.y + this.velocity.y * deltaTime;
         
-        // Debug the final result
-        if (this._debugCounter % 10 === 0) {
-            const positionChange = { x: newX - currentPosition.x, y: newY - currentPosition.y };
-            const velocityAfter = { x: this.velocity.x, y: this.velocity.y };
-            plog.debug('🎯 GRAVITY RESULT:', {
-                step: 'AFTER_UPDATE',
-                velocityAfter: { x: velocityAfter.x.toFixed(3), y: velocityAfter.y.toFixed(3) },
-                positionChange: { x: positionChange.x.toFixed(3), y: positionChange.y.toFixed(3) },
-                newPosition: { x: newX.toFixed(1), y: newY.toFixed(1) },
-                velocityContribution: { 
-                    x: (this.velocity.x * deltaTime).toFixed(3), 
-                    y: (this.velocity.y * deltaTime).toFixed(3) 
-                }
-            });
-        }
-        
-        return {
-            x: newX,
-            y: newY
-        };
+        return { x: newX, y: newY };
     }
     
     calculateCustomPosition(center) {
