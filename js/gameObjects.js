@@ -19,7 +19,7 @@ class OrbitSystem {
         // Physics-based orbit properties
         this.velocity = { x: 0, y: 0 }; // Current velocity for gravity orbits
         this.gravityStrength = 1000; // Gravitational parameter (GM) for physics orbits
-        this.maxGravityAccel = 10; // Cap on per-update acceleration magnitude to avoid extreme slingshot near center
+        this.maxGravityAccel = 50; // Cap on per-update acceleration magnitude to avoid extreme slingshot near center
     }
     
     // Set up circular orbit (original behavior)

@@ -3,7 +3,7 @@
 
 import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow } from './gameObjects.js';
 import { Penguin } from './penguin.js';
-import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
+import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import { GameState } from './game.js';
@@ -439,7 +439,7 @@ export class LevelLoader {
     
     async loadDefaultLevels() {
         // Load built-in level definitions
-        const totalLevels = 18;
+        const totalLevels = TOTAL_LEVELS;
         for (let i = 1; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, `levels/level${i}.json`);
         }
