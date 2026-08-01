@@ -7,7 +7,9 @@ import {
     LevelObjectType,
     LevelOrbitType,
     ORBIT_LOOKUP_TARGET_TYPES,
-    normalizeLevelObjectType
+    ORBIT_SOURCE_TYPES,
+    normalizeLevelObjectType,
+    normalizeOrbitDefinition
 } from './levelSchema.js';
 
 class DiagnosticCollector {
@@ -162,18 +164,6 @@ function collectIdentifiers(objects, collector) {
     return identifiers;
 }
 
-function normalizedOrbit(orbit) {
-    return {
-        center: orbit.orbitCenter ?? orbit.center ?? null,
-        targetId: orbit.orbitTargetId ?? orbit.targetId ?? null,
-        radius: orbit.orbitRadius ?? orbit.radius ?? 0,
-        speed: orbit.orbitSpeed ?? orbit.speed ?? 0,
-        angle: orbit.orbitAngle ?? orbit.angle ?? 0,
-        type: orbit.orbitType ?? orbit.type ?? 'circular',
-        params: orbit.orbitParams ?? orbit.params ?? {}
-    };
-}
-
 function validateOrbits(objects, identifiers, collector) {
     const edges = new Map();
     for (const entry of objects) {
@@ -185,7 +175,7 @@ function validateOrbits(objects, identifiers, collector) {
             continue;
         }
 
-        const orbit = normalizedOrbit(orbitValue);
+        const orbit = normalizeOrbitDefinition(orbitValue);
         validateOptionalNumber(orbit.radius, `${path}.orbitRadius`, collector, { min: 0 });
         validateOptionalNumber(orbit.speed, `${path}.orbitSpeed`, collector);
         validateOptionalNumber(orbit.angle, `${path}.orbitAngle`, collector);
@@ -223,6 +213,9 @@ function validateOrbits(objects, identifiers, collector) {
         }
 
         const activeNonGravityOrbit = orbit.type !== LevelOrbitType.GRAVITY && orbit.radius > 0 && orbit.speed !== 0;
+        if ((activeNonGravityOrbit || orbit.type === LevelOrbitType.GRAVITY) && !ORBIT_SOURCE_TYPES.includes(entry.type)) {
+            collector.error('ORBIT_SOURCE_UNAVAILABLE', path, `runtime orbit stepping supports planet, bonus, and target sources, not ${entry.type}`);
+        }
         if ((activeNonGravityOrbit || orbit.type === LevelOrbitType.GRAVITY) && orbit.targetId === null && orbit.center === null) {
             collector.error('ORBIT_CENTER_REQUIRED', path, 'an active orbit requires orbitTargetId or orbitCenter');
         }

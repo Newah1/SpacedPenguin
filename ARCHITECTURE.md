@@ -14,7 +14,7 @@ Spaced Penguin is a client-only, static web game. The browser loads one HTML pag
 
 The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
 
-The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. This keeps deployment and iteration simple, but concentrates responsibilities in `Game`, permits some global access through `window`, and leaves automated tests disconnected from the production engine.
+The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. This keeps deployment and iteration simple, but concentrates responsibilities in `Game` and permits some global access through `window`. Gameplay transitions now live in a pure deterministic simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
 
 ## 2. System context
 
@@ -99,6 +99,9 @@ flowchart TB
     Main --> Game[Game aggregate]
 
     Game --> Loader[LevelLoader and GameObjectFactory]
+    Game --> Adapter[GameSimulationAdapter]
+    Adapter --> Simulation[SimulationEngine and SimulationState]
+    Simulation --> Orbit[OrbitSimulation]
     Game --> Physics[Physics registry and helpers]
     Game --> Entities[Penguin and GameObjects]
     Game --> UI[UIManager and LevelEndScreen]
@@ -121,7 +124,7 @@ flowchart TB
 |---|---|---|---|
 | `index.html` | DOM shell, HUD, canvas, responsive CSS, module entry | `main.js` | Logical canvas size is declared here. |
 | `GameManager` (`main.js`) | Browser bootstrap, frame scheduling, visibility handling, viewport scaling, start screen | `AssetLoader`, `Game`, `InputActionManager` | Owns the outer lifecycle; published as `window.gameManager`. |
-| `Game` (`game.js`) | Runtime aggregate, state, level/attempt lifecycle, scoring, collision orchestration, render pipeline | Nearly all runtime components | Deliberately central, but is the main coupling hotspot. |
+| `Game` (`game.js`) | Runtime aggregate, level/attempt lifecycle, effects, UI coordination, and render pipeline | Nearly all runtime components | Gameplay transition policy is delegated to the simulation core, but `Game` remains the main integration hotspot. |
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
 | `InputActionManager` | Add/remove listeners according to state | `Game`, editor, DOM/window | Always enables keyboard, window, and UI actions; switches menu/gameplay/editor actions. |
@@ -129,10 +132,14 @@ flowchart TB
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
 | `GameObjectFactory` | Validated JSON-to-runtime entity mapping and orbit configuration | Entity constructors, `LevelSchema` | Supports canonical types plus configured text/arrow aliases; exported penguin state is intentionally ignored. |
-| `Physics` | Registry of gravity bodies/bonuses, general force/collision/trace helpers | `Game`, entities | The live penguin path is orchestrated by `Game` and `Penguin`; not every generic helper is on the active path. |
-| `Penguin` | Character state, position/velocity, gravity integration, crash behavior, sprite animation | `Game`, planets, assets | Maintains parallel `x`/`y` and `position` representations that must stay synchronized. |
-| `GameObject` hierarchy | Entity update/draw, orbit behavior, collision/visual state | `Game`, assets, physics | Includes planet, bonus, target, slingshot, tutorial text/arrows, off-screen arrow, and popup. |
-| `OrbitSystem` | Circular, elliptical, figure-8, gravity, or programmatic custom motion | Optional object-ID lookup | Centers may be fixed coordinates or live entity references. |
+| `SimulationEngine` | Immutable fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Authoritative path for browser and headless flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
+| `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
+| `GameSimulationAdapter` | Translate live browser objects to/from simulation state and events | `Game`, simulation engine | Effects such as audio, popups, target animation, and UI remain outside the pure core. |
+| `OrbitSimulation` | Pure parametric/gravity orbit stepping and dependency-ordered graph resolution | Simulation engine, `OrbitSystem` adapter | Resolves parents recursively, independent of JSON declaration order. |
+| `Physics` | Runtime registries and trace/legacy helper compatibility | Loader, renderer | It is no longer the authoritative gameplay integrator. |
+| `Penguin` | Character visual/animation state and live position facade | Game adapter, assets | Simulation owns movement; the adapter keeps parallel `x`/`y` and `position` access synchronized. |
+| `GameObject` hierarchy | Entity visuals and non-simulation animation | `Game`, assets, adapter | Orbit positions are applied by simulation during normal frames, preventing double advancement. |
+| `OrbitSystem` | Runtime/editor orbit configuration facade | Shared `OrbitSimulation` | Direct calls delegate to the same pure orbit step used by browser and headless simulation. |
 | `UIManager` | Stack of Canvas UI screens and input dispatch | `LevelEndScreen`, audio | Rendered above game entities and below the editor overlay. |
 | `LevelEndScreen` | Animated score breakdown and continue/retry actions | `Game`, `UIManager` | Drives transitions out of `SCORING`. |
 | `LevelEditor` | In-browser object creation, selection, property editing, play/edit mode, export | `Game`, entity classes | Mutates the live runtime graph directly; it is not a separate model. |
@@ -175,7 +182,7 @@ Important bootstrap properties:
 - Level files are loaded serially. A missing or invalid level is absent from the cache and is generated procedurally when requested.
 - `AssetLoader` constructs the actual `AudioManager`. Although `main.js` imports `AudioManager`, it obtains the shared instance from the loader.
 - The recurring frame callback is scheduled before the loop checks `isRunning` and page visibility. Hidden pages skip work; the first frame after visibility resumes resets timing to avoid a large delta.
-- Render delta is capped to 1/30 second and sub-1/120-second frames are skipped. Penguin gravity uses shared simulation code with 1/60-second maximum substeps, preserving the legacy 60 Hz calibration while producing the same 30 and 60 FPS result.
+- Render delta is capped to 1/30 second and sub-1/120-second frames are skipped. The entire simulation world uses 1/60-second maximum substeps, including moving/hierarchical orbits, gravity, collision, bonuses, bounds, and rules. Thirty- and sixty-Hz callers therefore produce the same state.
 - `GameManager` owns a single cancellable animation-frame request. Visibility pause/resume is idempotent and does not start parallel frame chains.
 
 ## 6. Runtime update and render flow
@@ -186,8 +193,9 @@ sequenceDiagram
     participant GM as GameManager
     participant IA as InputActionManager
     participant G as Game
-    participant E as Entities
-    participant P as Penguin/Physics
+    participant S as SimulationEngine
+    participant A as GameSimulationAdapter
+    participant E as Visual Entities
     participant UI as UIManager
     participant C as Canvas
 
@@ -196,14 +204,14 @@ sequenceDiagram
     GM->>IA: updateActiveActions()
     GM->>G: update(delta)
     G->>UI: update(delta)
-    G->>E: update each gameObject
-    alt penguin soaring
-        G->>P: collision check and gravity integration
-        G->>G: trace, distance, bonus, target, bounds checks
-    else penguin crashed
-        G->>P: crash/bounce update
-    else scoring
+    alt paused or scoring
         G-->>GM: gameplay update returns early
+    else active world
+        G->>A: stepGameSimulation(delta)
+        A->>S: stepSimulation(snapshot, delta)
+        S-->>A: immutable state + domain events
+        A->>G: apply positions/counters and effects
+        G->>E: update visuals with orbit stepping disabled
     end
     alt menu
         GM->>C: draw throttled start screen
@@ -229,19 +237,23 @@ flowchart LR
 
 `Game` caches the render-order sort and invalidates it through `addGameObject`, `removeGameObject`, or explicit level-load invalidation. Code that mutates `gameObjects` directly must also set `_gameObjectsChanged`, or drawing order can remain stale.
 
-### Live physics path
+### Deterministic simulation path
 
-For a soaring penguin, the active flow is:
+`stepSimulation(state, delta)` is the single authoritative gameplay transition. It clones its input, divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
 
-1. Convert current planets into lightweight position/mass/collision/reach records.
-2. Check planet collision before applying gravity.
-3. Delegate force integration to `Penguin.updateWithPlanetGravity` using the level's gravitational constant and frame delta.
-4. Record shot path and derive traveled distance from trail points.
-5. Query `Physics.checkBonusCollection`, then update attempt score and popup/audio for newly collected bonuses.
-6. Check target collision and level victory requirements.
-7. Check flight bounds and level failure requirements.
+The result is `{ state, events }`. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` consumes the same result directly, so it is a runner rather than a second physics implementation.
 
-This division is historically evolved: `Physics` owns the registries and generic helpers, while `Game` and `Penguin` jointly implement the production flight path. Architects should not assume `Physics.updatePhysics()` is the single authoritative integration entry point.
+```mermaid
+flowchart LR
+    Live[Browser GameObjects] -->|capture| Snapshot[SimulationState]
+    Level[Validated level] -->|normalize| Snapshot
+    Snapshot --> Step[stepSimulation fixed slices]
+    Step --> Next[Next immutable state]
+    Step --> Events[Domain events]
+    Next -->|apply| Live
+    Events --> Effects[Audio, popup, UI, scoring screen]
+    Next --> Headless[Headless result/trajectory]
+```
 
 ## 7. State models
 
@@ -314,7 +326,7 @@ flowchart TB
 
 Validation is a precondition to mutation. `levelValidation.js` is a pure boundary shared by browser and Node loading; it accumulates stable `{ severity, code, path, message }` diagnostics. `levelSchema.js` owns the shared object/orbit vocabulary, aliases, and lookup capabilities. The loader validates fetched JSON before caching and revalidates a selected definition before the current world is cleared.
 
-The two-pass construction design remains an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each orbitable object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. Target and slingshot are constructed outside the orbit lookup map, and lookup wiring for target, slingshot, text, and pointing-arrow orbits is incomplete; validation therefore permits hierarchical targets only for planets and bonuses.
+The two-pass construction design remains an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each referenced object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. The shared simulation advances planet, bonus, and target orbit sources. Only planets and bonuses may act as `orbitTargetId` centers, while active slingshot, text, and pointing-arrow orbits are rejected because those entities are not part of simulation stepping.
 
 ### Canonical top-level contract
 
@@ -335,12 +347,12 @@ The loader accepts object coordinates at `position`, or as fallback `properties.
 
 | JSON type | Runtime type | Core properties | Notes |
 |---|---|---|---|
-| `planet` | `Planet` | `id`, `name`, `radius`, `mass`, `gravitationalReach`, `planetType`, `orbit` | Registered in both `game.planets` and `Physics`. Collision radius is derived from radius. |
+| `planet` | `Planet` | `id`, `name`, `radius`, `mass`, `gravitationalReach`, `planetType`, `orbit` | Registered in both `game.planets` and `Physics`. Reach values omitted or exported as zero normalize to the legacy default `5000`; use zero mass for no gravity. |
 | `bonus` | `Bonus` | `id`, `name`, `value`, `orbit` | Registered in both `game.bonuses` and `Physics`. |
 | `target` | `Target` | `id`, `name`, `width`, `height`, `spriteType`, `orbit` | First target definition becomes the singleton goal; otherwise `targetPosition` creates a default. |
 | `slingshot` | `Slingshot` | `name`, `anchorX`, `anchorY`, `stretchLimit`, `velocityMultiplier` | First definition becomes the singleton launcher; otherwise `startPosition` creates a default. |
 | `text`, `textobject` | `TextObject` | content, sizing, font/color, visibility/fade, render order | Supports a deliberately small HTML-like formatting parser, not arbitrary DOM HTML rendering. |
-| `arrow`, `pointingarrow` | `PointingArrow` | colors, sizing, pulse, render order, `pointingAt` | `pointingAt` is the current immediate-target property. Delayed pointing is currently defective because the factory references an undefined `pointTo` variable. |
+| `arrow`, `pointingarrow` | `PointingArrow` | colors, sizing, pulse, render order, `pointingAt`, `pointAfterDelay` | `pointAfterDelay` hides the arrow until it begins pointing at the configured `pointingAt` target. |
 | `penguin` | none | exported state only | Accepted for compatibility with older editor exports; runtime creates the singleton penguin from `startPosition`. |
 
 ### Orbit contract
@@ -383,16 +395,16 @@ flowchart LR
     Planet -->|live resolved center| Target
 ```
 
-There is no explicit cycle detection. Orbit-reference graphs should be acyclic and IDs should be unique.
+Validation explicitly rejects duplicate IDs, missing or unavailable references, self-references, and reference cycles. The simulation graph also resolves a parent before its children, making results independent of declaration order.
 
 ### Level rules
 
 | Rule | Current behavior | Caveat |
 |---|---|---|
-| `maxTries` | Fails when `tries >= maxTries`. | Zero is treated as unset due to `|| null`. |
-| `requiredBonuses` | Blocks target victory until enough bonuses have state `Hit`. | Zero is treated as unset. |
-| `allowedMisses` | Fails when planet collision count reaches the value. | Zero is treated as unset. |
-| `gravitationalConstant` | Replaces the physics constant for that level. | Default is `3.0`; use a positive finite number. |
+| `maxTries` | Limits launched attempts; a final allowed shot reaches an outcome before failure is emitted. | Must be a positive integer when configured. |
+| `requiredBonuses` | Blocks target victory until enough bonuses have been collected. | Zero is valid and means no bonus requirement. |
+| `allowedMisses` | Fails once planet collisions exceed the tolerated count. | Zero is valid and means the first collision fails. |
+| `gravitationalConstant` | Replaces the physics constant for that level. | Default is `3.0`; zero is valid and disables penguin gravity. |
 | `scoreMultiplier` | Multiplies accumulated score after level completion. | Default `1.0`; applied to total score rather than only the current level. |
 | `timeLimit` | Parsed, retained, and exported. | Not enforced by the current game loop. |
 | `customBehaviors` | Parsed, retained, and exported. | No runtime dispatcher currently consumes it. |
@@ -519,7 +531,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard, does 
 
 **Why:** Constants, state names, scoring, traces, crash timing, and reference assets are intended to preserve the Shockwave feel.
 
-**Trade-off:** Collision orchestration remains split between `Game`, `Penguin`, and `Physics`, although the browser and headless engines now share the pure gravity integrator in `simulation.js`.
+**Trade-off:** Snapshot/adaptation adds small per-frame allocations, but gameplay behavior is deterministic, testable without the DOM, and shared exactly by browser and headless runners.
 
 ### Graceful media degradation
 
@@ -541,6 +553,8 @@ Maintain these constraints when changing the system:
 8. New level fields need coordinated changes in loader defaults, editor property UI, serializer/export, examples, and tests.
 9. Asset keys must match loader normalization and consumer lookup names.
 10. A failed optional asset must not prevent bootstrap; an invalid structural level should fail validation rather than silently create a misleading partial level.
+11. Gameplay movement and outcomes must enter through `stepSimulation`; rendering objects and adapters may apply state/effects but must not independently advance orbit or flight physics.
+12. Simulation functions must remain deterministic, immutable, dependency-free from DOM/audio/timers, and stable across 30/60 Hz callers.
 
 ## 15. Extension playbooks
 
@@ -557,19 +571,19 @@ Maintain these constraints when changing the system:
 
 ### Add a level rule
 
-1. Parse it in `LevelRules` without using truthiness if zero/false is meaningful.
-2. Decide whether it is applied at load, checked per frame, checked on launch, or checked on target hit.
-3. Reset any associated counters at attempt/level boundaries.
-4. Export it from `Game.exportLevelRules` and expose it in the editor if authorable.
-5. Test success, failure, reset, and final-level transitions.
+1. Add it to validated/normalized `SimulationState.rules` without using truthiness when zero/false is meaningful.
+2. Evaluate it in `simulationEngine.js` at the defined transition boundary and emit a domain event when effects are needed.
+3. Handle the effect in `GameSimulationAdapter`; keep DOM/audio out of the core.
+4. Reset associated counters through simulation-state reset operations.
+5. Export it from `Game.exportLevelRules`, expose it in the editor if authorable, and test browser/headless parity.
 
 ### Add an orbit type
 
-1. Add configuration and update math to `OrbitSystem`.
-2. Add factory configuration in `GameObjectFactory.configureOrbitSystem`.
+1. Add the shared type vocabulary in `levelSchema.js` and pure math in `orbitSimulation.js`.
+2. Add factory configuration in `GameObjectFactory.configureOrbitSystem` and state capture/normalization.
 3. Add editor fields, guide rendering, serialization, and clone support.
 4. Define fixed-center and object-target behavior.
-5. Test missing targets, hierarchy, negative speed, resets, and cycles.
+5. Test missing targets, hierarchy, declaration-order independence, 30/60 Hz parity, negative speed, resets, and cycles.
 
 ### Add an asset
 
@@ -583,7 +597,7 @@ Maintain these constraints when changing the system:
 There are two current test surfaces:
 
 1. Root `test_*.html` pages are manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
-2. `testing/` contains dependency-free Node regression suites plus a headless simulator, shared level validation, and trajectory search CLI. The headless engine imports the production gravity integrator, resolves current object-linked circular orbits, mirrors the production nonlinear slingshot curve, and can render successful routes as terminal ASCII maps, but still approximates other runtime behavior.
+2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same immutable simulation step, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. The CLI can render successful routes as terminal ASCII maps.
 
 ```mermaid
 flowchart TB
@@ -600,21 +614,20 @@ flowchart TB
     Headless --> Levels
     Production --> Validator
     Validator --> Schema[Shared levelSchema.js]
-    Production --> Shared[Shared js/simulation.js gravity integrator]
-    Shared --> Headless
-    Production -. remaining behavior is approximate .- Headless
+    Production --> Core[Shared deterministic simulation core]
+    Core --> Headless
 ```
 
 Verified limitations as of 2026-08-01:
 
-- The headless engine shares gravity integration but still approximates object loading, target/collision semantics, rules, bonuses, and advanced orbits, so trajectory success does not prove complete browser-runtime parity.
+- The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
 - There is executable structural/semantic level validation but no JSON Schema artifact, linting, browser end-to-end runner, coverage, or CI pipeline. Node regression tests use the built-in `node:test` runner.
 
 Recommended quality direction, in order:
 
 1. Generate a JSON Schema from the shared contract for editor tooling and IDE completion.
-2. Continue extracting pure production orbit, collision, and scoring functions for both browser and Node tests.
-3. Extend deterministic tests to collision, bonuses, scoring, reset boundaries, and state transitions.
+2. Add recorded golden trajectories for representative shipped levels and protect intentional balance changes with fixture review.
+3. Extend deterministic tests to multi-bounce crash sequences and terminal level transitions.
 4. Add a browser automation smoke test for bootstrap, start, launch, pause, level completion, editor export, audio degradation, and mobile coordinate mapping.
 5. Gate changes in CI with syntax checks, level validation, unit tests, and the browser smoke suite.
 
@@ -625,9 +638,6 @@ Recommended quality direction, in order:
 | Medium | `Game` is a large coordinator and mutable data store. | High change coupling and difficult isolated tests. | Gradually separate session/level state, simulation, rendering, and persistence behind explicit interfaces. |
 | Medium | Globals and circular module relationships (`Game`/loader/end screen/editor). | Initialization sensitivity and limited reuse. | Introduce a composition root/context and dependency inversion for transitions. |
 | Medium | Level rules advertise unimplemented `timeLimit` and `customBehaviors`. | Authoring expectations differ from runtime. | Implement or reject them explicitly during validation. |
-| Medium | Delayed pointing arrow path references an undefined variable. | Certain tutorial data can fail at level construction. | Normalize on `pointingAt` and cover immediate/delayed cases. |
-| Medium | Truthy defaults reject meaningful zeros. | Rule and orbit values may not round-trip as expected. | Use nullish coalescing and explicit numeric validation. |
-| Medium | A custom level gravity value can leak into a later default-gravity level because physics clear does not reset it and default application is conditional. | Level behavior depends on prior navigation order. | Assign the effective gravity constant unconditionally on every level load. |
 | Medium | UIManager pointer coordinates do not scale from CSS pixels to the logical canvas in the same way gameplay input does. | Canvas UI hit targets can diverge from visuals under responsive/fullscreen scaling. | Centralize screen-to-canvas conversion and use it for every input surface. |
 | Medium | Manifest-fetch failure does not call the asset completion callback; individual media failures do. | A missing/invalid manifest can leave bootstrap stuck while other packaging errors degrade silently. | Model bootstrap failure explicitly and surface a terminal retry/error UI. |
 | Medium | Asset eager/on-demand cache shapes are inconsistent. | Consumers can receive wrappers, images, or SVG text under similar keys. | Define a single resource record contract. |
@@ -641,7 +651,7 @@ Recommended quality direction, in order:
 The safest incremental boundaries are:
 
 - **Composition root:** keep construction and browser globals in `main.js`, passing an explicit context to subsystems.
-- **Pure simulation core:** extract vector, gravity, orbit, collision, and scoring calculations with no DOM or globals.
+- **Pure simulation core:** established across geometry, gravity, orbit graph, state, engine, and browser adapter modules; preserve this boundary as features are added.
 - **Validated level model:** parse raw JSON into a normalized in-memory level before mutating `Game`.
 - **Runtime world API:** encapsulate entity add/remove/query so typed arrays, physics registration, singleton references, and render cache cannot diverge.
 - **Persistence adapter:** hide `localStorage` and file download behind small interfaces.
@@ -674,6 +684,6 @@ Before accepting a cross-cutting change, verify:
 - Does the level format round-trip loader → runtime/editor → export → loader?
 - Are IDs unique and all orbit references resolvable and acyclic?
 - Are attempt, level, total-score, and high-score reset boundaries correct?
-- Is behavior tested against production seams/shared functions rather than only the headless approximation?
+- Is behavior tested through the shared production simulation seam and, where relevant, both its browser adapter and headless runner?
 - Are new browser APIs compatible with static hosting and the no-build execution model?
 - Were current docs updated separately from historical Shockwave provenance?

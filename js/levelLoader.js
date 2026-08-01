@@ -12,9 +12,14 @@ import {
     formatLevelDiagnostics,
     validateLevelDefinition
 } from './levelValidation.js';
-import { LevelObjectType, normalizeLevelObjectType } from './levelSchema.js';
+import {
+    LevelObjectType,
+    normalizeLevelObjectType,
+    normalizeOrbitDefinition
+} from './levelSchema.js';
+import { evaluateFailureRules, evaluateVictoryRules } from './simulationEngine.js';
 
-class GameObjectFactory {
+export class GameObjectFactory {
     static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
         let { type, position, properties = {} } = objectDefinition;
         
@@ -271,10 +276,11 @@ class GameObjectFactory {
         }
         
         // Handle delayed pointing (for tutorial timing)
-        if (properties.pointAfterDelay && pointTo) {
+        if (properties.pointAfterDelay && pointingAt) {
             arrow.visible = false;
             setTimeout(() => {
-                arrow.pointTo(pointTo);
+                arrow.pointTo(pointingAt);
+                arrow.visible = true;
             }, properties.pointAfterDelay * 1000);
         }
         
@@ -295,14 +301,8 @@ class GameObjectFactory {
     }
     
     static applyOrbitToObject(object, orbitConfig, gameObjectLookup = null) {
-        // Handle both old format (center, speed, radius, type) and new format (orbitCenter, orbitSpeed, etc.)
-        const center = orbitConfig.orbitCenter || orbitConfig.center || { x: 0, y: 0 };
-        const targetId = orbitConfig.orbitTargetId || orbitConfig.targetId || null;
-        const speed = orbitConfig.orbitSpeed || orbitConfig.speed || 0;
-        const radius = orbitConfig.orbitRadius || orbitConfig.radius || 0;
-        const type = orbitConfig.orbitType || orbitConfig.type || 'circular';
-        const angle = orbitConfig.orbitAngle || orbitConfig.angle || 0;
-        const params = orbitConfig.orbitParams || orbitConfig.params || {};
+        const normalized = normalizeOrbitDefinition(orbitConfig);
+        const { center, targetId, speed, radius, type, angle, params } = normalized;
         
         // Skip if no meaningful orbit data (either fixed center or object reference)
         if (!targetId && (!center || (center.x === 0 && center.y === 0 && radius === 0))) {
@@ -323,6 +323,7 @@ class GameObjectFactory {
                 this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
             });
         } else {
+            if (gameObjectLookup) object.orbitSystem.gameObjectLookup = gameObjectLookup;
             this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
         }
     }
@@ -346,20 +347,20 @@ class GameObjectFactory {
                 break;
                 
             case 'elliptical':
-                const semiMajorAxis = params.semiMajorAxis || radius;
-                const semiMinorAxis = params.semiMinorAxis || radius * 0.7;
-                const rotation = params.rotation || 0;
+                const semiMajorAxis = params.semiMajorAxis ?? radius;
+                const semiMinorAxis = params.semiMinorAxis ?? radius * 0.7;
+                const rotation = params.rotation ?? 0;
                 object.orbitSystem.setEllipticalOrbit(orbitCenter, semiMajorAxis, semiMinorAxis, speed, rotation);
                 break;
                 
-            case 'figure8':
-                const size = params.size || radius;
+                case 'figure8':
+                const size = params.size ?? radius;
                 object.orbitSystem.setFigure8Orbit(orbitCenter, size, speed);
                     break;
                     
                 case 'gravity':
-                    const initialVelocity = params.initialVelocity || { x: 0, y: 50 };
-                    const gravityStrength = params.gravityStrength || 1000;
+                    const initialVelocity = params.initialVelocity ?? { x: 0, y: 50 };
+                    const gravityStrength = params.gravityStrength ?? 1000;
                     // Pass object position to store as initial position
                     const objectPosition = object.position || { x: object.x, y: object.y };
                     object.orbitSystem.setGravityOrbit(orbitCenter, initialVelocity, gravityStrength, objectPosition);
@@ -400,38 +401,31 @@ export class LevelRules {
     }
     
     applyToGame(game) {
-        // Apply rules to the game instance
-        if (this.gravitationalConstant !== GRAVITATIONAL_CONSTANT) {
-            game.physics.gravitationalConstant = this.gravitationalConstant;
-        }
+        // Always assign the effective value so gravity cannot leak across levels.
+        game.physics.gravitationalConstant = this.gravitationalConstant;
         
         // Store rules for game logic to check
         game.levelRules = this;
     }
     
     checkVictoryConditions(game) {
-        // Check custom victory conditions
-        if (this.requiredBonuses !== null) {
-            const collectedBonuses = game.bonuses.filter(b => b.state === 'Hit').length;
-            if (collectedBonuses < this.requiredBonuses) {
-                return { canProgress: false, reason: `Collect ${this.requiredBonuses - collectedBonuses} more bonuses!` };
-            }
-        }
-        
-        return { canProgress: true, reason: null };
+        const failure = evaluateVictoryRules({
+            rules: this,
+            bonuses: game.bonuses.map(bonus => ({ collected: bonus.state === 'Hit' }))
+        });
+        return failure
+            ? { canProgress: false, reason: failure.reason }
+            : { canProgress: true, reason: null };
     }
     
     checkFailureConditions(game) {
-        // Check custom failure conditions
-        if (this.maxTries !== null && game.tries >= this.maxTries) {
-            return { failed: true, reason: 'Maximum attempts reached!' };
-        }
-        
-        if (this.allowedMisses !== null && game.planetCollisions >= this.allowedMisses) {
-            return { failed: true, reason: 'Too many planet collisions!' };
-        }
-        
-        return { failed: false, reason: null };
+        const failure = evaluateFailureRules({
+            rules: this,
+            counters: { tries: game.tries, planetCollisions: game.planetCollisions }
+        });
+        return failure
+            ? { failed: true, reason: failure.reason }
+            : { failed: false, reason: null };
     }
 }
 
@@ -515,6 +509,7 @@ export class LevelLoader {
         game.pointingArrows = game.pointingArrows || [];
         game.physics.clear();
         game.planetCollisions = 0; // Reset collision counter
+        game.simulationTime = 0;
         
         // IMPORTANT: Invalidate render cache when clearing gameObjects
         game._cachedSortedObjects = null;

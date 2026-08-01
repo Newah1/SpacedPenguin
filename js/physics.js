@@ -2,7 +2,7 @@
 // Based on the original GPS (Gravity Physics System) script
 
 import Utils from './utils.js';
-import { GRAVITATIONAL_CONSTANT } from './globalConstants.js';
+import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from './globalConstants.js';
 
 export class Physics {
     constructor() {
@@ -20,7 +20,7 @@ export class Physics {
             sprite: planet,
             mass: planet.mass,
             collisionRadius: planet.radius + 8,
-            gravitationalReach: planet.gravitationalReach || 5000
+            gravitationalReach: effectiveGravitationalReach(planet.gravitationalReach)
         });
     }
     
@@ -245,4 +245,4 @@ export class Physics {
     getTracePoints() {
         return this.tracePoints;
     }
-} 
+}

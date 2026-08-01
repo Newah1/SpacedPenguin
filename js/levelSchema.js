@@ -37,8 +37,26 @@ export const ORBIT_LOOKUP_TARGET_TYPES = Object.freeze([
     LevelObjectType.BONUS
 ]);
 
+export const ORBIT_SOURCE_TYPES = Object.freeze([
+    LevelObjectType.PLANET,
+    LevelObjectType.BONUS,
+    LevelObjectType.TARGET
+]);
+
 export function normalizeLevelObjectType(type) {
     if (typeof type !== 'string') return null;
     const normalized = type.toLowerCase();
     return LEVEL_OBJECT_TYPE_ALIASES[normalized] || normalized;
+}
+
+export function normalizeOrbitDefinition(orbit = {}) {
+    return {
+        center: orbit.orbitCenter ?? orbit.center ?? null,
+        targetId: orbit.orbitTargetId ?? orbit.targetId ?? null,
+        radius: orbit.orbitRadius ?? orbit.radius ?? 0,
+        speed: orbit.orbitSpeed ?? orbit.speed ?? 0,
+        angle: orbit.orbitAngle ?? orbit.angle ?? 0,
+        type: orbit.orbitType ?? orbit.type ?? LevelOrbitType.CIRCULAR,
+        params: orbit.orbitParams ?? orbit.params ?? {}
+    };
 }

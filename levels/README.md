@@ -54,7 +54,7 @@ Top-level `position` is preferred. The loader also accepts `properties.x` and `p
 }
 ```
 
-Defaults are `radius: 30`, `mass: 100`, and `gravitationalReach: 5000`. Planet types must correspond to manifest-facing names such as `planet_grey`, `planet_pink`, `planet_red_gumball`, `planet_saturn`, or `planet_sun`.
+Defaults are `radius: 30`, `mass: 100`, and `gravitationalReach: 5000`. For compatibility with shipped editor exports, an omitted, null, or zero `gravitationalReach` also resolves to `5000`; use `mass: 0` when a planet must exert no gravity. Planet types must correspond to manifest-facing names such as `planet_grey`, `planet_pink`, `planet_red_gumball`, `planet_saturn`, or `planet_sun`.
 
 ### Bonus
 
@@ -161,7 +161,7 @@ Both `arrow` and `pointingarrow` create the tutorial `PointingArrow`. The separa
 }
 ```
 
-Use `pointingAt`, not the older documented `pointTo` name. Do not use `pointAfterDelay` until the loader defect described in `ARCHITECTURE.md` is fixed.
+Use `pointingAt`, not the older documented `pointTo` name. An optional positive `pointAfterDelay` value hides the arrow and reveals it at that target after the configured number of seconds.
 
 ### Unsupported placeholder
 
@@ -293,10 +293,10 @@ The loader constructs ordinary objects and IDs first, then attaches orbits, so f
 
 Current hierarchy limitations:
 
-- Planet and bonus references are the dependable path.
-- Target and slingshot are constructed outside the ordinary lookup map.
-- Target, slingshot, text, and pointing-arrow orbit lookup wiring is incomplete.
-- References to those unsupported runtime target types are rejected explicitly.
+- Orbit targets may currently be planet or bonus IDs.
+- Orbiting sources may be planets, bonuses, or the target.
+- Active slingshot, text, and pointing-arrow orbit definitions are rejected because those entities are not part of simulation orbit stepping.
+- Hierarchical parents are resolved before children regardless of declaration order.
 
 ### Custom orbit
 
@@ -320,9 +320,9 @@ Programmatic `OrbitSystem` instances can receive custom functions. JSON cannot r
 
 | Field | Runtime status |
 |---|---|
-| `maxTries` | Enforced as a level failure condition. |
+| `maxTries` | Maximum launched attempts; the last allowed shot runs to an outcome before failure is evaluated. |
 | `requiredBonuses` | Enforced when the target is reached. |
-| `allowedMisses` | Enforced from planet-collision count. |
+| `allowedMisses` | Maximum planet collisions tolerated; failure occurs when the count exceeds it. |
 | `gravitationalConstant` | Applied to the level physics system. Default is 3.0. |
 | `scoreMultiplier` | Applied after completion to the accumulated score. Default is 1.0. |
 | `timeLimit` | Parsed but not enforced. |

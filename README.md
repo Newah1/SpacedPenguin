@@ -35,7 +35,8 @@ flowchart LR
     Main --> Input[InputActionManager]
     Main --> Game[Game aggregate]
     Game --> Levels[LevelLoader + JSON factory]
-    Game --> World[Penguin + game objects + orbits]
+    Game --> Sim[Shared deterministic simulation core]
+    Sim --> World[Penguin + game objects + orbits]
     Game --> Physics[Physics registries/helpers]
     Game --> UI[UI screens + editor + fullscreen]
 ```
@@ -51,7 +52,7 @@ index.html                 Browser shell, HUD, canvas, responsive styling
 js/                        Production ES modules
 assets/                    Manifest, images, SVGs, audio, animation metadata
 levels/                    Nineteen current JSON levels and authoring guide
-testing/                   Node regression tests and approximate trajectory CLI
+testing/                   Deterministic simulation tests and trajectory CLI
 test_*.html                Manual browser component and integration harnesses
 OldSource/                 Decompiled Shockwave source and extracted references
 ARCHITECTURE.md             Current architect-oriented reference
@@ -76,11 +77,11 @@ For a pointing tutorial arrow, use `pointingAt`:
 }
 ```
 
-`pointAfterDelay` is not safe in the current loader because its delayed branch references an undefined variable; see the risk register in `ARCHITECTURE.md`.
+Set `pointAfterDelay` to a positive number of seconds to hide the arrow until it begins pointing at `pointingAt`.
 
 ## Testing status
 
-The root `test_*.html` files are manual browser harnesses. The `testing/` package now provides Node regression tests for simulation timing, pause/input behavior, RAF ownership, and a headless baseline, plus a working trajectory CLI. Run them with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
+The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for the shared immutable simulation core, level validation, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. Browser gameplay and the headless runner use the same fixed-step orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 

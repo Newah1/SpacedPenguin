@@ -3,6 +3,8 @@
 
 import Utils from './utils.js';
 import plog from './penguinLogger.js';
+import { stepOrbit } from './orbitSimulation.js';
+import { calculateLaunchVelocity } from './simulationEngine.js';
 
 // New consolidated orbit system supporting non-circular orbits and hierarchical targets
 class OrbitSystem {
@@ -151,31 +153,21 @@ class OrbitSystem {
     // Update orbit position
     update(deltaTime, currentPosition = null) {
         const center = this.getResolvedCenter();
-        if (!center) {
-            return { x: 0, y: 0 };
-        }
-        
-        // For non-gravity orbits, check if we need movement
-        if (this.orbitType !== 'gravity' && this.orbitSpeed === 0) {
-            return { x: 0, y: 0 };
-        }
-        
-        this.orbitAngle += this.orbitSpeed * deltaTime;
-        
-        switch (this.orbitType) {
-            case 'circular':
-                return this.calculateCircularPosition(center);
-            case 'elliptical':
-                return this.calculateEllipticalPosition(center);
-            case 'figure8':
-                return this.calculateFigure8Position(center);
-            case 'gravity':
-                return this.calculateGravityPosition(center, deltaTime, currentPosition);
-            case 'custom':
-                return this.calculateCustomPosition(center);
-            default:
-                return this.calculateCircularPosition(center);
-        }
+        const result = stepOrbit({
+            type: this.orbitType,
+            center: this.orbitCenter,
+            targetId: this.orbitTargetId,
+            radius: this.orbitRadius,
+            speed: this.orbitSpeed,
+            angle: this.orbitAngle,
+            params: this.orbitParams,
+            velocity: this.velocity,
+            gravityStrength: this.gravityStrength,
+            maxGravityAccel: this.maxGravityAccel
+        }, currentPosition || { x: 0, y: 0 }, center, this.getResolvedTarget(), deltaTime);
+        this.orbitAngle = result.orbit?.angle ?? this.orbitAngle;
+        this.velocity = result.orbit?.velocity || this.velocity;
+        return result.position;
     }
     
     // Resolve orbit center - can be a fixed position or dynamic object reference
@@ -519,14 +511,14 @@ class Planet extends GameObject {
         }
     }
     
-    update(deltaTime) {
+    update(deltaTime, options = {}) {
         // Update orbiting using consolidated system
-        if (this.orbitSystem.orbitType === 'gravity') {
+        if (options.updateOrbit !== false && this.orbitSystem.orbitType === 'gravity') {
             // For gravity orbits, the orbit system modifies position based on physics
             // Don't override position - let gravity system update it naturally
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
             this.position = newPosition;
-        } else {
+        } else if (options.updateOrbit !== false) {
             // For other orbit types, use traditional position override
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
             if (newPosition.x !== 0 || newPosition.y !== 0) {
@@ -699,7 +691,7 @@ class Bonus extends GameObject {
         }
     }
     
-    update(deltaTime) {
+    update(deltaTime, options = {}) {
         // Don't update if collected (bonus disappears)
         if (this.collected) {
             return;
@@ -716,12 +708,12 @@ class Bonus extends GameObject {
         this.rotation += this.rotationSpeed * deltaTime;
         
         // Update orbiting using consolidated system
-        if (this.orbitSystem.orbitType === 'gravity') {
+        if (options.updateOrbit !== false && this.orbitSystem.orbitType === 'gravity') {
             // For gravity orbits, the orbit system modifies position based on physics
             // Don't override position - let gravity system update it naturally
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
             this.position = newPosition;
-        } else {
+        } else if (options.updateOrbit !== false) {
             // For other orbit types, use traditional position override
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
             if (newPosition.x !== 0 || newPosition.y !== 0) {
@@ -922,7 +914,7 @@ class BonusPopup extends GameObject {
         plog.bonus(`BonusPopup positioned at:`, this.position, 'color:', this.color);
     }
     
-    update(deltaTime) {
+    update(deltaTime, options = {}) {
         if (this.state === 'showing') {
             this.frame--;
             
@@ -1048,7 +1040,7 @@ class Target extends GameObject {
         plog.success(`Target sprite refreshed to ${this.spriteType}`);
     }
     
-    update(deltaTime) {
+    update(deltaTime, options = {}) {
         // Handle hit state timing
         if (this.isHit) {
             this.hitFrameCount++;
@@ -1064,7 +1056,7 @@ class Target extends GameObject {
         }
         
         // Update orbiting using consolidated system (same pattern as Bonus/Planet)
-        if (this.orbitSystem && this.orbitSystem.orbitType) {
+        if (options.updateOrbit !== false && this.orbitSystem && this.orbitSystem.orbitType) {
             if (this.orbitSystem.orbitType === 'gravity') {
                 const newPosition = this.orbitSystem.update(deltaTime, this.position);
                 this.position = newPosition;
@@ -1443,31 +1435,14 @@ class Slingshot extends GameObject {
             y: this.anchor.y - (this.penguin ? this.penguin.y : this.anchor.y)
         };
         
-        // Calculate distance from anchor
         const distance = Math.sqrt(tempPoint.x * tempPoint.x + tempPoint.y * tempPoint.y);
-        
-        // Apply non-linear scaling: 1:1 at low distances, exponential at higher distances
-        const normalizedDistance = distance / this.maxPullback; // 0 to 1
-        const nonLinearScale = this.calculateNonLinearScale(normalizedDistance);
-        
-        // Debug logging for scaling values
-        plog.log(`Pullback: distance=${distance.toFixed(1)}, normalized=${normalizedDistance.toFixed(2)}, scale=${nonLinearScale.toFixed(2)}`);
-        
-        // Scale the pullback vector with non-linear scaling
-        const scaledPoint = { 
-            x: tempPoint.x * nonLinearScale, 
-            y: tempPoint.y * nonLinearScale 
-        };
-        
-        // tempSpeed = (x^2 + y^2) / 250.0
-        const tempSpeed = (scaledPoint.x * scaledPoint.x + scaledPoint.y * scaledPoint.y) / 250.0;
-        // tempAngle = Utils.rotationAngle(anchor - penguin)
         const tempAngle = Utils.rotationAngle(tempPoint);
-        // tempVector = findPoint({0,0}, tempAngle, tempSpeed)
-        const tempVector = Utils.findPoint({ x: 0, y: 0 }, tempAngle, tempSpeed);
-        // Apply global velocity multiplier
         this.pullback = { x: 0, y: 0 };
-        return { x: tempVector.x * this.velocityMultiplier, y: tempVector.y * this.velocityMultiplier };
+        return calculateLaunchVelocity(tempAngle, distance, {
+            velocityMultiplier: this.velocityMultiplier,
+            maxPullback: this.maxPullback,
+            minPullback: this.minPullback
+        });
     }
     
     calculateNonLinearScale(normalizedDistance) {
@@ -1762,4 +1737,4 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow }; 
+export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow };

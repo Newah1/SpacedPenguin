@@ -296,12 +296,16 @@ export class Penguin {
     
     // Crash the penguin against a planet (matching old GPS script setUpCrashed)
     crashIntoPlanet(planet) {
+        this.beginCrash(planet, true);
+    }
+
+    beginCrash(planet, applyBounce = true) {
         this.state = 'crashed';
         this.crashedFrameCount = 150; // Original GPS script duration
         this.hitPlanet = planet;
         
-        // Set bounce off planet (original GPS script logic)
-        this.setBounceOffPlanet(planet);
+        // The shared simulation core may already have applied the bounce.
+        if (applyBounce) this.setBounceOffPlanet(planet);
         
         // Set up spinning animation
         this.setUpAnimation();

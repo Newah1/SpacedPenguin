@@ -7,6 +7,8 @@ const { integratePlanetGravity } = await import('../js/simulation.js');
 const { Game, GameState } = await import('../js/game.js');
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
+const { OrbitSystem, Target } = await import('../js/gameObjects.js');
+const { GameObjectFactory } = await import('../js/levelLoader.js');
 const { HeadlessGameEngine, HeadlessPenguin } = await import('./headlessEngine.js');
 const { renderAsciiTrajectory } = await import('./levelTester.js');
 
@@ -96,9 +98,67 @@ test('generic object updates skip the penguin dedicated simulation path', () => 
     assert.equal(objectUpdates, 1);
 });
 
+test('Target visual updates accept simulation options and do not advance orbit twice', () => {
+    const target = new Target(100, 100);
+    target.isHit = true;
+    target.orbitSystem.update = () => assert.fail('visual update must not advance simulation orbit');
+
+    assert.doesNotThrow(() => target.update(1 / 60, { updateOrbit: false }));
+    assert.equal(target.hitFrameCount, 1);
+});
+
+test('runtime orbit setup uses shared normalization and preserves canonical zero values', () => {
+    const lookup = () => null;
+    const object = {
+        constructor: { name: 'Fixture' },
+        position: { x: 20, y: 30 },
+        orbitSystem: new OrbitSystem()
+    };
+
+    GameObjectFactory.applyOrbitToObject(object, {
+        orbitCenter: { x: 0, y: 0 },
+        orbitRadius: 25,
+        orbitSpeed: 0,
+        speed: 99,
+        orbitAngle: 0,
+        angle: 2,
+        orbitType: 'circular'
+    }, lookup);
+
+    assert.equal(object.orbitSystem.gameObjectLookup, lookup);
+    assert.equal(object.orbitSystem.orbitSpeed, 0);
+    assert.equal(object.orbitSystem.orbitAngle, 0);
+    assert.equal(object.orbitSystem.orbitRadius, 25);
+});
+
+test('delayed pointing arrows reveal the configured target without a loader error', () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    let scheduledCallback = null;
+    let scheduledDelay = null;
+    globalThis.setTimeout = (callback, delay) => {
+        scheduledCallback = callback;
+        scheduledDelay = delay;
+        return 1;
+    };
+
+    try {
+        const arrow = GameObjectFactory.createPointingArrow({ x: 10, y: 20 }, {
+            pointingAt: { x: 80, y: 90 },
+            pointAfterDelay: 1.5
+        });
+        assert.equal(arrow.visible, false);
+        assert.equal(scheduledDelay, 1500);
+        assert.doesNotThrow(() => scheduledCallback());
+        assert.equal(arrow.visible, true);
+        assert.deepEqual(arrow.pointingAt, { x: 80, y: 90 });
+    } finally {
+        globalThis.setTimeout = originalSetTimeout;
+    }
+});
+
 test('a playing Game frame invokes the penguin simulation exactly once', () => {
     let genericPenguinUpdates = 0;
-    let dedicatedPenguinUpdates = 0;
+    let simulationUpdates = 0;
     const penguin = {
         state: 'soaring',
         position: { x: 100, y: 300 },
@@ -111,17 +171,17 @@ test('a playing Game frame invokes the penguin simulation exactly once', () => {
         gameObjects: [penguin],
         penguin,
         updateGameObjects: Game.prototype.updateGameObjects,
-        updatePenguinPhysics: () => dedicatedPenguinUpdates++,
-        target: { checkCollision: () => false },
-        flightRect: { x: -400, y: -400, width: 1600, height: 1400 },
-        isInBounds: () => true,
-        levelRules: null
+        updateSimulation: () => {
+            simulationUpdates++;
+            return { events: [] };
+        },
+        updateUI() {}
     };
 
     Game.prototype.update.call(fakeGame, 1 / 60);
 
     assert.equal(genericPenguinUpdates, 0);
-    assert.equal(dedicatedPenguinUpdates, 1);
+    assert.equal(simulationUpdates, 1);
 });
 
 test('Kevin cam follows the off-screen arrow and renders in the bottom-left inset', () => {
@@ -307,11 +367,20 @@ test('headless loader resolves object-linked orbits in level 10', async () => {
     assert.equal(engine.loadLevel(level), true);
     assert.doesNotThrow(() => engine.simulateTrajectory(0, 10, 0.1));
 
-    const orbitingPlanet = engine.physics.planets[0].sprite;
-    const centerPlanet = engine.physics.planets[1].sprite;
-    assert.equal(orbitingPlanet.orbit.center, centerPlanet);
-    assert.equal(orbitingPlanet.initialOrbitTime, 43.072066666667155);
-    assert.equal(engine.physics.planets[1].gravitationalReach, 0);
+    const orbitingPlanet = engine.initialState.planets[0];
+    assert.equal(orbitingPlanet.orbit.targetId, 'planet_4');
+    assert.equal(orbitingPlanet.orbit.angle, 43.072066666667155);
+    assert.equal(engine.physics.planets[1].gravitationalReach, 5000);
+});
+
+test('level 8 legacy zero reaches retain normal planet gravity', async () => {
+    const level = JSON.parse(await readFile(new URL('../levels/level8.json', import.meta.url), 'utf8'));
+    const engine = new HeadlessGameEngine();
+    engine.loadLevel(level);
+
+    assert.ok(engine.initialState.planets.length > 0);
+    assert.equal(engine.initialState.planets.every(planet => planet.gravitationalReach === 5000), true);
+    assert.equal(engine.physics.planets.every(planet => planet.gravitationalReach === 5000), true);
 });
 
 test('headless launch power follows the production nonlinear pullback curve', () => {

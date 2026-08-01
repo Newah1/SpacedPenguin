@@ -12,6 +12,8 @@ import Console from './console.js';
 import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
+import { applyGameSimulationEvents, stepGameSimulation } from './gameSimulationAdapter.js';
+import { calculateLevelScore } from './simulationEngine.js';
 
 const GameState = {
     MENU: 'menu',
@@ -782,61 +784,16 @@ class Game {
             return;
         }
 
-        this.updateGameObjects(deltaTime);
-
-        // Update physics for penguin based on state (optimized)
-        if (this.penguin) {
-            const penguinState = this.penguin.state;
-            if (penguinState === 'soaring') {
-                this.updatePenguinPhysics();
-            } else if (penguinState === 'crashed') {
-                this.updatePenguinCrashed();
-            } else if (penguinState === 'hitTarget') {
-                // Stop all movement when target is hit
-                this.penguin.vx = 0;
-                this.penguin.vy = 0;
-            }
-        }
-
-        // Check for target collision
-        if (this.penguin && this.penguin.state === 'soaring') {
-            if (this.target.checkCollision(this.penguin)) {
-                this.penguin.setState('hitTarget');
-                this.endRecordingShotPath(); // End recording when target is hit
-                
-                // Call target's onHit method to open the ship
-                this.target.onHit();
-                
-                // Move penguin off-screen like original game (point(1000, 1000))
-                this.penguin.x = 1000;
-                this.penguin.y = 1000;
-                this.penguin.position = { x: 1000, y: 1000 };
-                
-                this.handleTargetHit();
-            }
-        }
-        
-        // Check for out of bounds
-        if (this.penguin && this.penguin.state === 'soaring') {
-            if (!this.isInBounds(this.penguin.position, this.flightRect)) {
-                plog.crash('Penguin went out of bounds (flightRect) - setting crashed state');
-                this.endRecordingShotPath(); // End recording when going out of bounds
-                this.penguin.state = 'crashed';
-                this.penguin.crashedFrameCount = 2; // Short countdown like original GPS script
-            }
-        }
-        
-        // Check level rules for failure conditions
-        if (this.levelRules && this.state === GameState.PLAYING) {
-            const failureCheck = this.levelRules.checkFailureConditions(this);
-            if (failureCheck.failed) {
-                this.showMessage(failureCheck.reason);
-                this.setState(GameState.GAME_OVER);
-            }
-        }
+        const simulationResult = this.updateSimulation(deltaTime);
+        this.updateGameObjects(deltaTime, { updateOrbit: false });
+        applyGameSimulationEvents(this, simulationResult.events, deltaTime);
     }
 
-    updateGameObjects(deltaTime) {
+    updateSimulation(deltaTime) {
+        return stepGameSimulation(this, deltaTime);
+    }
+
+    updateGameObjects(deltaTime, options = {}) {
         // Update game objects with optimized loop
         const gameObjectCount = this.gameObjects.length;
         for (let i = 0; i < gameObjectCount; i++) {
@@ -856,118 +813,9 @@ class Game {
                     obj.visible = false;
                 }
             } else {
-                obj.update(deltaTime);
+                obj.update(deltaTime, options);
             }
         }
-    }
-    
-    updatePenguinPhysics() {
-        plog.physics('updatePenguinPhysics called');
-        
-        // Convert planets to the format expected by the new gravity system
-        const planetData = this.planets.map(planet => ({
-            x: planet.position.x,
-            y: planet.position.y,
-            mass: planet.mass,
-            collisionRadius: planet.collisionRadius,
-            gravitationalReach: planet.gravitationalReach || 5000
-        }));
-        
-        // Debug: Log planet data being passed (simplified)
-        plog.physics('Game passing', planetData.length, 'planets, GravConst:', this.physics.gravitationalConstant);
-        
-        // Check for planet collisions first (like original GPS script)
-        for (const planet of planetData) {
-            const changeLoc = { 
-                x: this.penguin.x - planet.x, 
-                y: this.penguin.y - planet.y 
-            };
-            const distance = Math.sqrt(changeLoc.x * changeLoc.x + changeLoc.y * changeLoc.y);
-            
-            if (distance < planet.collisionRadius) {
-                plog.crash('Planet collision detected in physics update');
-                this.penguin.crashIntoPlanet(planet);
-                this.playSound('20_snd_HitPlanet');
-                
-                // Register the collision for level rules
-                this.registerPlanetCollision();
-                
-                return; // Exit physics update since penguin is now crashed
-            }
-        }
-        
-        // Use the new planet gravity system (matching old GPS script)
-        this.penguin.updateWithPlanetGravity(planetData, this.physics.gravitationalConstant, this.deltaTime);
-        
-        // Record path point for shot tracing
-        this.recordPathPoint(this.penguin.x, this.penguin.y);
-        
-        // Update distance
-        if (this.penguin.trail.length > 1) {
-            const lastPoint = this.penguin.trail[this.penguin.trail.length - 2];
-            const currentPoint = this.penguin.trail[this.penguin.trail.length - 1];
-            this.distance += Utils.distance(lastPoint, currentPoint);
-        }
-        
-        // Check for bonus collection
-        const collectedBonuses = this.physics.checkBonusCollection(this.penguin.position);
-        for (const bonus of collectedBonuses) {
-            this.collectBonus(bonus);
-        }
-        
-        this.updateUI();
-    }
-    
-    updatePenguinCrashed() {
-        // Convert planets to the format expected by the new gravity system
-        const planetData = this.planets.map(planet => ({
-            x: planet.position.x,
-            y: planet.position.y,
-            mass: planet.mass,
-            collisionRadius: planet.collisionRadius,
-            gravitationalReach: planet.gravitationalReach || 5000
-        }));
-        
-        // Update crashed state using new planet gravity system
-        this.penguin.updateCrashed(this.deltaTime, planetData);
-        
-        // Record path point for shot tracing (even during crash)
-        this.recordPathPoint(this.penguin.x, this.penguin.y);
-        
-        // Check if crashed state is complete (original game logic)
-        if (this.penguin.crashedFrameCount < 1 || !this.isInBounds(this.penguin.position, this.stageRect)) {
-            plog.waddle('Crash ended - calling tryAgain to reset everything');
-            this.tryAgain(); // Use tryAgain instead of just resetPenguinToSlingshot
-        }
-        
-        this.updateUI();
-    }
-    
-    isInBounds(position, bounds = this.stageRect) {
-        return position.x >= bounds.x && position.x <= bounds.x + bounds.width &&
-               position.y >= bounds.y && position.y <= bounds.y + bounds.height;
-    }
-    
-    collectBonus(bonus) {
-        plog.bonus(`Game.collectBonus called with bonus value: ${bonus.value}, position:`, bonus.position);
-        
-        // Use the new collect method that returns the value
-        const collectedValue = bonus.collect();
-        
-        if (collectedValue > 0) {
-            this.currentAttemptScore += collectedValue;
-            this.playSound('16_snd_bonus');
-            
-            // Show bonus popup at bonus location
-            this.bonusPopup.show(collectedValue, bonus.position);
-            
-            this.updateUI();
-        }
-    }
-    
-    registerPlanetCollision() {
-        this.planetCollisions++;
-        plog.crash(`Planet collision ${this.planetCollisions} registered`);
     }
     
     handleTargetHit() {
@@ -979,17 +827,6 @@ class Game {
             this.target.hitFrameCount = 0;
         }
         
-        // Check custom victory conditions if rules exist
-        if (this.levelRules) {
-            const victoryCheck = this.levelRules.checkVictoryConditions(this);
-            if (!victoryCheck.canProgress) {
-                plog.warn('Victory conditions not met:', victoryCheck.reason);
-                this.showMessage(victoryCheck.reason);
-                this.penguin.setState('crashed');
-                return;
-            }
-        }
-        
         // Wait a moment before showing scoring (matches original 30 frame delay)
         setTimeout(() => {
             this.showLevelEndScreen();
@@ -997,16 +834,16 @@ class Game {
     }
     
     calculateFinalScore() {
-        // Original game formula: tempScore = tempDist * tempLevel / tempTries
-        const levelScore = Math.floor(this.distance * this.level / this.tries);
-        
-        // Add current attempt bonuses and level score to total
-        this.score += levelScore + this.currentAttemptScore;
-        
-        // Apply score multiplier from level rules
-        if (this.levelRules && this.levelRules.scoreMultiplier !== 1.0) {
-            this.score = Math.floor(this.score * this.levelRules.scoreMultiplier);
-        }
+        const result = calculateLevelScore({
+            distance: this.distance,
+            level: this.level,
+            tries: this.tries,
+            attemptBonus: this.currentAttemptScore,
+            totalScore: this.score,
+            multiplier: this.levelRules?.scoreMultiplier ?? 1
+        });
+        const levelScore = result.levelScore;
+        this.score = result.totalScore;
         
         this.updateUI();
         
