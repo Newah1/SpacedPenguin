@@ -401,20 +401,23 @@ export class LevelEndScreen extends UIScreen {
         return false;
     }
     
-    handleClick(event) {
+    handleClick(x, y) {
         // Allow clicking anywhere to skip animation (original behavior)
         if (this.isAnimating) {
             this.skipAnimation();
             return true;
         }
-        
-        // If animation is done, clicking continues
-        if (!this.isAnimating) {
-            this.handleContinue();
+
+        // Give Retry and Continue first refusal. The previous screen-wide
+        // handler advanced the level before either button saw the click.
+        if (super.handleClick(x, y)) {
             return true;
         }
-        
-        return false;
+
+        // Preserve the original click-anywhere-to-continue behavior outside
+        // the explicit button hit areas.
+        this.handleContinue();
+        return true;
     }
     
     skipAnimation() {

@@ -1,6 +1,8 @@
 // UI Manager for Spaced Penguin
 // Provides an extensible system for menus, dialogs, and overlays
 
+import { screenToStage } from './viewport.js';
+
 export class UIManager {
     constructor(canvas, audioManager) {
         this.canvas = canvas;
@@ -44,21 +46,14 @@ export class UIManager {
         // Only process as click if it was a quick tap (< 500ms)
         const touchDuration = Date.now() - this.touchStartTime;
         if (touchDuration < 500 && this.touchStartPos) {
-            // Convert touch to click event
-            this.handleClick({
-                clientX: this.touchStartPos.x + this.canvas.getBoundingClientRect().left,
-                clientY: this.touchStartPos.y + this.canvas.getBoundingClientRect().top
-            });
+            this.handleStageClick(this.touchStartPos.x, this.touchStartPos.y);
         }
     }
     
     getEventCoordinates(event) {
-        const rect = this.canvas.getBoundingClientRect();
         if (event.touches && event.touches.length > 0) {
-            return {
-                x: event.touches[0].clientX - rect.left,
-                y: event.touches[0].clientY - rect.top
-            };
+            const touch = event.touches[0];
+            return screenToStage(this.canvas, this.canvas.viewport, touch.clientX, touch.clientY);
         }
         return null;
     }
@@ -81,9 +76,16 @@ export class UIManager {
     }
     
     handleClick(event) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const point = screenToStage(
+            this.canvas,
+            this.canvas.viewport,
+            event.clientX,
+            event.clientY
+        );
+        this.handleStageClick(point.x, point.y);
+    }
+
+    handleStageClick(x, y) {
         
         // Handle clicks from top to bottom (last added screen gets priority)
         for (let i = this.activeScreens.length - 1; i >= 0; i--) {

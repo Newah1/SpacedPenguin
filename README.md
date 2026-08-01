@@ -41,7 +41,7 @@ flowchart LR
     Game --> UI[UI screens + editor + fullscreen]
 ```
 
-The game keeps a fixed 800 x 600 logical world and scales its presentation to the viewport. `GameManager` owns bootstrap and the animation loop; `Game` owns the mutable runtime graph and coordinates levels, entities, physics, scoring, rendering, UI, and editing.
+The game keeps a fixed 800 x 600 logical world while rendering at the viewport's actual backing resolution. A centered contain transform keeps the full stage visible on every aspect ratio, with gutters where necessary. `GameManager` owns bootstrap and the animation loop; `Game` owns the mutable runtime graph and coordinates levels, entities, physics, scoring, rendering, UI, and editing.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for system boundaries, lifecycle and state diagrams, data contracts, design decisions, invariants, extension paths, risks, and testing architecture.
 

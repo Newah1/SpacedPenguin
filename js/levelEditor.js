@@ -1,6 +1,7 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
 import { LEVEL_ORBIT_TYPES } from './levelSchema.js';
+import { STAGE_WIDTH, STAGE_HEIGHT, screenToStage, stageToScreen } from './viewport.js';
 
 class LevelEditor {
     constructor(game) {
@@ -400,8 +401,8 @@ class LevelEditor {
         if (this.mode !== 'edit') return;
         
         // Show context menu at center of screen
-        const centerX = this.game.canvas.width / 2;
-        const centerY = this.game.canvas.height / 2;
+        const centerX = STAGE_WIDTH / 2;
+        const centerY = STAGE_HEIGHT / 2;
         this.showContextMenu(centerX, centerY);
     }
     
@@ -689,9 +690,9 @@ class LevelEditor {
         `;
         
         // Convert canvas coordinates to screen coordinates
-        const rect = this.game.canvas.getBoundingClientRect();
-        const screenX = rect.left + x;
-        const screenY = rect.top + y;
+        const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y);
+        const screenX = screenPoint.x;
+        const screenY = screenPoint.y;
         
         this.longPressIndicator.style.left = screenX + 'px';
         this.longPressIndicator.style.top = screenY + 'px';
@@ -726,28 +727,21 @@ class LevelEditor {
     }
     
     getEventCoordinates(e) {
-        const rect = this.game.canvas.getBoundingClientRect();
-        
         // Handle both mouse and touch events
+        let pointer;
         if (e.touches && e.touches.length > 0) {
-            // Touch event
-            return {
-                x: e.touches[0].clientX - rect.left,
-                y: e.touches[0].clientY - rect.top
-            };
+            pointer = e.touches[0];
         } else if (e.changedTouches && e.changedTouches.length > 0) {
-            // Touch end event
-            return {
-                x: e.changedTouches[0].clientX - rect.left,
-                y: e.changedTouches[0].clientY - rect.top
-            };
+            pointer = e.changedTouches[0];
         } else {
-            // Mouse/pointer event
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+            pointer = e;
         }
+        return screenToStage(
+            this.game.canvas,
+            this.game.viewport,
+            pointer.clientX,
+            pointer.clientY
+        );
     }
     
     enter() {
@@ -1516,8 +1510,8 @@ class LevelEditor {
 
     centerSelectedObjectOnCanvas() {
         if (!this.selectedObject || !this.game || !this.game.canvas) return;
-        const centerX = this.game.canvas.width / 2;
-        const centerY = this.game.canvas.height / 2;
+        const centerX = STAGE_WIDTH / 2;
+        const centerY = STAGE_HEIGHT / 2;
 
         if (typeof this.selectedObject.x === 'number' && typeof this.selectedObject.y === 'number') {
             this.selectedObject.x = centerX;
@@ -1803,8 +1797,8 @@ class LevelEditor {
         if (!center) {
             // Default to canvas center if no center is defined
             const canvasCenter = {
-                x: this.game.canvas ? this.game.canvas.width / 2 : 400,
-                y: this.game.canvas ? this.game.canvas.height / 2 : 300
+                x: STAGE_WIDTH / 2,
+                y: STAGE_HEIGHT / 2
             };
             obj.orbitSystem.orbitCenter = canvasCenter;
             obj.orbitSystem.orbitTargetId = null;
@@ -1952,20 +1946,20 @@ class LevelEditor {
         // Fix position values
         if (typeof obj.x === 'number') {
             if (isNaN(obj.x) || !isFinite(obj.x)) {
-                obj.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                obj.x = STAGE_WIDTH / 2;
                 plog.warn('Fixed invalid x position');
             }
             if (isNaN(obj.y) || !isFinite(obj.y)) {
-                obj.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                obj.y = STAGE_HEIGHT / 2;
                 plog.warn('Fixed invalid y position');
             }
         } else if (obj.position) {
             if (isNaN(obj.position.x) || !isFinite(obj.position.x)) {
-                obj.position.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                obj.position.x = STAGE_WIDTH / 2;
                 plog.warn('Fixed invalid position.x');
             }
             if (isNaN(obj.position.y) || !isFinite(obj.position.y)) {
-                obj.position.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                obj.position.y = STAGE_HEIGHT / 2;
                 plog.warn('Fixed invalid position.y');
             }
         }
@@ -1990,11 +1984,11 @@ class LevelEditor {
             
             if (obj.orbitSystem.orbitCenter) {
                 if (isNaN(obj.orbitSystem.orbitCenter.x) || !isFinite(obj.orbitSystem.orbitCenter.x)) {
-                    obj.orbitSystem.orbitCenter.x = this.game.canvas ? this.game.canvas.width / 2 : 400;
+                    obj.orbitSystem.orbitCenter.x = STAGE_WIDTH / 2;
                     plog.warn('Fixed invalid orbit center x');
                 }
                 if (isNaN(obj.orbitSystem.orbitCenter.y) || !isFinite(obj.orbitSystem.orbitCenter.y)) {
-                    obj.orbitSystem.orbitCenter.y = this.game.canvas ? this.game.canvas.height / 2 : 300;
+                    obj.orbitSystem.orbitCenter.y = STAGE_HEIGHT / 2;
                     plog.warn('Fixed invalid orbit center y');
                 }
             }
@@ -2004,10 +1998,10 @@ class LevelEditor {
     getDefaultValue(property) {
         const defaults = {
             // Position properties
-            'x': this.game.canvas ? this.game.canvas.width / 2 : 400,
-            'y': this.game.canvas ? this.game.canvas.height / 2 : 300,
-            'position.x': this.game.canvas ? this.game.canvas.width / 2 : 400,
-            'position.y': this.game.canvas ? this.game.canvas.height / 2 : 300,
+            'x': STAGE_WIDTH / 2,
+            'y': STAGE_HEIGHT / 2,
+            'position.x': STAGE_WIDTH / 2,
+            'position.y': STAGE_HEIGHT / 2,
             
             // Size properties
             'radius': 30,
@@ -2021,8 +2015,8 @@ class LevelEditor {
             'orbitRadius': 100,
             'orbitSpeed': 1,
             'orbitAngle': 0,
-            'orbitCenterX': this.game.canvas ? this.game.canvas.width / 2 : 400,
-            'orbitCenterY': this.game.canvas ? this.game.canvas.height / 2 : 300,
+            'orbitCenterX': STAGE_WIDTH / 2,
+            'orbitCenterY': STAGE_HEIGHT / 2,
             'gravityStrength': 5000,
             'velocityX': 0,
             'velocityY': 3,
@@ -2184,8 +2178,8 @@ class LevelEditor {
     }
     
     addObject(className) {
-        const centerX = this.game.canvas.width / 2;
-        const centerY = this.game.canvas.height / 2;
+        const centerX = STAGE_WIDTH / 2;
+        const centerY = STAGE_HEIGHT / 2;
         
         if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
             plog.error('Unknown class:', className);
@@ -2444,9 +2438,9 @@ class LevelEditor {
         `;
         
         // Convert canvas coordinates to screen coordinates
-        const rect = this.game.canvas.getBoundingClientRect();
-        const screenX = rect.left + x;
-        const screenY = rect.top + y;
+        const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y);
+        const screenX = screenPoint.x;
+        const screenY = screenPoint.y;
         
         // Position menu, ensuring it stays on screen
         menu.style.left = Math.min(screenX, window.innerWidth - 200) + 'px';
@@ -3166,8 +3160,8 @@ class LevelEditor {
     
     drawGrid(ctx) {
         const gridSize = 50;
-        const width = this.game.canvas.width;
-        const height = this.game.canvas.height;
+        const width = STAGE_WIDTH;
+        const height = STAGE_HEIGHT;
         
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';

@@ -2,6 +2,7 @@
 // Centralized input handling with contextual actions
 
 import { GameState } from './game.js';
+import { screenToStage } from './viewport.js';
 
 export class InputAction {
     constructor(rootContext) {
@@ -160,13 +161,8 @@ export class MenuInputAction extends InputAction {
     
     getEventCoordinates(event) {
         const canvas = this.getCanvas();
-        const rect = canvas.getBoundingClientRect();
         const touch = event.touches[0] || event.changedTouches[0];
-        
-        return {
-            x: (touch.clientX - rect.left) * (canvas.width / rect.width),
-            y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-        };
+        return screenToStage(canvas, canvas.viewport, touch.clientX, touch.clientY);
     }
 }
 
@@ -259,7 +255,7 @@ export class KeyboardInputAction extends InputAction {
                 break;
             case 'KeyQ':
                 e.preventDefault();
-                game.showQuitConfirmation();
+                game.showQuitDialog();
                 break;
             case 'Space':
                 if (game.penguin.state === 'crashed' || game.penguin.state === 'hitTarget') {

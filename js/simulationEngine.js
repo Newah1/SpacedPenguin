@@ -112,10 +112,19 @@ function stripSimulationMetadata(entity) {
 }
 
 function stepSoaringPenguin(state, deltaTime, events, options) {
-    const collisionIndex = findPlanetCollision(state.penguin.position, state.planets);
+    const collisionIndex = findPlanetCollision(
+        state.penguin.position,
+        state.planets,
+        state.penguin.radius
+    );
     if (collisionIndex >= 0) {
         const planet = state.planets[collisionIndex];
-        const bounce = resolvePlanetBounce(state.penguin.position, state.penguin.velocity, planet);
+        const bounce = resolvePlanetBounce(
+            state.penguin.position,
+            state.penguin.velocity,
+            planet,
+            state.penguin.radius
+        );
         state.penguin.position = bounce.position;
         state.penguin.velocity = bounce.velocity;
         state.penguin.state = 'crashed';
@@ -196,10 +205,19 @@ function stepCrashedPenguin(state, deltaTime, events, options) {
     } else {
         state.penguin.position.x += state.penguin.velocity.x * deltaTime;
         state.penguin.position.y += state.penguin.velocity.y * deltaTime;
-        const collisionIndex = findPlanetCollision(state.penguin.position, state.planets);
+        const collisionIndex = findPlanetCollision(
+            state.penguin.position,
+            state.planets,
+            state.penguin.radius
+        );
         if (collisionIndex >= 0) {
             const planet = state.planets[collisionIndex];
-            const bounce = resolvePlanetBounce(state.penguin.position, state.penguin.velocity, planet);
+            const bounce = resolvePlanetBounce(
+                state.penguin.position,
+                state.penguin.velocity,
+                planet,
+                state.penguin.radius
+            );
             state.penguin.position = bounce.position;
             state.penguin.velocity = bounce.velocity;
             events.push({
@@ -242,11 +260,13 @@ function collectBonuses(state, events) {
     }
 }
 
-function findPlanetCollision(position, planets) {
-    return planets.findIndex(planet => circlesOverlap(position, 0, planet.position, planet.collisionRadius));
+function findPlanetCollision(position, planets, penguinRadius = 0) {
+    return planets.findIndex(planet =>
+        circlesOverlap(position, penguinRadius, planet.position, planet.collisionRadius)
+    );
 }
 
-export function resolvePlanetBounce(position, velocity, planet) {
+export function resolvePlanetBounce(position, velocity, planet, penguinRadius = 0) {
     let normalX = position.x - planet.position.x;
     let normalY = position.y - planet.position.y;
     let normalLength = Math.hypot(normalX, normalY);
@@ -265,7 +285,7 @@ export function resolvePlanetBounce(position, velocity, planet) {
     if (Math.hypot(bouncedVelocity.x, bouncedVelocity.y) < 50) {
         bouncedVelocity = { x: nx * 50, y: ny * 50 };
     }
-    const safeDistance = planet.collisionRadius + 5;
+    const safeDistance = planet.collisionRadius + penguinRadius + 5;
     return {
         position: {
             x: planet.position.x + nx * Math.max(normalLength, safeDistance),

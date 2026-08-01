@@ -47,7 +47,7 @@ class LevelTester {
             maxTime,
             { workers }
         );
-        results.sort((a, b) => b.distance - a.distance);
+        results.sort(ascii ? compareAsciiTrajectoryResults : compareTrajectoryDistance);
 
         const duration = (Date.now() - startTime) / 1000;
         const displayedResults = findAll ? results : results.slice(0, 5);
@@ -200,13 +200,25 @@ function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
     const border = `+${'-'.repeat(columns)}+`;
     const map = grid.map(row => `|${row.join('')}|`).join('\n');
     return [
-        `angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)}`,
+        `angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} bonuses=${bonusCount(result)}`,
         border,
         map,
         border,
         `S slingshot  T target  O root/static planet  o orbiting planet  . flight path`,
         `view x=${minX.toFixed(0)}..${maxX.toFixed(0)}, y=${minY.toFixed(0)}..${maxY.toFixed(0)}`
     ].join('\n');
+}
+
+function bonusCount(result) {
+    return Array.isArray(result.collectedBonuses) ? result.collectedBonuses.length : 0;
+}
+
+function compareTrajectoryDistance(a, b) {
+    return b.distance - a.distance;
+}
+
+function compareAsciiTrajectoryResults(a, b) {
+    return bonusCount(b) - bonusCount(a) || compareTrajectoryDistance(a, b);
 }
 
 function optionValue(args, name, fallback = null) {
@@ -253,7 +265,7 @@ function printLevelSummary(summary, showAll, showAscii = false) {
     for (const result of results) {
         console.log(
             `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
-            `distance=${result.distance.toFixed(2)}`
+            `bonuses=${bonusCount(result)} distance=${result.distance.toFixed(2)}`
         );
     }
 
@@ -287,7 +299,7 @@ Options:
   --max-time <seconds>  Maximum simulation time per trajectory (default: 30)
   --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
   --trajectory          Include trajectory points for a single simulation
-  --ascii               Draw successful trajectories as terminal ASCII maps
+  --ascii               Draw successful trajectories, prioritizing bonus count
   --validate-only       Validate definitions without simulating trajectories
   --all                 Print every successful trajectory
   --verbose, -v         Include the best trajectory points in API results
@@ -385,4 +397,4 @@ if (scriptFile === currentFile) {
         });
 }
 
-export { LevelTester, main, renderAsciiTrajectory };
+export { LevelTester, compareAsciiTrajectoryResults, main, renderAsciiTrajectory };

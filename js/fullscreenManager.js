@@ -1,13 +1,16 @@
 // Fullscreen Manager for Spaced Penguin
 // Handles fullscreen toggle with level editor compatibility
 
+import { createViewport, screenToStage } from './viewport.js';
+
 class FullscreenManager {
-    constructor(canvas, gameContainer) {
+    constructor(canvas, gameContainer, onViewportChange = null) {
         this.canvas = canvas;
         this.gameContainer = gameContainer;
         this.isFullscreen = false;
         this.originalCanvasSize = { width: canvas.width, height: canvas.height };
         this.fullscreenButton = null;
+        this.onViewportChange = onViewportChange;
         
         // Store original styles
         this.originalStyles = {
@@ -180,40 +183,19 @@ class FullscreenManager {
         Object.assign(this.gameContainer.style, this.originalStyles.gameContainer);
         Object.assign(this.canvas.style, this.originalStyles.canvas);
         
-        // Restore original canvas size
-        this.canvas.width = this.originalCanvasSize.width;
-        this.canvas.height = this.originalCanvasSize.height;
+        this.notifyViewportChange();
     }
     
     scaleCanvasToFitScreen() {
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        const canvasAspectRatio = this.originalCanvasSize.width / this.originalCanvasSize.height;
-        const screenAspectRatio = screenWidth / screenHeight;
-        
-        let newWidth, newHeight;
-        
-        if (screenAspectRatio > canvasAspectRatio) {
-            // Screen is wider than canvas aspect ratio - fit to height
-            newHeight = screenHeight;
-            newWidth = newHeight * canvasAspectRatio;
-        } else {
-            // Screen is taller than canvas aspect ratio - fit to width
-            newWidth = screenWidth;
-            newHeight = newWidth / canvasAspectRatio;
-        }
-        
-        // Apply new dimensions
-        this.canvas.style.width = `${newWidth}px`;
-        this.canvas.style.height = `${newHeight}px`;
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
         this.canvas.style.maxWidth = 'none';
         this.canvas.style.maxHeight = 'none';
-        
-        // Center the canvas
-        this.canvas.style.position = 'absolute';
-        this.canvas.style.top = '50%';
-        this.canvas.style.left = '50%';
-        this.canvas.style.transform = 'translate(-50%, -50%)';
+        this.notifyViewportChange();
+    }
+
+    notifyViewportChange() {
+        requestAnimationFrame(() => this.onViewportChange?.());
     }
     
     updateButton() {
@@ -239,26 +221,20 @@ class FullscreenManager {
     
     // Get scaling factors for input handling
     getCanvasScaling() {
-        if (!this.isFullscreen) {
-            return { scaleX: 1, scaleY: 1 };
-        }
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.originalCanvasSize.width / rect.width;
-        const scaleY = this.originalCanvasSize.height / rect.height;
-        
-        return { scaleX, scaleY };
+        const viewport = this.canvas.viewport;
+        if (!viewport) return { scaleX: 1, scaleY: 1 };
+        const stageUnitsPerCssPixel = viewport.pixelRatio / viewport.scale;
+        return { scaleX: stageUnitsPerCssPixel, scaleY: stageUnitsPerCssPixel };
     }
     
     // Convert screen coordinates to canvas coordinates
     screenToCanvas(screenX, screenY) {
-        const rect = this.canvas.getBoundingClientRect();
-        const { scaleX, scaleY } = this.getCanvasScaling();
-        
-        const canvasX = (screenX - rect.left) * scaleX;
-        const canvasY = (screenY - rect.top) * scaleY;
-        
-        return { x: canvasX, y: canvasY };
+        const viewport = this.canvas.viewport || createViewport(
+            this.canvas.clientWidth,
+            this.canvas.clientHeight,
+            window.devicePixelRatio || 1
+        );
+        return screenToStage(this.canvas, viewport, screenX, screenY);
     }
 }
 

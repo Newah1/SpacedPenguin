@@ -5,7 +5,7 @@
   "main": "levelTester.js",
   "type": "module",
   "scripts": {
-    "test": "node --test runtimeStability.test.js levelValidation.test.js simulationEngine.test.js",
+    "test": "node --test runtimeStability.test.js levelValidation.test.js simulationEngine.test.js viewport.test.js inputActions.test.js",
     "validate-level": "node levelTester.js --validate-only --level",
     "test-level": "node levelTester.js --level",
     "test:cli": "node levelTester.js --single --level simple_test.json --angle 0 --power 300"

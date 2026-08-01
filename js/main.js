@@ -9,6 +9,7 @@ import { InputActionManager } from './inputActions.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import PerformanceUtils from './performanceUtils.js';
+import { STAGE_WIDTH, createViewport } from './viewport.js';
 
 plog.info('main.js loaded');
 
@@ -28,6 +29,8 @@ class GameManager {
         this.isPageVisible = !document.hidden;
         this.animationFrameId = null;
         this.handlePageVisibilityChange = null;
+        this.viewport = null;
+        this.lastInputContextKey = null;
         
         this.init();
         this.setupPageVisibilityHandling();
@@ -66,91 +69,21 @@ class GameManager {
     setupResponsiveCanvas() {
         const canvas = this.canvas;
         const container = canvas.parentElement;
-        
-        // Set up responsive sizing
-        const resizeCanvas = () => {
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-            
-            // Target aspect ratio (800x600 = 4:3)
-            const targetAspectRatio = 4/3;
-            
-            let newWidth, newHeight;
-            
-            if (this.isMobile) {
-                // On mobile, use full screen with padding
-                const padding = 20;
-                newWidth = Math.min(containerWidth - padding, 800);
-                newHeight = newWidth / targetAspectRatio;
-                
-                // If height is too tall, scale down
-                if (newHeight > containerHeight - padding) {
-                    newHeight = containerHeight - padding;
-                    newWidth = newHeight * targetAspectRatio;
-                }
-            } else {
-                // On desktop, maintain original size but scale if needed
-                // Set minimum size to prevent infinite shrinking
-                const minWidth = 600;
-                const minHeight = 450;
-                
-                // Start with original size
-                newWidth = 800;
-                newHeight = 600;
-                
-                // Only scale down if container is smaller than original
-                if (containerWidth < 800 + 40) {
-                    newWidth = Math.max(containerWidth - 40, minWidth);
-                    newHeight = newWidth / targetAspectRatio;
-                }
-                
-                if (containerHeight < 600 + 40) {
-                    newHeight = Math.max(containerHeight - 40, minHeight);
-                    newWidth = newHeight * targetAspectRatio;
-                }
-                
-                // Ensure we don't go below minimum size
-                if (newWidth < minWidth) {
-                    newWidth = minWidth;
-                    newHeight = minWidth / targetAspectRatio;
-                }
-                
-                if (newHeight < minHeight) {
-                    newHeight = minHeight;
-                    newWidth = minHeight * targetAspectRatio;
-                }
-            }
-            
-            // Debug logging
-            if (window.gameManager && window.gameManager.debugMode) {
-                plog.debug('Canvas resize:', {
-                    container: `${containerWidth}x${containerHeight}`,
-                    canvas: `${newWidth}x${newHeight}`,
-                    isMobile: this.isMobile,
-                    scale: `${(newWidth / 800).toFixed(2)}x${(newHeight / 600).toFixed(2)}`
-                });
-            }
-            
-            // Safety check - ensure canvas never gets too small
-            const finalWidth = Math.max(newWidth, 800);
-            const finalHeight = Math.max(newHeight, 600);
-            
-            // Set canvas size
-            canvas.style.width = finalWidth + 'px';
-            canvas.style.height = finalHeight + 'px';
-            canvas.width = 800; // Keep internal resolution
-            canvas.height = 600;
-            
-            // Update game scale if game exists
-            if (this.game) {
-                this.game.setCanvasScale(finalWidth / 800, finalHeight / 600);
-            }
-        };
-        
-        // Initial resize
-        resizeCanvas();
-        
-        // Note: Window resize events are now handled by InputActionManager
+        const cssWidth = container.clientWidth || window.innerWidth || 800;
+        const cssHeight = container.clientHeight || window.innerHeight || 600;
+        this.viewport = createViewport(cssWidth, cssHeight, window.devicePixelRatio || 1);
+
+        canvas.style.width = `${this.viewport.cssWidth}px`;
+        canvas.style.height = `${this.viewport.cssHeight}px`;
+        canvas.width = this.viewport.backingWidth;
+        canvas.height = this.viewport.backingHeight;
+        canvas.viewport = this.viewport;
+
+        if (this.debugMode) {
+            plog.debug('Canvas viewport:', this.viewport);
+        }
+
+        this.game?.setViewport(this.viewport);
     }
     
     onAssetProgress(progress, resourceName) {
@@ -286,7 +219,15 @@ class GameManager {
         if (this.game && this.assetsLoaded) {
             // Update input actions when needed
             if (this.inputActionManager) {
-                this.inputActionManager.updateActiveActions();
+                const inputContextKey = [
+                    this.game.state,
+                    this.game.levelEditor?.active ? 'active' : 'inactive',
+                    this.game.levelEditor?.mode || 'none'
+                ].join(':');
+                if (inputContextKey !== this.lastInputContextKey) {
+                    this.lastInputContextKey = inputContextKey;
+                    this.inputActionManager.updateActiveActions();
+                }
             }
             
             this.game.update(cappedDeltaTime);
@@ -315,53 +256,30 @@ class GameManager {
     showStartScreen() {
         if (!this.assetsLoaded || !this.game) return;
         
-        plog.info('Showing start screen with real graphics');
+        document.body.classList.add('is-menu');
         const ctx = this.canvas.getContext('2d');
+        this.game.beginFrame();
+        const width = 800;
+        const height = 600;
+        const time = this.game.starfieldTime || 0;
+
+        // Deep cobalt space, sampled from the original show's packaging and
+        // warmed with the orange used by the penguins' flight suits.
+        const space = ctx.createRadialGradient(width * 0.52, height * 0.36, 30, width * 0.5, height * 0.45, 520);
+        space.addColorStop(0, '#153f8a');
+        space.addColorStop(0.42, '#0a2257');
+        space.addColorStop(0.78, '#040d28');
+        space.addColorStop(1, '#01040d');
+        ctx.fillStyle = space;
+        ctx.fillRect(0, 0, width, height);
         
-        // Clear canvas
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw stars
         this.game.drawStars();
-        
-        // The title graphics will be handled by the Game class using real sprites
-        // For now, keep the text-based title as fallback
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '48px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('SPACED PENGUIN', this.canvas.width / 2, 150);
-        
-        // Draw subtitle
-        ctx.font = '24px Arial';
-        ctx.fillText('A Gravity Slingshot Adventure', this.canvas.width / 2, 200);
-        
-        // Draw instructions
-        ctx.font = '16px Arial';
-        ctx.fillText('Click and drag to pull back the slingshot', this.canvas.width / 2, 300);
-        ctx.fillText('Release to launch the penguin', this.canvas.width / 2, 330);
-        ctx.fillText('Collect bonuses and land in the target', this.canvas.width / 2, 360);
-        ctx.fillText('Avoid crashing into planets', this.canvas.width / 2, 390);
-        
-        // Draw controls based on device type
-        if (this.isMobile) {
-            ctx.font = '14px Arial';
-            ctx.fillText('Tap START to begin', this.canvas.width / 2, 450);
-            ctx.fillText('Tap screen to reset level', this.canvas.width / 2, 480);
-        } else {
-            ctx.font = '14px Arial';
-            ctx.fillText('Press SPACE to start', this.canvas.width / 2, 450);
-            ctx.fillText('Press R to reset level', this.canvas.width / 2, 480);
-            ctx.fillText('Press Q to quit', this.canvas.width / 2, 510);
-        }
-        
-        // Draw high score
-        if (this.game.highScore > 0) {
-            ctx.fillText(`High Score: ${Utils.formatScore(this.game.highScore)}`, this.canvas.width / 2, 550);
-        }
-        
-        // Draw penguin animation (now using real sprites)
-        this.drawStartPenguin(ctx);
+
+        // Keep the full rotated ring inside the 800px stage while allowing the
+        // planet itself to dip below the bottom edge.
+        this.drawMenuPlanet(ctx, 670, 533, 88);
+        this.drawMenuTitle(ctx);
+        this.drawMenuConsole(ctx, time);
         
         // Add mobile start button if on mobile
         if (this.isMobile) {
@@ -370,32 +288,34 @@ class GameManager {
     }
     
     createMobileStartButton() {
-        // Remove existing button if any
+        // The menu redraws at 30fps; keep one stable DOM control over the canvas.
         const existingButton = document.getElementById('mobileStartButton');
         if (existingButton) {
-            existingButton.remove();
+            return;
         }
         
         // Create mobile start button
         const startButton = document.createElement('button');
         startButton.id = 'mobileStartButton';
-        startButton.textContent = 'START GAME';
+        startButton.textContent = 'TAP TO LAUNCH';
         startButton.style.cssText = `
             position: absolute;
-            top: 50%;
+            top: 68.5%;
             left: 50%;
-            transform: translate(-50%, 50%);
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 25px;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(#ffd85a, #f28a19 54%, #ca4b0b);
+            color: #07183c;
+            border: 3px solid #ffe991;
+            padding: 11px 28px;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            border-radius: 10px;
             cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 0 #762606, 0 0 18px rgba(255, 166, 31, .45);
             z-index: 100;
-            min-width: 150px;
+            min-width: 220px;
             touch-action: manipulation;
         `;
         
@@ -416,14 +336,14 @@ class GameManager {
         
         // Add touch feedback
         startButton.addEventListener('touchstart', () => {
-            startButton.style.transform = 'translate(-50%, 50%) scale(0.95)';
+            startButton.style.transform = 'translate(-50%, -50%) scale(0.96)';
         });
         
         startButton.addEventListener('touchend', () => {
-            startButton.style.transform = 'translate(-50%, 50%) scale(1)';
+            startButton.style.transform = 'translate(-50%, -50%) scale(1)';
         });
         
-        document.body.appendChild(startButton);
+        this.canvas.parentElement.appendChild(startButton);
     }
     
     startGame() {
@@ -432,6 +352,7 @@ class GameManager {
         if (startButton) {
             startButton.remove();
         }
+        document.body.classList.remove('is-menu');
         
         // Start the game
         if (this.game && this.game.state === GameState.MENU) {
@@ -443,7 +364,7 @@ class GameManager {
         // This will be replaced with actual penguin sprite rendering
         // For now, keep the simple animation as fallback
         const time = Date.now() * 0.001;
-        const x = this.canvas.width / 2;
+        const x = STAGE_WIDTH / 2;
         const y = 100;
         
         ctx.save();
@@ -498,6 +419,201 @@ class GameManager {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
+    }
+
+    roundedRectPath(ctx, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    drawMenuTitle(ctx) {
+        const title = this.assetLoader.createTitle();
+        const spaced = title.spacedText;
+        const penguin = title.penguinText;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 133, 12, 0.68)';
+        ctx.shadowBlur = 18;
+        if (spaced && penguin) {
+            const spacedWidth = 276;
+            const spacedHeight = spacedWidth * (spaced.height / spaced.width);
+            const penguinWidth = 340;
+            const penguinHeight = penguinWidth * (penguin.height / penguin.width);
+            const spacedY = 34;
+            const penguinY = spacedY + spacedHeight + 9;
+            ctx.drawImage(spaced, 400 - spacedWidth / 2, spacedY, spacedWidth, spacedHeight);
+            ctx.drawImage(penguin, 400 - penguinWidth / 2, penguinY, penguinWidth, penguinHeight);
+        } else {
+            ctx.fillStyle = '#ff9c23';
+            ctx.font = 'italic 900 54px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SPACED PENGUIN!', 400, 125);
+        }
+        ctx.restore();
+
+        ctx.fillStyle = '#91eaff';
+        ctx.font = '700 12px "Trebuchet MS", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('A GRAVITY SLINGSHOT ADVENTURE', 400, 182);
+    }
+
+    drawMenuConsole(ctx, time) {
+        const x = 125;
+        const y = 205;
+        const width = 550;
+        const height = 282;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 10;
+        this.roundedRectPath(ctx, x, y, width, height, 22);
+        const frame = ctx.createLinearGradient(x, y, x, y + height);
+        frame.addColorStop(0, '#ffba35');
+        frame.addColorStop(0.15, '#de6c16');
+        frame.addColorStop(1, '#833009');
+        ctx.fillStyle = frame;
+        ctx.fill();
+        ctx.restore();
+
+        this.roundedRectPath(ctx, x + 9, y + 9, width - 18, height - 18, 15);
+        const panel = ctx.createLinearGradient(0, y, 0, y + height);
+        panel.addColorStop(0, '#163e7c');
+        panel.addColorStop(0.48, '#0b2757');
+        panel.addColorStop(1, '#071838');
+        ctx.fillStyle = panel;
+        ctx.fill();
+        ctx.strokeStyle = '#58bfea';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Header rail and blinking console lamps.
+        ctx.fillStyle = '#05132e';
+        ctx.fillRect(x + 26, y + 27, width - 52, 34);
+        ctx.strokeStyle = '#2f7ab2';
+        ctx.strokeRect(x + 26.5, y + 27.5, width - 53, 33);
+        ctx.fillStyle = '#c7f5ff';
+        ctx.font = '900 15px "Trebuchet MS", Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('CADET LAUNCH CONSOLE', x + 47, y + 49);
+        ['#55f1ff', '#ffd14d', Math.sin(time * 4) > 0 ? '#ff7b2c' : '#6d2c20'].forEach((color, index) => {
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(x + width - 105 + index * 25, y + 44, 5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        const steps = [
+            ['3', 'PULL', 'Drag Kevin back in the slingshot'],
+            ['2', 'LAUNCH', 'Release and ride the gravity curve'],
+            ['1', 'LAND', 'Collect bonuses, then reach the ship']
+        ];
+        steps.forEach((step, index) => {
+            const rowY = y + 87 + index * 43;
+            ctx.fillStyle = index === 1 ? 'rgba(37, 100, 166, .38)' : 'rgba(2, 13, 37, .28)';
+            this.roundedRectPath(ctx, x + 30, rowY - 19, width - 60, 35, 8);
+            ctx.fill();
+            ctx.fillStyle = '#ff9e20';
+            ctx.font = '900 22px "Arial Black", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(step[0], x + 55, rowY + 7);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 14px "Trebuchet MS", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(step[1], x + 84, rowY + 4);
+            ctx.fillStyle = '#9ed8ef';
+            ctx.font = '13px "Trebuchet MS", Arial, sans-serif';
+            ctx.fillText(step[2], x + 158, rowY + 4);
+        });
+
+        const buttonX = x + 143;
+        const buttonY = y + 220;
+        const buttonWidth = 264;
+        const buttonHeight = 47;
+        this.roundedRectPath(ctx, buttonX, buttonY + 4, buttonWidth, buttonHeight, 10);
+        ctx.fillStyle = '#722608';
+        ctx.fill();
+        this.roundedRectPath(ctx, buttonX, buttonY, buttonWidth, buttonHeight, 10);
+        const launch = ctx.createLinearGradient(0, buttonY, 0, buttonY + buttonHeight);
+        launch.addColorStop(0, '#ffe36b');
+        launch.addColorStop(0.52, '#f49a1e');
+        launch.addColorStop(1, '#cf540d');
+        ctx.fillStyle = launch;
+        ctx.fill();
+        ctx.strokeStyle = '#fff0a3';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#07183c';
+        ctx.font = '900 17px "Trebuchet MS", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.isMobile ? 'TAP TO LAUNCH' : 'PRESS SPACE TO LAUNCH', 400, buttonY + 30);
+
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#78bddd';
+        ctx.font = '12px "Trebuchet MS", Arial, sans-serif';
+        const controls = this.isMobile ? 'TAP ANYWHERE TO BEGIN' : 'ENTER ALSO STARTS  •  R RESETS  •  Q RETURNS TO BASE';
+        ctx.fillText(controls, 400, 520);
+        if (this.game.highScore > 0) {
+            ctx.fillStyle = '#ffd35a';
+            ctx.font = '700 13px "Trebuchet MS", Arial, sans-serif';
+            ctx.fillText(`MISSION RECORD  ${Utils.formatScore(this.game.highScore)}`, 400, 546);
+        }
+    }
+
+    drawMenuPlanet(ctx, x, y, radius) {
+        ctx.save();
+        const ringY = y + 4;
+        const ringRadiusX = radius * 1.42;
+        const ringRadiusY = radius * 0.28;
+        const ringRotation = -0.18;
+
+        // Rear half: draw the complete ellipse first, then let the planet hide
+        // the section that should pass behind the sphere.
+        ctx.strokeStyle = 'rgba(76, 164, 211, .38)';
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.ellipse(x, ringY, ringRadiusX, ringRadiusY, ringRotation, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const glow = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.35, 4, x, y, radius);
+        glow.addColorStop(0, '#60d8ed');
+        glow.addColorStop(0.36, '#2572a5');
+        glow.addColorStop(0.74, '#143d77');
+        glow.addColorStop(1, '#071636');
+        ctx.fillStyle = glow;
+        ctx.shadowColor = 'rgba(54, 172, 231, .6)';
+        ctx.shadowBlur = 28;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Front half: the lower arc crosses over the planet, completing the
+        // illusion of one continuous ring wrapping around it.
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(137, 229, 255, .72)';
+        ctx.shadowColor = 'rgba(80, 199, 242, .55)';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.ellipse(x, ringY, ringRadiusX, ringRadiusY, ringRotation, 0, Math.PI);
+        ctx.stroke();
+        ctx.restore();
     }
     
     resume() {

@@ -10,7 +10,7 @@
 
 ## 1. Executive summary
 
-Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses an internally fixed 800 x 600 Canvas 2D coordinate system, scales its display for the viewport, loads a manifest of images and audio, loads 19 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
+Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 stage coordinate system, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 19 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
 The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
 
@@ -48,7 +48,7 @@ flowchart LR
 
 | Output | Destination | Notes |
 |---|---|---|
-| Game and editor graphics | Canvas 2D plus DOM overlays | Canvas retains a logical resolution of 800 x 600. |
+| Game and editor graphics | Canvas 2D plus DOM overlays | The stage remains 800 x 600 while the backing buffer follows the display resolution. |
 | Sound | Web Audio API destination | Decoded WAV buffers are played through per-sound gain nodes. |
 | High score | Browser `localStorage` | No online leaderboard or remote score submission exists in the rewrite. |
 | Exported level | Downloaded JSON | Export is client-side; editor save/undo/redo are not implemented. |
@@ -443,7 +443,7 @@ Operational constraints:
 
 ## 10. Input, UI, and responsive boundaries
 
-The internal gameplay coordinate space is always 800 x 600. CSS width/height scale presentation, while pointer conversion maps client coordinates back into canvas coordinates. Game mechanics and level coordinates must remain in the logical coordinate system.
+The internal gameplay coordinate space is always 800 x 600. The canvas backing buffer follows the viewport and device pixel ratio, then a centered contain transform preserves the complete stage. Aspect-ratio differences become gutters rather than cropped gameplay. Pointer conversion applies the inverse viewport transform. Game mechanics and level coordinates remain in the logical coordinate system.
 
 Input action activation:
 
@@ -511,11 +511,11 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard, does 
 
 **Trade-off:** No build-time type checking, tree shaking, asset hashing, or dependency-based test framework. Level definitions do have dependency-free runtime/CLI validation.
 
-### Canvas 2D at a fixed logical resolution
+### Fixed stage with display-resolution rendering
 
 **Why:** Matches the original 800 x 600 composition and makes legacy coordinates portable.
 
-**Trade-off:** Responsive behavior is display scaling rather than adaptive world layout; DOM/editor overlays require careful coordinate conversion.
+**Trade-off:** The complete authored stage is preserved, so non-4:3 displays have gutters; DOM/editor overlays require shared coordinate conversion.
 
 ### Central `Game` aggregate
 

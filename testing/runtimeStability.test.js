@@ -2,15 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import './nodeShims.js';
+import {
+    createAnimationFrameFixture,
+    createEventTargetFixture,
+    createGameFixture,
+    createLevelEndScreenFixture,
+    createRecordingContext,
+    createTimeoutFixture,
+    withGlobalOverrides
+} from './testFixtures.js';
 
 const { integratePlanetGravity } = await import('../js/simulation.js');
 const { Game, GameState } = await import('../js/game.js');
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
+const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const { OrbitSystem, Target } = await import('../js/gameObjects.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
 const { HeadlessGameEngine, HeadlessPenguin } = await import('./headlessEngine.js');
-const { renderAsciiTrajectory } = await import('./levelTester.js');
+const { compareAsciiTrajectoryResults, renderAsciiTrajectory } = await import('./levelTester.js');
 
 function simulateAtRate(rate, seconds = 1) {
     const planets = [{
@@ -53,33 +63,67 @@ test('one 60 Hz gravity step preserves the legacy calibrated velocity change', (
 test('Game updates UI but not the world while paused', () => {
     let uiUpdates = 0;
     let worldUpdates = 0;
-    const fakeGame = {
+    const game = createGameFixture({
         state: GameState.PAUSED,
-        deltaTime: 0,
         uiManager: { update: () => uiUpdates++ },
         updateGameObjects: () => worldUpdates++
-    };
+    });
 
-    Game.prototype.update.call(fakeGame, 1 / 60);
+    Game.prototype.update.call(game, 1 / 60);
 
     assert.equal(uiUpdates, 1);
     assert.equal(worldUpdates, 0);
 });
 
+test('Game animates menu UI without stepping an unloaded world', () => {
+    let uiUpdates = 0;
+    const game = createGameFixture({
+        state: GameState.MENU,
+        uiManager: { update: () => uiUpdates++ },
+        updateSimulation: () => assert.fail('menu must not enter the simulation'),
+        updateGameObjects: () => assert.fail('menu must not update world objects')
+    });
+
+    Game.prototype.update.call(game, 1 / 60);
+
+    assert.equal(uiUpdates, 1);
+    assert.equal(game.starfieldTime, 1 / 60);
+});
+
+test('level-end buttons handle clicks before the screen-wide continue action', () => {
+    let buttonClicks = 0;
+    let continueCalls = 0;
+    const screen = createLevelEndScreenFixture({
+        elements: [{
+            handleClick: () => {
+                buttonClicks++;
+                return true;
+            }
+        }],
+        handleContinue: () => continueCalls++
+    });
+
+    const handled = LevelEndScreen.prototype.handleClick.call(screen, 250, 430);
+
+    assert.equal(handled, true);
+    assert.equal(buttonClicks, 1);
+    assert.equal(continueCalls, 0);
+});
+
 test('Game validates a level before clearing the current world', () => {
     const sentinel = { id: 'existing-world' };
     const validationError = new Error('invalid level');
-    const fakeGame = {
+    const game = createGameFixture({
         levelLoader: { assertLevelValid: () => { throw validationError; } },
         gameObjects: [sentinel],
         planets: [sentinel],
         bonuses: [],
         physics: { clear: () => assert.fail('physics must not clear before validation') }
-    };
+    });
 
-    assert.throws(() => Game.prototype.loadLevel.call(fakeGame, 99), validationError);
-    assert.deepEqual(fakeGame.gameObjects, [sentinel]);
-    assert.deepEqual(fakeGame.planets, [sentinel]);
+    assert.throws(() => Game.prototype.loadLevel.call(game, 99), validationError);
+    assert.deepEqual(game.gameObjects, [sentinel]);
+    assert.deepEqual(game.planets, [sentinel]);
 });
 
 test('generic object updates skip the penguin dedicated simulation path', () => {
@@ -87,12 +131,12 @@ test('generic object updates skip the penguin dedicated simulation path', () => 
     let objectUpdates = 0;
     const penguin = { update: () => penguinUpdates++ };
     const ordinaryObject = { update: () => objectUpdates++ };
-    const fakeGame = {
+    const game = createGameFixture({
         penguin,
         gameObjects: [penguin, ordinaryObject]
-    };
+    });
 
-    Game.prototype.updateGameObjects.call(fakeGame, 1 / 60);
+    Game.prototype.updateGameObjects.call(game, 1 / 60);
 
     assert.equal(penguinUpdates, 0);
     assert.equal(objectUpdates, 1);
@@ -132,28 +176,19 @@ test('runtime orbit setup uses shared normalization and preserves canonical zero
 });
 
 test('delayed pointing arrows reveal the configured target without a loader error', () => {
-    const originalSetTimeout = globalThis.setTimeout;
-    let scheduledCallback = null;
-    let scheduledDelay = null;
-    globalThis.setTimeout = (callback, delay) => {
-        scheduledCallback = callback;
-        scheduledDelay = delay;
-        return 1;
-    };
+    const timers = createTimeoutFixture();
 
-    try {
+    withGlobalOverrides({ setTimeout: timers.setTimeout }, () => {
         const arrow = GameObjectFactory.createPointingArrow({ x: 10, y: 20 }, {
             pointingAt: { x: 80, y: 90 },
             pointAfterDelay: 1.5
         });
         assert.equal(arrow.visible, false);
-        assert.equal(scheduledDelay, 1500);
-        assert.doesNotThrow(() => scheduledCallback());
+        assert.equal(timers.scheduled[0].delay, 1500);
+        assert.doesNotThrow(() => timers.scheduled[0].callback());
         assert.equal(arrow.visible, true);
         assert.deepEqual(arrow.pointingAt, { x: 80, y: 90 });
-    } finally {
-        globalThis.setTimeout = originalSetTimeout;
-    }
+    });
 });
 
 test('a playing Game frame invokes the penguin simulation exactly once', () => {
@@ -164,45 +199,29 @@ test('a playing Game frame invokes the penguin simulation exactly once', () => {
         position: { x: 100, y: 300 },
         update: () => genericPenguinUpdates++
     };
-    const fakeGame = {
+    const game = createGameFixture({
         state: GameState.PLAYING,
-        deltaTime: 0,
-        uiManager: { update() {} },
         gameObjects: [penguin],
         penguin,
         updateGameObjects: Game.prototype.updateGameObjects,
         updateSimulation: () => {
             simulationUpdates++;
             return { events: [] };
-        },
-        updateUI() {}
-    };
+        }
+    });
 
-    Game.prototype.update.call(fakeGame, 1 / 60);
+    Game.prototype.update.call(game, 1 / 60);
 
     assert.equal(genericPenguinUpdates, 0);
     assert.equal(simulationUpdates, 1);
 });
 
 test('Kevin cam follows the off-screen arrow and renders in the bottom-left inset', () => {
-    const calls = [];
+    const { calls, context } = createRecordingContext();
     let penguinDraws = 0;
-    const ctx = {
-        save: () => calls.push(['save']),
-        restore: () => calls.push(['restore']),
-        fillRect: (...args) => calls.push(['fillRect', ...args]),
-        strokeRect: (...args) => calls.push(['strokeRect', ...args]),
-        fillText: text => calls.push(['fillText', text]),
-        translate: (...args) => calls.push(['translate', ...args]),
-        rotate: angle => calls.push(['rotate', angle]),
-        scale: (...args) => calls.push(['scale', ...args]),
-        beginPath: () => calls.push(['beginPath']),
-        rect: (...args) => calls.push(['rect', ...args]),
-        clip: () => calls.push(['clip'])
-    };
-    const fakeGame = {
+    const game = createGameFixture({
         canvas: { width: 800, height: 600 },
-        ctx,
+        ctx: context,
         arrow: { visible: false },
         penguin: {
             x: 900,
@@ -219,14 +238,14 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
             headerHeight: 25,
             zoom: 2.2
         }
-    };
+    });
 
-    Game.prototype.drawKevinCam.call(fakeGame);
+    Game.prototype.drawKevinCam.call(game);
     assert.equal(calls.length, 0);
     assert.equal(penguinDraws, 0);
 
-    fakeGame.arrow.visible = true;
-    Game.prototype.drawKevinCam.call(fakeGame);
+    game.arrow.visible = true;
+    Game.prototype.drawKevinCam.call(game);
 
     assert.equal(penguinDraws, 1);
     assert.deepEqual(calls.find(call => call[0] === 'strokeRect'), ['strokeRect', 13.5, 457.5, 173, 129]);
@@ -237,41 +256,37 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
 });
 
 test('main starfield wraps with layered drift independent of Kevin', () => {
-    const draws = [];
-    const fakeGame = {
+    const { calls, context } = createRecordingContext();
+    const game = createGameFixture({
         canvas: { width: 800, height: 600 },
-        ctx: {
-            fillStyle: '',
-            globalAlpha: 1,
-            fillRect: (...args) => draws.push(args)
-        },
+        ctx: context,
         starfieldTime: 5,
         starDriftSpeed: { x: 2, y: 0.4 },
         stars: [
             { x: 5, y: 6, size: 3 },
             { x: 200, y: 100, size: 1 }
         ]
-    };
+    });
 
-    Game.prototype.drawStars.call(fakeGame);
+    Game.prototype.drawStars.call(game);
 
-    assert.deepEqual(draws, [
-        [35, 12, 3, 3],
-        [210, 102, 1, 1]
+    assert.deepEqual(calls.filter(call => call[0] === 'fillRect'), [
+        ['fillRect', 35, 12, 3, 3],
+        ['fillRect', 210, 102, 1, 1]
     ]);
-    assert.equal(fakeGame.ctx.globalAlpha, 1);
+    assert.equal(game.ctx.globalAlpha, 1);
 });
 
 test('main playfield star generator populates a visible background', () => {
-    const fakeGame = {
+    const game = createGameFixture({
         canvas: { width: 800, height: 600 },
         stars: []
-    };
+    });
 
-    Game.prototype.generateStars.call(fakeGame);
+    Game.prototype.generateStars.call(game);
 
-    assert.equal(fakeGame.stars.length, 100);
-    assert.equal(fakeGame.stars.every(star => (
+    assert.equal(game.stars.length, 100);
+    assert.equal(game.stars.every(star => (
         star.x >= 0 && star.x < 800 &&
         star.y >= 0 && star.y < 600 &&
         star.size >= 1 && star.size <= 3
@@ -279,18 +294,12 @@ test('main playfield star generator populates a visible background', () => {
 });
 
 test('GameManager resume is idempotent and pause cancels the only RAF', () => {
-    const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
-    const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
-    const requested = [];
-    const cancelled = [];
+    const animationFrames = createAnimationFrameFixture();
 
-    globalThis.requestAnimationFrame = callback => {
-        requested.push(callback);
-        return requested.length;
-    };
-    globalThis.cancelAnimationFrame = id => cancelled.push(id);
-
-    try {
+    withGlobalOverrides({
+        requestAnimationFrame: animationFrames.requestAnimationFrame,
+        cancelAnimationFrame: animationFrames.cancelAnimationFrame
+    }, () => {
         const manager = Object.create(GameManager.prototype);
         Object.assign(manager, {
             assetsLoaded: true,
@@ -303,28 +312,22 @@ test('GameManager resume is idempotent and pause cancels the only RAF', () => {
         manager.resume();
         manager.resume();
 
-        assert.equal(requested.length, 1);
+        assert.equal(animationFrames.requested.length, 1);
         assert.equal(manager.animationFrameId, 1);
         assert.equal(manager.lastTime, 0);
 
         manager.pause();
         manager.pause();
 
-        assert.deepEqual(cancelled, [1]);
+        assert.deepEqual(animationFrames.cancelled, [1]);
         assert.equal(manager.animationFrameId, null);
         assert.equal(manager.isRunning, false);
-    } finally {
-        globalThis.requestAnimationFrame = originalRequestAnimationFrame;
-        globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
-    }
+    });
 });
 
 test('paused input context keeps keyboard/UI active but disables gameplay listeners', () => {
     const game = { state: GameState.PAUSED, levelEditor: { active: false } };
-    const canvas = {
-        addEventListener() {},
-        removeEventListener() {}
-    };
+    const canvas = createEventTargetFixture();
     const manager = new InputActionManager({ game, canvas });
 
     manager.updateActiveActions();
@@ -373,6 +376,17 @@ test('headless loader resolves object-linked orbits in level 10', async () => {
     assert.equal(engine.physics.planets[1].gravitationalReach, 5000);
 });
 
+test('level 12 rejects a point-sized straight shot that clips the penguin body', async () => {
+    const level = JSON.parse(await readFile(new URL('../levels/level12.json', import.meta.url), 'utf8'));
+    const engine = new HeadlessGameEngine();
+    engine.loadLevel(level);
+
+    const result = engine.simulateTrajectory(338.71, 85.48, 30);
+
+    assert.equal(result.success, false);
+    assert.equal(result.reason, 'planet_collision');
+});
+
 test('level 8 legacy zero reaches retain normal planet gravity', async () => {
     const level = JSON.parse(await readFile(new URL('../levels/level8.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
@@ -415,4 +429,16 @@ test('ASCII trajectory output plots the route and level landmarks', () => {
     assert.match(output, /O/);
     assert.match(output, /o/);
     assert.match(output, /\. flight path/);
+});
+
+test('ASCII trajectory samples prioritize collected bonuses before distance', () => {
+    const results = [
+        { distance: 900, collectedBonuses: ['bonus_1'] },
+        { distance: 500, collectedBonuses: ['bonus_1', 'bonus_2'] },
+        { distance: 700, collectedBonuses: ['bonus_1', 'bonus_2'] }
+    ];
+
+    results.sort(compareAsciiTrajectoryResults);
+
+    assert.deepEqual(results.map(result => result.distance), [700, 500, 900]);
 });

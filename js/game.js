@@ -14,6 +14,14 @@ import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
 import { applyGameSimulationEvents, stepGameSimulation } from './gameSimulationAdapter.js';
 import { calculateLevelScore } from './simulationEngine.js';
+import {
+    STAGE_WIDTH,
+    STAGE_HEIGHT,
+    applyViewportTransform,
+    clearViewport,
+    createViewport,
+    screenToStage
+} from './viewport.js';
 
 const GameState = {
     MENU: 'menu',
@@ -56,13 +64,15 @@ class Game {
         
         // Bounds system (matching original game's pFlightRect/pStageRect)
         this.flightBorder = 400; // Grace distance around canvas (original default was 100)
-        this.stageRect = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+        this.stageRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
         this.flightRect = {
             x: -this.flightBorder,
             y: -this.flightBorder,
-            width: canvas.width + (this.flightBorder * 4),
-            height: canvas.height + (this.flightBorder * 4)
+            width: STAGE_WIDTH + (this.flightBorder * 4),
+            height: STAGE_HEIGHT + (this.flightBorder * 4)
         };
+        this.viewport = canvas.viewport || createViewport(STAGE_WIDTH, STAGE_HEIGHT, 1);
+        this.viewRect = this.viewport.viewRect;
         
         // Game objects
         this.penguin = null;
@@ -84,7 +94,7 @@ class Game {
         
         // Initialize arrow after stage rect is set up
         this.arrow = new Arrow(0, 0);
-        this.arrow.setStageRect(this.stageRect);
+        this.arrow.setStageRect(this.viewRect);
         this.arrow.setFlightRect(this.flightRect);
         this.gameObjects.push(this.arrow);
 
@@ -106,7 +116,11 @@ class Game {
         this.levelEditor = new LevelEditor(this);
         
         // Initialize fullscreen manager
-        this.fullscreenManager = new FullscreenManager(canvas, canvas.parentElement);
+        this.fullscreenManager = new FullscreenManager(
+            canvas,
+            canvas.parentElement,
+            () => window.gameManager?.setupResponsiveCanvas()
+        );
         
         // Pass ALL class references to level editor for object creation
         this.levelEditor.gameObjectClasses = {
@@ -173,6 +187,11 @@ class Game {
         if (this.state !== newState) {
             plog.info(`Game state changing from ${this.state} to ${newState}`);
             this.state = newState;
+
+            document.body.classList.toggle('is-menu', newState === GameState.MENU);
+            if (newState !== GameState.MENU) {
+                document.getElementById('mobileStartButton')?.remove();
+            }
             
             // Notify InputActionManager of state change if available
             if (window.gameManager?.inputActionManager) {
@@ -399,25 +418,25 @@ class Game {
     }
     
     getMousePosition(e) {
-        // Use fullscreen manager for coordinate conversion if available
-        if (this.fullscreenManager) {
-            return this.fullscreenManager.screenToCanvas(e.clientX, e.clientY);
-        }
-        
-        // Fallback to original method
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        
-        return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-        };
+        return screenToStage(this.canvas, this.viewport, e.clientX, e.clientY);
     }
     
     setCanvasScale(scaleX, scaleY) {
         this.canvasScaleX = scaleX;
         this.canvasScaleY = scaleY;
+    }
+
+    setViewport(viewport) {
+        this.viewport = viewport;
+        this.viewRect = viewport.viewRect;
+        this.canvasScaleX = viewport.scale;
+        this.canvasScaleY = viewport.scale;
+        this.arrow?.setStageRect(this.viewRect);
+    }
+
+    beginFrame() {
+        clearViewport(this.ctx, this.canvas);
+        applyViewportTransform(this.ctx, this.viewport);
     }
     
     handleMouseDown(e) {
@@ -501,9 +520,6 @@ class Game {
         
         if (e.touches.length > 0) {
             const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
             
             // Create a synthetic mouse event
             const mouseEvent = {
@@ -523,9 +539,6 @@ class Game {
         
         if (e.touches.length > 0) {
             const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
             
             // Create a synthetic mouse event
             const mouseEvent = {
@@ -779,8 +792,12 @@ class Game {
         // Update UI Manager
         this.uiManager.update(deltaTime);
         
-        // UI screens may animate while paused/scoring, but the world must not.
-        if (this.state === GameState.PAUSED || this.state === GameState.SCORING) {
+        // Only states with a fully loaded, actively playing world may enter the
+        // deterministic simulation. Menu construction intentionally has no
+        // penguin, target, or slingshot yet.
+        const shouldStepWorld = this.state === GameState.PLAYING ||
+            (this.state === GameState.LEVEL_EDITOR && this.levelEditor?.mode === 'play');
+        if (!shouldStepWorld) {
             return;
         }
 
@@ -937,7 +954,7 @@ class Game {
         
         // Add arrow AFTER level loader has finished (so it doesn't get cleared)
         this.arrow = new Arrow(0, 0);
-        this.arrow.setStageRect(this.stageRect);
+        this.arrow.setStageRect(this.viewRect);
         this.arrow.setFlightRect(this.flightRect);
         this.gameObjects.push(this.arrow);
         
@@ -984,9 +1001,7 @@ class Game {
 
     
     render() {
-        // Clear canvas efficiently
-        this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.beginFrame();
         
         // Draw background stars (cached)
         this.drawStars();
@@ -1036,13 +1051,19 @@ class Game {
         }
 
         const config = this.kevinCam;
+        const viewRect = this.viewRect || this.stageRect || {
+            x: 0,
+            y: 0,
+            width: STAGE_WIDTH,
+            height: STAGE_HEIGHT
+        };
         const width = Math.max(
             config.minWidth,
-            Math.min(this.canvas.width * config.widthRatio, config.maxWidth)
+            Math.min(viewRect.width * config.widthRatio, config.maxWidth)
         );
         const height = width / config.aspectRatio;
-        const x = config.margin;
-        const y = this.canvas.height - height - config.margin;
+        const x = viewRect.x + config.margin;
+        const y = viewRect.y + viewRect.height - height - config.margin;
         const contentY = y + config.headerHeight;
         const contentHeight = height - config.headerHeight;
         const centerX = x + width / 2;
@@ -1121,8 +1142,8 @@ class Game {
             let x, y, size;
             let ok = false;
             while (!ok && tries < maxTries) {
-                x = Math.random() * this.canvas.width;
-                y = Math.random() * this.canvas.height;
+                x = Math.random() * STAGE_WIDTH;
+                y = Math.random() * STAGE_HEIGHT;
                 size = 1 + Math.floor(Math.random() * 3);
                 ok = true;
                 for (const s of this.stars) {
@@ -1149,8 +1170,8 @@ class Game {
         for (const star of this.stars) {
             const rawX = star.x + elapsed * drift.x * star.size;
             const rawY = star.y + elapsed * drift.y * star.size;
-            const x = ((rawX % this.canvas.width) + this.canvas.width) % this.canvas.width;
-            const y = ((rawY % this.canvas.height) + this.canvas.height) % this.canvas.height;
+            const x = ((rawX % STAGE_WIDTH) + STAGE_WIDTH) % STAGE_WIDTH;
+            const y = ((rawY % STAGE_HEIGHT) + STAGE_HEIGHT) % STAGE_HEIGHT;
 
             this.ctx.globalAlpha = 0.35 + star.size * 0.2;
             this.ctx.fillRect(x, y, star.size, star.size);
