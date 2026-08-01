@@ -1,6 +1,6 @@
 # Spaced Penguin Level Authoring Reference
 
-This directory contains the 19 JSON levels loaded by the current HTML5 runtime. The effective contract is implemented by `js/levelLoader.js`; there is not yet a formal JSON Schema or validation pass.
+This directory contains the 19 JSON levels loaded by the current HTML5 runtime. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
 
 For system-wide context and architectural limitations, see [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
@@ -33,7 +33,7 @@ For system-wide context and architectural limitations, see [`../ARCHITECTURE.md`
 }
 ```
 
-Top-level `position` is preferred. The loader also accepts `properties.x` and `properties.y` as a compatibility form. Type names are normalized by the factory, but target/slingshot discovery and skipping are not consistently case-normalized; use the lowercase names shown below.
+Top-level `position` is preferred. The loader also accepts `properties.x` and `properties.y` as a compatibility form. Type aliases and normalization are shared by validation and loading; use the canonical lowercase names shown below.
 
 ## Supported types
 
@@ -289,14 +289,14 @@ Gravity orbit motion is numerically integrated. Editor export after a play previ
 ]
 ```
 
-The loader constructs ordinary objects and IDs first, then attaches orbits, so forward references between planets and bonuses are allowed. Author IDs must be unique and the relationship graph must be acyclic; neither constraint is currently validated.
+The loader constructs ordinary objects and IDs first, then attaches orbits, so forward references between planets and bonuses are allowed. Validation requires author IDs to be unique and rejects missing targets, self-references, and cycles before runtime construction.
 
 Current hierarchy limitations:
 
 - Planet and bonus references are the dependable path.
 - Target and slingshot are constructed outside the ordinary lookup map.
 - Target, slingshot, text, and pointing-arrow orbit lookup wiring is incomplete.
-- Missing target IDs and cycles are not reported as structural errors.
+- References to those unsupported runtime target types are rejected explicitly.
 
 ### Custom orbit
 
@@ -328,13 +328,15 @@ Programmatic `OrbitSystem` instances can receive custom functions. JSON cannot r
 | `timeLimit` | Parsed but not enforced. |
 | `customBehaviors` | Parsed but not dispatched. |
 
-Numeric rule defaults currently use truthiness, so zero is treated as “unset.”
+Rule defaults use nullish semantics, so meaningful zero values such as `gravitationalConstant: 0` and `requiredBonuses: 0` are preserved. Validation rejects zero where the contract requires a positive value, such as `maxTries` and `scoreMultiplier`.
 
 ## Loading and fallback behavior
 
 ```mermaid
 flowchart LR
-  JSON[levelN.json] --> Cache[Startup Level Map]
+  JSON[levelN.json] --> Validate[Structural and semantic validation]
+  Validate -->|valid| Cache[Startup Level Map]
+  Validate -->|invalid| Errors[Diagnostics; definition is not cached]
   Cache --> Present{Definition present?}
   Present -->|yes| Factory[Create runtime graph]
   Present -->|no| Random[Generate fallback definition]
@@ -345,9 +347,16 @@ flowchart LR
 ```
 
 - All 19 authored files are fetched sequentially during bootstrap.
-- There are no `response.ok` or schema checks; malformed content is discovered during parse/instantiation.
-- Unknown object types are skipped, which can produce a partial but running level.
+- HTTP status, JSON parsing, structure, numeric constraints, composition, IDs, orbit references/cycles, and level rules are checked before caching.
+- Unknown object types and invalid definitions are rejected rather than partially instantiated.
 - A missing level definition is masked by random fallback generation when selected.
+
+Validation returns all discovered diagnostics in one pass. Each diagnostic has a stable code, severity, JSON-style path, and human-readable message. To validate without running a trajectory:
+
+```powershell
+cd testing
+node .\levelTester.js --validate-only --level ..\levels\level10.json
+```
 
 ## Editor export and round-trip caveats
 

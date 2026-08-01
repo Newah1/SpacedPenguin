@@ -6,6 +6,7 @@ import { HeadlessGameEngine } from './headlessEngine.js';
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levelValidation.js';
 
 class LevelTester {
     constructor() {
@@ -66,6 +67,11 @@ class LevelTester {
         }
 
         return summary;
+    }
+
+    async validateLevelFile(levelPath) {
+        const levelData = await this.loadLevelFile(levelPath);
+        return validateLevelDefinition(levelData);
     }
 
     async testSingleTrajectory(levelPath, angle, power, options = {}) {
@@ -246,6 +252,13 @@ function printLevelSummary(summary, showAll, showAscii = false) {
     }
 }
 
+function printValidation(levelPath, validation) {
+    const status = validation.valid ? 'VALID' : 'INVALID';
+    console.log(`${status}: ${levelPath} (${validation.errors.length} errors, ${validation.warnings.length} warnings)`);
+    const details = formatLevelDiagnostics(validation);
+    if (details) console.log(details);
+}
+
 function showHelp() {
     console.log(`Spaced Penguin Level Tester
 
@@ -253,6 +266,7 @@ Usage:
   node levelTester.js --level <path> [options]
   node levelTester.js --single --level <path> --angle <deg> --power <num>
   node levelTester.js --batch <level1.json> <level2.json> [options]
+  node levelTester.js --validate-only --level <path>
 
 Options:
   --samples <num>       Exact number of trajectory combinations (default: 100)
@@ -261,6 +275,7 @@ Options:
   --max-time <seconds>  Maximum simulation time per trajectory (default: 30)
   --trajectory          Include trajectory points for a single simulation
   --ascii               Draw successful trajectories as terminal ASCII maps
+  --validate-only       Validate definitions without simulating trajectories
   --all                 Print every successful trajectory
   --verbose, -v         Include the best trajectory points in API results
   --help, -h            Show this help
@@ -277,6 +292,21 @@ async function main(args = process.argv.slice(2)) {
     tester.verbose = args.includes('--verbose') || args.includes('-v');
 
     const maxTime = parseNumber(args, '--max-time', 30);
+
+    if (args.includes('--validate-only')) {
+        const levelPaths = args.includes('--batch')
+            ? args.filter(arg => arg.toLowerCase().endsWith('.json'))
+            : [optionValue(args, '--level')].filter(Boolean);
+        if (levelPaths.length === 0) throw new Error('--validate-only requires --level or --batch JSON paths');
+
+        let allValid = true;
+        for (const levelPath of levelPaths) {
+            const validation = await tester.validateLevelFile(levelPath);
+            printValidation(levelPath, validation);
+            allValid = allValid && validation.valid;
+        }
+        return allValid ? 0 : 1;
+    }
 
     if (args.includes('--single')) {
         const levelPath = optionValue(args, '--level');

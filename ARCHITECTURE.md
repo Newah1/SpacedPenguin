@@ -107,6 +107,8 @@ flowchart TB
     Game --> Console[Debug Console and PenguinLogger]
 
     Loader --> LevelJSON[(Level JSON)]
+    Loader --> Validation[LevelValidation]
+    Validation --> Schema[LevelSchema]
     Assets --> Manifest[(Asset manifest and media)]
     Entities --> Assets
     Loader --> Entities
@@ -123,8 +125,10 @@ flowchart TB
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
 | `InputActionManager` | Add/remove listeners according to state | `Game`, editor, DOM/window | Always enables keyboard, window, and UI actions; switches menu/gameplay/editor actions. |
-| `LevelLoader` | Fetch/cache level JSON and instantiate a level into `Game` | Factory, rules, entities, physics | Uses a two-pass orbit setup so references can resolve after all entities exist. |
-| `GameObjectFactory` | JSON-to-runtime entity mapping and orbit configuration | Entity constructors | Supported JSON types are planet, bonus, target, slingshot, text/textobject, and arrow/pointingarrow. `obstacle` is recognized but returns no object. |
+| `LevelSchema` | Shared level-format vocabulary and runtime capability configuration | Validator, loader, editor | Owns canonical object/orbit types, aliases, normalization, and orbit lookup target types. |
+| `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
+| `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
+| `GameObjectFactory` | Validated JSON-to-runtime entity mapping and orbit configuration | Entity constructors, `LevelSchema` | Supports canonical types plus configured text/arrow aliases; exported penguin state is intentionally ignored. |
 | `Physics` | Registry of gravity bodies/bonuses, general force/collision/trace helpers | `Game`, entities | The live penguin path is orchestrated by `Game` and `Penguin`; not every generic helper is on the active path. |
 | `Penguin` | Character state, position/velocity, gravity integration, crash behavior, sprite animation | `Game`, planets, assets | Maintains parallel `x`/`y` and `position` representations that must stay synchronized. |
 | `GameObject` hierarchy | Entity update/draw, orbit behavior, collision/visual state | `Game`, assets, physics | Includes planet, bonus, target, slingshot, tutorial text/arrows, off-screen arrow, and popup. |
@@ -289,7 +293,11 @@ Comments retain a historical `snapping`/`scoring` vocabulary, but the current pr
 
 ```mermaid
 flowchart TB
-    Files[levels/levelN.json] --> Cache[LevelLoader.levels Map]
+    Files[levels/levelN.json] --> Parse[Fetch and parse JSON]
+    Parse --> Shape[Structural validation]
+    Shape --> Semantics[IDs, references, cycles, rules]
+    Semantics -->|valid| Cache[LevelLoader.levels Map]
+    Semantics -->|invalid| Diagnostics[Typed diagnostics; do not cache or mutate world]
     Cache --> Select{Definition exists?}
     Select -->|yes| Reset[Clear prior runtime graph]
     Select -->|no| Generate[Generate random fallback]
@@ -304,7 +312,9 @@ flowchart TB
     Rules --> Playing[Reset counters and enter PLAYING]
 ```
 
-The two-pass design is an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each orbitable object must have a unique stable `properties.id`; generated IDs are deterministic only within type and declaration order. Duplicate IDs overwrite entries in the lookup map and make relationships ambiguous. Target and slingshot are constructed outside this lookup map, and lookup wiring for target, slingshot, text, and pointing-arrow orbits is incomplete; hierarchical relationships should currently use planets and bonuses.
+Validation is a precondition to mutation. `levelValidation.js` is a pure boundary shared by browser and Node loading; it accumulates stable `{ severity, code, path, message }` diagnostics. `levelSchema.js` owns the shared object/orbit vocabulary, aliases, and lookup capabilities. The loader validates fetched JSON before caching and revalidates a selected definition before the current world is cleared.
+
+The two-pass construction design remains an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each orbitable object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. Target and slingshot are constructed outside the orbit lookup map, and lookup wiring for target, slingshot, text, and pointing-arrow orbits is incomplete; validation therefore permits hierarchical targets only for planets and bonuses.
 
 ### Canonical top-level contract
 
@@ -331,7 +341,7 @@ The loader accepts object coordinates at `position`, or as fallback `properties.
 | `slingshot` | `Slingshot` | `name`, `anchorX`, `anchorY`, `stretchLimit`, `velocityMultiplier` | First definition becomes the singleton launcher; otherwise `startPosition` creates a default. |
 | `text`, `textobject` | `TextObject` | content, sizing, font/color, visibility/fade, render order | Supports a deliberately small HTML-like formatting parser, not arbitrary DOM HTML rendering. |
 | `arrow`, `pointingarrow` | `PointingArrow` | colors, sizing, pulse, render order, `pointingAt` | `pointingAt` is the current immediate-target property. Delayed pointing is currently defective because the factory references an undefined `pointTo` variable. |
-| `obstacle` | none | none | Reserved switch branch only; logs a warning and returns `null`. Do not use in production levels. |
+| `penguin` | none | exported state only | Accepted for compatibility with older editor exports; runtime creates the singleton penguin from `startPosition`. |
 
 ### Orbit contract
 
@@ -479,7 +489,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard, does 
 
 **Why:** Minimal hosting, immediate browser execution, low dependency risk, and easy inspection against decompiled source.
 
-**Trade-off:** No build-time validation, type checking, tree shaking, asset hashing, or standard unit-test integration.
+**Trade-off:** No build-time type checking, tree shaking, asset hashing, or dependency-based test framework. Level definitions do have dependency-free runtime/CLI validation.
 
 ### Canvas 2D at a fixed logical resolution
 
@@ -497,13 +507,13 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard, does 
 
 **Why:** Levels can be authored and loaded without per-level code. Factory aliases preserve compatibility with older and editor-generated formats.
 
-**Trade-off:** There is no formal JSON Schema or pre-load validation; unsupported or malformed fields often degrade through defaults or logs.
+**Trade-off:** The executable validator is the authoritative contract, but there is not yet a generated/formal JSON Schema for editor tooling and IDE completion.
 
 ### Two-pass orbit resolution
 
 **Why:** Supports hierarchical and forward object references independent of declaration order.
 
-**Trade-off:** IDs become an implicit relational schema, with no uniqueness, missing-reference, or cycle validation phase.
+**Trade-off:** IDs form a relational schema that requires coordinated validation and construction passes; current object-target lookup is intentionally limited to planets and bonuses.
 
 ### Fidelity-oriented physics
 
@@ -573,7 +583,7 @@ Maintain these constraints when changing the system:
 There are two current test surfaces:
 
 1. Root `test_*.html` pages are manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
-2. `testing/` contains twelve dependency-free Node regression tests plus a headless simulator and trajectory search CLI. The headless engine imports the production gravity integrator, resolves current object-linked circular orbits, mirrors the production nonlinear slingshot curve, and can render successful routes as terminal ASCII maps, but still approximates other runtime behavior.
+2. `testing/` contains dependency-free Node regression suites plus a headless simulator, shared level validation, and trajectory search CLI. The headless engine imports the production gravity integrator, resolves current object-linked circular orbits, mirrors the production nonlinear slingshot curve, and can render successful routes as terminal ASCII maps, but still approximates other runtime behavior.
 
 ```mermaid
 flowchart TB
@@ -586,7 +596,10 @@ flowchart TB
     Production --> Levels
     BrowserTests -. manually exercise .-> Production
     CLI --> Headless
+    CLI --> Validator[Shared levelValidation.js]
     Headless --> Levels
+    Production --> Validator
+    Validator --> Schema[Shared levelSchema.js]
     Production --> Shared[Shared js/simulation.js gravity integrator]
     Shared --> Headless
     Production -. remaining behavior is approximate .- Headless
@@ -595,11 +608,11 @@ flowchart TB
 Verified limitations as of 2026-08-01:
 
 - The headless engine shares gravity integration but still approximates object loading, target/collision semantics, rules, bonuses, and advanced orbits, so trajectory success does not prove complete browser-runtime parity.
-- There is no automated JSON Schema validation, linting, browser end-to-end runner, coverage, or CI pipeline. Node regression tests use the built-in `node:test` runner.
+- There is executable structural/semantic level validation but no JSON Schema artifact, linting, browser end-to-end runner, coverage, or CI pipeline. Node regression tests use the built-in `node:test` runner.
 
 Recommended quality direction, in order:
 
-1. Add a JSON Schema plus validation for all 19 shipped levels, including unique IDs and orbit-reference integrity.
+1. Generate a JSON Schema from the shared contract for editor tooling and IDE completion.
 2. Continue extracting pure production orbit, collision, and scoring functions for both browser and Node tests.
 3. Extend deterministic tests to collision, bonuses, scoring, reset boundaries, and state transitions.
 4. Add a browser automation smoke test for bootstrap, start, launch, pause, level completion, editor export, audio degradation, and mobile coordinate mapping.
@@ -609,7 +622,6 @@ Recommended quality direction, in order:
 
 | Priority | Risk/debt | Impact | Suggested treatment |
 |---|---|---|---|
-| High | No structural/relational validation for level JSON. | Partial levels, duplicate IDs, unresolved/cyclic orbits, runtime-only failures. | Add JSON Schema and semantic validation before instantiation. |
 | Medium | `Game` is a large coordinator and mutable data store. | High change coupling and difficult isolated tests. | Gradually separate session/level state, simulation, rendering, and persistence behind explicit interfaces. |
 | Medium | Globals and circular module relationships (`Game`/loader/end screen/editor). | Initialization sensitivity and limited reuse. | Introduce a composition root/context and dependency inversion for transitions. |
 | Medium | Level rules advertise unimplemented `timeLimit` and `customBehaviors`. | Authoring expectations differ from runtime. | Implement or reject them explicitly during validation. |

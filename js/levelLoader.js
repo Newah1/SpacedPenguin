@@ -7,6 +7,12 @@ import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import { GameState } from './game.js';
+import {
+    assertValidLevelDefinition,
+    formatLevelDiagnostics,
+    validateLevelDefinition
+} from './levelValidation.js';
+import { LevelObjectType, normalizeLevelObjectType } from './levelSchema.js';
 
 class GameObjectFactory {
     static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
@@ -28,32 +34,30 @@ class GameObjectFactory {
             return null;
         }
         
-        switch (type.toLowerCase()) {
-            case 'planet':
+        switch (normalizeLevelObjectType(type)) {
+            case LevelObjectType.PLANET:
                 // Temporary debug: Check mass value being passed
                 console.log('GameObjectFactory.create - Planet properties:', properties);
                 console.log('GameObjectFactory.create - Planet mass:', properties.mass);
                 return this.createPlanet(position, properties, assetLoader, gameObjectLookup);
             
-            case 'bonus':
+            case LevelObjectType.BONUS:
                 return this.createBonus(position, properties, assetLoader, gameObjectLookup);
             
-            case 'target':
+            case LevelObjectType.TARGET:
                 return this.createTarget(position, properties, assetLoader, gameObjectLookup);
             
-            case 'slingshot':
+            case LevelObjectType.SLINGSHOT:
                 return this.createSlingshot(position, properties, gameObjectLookup);
             
-            case 'text':
-            case 'textobject':
+            case LevelObjectType.TEXT:
                 return this.createTextObject(position, properties, gameObjectLookup);
             
-            case 'arrow':
-            case 'pointingarrow':
+            case LevelObjectType.POINTING_ARROW:
                 return this.createPointingArrow(position, properties, gameObjectLookup);
             
-            case 'obstacle':
-                return this.createObstacle(position, properties, gameObjectLookup);
+            case LevelObjectType.PENGUIN:
+                return null; // Exported penguin state is not a separately loaded object.
             
             default:
                 plog.warn(`Unknown object type: ${type}`);
@@ -164,7 +168,7 @@ class GameObjectFactory {
             name = null,
             anchorX = position.x,
             anchorY = position.y,
-            stretchLimit = 100,
+            stretchLimit = properties.maxPullback ?? 100,
             velocityMultiplier = 15
         } = properties;
         
@@ -386,13 +390,13 @@ class GameObjectFactory {
 
 export class LevelRules {
     constructor(rulesDefinition = {}) {
-        this.maxTries = rulesDefinition.maxTries || null;
-        this.timeLimit = rulesDefinition.timeLimit || null;
-        this.scoreMultiplier = rulesDefinition.scoreMultiplier || 1.0;
-        this.gravitationalConstant = rulesDefinition.gravitationalConstant || GRAVITATIONAL_CONSTANT;
-        this.customBehaviors = rulesDefinition.customBehaviors || [];
-        this.requiredBonuses = rulesDefinition.requiredBonuses || null; // Number of bonuses required to complete
-        this.allowedMisses = rulesDefinition.allowedMisses || null; // Max planet collisions allowed
+        this.maxTries = rulesDefinition.maxTries ?? null;
+        this.timeLimit = rulesDefinition.timeLimit ?? null;
+        this.scoreMultiplier = rulesDefinition.scoreMultiplier ?? 1.0;
+        this.gravitationalConstant = rulesDefinition.gravitationalConstant ?? GRAVITATIONAL_CONSTANT;
+        this.customBehaviors = rulesDefinition.customBehaviors ?? [];
+        this.requiredBonuses = rulesDefinition.requiredBonuses ?? null; // Number of bonuses required to complete
+        this.allowedMisses = rulesDefinition.allowedMisses ?? null; // Max planet collisions allowed
     }
     
     applyToGame(game) {
@@ -435,6 +439,19 @@ export class LevelLoader {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
         this.levels = new Map();
+        this.validationResults = new Map();
+    }
+
+    validateDefinition(levelDefinition) {
+        return validateLevelDefinition(levelDefinition);
+    }
+
+    assertLevelValid(levelNumber) {
+        const levelDefinition = this.levels.get(levelNumber);
+        if (!levelDefinition) return null; // Missing levels use generated fallback content.
+        const validation = assertValidLevelDefinition(levelDefinition, `level ${levelNumber}`);
+        this.validationResults.set(levelNumber, validation);
+        return validation;
     }
     
     async loadDefaultLevels() {
@@ -459,7 +476,18 @@ export class LevelLoader {
     async loadLevelFromFile(levelNumber, filePath) {
         try {
             const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
             const levelData = await response.json();
+            const validation = validateLevelDefinition(levelData);
+            this.validationResults.set(levelNumber, validation);
+            if (!validation.valid) {
+                throw new Error(`Level validation failed:\n${formatLevelDiagnostics(validation, filePath)}`);
+            }
+            if (validation.warnings.length > 0) {
+                plog.warn(`Level ${levelNumber} validation warnings:\n${formatLevelDiagnostics({ diagnostics: validation.warnings }, filePath)}`);
+            }
             this.levels.set(levelNumber, levelData);
             return true;
         } catch (error) {
@@ -474,6 +502,8 @@ export class LevelLoader {
             plog.warn(`Level ${levelNumber} not found, generating random level`);
             return this.generateRandomLevel(levelNumber, game);
         }
+
+        this.assertLevelValid(levelNumber);
         
         plog.level(`Loading level ${levelNumber}: ${levelDefinition.name}`);
         
@@ -501,7 +531,7 @@ export class LevelLoader {
         game.addGameObject(game.penguin);
         
         // Create slingshot - look for slingshot object or use default
-        const slingshotDef = levelDefinition.objects?.find(obj => obj.type && obj.type.toLowerCase() === 'slingshot');
+        const slingshotDef = levelDefinition.objects?.find(obj => normalizeLevelObjectType(obj.type) === LevelObjectType.SLINGSHOT);
         if (slingshotDef) {
             game.slingshot = GameObjectFactory.create(slingshotDef, this.assetLoader, game);
         } else {
@@ -511,7 +541,7 @@ export class LevelLoader {
         game.addGameObject(game.slingshot);
         
         // Create target - look for target object or use default
-        const targetDef = levelDefinition.objects?.find(obj => obj.type && obj.type.toLowerCase() === 'target');
+        const targetDef = levelDefinition.objects?.find(obj => normalizeLevelObjectType(obj.type) === LevelObjectType.TARGET);
         if (targetDef) {
             game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         } else {
@@ -530,7 +560,8 @@ export class LevelLoader {
 
         for (const objectDef of (levelDefinition.objects || [])) {
             // Skip slingshots and targets that were already handled above
-            if (objectDef.type === 'slingshot' || objectDef.type === 'target') {
+            const objectType = normalizeLevelObjectType(objectDef.type);
+            if (objectType === LevelObjectType.SLINGSHOT || objectType === LevelObjectType.TARGET) {
                 continue; // Already handled above
             }
             
@@ -539,7 +570,6 @@ export class LevelLoader {
                 // Generate consistent ID if not provided
                 if (!gameObject.id) {
                     // Use type-specific counters for consistent IDs
-                    const objectType = objectDef.type.toLowerCase();
                     typeCounters[objectType] = (typeCounters[objectType] || 0) + 1;
                     gameObject.id = `${objectType}_${typeCounters[objectType]}`;
                 }
@@ -656,4 +686,4 @@ export class LevelLoader {
         this.levels.set(levelNumber, levelDefinition);
         return this.loadLevel(levelNumber, game);
     }
-} 
+}

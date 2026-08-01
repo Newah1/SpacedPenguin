@@ -1,5 +1,6 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
+import { LEVEL_ORBIT_TYPES } from './levelSchema.js';
 
 class LevelEditor {
     constructor(game) {
@@ -1374,7 +1375,7 @@ class LevelEditor {
                 key: 'orbitType', 
                 value: orbitSystem.orbitType || 'circular', 
                 type: 'select', 
-                options: ['circular', 'elliptical', 'figure8', 'gravity', 'custom'] 
+                options: LEVEL_ORBIT_TYPES
             });
             
             // Add gravity-specific properties

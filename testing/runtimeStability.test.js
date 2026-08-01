@@ -64,6 +64,22 @@ test('Game updates UI but not the world while paused', () => {
     assert.equal(worldUpdates, 0);
 });
 
+test('Game validates a level before clearing the current world', () => {
+    const sentinel = { id: 'existing-world' };
+    const validationError = new Error('invalid level');
+    const fakeGame = {
+        levelLoader: { assertLevelValid: () => { throw validationError; } },
+        gameObjects: [sentinel],
+        planets: [sentinel],
+        bonuses: [],
+        physics: { clear: () => assert.fail('physics must not clear before validation') }
+    };
+
+    assert.throws(() => Game.prototype.loadLevel.call(fakeGame, 99), validationError);
+    assert.deepEqual(fakeGame.gameObjects, [sentinel]);
+    assert.deepEqual(fakeGame.planets, [sentinel]);
+});
+
 test('generic object updates skip the penguin dedicated simulation path', () => {
     let penguinUpdates = 0;
     let objectUpdates = 0;

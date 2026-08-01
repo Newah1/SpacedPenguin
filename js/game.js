@@ -1073,6 +1073,10 @@ class Game {
     }
     
     loadLevel(level) {
+        // Validate before clearing the current world so a bad definition cannot
+        // leave the game half-loaded.
+        this.levelLoader.assertLevelValid(level);
+
         // Clear existing game state
         this.gameObjects = [];
         this.planets = [];

@@ -198,7 +198,7 @@
         "y": 291.6379378618768
       },
       "properties": {
-        "id": "bonus_4",
+        "id": "bonus_1",
         "name": "Bonus 4",
         "rotation": 2211.430641713136,
         "alpha": 0.6253224838360631,
@@ -368,7 +368,7 @@
         "y": 81.00213714286605
       },
       "properties": {
-        "id": "planet_5",
+        "id": "planet_2",
         "name": "Planet 4",
         "rotation": 0,
         "alpha": 1,

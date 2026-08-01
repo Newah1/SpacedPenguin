@@ -4,6 +4,7 @@
 import { MockCanvas, MockAudioManager, mockLogger } from './nodeShims.js';
 import { GRAVITATIONAL_CONSTANT } from './constants.js';
 import { integratePlanetGravity } from '../js/simulation.js';
+import { assertValidLevelDefinition } from '../js/levelValidation.js';
 
 // Create minimal implementations of browser modules for Node.js
 const NodeUtils = {
@@ -244,6 +245,7 @@ export class HeadlessGameEngine {
     }
     
     loadLevel(levelData) {
+        assertValidLevelDefinition(levelData, 'headless level');
         this.physics.clear();
         this.physics.gravitationalConstant = levelData.rules?.gravitationalConstant ?? GRAVITATIONAL_CONSTANT;
         this.level = levelData;
