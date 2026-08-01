@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Actions Test - Spaced Penguin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #fff;
+            display: block;
+            margin: 20px auto;
+            background: #001;
+        }
+        
+        #testInfo {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 5px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .active {
+            background: rgba(0, 255, 0, 0.3);
+        }
+        
+        .inactive {
+            background: rgba(255, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="testInfo">
+        <h1>Input Actions System Test</h1>
+        <p>This page tests the new InputActionManager system.</p>
+        
+        <h2>Active Input Actions:</h2>
+        <div id="actionStatus">
+            <div class="status" id="gameplay-status">Gameplay: <span>inactive</span></div>
+            <div class="status" id="menu-status">Menu: <span>inactive</span></div>
+            <div class="status" id="keyboard-status">Keyboard: <span>inactive</span></div>
+            <div class="status" id="levelEditor-status">Level Editor: <span>inactive</span></div>
+            <div class="status" id="ui-status">UI: <span>inactive</span></div>
+            <div class="status" id="window-status">Window: <span>inactive</span></div>
+        </div>
+        
+        <h2>Game State:</h2>
+        <div id="gameState">Unknown</div>
+        
+        <h2>Test Instructions:</h2>
+        <ul>
+            <li>Load the game - should show Menu and UI actions active</li>
+            <li>Start playing - should show Gameplay actions active</li>
+            <li>Press F1 to open level editor - should show Level Editor actions active</li>
+            <li>Press Escape to close level editor - should return to Gameplay actions</li>
+            <li>Keyboard and Window actions should always be active</li>
+        </ul>
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <script type="module">
+        import { InputActionManager } from './js/inputActions.js';
+        
+        // Create a minimal context for testing
+        const testContext = {
+            canvas: document.getElementById('gameCanvas'),
+            game: {
+                state: 'menu',
+                levelEditor: { active: false }
+            },
+                    setupResponsiveCanvas: () => { /* Responsive canvas setup */ },
+        pause: () => { /* Game paused */ },
+        resume: () => { /* Game resumed */ }
+        };
+        
+        // Initialize InputActionManager
+        const inputManager = new InputActionManager(testContext);
+        
+        // Function to update status display
+        function updateStatus() {
+            const actions = ['gameplay', 'menu', 'keyboard', 'levelEditor', 'ui', 'window'];
+            
+            actions.forEach(actionName => {
+                const element = document.getElementById(`${actionName}-status`);
+                const isActive = inputManager.activeActions.has(actionName);
+                
+                element.className = `status ${isActive ? 'active' : 'inactive'}`;
+                element.querySelector('span').textContent = isActive ? 'active' : 'inactive';
+            });
+            
+            document.getElementById('gameState').textContent = testContext.game.state;
+        }
+        
+        // Initial update
+        inputManager.updateActiveActions();
+        updateStatus();
+        
+        // Simulate state changes for testing
+        window.testStateChange = function(newState) {
+            testContext.game.state = newState;
+            inputManager.updateActiveActions();
+            updateStatus();
+            // State changed (removed console.log)
+        };
+        
+        window.testLevelEditor = function(active) {
+            testContext.game.levelEditor.active = active;
+            inputManager.updateActiveActions();
+            updateStatus();
+            // Level editor status changed (removed console.log)
+        };
+        
+        // Add some test buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.textAlign = 'center';
+        buttonContainer.style.marginTop = '20px';
+        
+        const menuBtn = document.createElement('button');
+        menuBtn.textContent = 'Set Menu State';
+        menuBtn.onclick = () => testStateChange('menu');
+        
+        const playBtn = document.createElement('button');
+        playBtn.textContent = 'Set Playing State';
+        playBtn.onclick = () => testStateChange('playing');
+        
+        const pauseBtn = document.createElement('button');
+        pauseBtn.textContent = 'Set Paused State';
+        pauseBtn.onclick = () => testStateChange('paused');
+        
+        const editorBtn = document.createElement('button');
+        editorBtn.textContent = 'Toggle Level Editor';
+        editorBtn.onclick = () => testLevelEditor(!testContext.game.levelEditor.active);
+        
+        [menuBtn, playBtn, pauseBtn, editorBtn].forEach(btn => {
+            btn.style.margin = '5px';
+            btn.style.padding = '10px 15px';
+            btn.style.fontSize = '14px';
+            buttonContainer.appendChild(btn);
+        });
+        
+        document.body.appendChild(buttonContainer);
+        
+        // Make inputManager globally accessible for debugging
+        window.inputManager = inputManager;
+        window.testContext = testContext;
+        
+        // Input Actions Test loaded (removed console.log)
+    </script>
+</body>
+</html>

@@ -1,4 +1,6 @@
-# Spaced Penguin - Game Documentation
+# Spaced Penguin — Original Shockwave Reference
+
+> **Historical scope:** This document describes the original Macromedia Director/Shockwave game and the provenance used during the port. It is not the architecture reference for the current HTML5 runtime. Frame-based levels, remote leaderboards, score submission, and future-tense conversion guidance below refer to the original system. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current implementation and [`levels/README.md`](levels/README.md) for the current JSON level contract.
 
 ## Overview
 
@@ -198,4 +200,4 @@ The penguin can be in several states:
 - **Bonus Placement**: Strategic positioning of collectibles
 - **Risk vs. Reward**: Dangerous paths for higher scores
 
-This documentation provides a comprehensive overview of the Spaced Penguin game mechanics, technical architecture, and conversion requirements for creating a modern HTML5/JavaScript version. 
+This document preserves an overview of the original Spaced Penguin mechanics and Director/Shockwave implementation as historical porting reference.

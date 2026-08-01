@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Canvas Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+        }
+        
+        .test-container {
+            border: 2px solid #333;
+            background: #111;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .canvas-info {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        .control-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .control-button:hover {
+            background: #45a049;
+        }
+        
+        #testCanvas {
+            border: 1px solid #666;
+            background: #222;
+        }
+    </style>
+</head>
+<body>
+    <h1>Responsive Canvas Test</h1>
+    
+    <div class="controls">
+        <button class="control-button" onclick="resizeWindow(400, 300)">Small Window</button>
+        <button class="control-button" onclick="resizeWindow(800, 600)">Medium Window</button>
+        <button class="control-button" onclick="resizeWindow(1200, 900)">Large Window</button>
+        <button class="control-button" onclick="toggleDebug()">Toggle Debug</button>
+    </div>
+    
+    <div class="test-container">
+        <h3>Canvas Size Test</h3>
+        <canvas id="testCanvas" width="800" height="600"></canvas>
+        <div id="canvasInfo" class="canvas-info">Canvas info will appear here...</div>
+    </div>
+    
+    <div class="test-container">
+        <h3>Window Size</h3>
+        <div id="windowInfo" class="canvas-info">Window info will appear here...</div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('testCanvas');
+        const canvasInfo = document.getElementById('canvasInfo');
+        const windowInfo = document.getElementById('windowInfo');
+        
+        let debugMode = false;
+        
+        function updateInfo() {
+            const rect = canvas.getBoundingClientRect();
+            const style = window.getComputedStyle(canvas);
+            
+            canvasInfo.innerHTML = `
+                <strong>Canvas Internal Size:</strong> ${canvas.width} x ${canvas.height}<br>
+                <strong>Canvas Display Size:</strong> ${Math.round(rect.width)} x ${Math.round(rect.height)}<br>
+                <strong>Canvas Style Size:</strong> ${style.width} x ${style.height}<br>
+                <strong>Scale Factor:</strong> ${(rect.width / canvas.width).toFixed(2)}x${(rect.height / canvas.height).toFixed(2)}
+            `;
+            
+            windowInfo.innerHTML = `
+                <strong>Window Size:</strong> ${window.innerWidth} x ${window.innerHeight}<br>
+                <strong>Document Size:</strong> ${document.documentElement.clientWidth} x ${document.documentElement.clientHeight}<br>
+                <strong>Device Pixel Ratio:</strong> ${window.devicePixelRatio}
+            `;
+        }
+        
+        function resizeWindow(width, height) {
+            window.resizeTo(width, height);
+        }
+        
+        function toggleDebug() {
+            debugMode = !debugMode;
+            // Debug mode status (removed console.log)
+        }
+        
+        // Update info on load and resize
+        updateInfo();
+        window.addEventListener('resize', updateInfo);
+        
+        // Draw something on the canvas to make it visible
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#4CAF50';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Responsive Canvas Test', canvas.width / 2, canvas.height / 2);
+    </script>
+</body>
+</html> 

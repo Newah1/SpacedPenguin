@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbit Editor Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00ffff;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #0099ff;
+        }
+        
+        canvas {
+            border: 2px solid #00ffff;
+            display: block;
+            margin: 0 auto;
+            background: #001122;
+        }
+        
+        .info {
+            text-align: center;
+            margin-top: 20px;
+            color: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Orbit Editor Test</h1>
+    
+    <div class="controls">
+        <button onclick="toggleLevelEditor()">Toggle Level Editor</button>
+        <button onclick="createOrbitingObject()">Add Orbiting Bonus</button>
+        <button onclick="createPlanet()">Add Planet</button>
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="info">
+        <p>Instructions:</p>
+        <ul>
+            <li>Click "Toggle Level Editor" to enter edit mode</li>
+            <li>Click "Add Orbiting Bonus" to add a bonus with circular orbit</li>
+            <li>Click "Add Planet" to add a central planet</li>
+            <li>In edit mode, you can drag the orange orbit center indicators</li>
+            <li>You can also drag the objects themselves</li>
+            <li>Select objects to edit their orbit properties in the properties panel</li>
+            <li>Use the "Clone Selected" button to duplicate objects</li>
+            <li>View and select objects from the object list panel (bottom left)</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import AssetLoader from './js/assetLoader.js';
+        import Game from './js/game.js';
+        
+        let game;
+        let assetLoader;
+        
+        async function initGame() {
+            const canvas = document.getElementById('gameCanvas');
+            
+            // Initialize asset loader
+            assetLoader = new AssetLoader();
+            await assetLoader.loadAssets();
+            
+            // Create game instance
+            game = new Game(canvas, assetLoader);
+            
+            // Add a simple level with orbiting objects
+            createTestLevel();
+            
+            // Orbit editor test initialized (removed console.log)
+        }
+        
+        function createTestLevel() {
+            // Clear existing level
+            game.planets = [];
+            game.bonuses = [];
+            game.gameObjects = [];
+            
+            // Add a central planet
+            const Planet = game.levelEditor.gameObjectClasses?.Planet;
+            if (Planet) {
+                const centralPlanet = new Planet(400, 300, 60, 2000, 0, 'planet_sun', assetLoader);
+                game.planets.push(centralPlanet);
+                game.gameObjects.push(centralPlanet);
+                game.physics.addPlanet(centralPlanet);
+            }
+            
+            // Add an orbiting bonus
+            const Bonus = game.levelEditor.gameObjectClasses?.Bonus;
+            if (Bonus) {
+                const orbitingBonus = new Bonus(500, 300, 100, assetLoader);
+                
+                // Set up orbit system
+                if (!orbitingBonus.orbitSystem) {
+                    const OrbitSystem = (await import('./js/gameObjects.js')).OrbitSystem;
+                    orbitingBonus.orbitSystem = new OrbitSystem();
+                }
+                
+                // Configure circular orbit around central planet
+                orbitingBonus.orbitSystem.setCircularOrbit(
+                    { x: 400, y: 300 }, // center
+                    100, // radius
+                    0.02 // speed
+                );
+                
+                game.bonuses.push(orbitingBonus);
+                game.gameObjects.push(orbitingBonus);
+            }
+        }
+        
+        window.toggleLevelEditor = function() {
+            if (game && game.levelEditor) {
+                game.levelEditor.toggle();
+            }
+        };
+        
+        window.createOrbitingObject = function() {
+            const Bonus = game.levelEditor.gameObjectClasses?.Bonus;
+            if (Bonus) {
+                // Create bonus at random position
+                const x = 200 + Math.random() * 400;
+                const y = 150 + Math.random() * 300;
+                const orbitingBonus = new Bonus(x, y, 50 + Math.random() * 100, assetLoader);
+                
+                // Set up orbit system
+                import('./js/gameObjects.js').then(module => {
+                    orbitingBonus.orbitSystem = new module.OrbitSystem();
+                    
+                    // Configure random circular orbit
+                    const centerX = 300 + Math.random() * 200;
+                    const centerY = 200 + Math.random() * 200;
+                    const radius = 50 + Math.random() * 100;
+                    const speed = 0.01 + Math.random() * 0.03;
+                    
+                    orbitingBonus.orbitSystem.setCircularOrbit(
+                        { x: centerX, y: centerY },
+                        radius,
+                        speed
+                    );
+                    
+                    game.bonuses.push(orbitingBonus);
+                    game.gameObjects.push(orbitingBonus);
+                    
+                    // Added orbiting bonus (removed console.log)
+                });
+            }
+        };
+        
+        window.createPlanet = function() {
+            const Planet = game.levelEditor.gameObjectClasses?.Planet;
+            if (Planet) {
+                // Create planet at random position
+                const x = 100 + Math.random() * 600;
+                const y = 100 + Math.random() * 400;
+                const planet = new Planet(x, y, 30 + Math.random() * 40, 1000 + Math.random() * 2000, 0, 'planet_grey', assetLoader);
+                
+                game.planets.push(planet);
+                game.gameObjects.push(planet);
+                game.physics.addPlanet(planet);
+                
+                // Update object list if editor is active
+                if (game.levelEditor && game.levelEditor.active) {
+                    game.levelEditor.updateObjectList();
+                }
+                
+                // Added planet (removed console.log)
+            }
+        };
+        
+        // Initialize the game
+        initGame().catch(console.error);
+    </script>
+</body>
+</html>

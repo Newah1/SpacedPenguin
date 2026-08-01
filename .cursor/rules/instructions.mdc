@@ -1,0 +1,23 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+This is a conversion project of an old Shockwave game called "Spaced Penguin" into HTML5 canvas JavaScript 
+
+
+Old source files have been decompiled in the OldSource folder in root. 
+
+They are rough, undocumented, etc. 
+
+Help the user to create a browser-runnable 1-1 port of this game.
+
+The game is a gravity slingshot game where the user drags a penguin in a slingshot and attempts to collect all of the special items for high score while also landing them in the target. 
+
+The game introduces obstacles and planets. Planets have gravitational pull, adding challenge. 
+
+
+
+Please use SpacedPenguin_Documentation.md if necessary for a quick rundown of the old source.
+
+Please refer to OldSource\Assets\spaced_penguin\asset_mapping.json for asset mapping.

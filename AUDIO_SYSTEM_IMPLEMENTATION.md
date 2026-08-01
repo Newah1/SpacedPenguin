@@ -10,20 +10,20 @@ The audio system for Spaced Penguin has been implemented using the Web Audio API
 - **AudioContext**: Modern browser audio context with fallback support
 - **AudioBuffer**: Efficient sound loading and caching
 - **GainNode**: Volume control and mixing
-- **Autoplay Policy Handling**: Automatic context resumption for user interaction
+- **Autoplay Policy Limitation**: Initialization attempts to resume immediately; there is no centralized user-gesture resume hook yet
 
 ### 2. Sound Effects (Matching Original)
 - **Launch Sound** (`17_snd_launch.wav`): Played when penguin is launched from slingshot
 - **Bonus Sound** (`16_snd_bonus.wav`): Played when collecting bonus items
 - **Hit Planet Sound** (`20_snd_HitPlanet.wav`): Played when penguin collides with planets
 - **Enter Ship Sound** (`21_snd_enterShip.wav`): Played when penguin reaches the target
-- **Arp Sound** (`15_Arp.wav`): Background music/ambient sound
+- **Arp Sound** (`15_Arp.wav`): One-shot scoring/UI cue through the convenience method
 
 ### 3. Volume Control
 - **Master Volume**: Global volume control (0-100%)
 - **Individual Sound Volumes**: Per-sound volume adjustments
 - **Real-time Control**: Volume slider in the game UI
-- **Persistent Settings**: Volume level maintained during gameplay
+- **Session Settings**: Volume is maintained for the page lifetime and resets from the HTML slider on reload
 
 ### 4. Error Handling
 - **Graceful Degradation**: Game continues without audio if Web Audio API fails
@@ -116,7 +116,7 @@ audioManager.playLaunch();      // Launch sound
 audioManager.playBonus();       // Bonus sound
 audioManager.playHitPlanet();   // Planet collision
 audioManager.playEnterShip();   // Target landing
-audioManager.playArp();         // Background sound
+audioManager.playArp();         // One-shot arp cue
 ```
 
 ## Browser Compatibility
@@ -130,7 +130,7 @@ audioManager.playArp();         // Background sound
 ### Fallback Behavior
 - **No Web Audio API**: Audio disabled, game continues
 - **Loading Failures**: Individual sounds disabled, others continue
-- **Autoplay Blocked**: Audio resumes on first user interaction
+- **Autoplay Blocked**: Audio may remain suspended; a gesture-time resume path is a known gap
 
 ## Performance Considerations
 
@@ -188,4 +188,4 @@ The `test_audio.html` file provides a comprehensive testing interface:
 - **Status Display**: Real-time audio system status
 - **Error Messages**: Specific error reporting for issues
 
-This audio system provides a robust, feature-rich sound experience that enhances the Spaced Penguin gameplay while maintaining compatibility and performance across different browsers and devices. 
+This audio system provides a robust, feature-rich sound experience that enhances the Spaced Penguin gameplay while maintaining compatibility and performance across different browsers and devices.

@@ -1,5 +1,6 @@
 // Penguin class with real sprite animations
 import plog from './penguinLogger.js';
+import { integratePlanetGravity } from './simulation.js';
 
 export class Penguin {
     constructor(assetLoader) {
@@ -262,31 +263,18 @@ export class Penguin {
         
         plog.physics('Penguin updateWithPlanetGravity called, state:', this.state);
         
-        // Apply gravitational forces from all planets (matching old GPS script)
-        for (const planet of planets) {
-            const changeLoc = { x: planet.x - this.x, y: planet.y - this.y };
-            const distanceSquared = (changeLoc.x * changeLoc.x) + (changeLoc.y * changeLoc.y);
-            const distance = Math.sqrt(distanceSquared);
-            
-            // Only apply gravity if within gravitational reach
-            if (distance < planet.gravitationalReach) {
-                let gravitationalForce = 0;
-                if (distanceSquared > 0) {
-                    gravitationalForce = planet.mass * gravitationalConstant / distanceSquared;
-                }
-                
-                // Apply gravitational acceleration (F = ma, a = F/m, but we're treating penguin mass as 1)
-                this.vx += gravitationalForce * changeLoc.x;
-                this.vy += gravitationalForce * changeLoc.y;
-                
-                plog.physics(`Applied gravity from planet at (${planet.x}, ${planet.y}): force=${gravitationalForce.toFixed(4)}, vx=${this.vx.toFixed(2)}, vy=${this.vy.toFixed(2)}`);
-            }
-        }
-        
-        // Update position (RESTORE deltaTime multiplication!)
-        this.x += this.vx * deltaTime;
-        this.y += this.vy * deltaTime;
-        this.position = { x: this.x, y: this.y };
+        const result = integratePlanetGravity(
+            { x: this.x, y: this.y },
+            { x: this.vx, y: this.vy },
+            planets,
+            gravitationalConstant,
+            deltaTime
+        );
+
+        this.x = result.position.x;
+        this.y = result.position.y;
+        this.vx = result.velocity.x;
+        this.vy = result.velocity.y;
         
         // Update trail
         if(this.state != "crashed" && this.state != "hitTarget") {
@@ -298,9 +286,11 @@ export class Penguin {
         
         // Update animation
         this.updateAnimationFrames();
-        
+        this.updateAnimationBasedOnVelocity();
+        if (this.currentAnimation) {
+            this.currentAnimation.rotation = Math.atan2(this.vy, this.vx);
+        }
 
-        
         plog.physics(`Penguin position updated to: (${this.x.toFixed(2)}, ${this.y.toFixed(2)}), velocity: (${this.vx.toFixed(2)}, ${this.vy.toFixed(2)})`);
     }
     
@@ -679,4 +669,4 @@ export class Penguin {
         }
         this.container.destroy();
     }
-} 
+}

@@ -5,10 +5,9 @@
   "main": "levelTester.js",
   "type": "module",
   "scripts": {
-    "test": "node levelTester.js",
+    "test": "node --test runtimeStability.test.js",
     "test-level": "node levelTester.js --level",
-    "test-trajectory": "node trajectoryTester.js",
-    "validate-levels": "node levelValidator.js"
+    "test:cli": "node levelTester.js --single --level simple_test.json --angle 0 --power 300"
   },
   "keywords": ["game", "testing", "physics", "simulation"],
   "author": "Spaced Penguin Team",

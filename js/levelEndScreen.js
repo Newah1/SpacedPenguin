@@ -190,10 +190,32 @@ export class LevelEndScreen extends UIScreen {
             align: 'right'
         }));
         
-        // Continue button (initially hidden)
+        // Continue and Retry buttons (initially hidden, centered together)
+        const buttonWidth = 100;
+        const buttonHeight = 30;
+        const buttonSpacing = 20;
+        const totalButtonWidth = (buttonWidth * 2) + buttonSpacing;
+        const buttonStartX = panelX + (panelWidth - totalButtonWidth) / 2;
+        
+        this.retryButton = this.addElement(new Button(
+            buttonStartX, panelY + panelHeight - 70,
+            buttonWidth, buttonHeight,
+            'Retry',
+            () => this.handleRetry(),
+            {
+                fontSize: 14,
+                fontFamily: 'Verdana, sans-serif',
+                backgroundColor: '#cb7928',
+                hoverColor: '#cb7928',
+                borderColor: '#cb7928',
+                textColor: '#f5e4aa'
+            }
+        ));
+        this.retryButton.visible = false;
+        
         this.continueButton = this.addElement(new Button(
-            panelX + panelWidth / 2 - 60, panelY + panelHeight - 70,
-            120, 30,
+            buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - 70,
+            buttonWidth, buttonHeight,
             'Continue',
             () => this.handleContinue(),
             {
@@ -309,6 +331,7 @@ export class LevelEndScreen extends UIScreen {
     finishAnimation() {
         this.isAnimating = false;
         this.continueButton.visible = true;
+        this.retryButton.visible = true;
         this.skipText.visible = false; // Hide skip text when animation is done
         
         // Stop any looping sounds
@@ -345,6 +368,15 @@ export class LevelEndScreen extends UIScreen {
         } else {
             this.game.nextLevel();
         }
+    }
+    
+    handleRetry() {
+        this.stopAllLoopingSounds(); // Clean up any remaining sounds
+        this.uiManager.playSound('17_snd_launch'); // Use launch sound for button clicks
+        this.close();
+        
+        // Reset the current level to retry it
+        this.game.resetLevel();
     }
     
     // Override close to ensure cleanup

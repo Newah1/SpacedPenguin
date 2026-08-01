@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbit Loading Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00ffff;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #0099ff;
+        }
+        
+        canvas {
+            border: 2px solid #00ffff;
+            display: block;
+            margin: 0 auto;
+            background: #001122;
+        }
+        
+        .info {
+            text-align: center;
+            margin-top: 20px;
+            color: #cccccc;
+        }
+        
+        .log {
+            background: #222;
+            padding: 10px;
+            margin: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Orbit Loading Test</h1>
+    
+    <div class="controls">
+        <button onclick="loadTestLevel()">Load Test Level with Orbits</button>
+        <button onclick="toggleLevelEditor()">Toggle Level Editor</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="info">
+        <p>Testing orbit system loading from JSON data. Check console/logs for details.</p>
+    </div>
+    
+    <div id="log" class="log"></div>
+
+    <script type="module">
+        import AssetLoader from './js/assetLoader.js';
+        import Game from './js/game.js';
+        import { LevelLoader } from './js/levelLoader.js';
+        
+        let game;
+        let assetLoader;
+        let levelLoader;
+        
+        // Your test JSON data with orbit information
+        const testLevelData = {
+            "name": "Orbit Test Level",
+            "description": "Testing orbit loading",
+            "startPosition": { "x": 95, "y": 122 },
+            "targetPosition": { "x": 700, "y": 300 },
+            "objects": [
+                {
+                    "type": "planet",
+                    "className": "Planet",
+                    "position": { "x": 400, "y": 300 },
+                    "properties": {
+                        "name": "Central Planet",
+                        "radius": 40,
+                        "mass": 2000,
+                        "planetType": "planet_sun",
+                        "orbit": {
+                            "orbitCenter": { "x": 0, "y": 0 },
+                            "orbitRadius": 0,
+                            "orbitSpeed": 0,
+                            "orbitAngle": 0,
+                            "orbitType": "circular",
+                            "orbitParams": {}
+                        }
+                    }
+                },
+                {
+                    "type": "bonus",
+                    "className": "Bonus",
+                    "position": { "x": 237.17385267617405, "y": 351.8528004056023 },
+                    "properties": {
+                        "name": "Big Chungo",
+                        "value": 258,
+                        "orbit": {
+                            "orbitCenter": { "x": 400, "y": 300 },
+                            "orbitRadius": 147,
+                            "orbitSpeed": 0.02,
+                            "orbitAngle": 59.738900000001,
+                            "orbitType": "circular",
+                            "orbitParams": {}
+                        }
+                    }
+                },
+                {
+                    "type": "bonus",
+                    "className": "Bonus",
+                    "position": { "x": 500, "y": 300 },
+                    "properties": {
+                        "name": "Orbiting Bonus 2",
+                        "value": 150,
+                        "orbit": {
+                            "orbitCenter": { "x": 400, "y": 300 },
+                            "orbitRadius": 100,
+                            "orbitSpeed": 0.03,
+                            "orbitAngle": 0,
+                            "orbitType": "circular",
+                            "orbitParams": {}
+                        }
+                    }
+                }
+            ],
+            "rules": {
+                "maxTries": null,
+                "timeLimit": null,
+                "scoreMultiplier": 1.0
+            }
+        };
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+            // Message logged (removed console.log)
+        }
+        
+        async function initGame() {
+            try {
+                const canvas = document.getElementById('gameCanvas');
+                
+                log('Initializing asset loader...');
+                assetLoader = new AssetLoader();
+                await assetLoader.loadAssets();
+                
+                log('Creating game instance...');
+                game = new Game(canvas, assetLoader);
+                
+                log('Creating level loader...');
+                levelLoader = new LevelLoader(assetLoader);
+                
+                log('Game initialized successfully');
+            } catch (error) {
+                log('ERROR: Failed to initialize game: ' + error.message);
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        window.loadTestLevel = async function() {
+            if (!game || !levelLoader) {
+                log('ERROR: Game not initialized');
+                return;
+            }
+            
+            try {
+                log('Loading test level with orbit data...');
+                
+                // Clear existing level
+                game.planets = [];
+                game.bonuses = [];
+                game.gameObjects = [];
+                
+                // Load objects from test data
+                for (const objectDef of testLevelData.objects) {
+                    log(`Creating ${objectDef.type}: ${objectDef.properties.name}`);
+                    
+                    const obj = await levelLoader.gameObjectFactory.create(objectDef, assetLoader, game);
+                    if (obj) {
+                        // Add name if not already set
+                        if (!obj.name && objectDef.properties.name) {
+                            obj.name = objectDef.properties.name;
+                        }
+                        
+                        // Add to appropriate arrays
+                        game.gameObjects.push(obj);
+                        
+                        if (objectDef.type === 'planet') {
+                            game.planets.push(obj);
+                            game.physics.addPlanet(obj);
+                        } else if (objectDef.type === 'bonus') {
+                            game.bonuses.push(obj);
+                        }
+                        
+                        // Check if orbit was applied
+                        if (obj.orbitSystem && obj.orbitSystem.orbitRadius > 0) {
+                            log(`✓ Orbit applied to ${obj.name}: center(${obj.orbitSystem.orbitCenter.x},${obj.orbitSystem.orbitCenter.y}) radius=${obj.orbitSystem.orbitRadius}`);
+                        } else if (objectDef.properties.orbit && objectDef.properties.orbit.orbitRadius > 0) {
+                            log(`✗ Orbit NOT applied to ${obj.name} (expected radius: ${objectDef.properties.orbit.orbitRadius})`);
+                        } else {
+                            log(`- No orbit for ${obj.name}`);
+                        }
+                    } else {
+                        log(`ERROR: Failed to create ${objectDef.type}`);
+                    }
+                }
+                
+                log(`Level loaded successfully. ${game.gameObjects.length} objects created.`);
+                
+                // Update level editor if active
+                if (game.levelEditor && game.levelEditor.active) {
+                    game.levelEditor.updateObjectList();
+                }
+                
+            } catch (error) {
+                log('ERROR: Failed to load test level: ' + error.message);
+                console.error('Level loading error:', error);
+            }
+        };
+        
+        window.toggleLevelEditor = function() {
+            if (game && game.levelEditor) {
+                game.levelEditor.toggle();
+            }
+        };
+        
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        };
+        
+        // Initialize the game
+        initGame().catch(error => {
+            log('FATAL ERROR: ' + error.message);
+            console.error('Fatal error:', error);
+        });
+    </script>
+</body>
+</html>

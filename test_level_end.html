@@ -139,7 +139,7 @@
                 highScore: highScore,
                 levelRules: { isLastLevel: false },
                 nextLevel: () => {
-                    console.log('Next level called');
+                    // Next level called (removed console.log)
                     clearScreens();
                 },
                 state: 'playing'
@@ -150,7 +150,7 @@
         window.showTestScreen = function() {
             clearScreens();
             const mockGame = createMockGame(1, 350, 1, 350, 1200); // Score includes level calculation
-            console.log('Test 1 - Previous score:', 0, 'New total:', 350, 'Difference:', 350);
+            // Test 1 completed (removed console.log)
             uiManager.showScreen(LevelEndScreen, mockGame);
         };
 

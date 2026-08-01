@@ -104,13 +104,13 @@
                 // Load assets
                 await assetLoader.loadAssets(
                     (loader) => {
-                        console.log('Assets loaded successfully');
+                        // Assets loaded successfully (removed console.log)
                         audioManager = loader.getAudioManager();
                         updateStatus();
                         updateLoadedSounds();
                     },
                     (progress, assetName) => {
-                        console.log(`Loading: ${assetName} (${progress.toFixed(1)}%)`);
+                        // Loading progress (removed console.log)
                     }
                 );
                 
@@ -166,7 +166,7 @@
         // Test sound function
         window.testSound = function(soundName) {
             if (audioManager) {
-                console.log(`Testing sound: ${soundName}`);
+                // Testing sound (removed console.log)
                 audioManager.playSound(soundName);
             } else {
                 console.error('Audio manager not available');

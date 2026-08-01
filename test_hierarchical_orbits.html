@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Orbit Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #001122;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid #333;
+            background: #000;
+        }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hierarchical Orbit System Test</h1>
+    <div class="info">
+        <strong>Test Scenario:</strong> A central planet with a bonus orbiting it, and another bonus orbiting the first bonus.
+        <br><strong>Controls:</strong> Open browser console to see debug output.
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script type="module">
+        import { Planet, Bonus, OrbitSystem } from './js/gameObjects.js';
+        import { AssetLoader } from './js/assetLoader.js';
+
+        class HierarchicalOrbitTest {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.objects = [];
+                this.objectMap = new Map();
+                this.running = false;
+                
+                this.init();
+            }
+            
+            async init() {
+                // Initializing hierarchical orbit test (removed console.log)
+                
+                // Create asset loader
+                this.assetLoader = new AssetLoader();
+                await this.assetLoader.loadAssets();
+                
+                // Create object lookup function
+                const gameObjectLookup = (id) => this.objectMap.get(id);
+                
+                // Create central planet
+                const centralPlanet = new Planet(400, 300, 50, 500, 5000, 'planet_sun', this.assetLoader, gameObjectLookup);
+                centralPlanet.id = 'central_planet';
+                centralPlanet.name = 'Central Sun';
+                this.objects.push(centralPlanet);
+                this.objectMap.set(centralPlanet.id, centralPlanet);
+                
+                // Create first bonus orbiting the planet
+                const firstBonus = new Bonus(500, 300, 100, this.assetLoader, gameObjectLookup);
+                firstBonus.id = 'first_bonus';
+                firstBonus.name = 'Primary Orbiter';
+                firstBonus.orbitSystem.setCircularOrbit('central_planet', 100, 2); // Orbit the planet
+                this.objects.push(firstBonus);
+                this.objectMap.set(firstBonus.id, firstBonus);
+                
+                // Create second bonus orbiting the first bonus
+                const secondBonus = new Bonus(550, 300, 50, this.assetLoader, gameObjectLookup);
+                secondBonus.id = 'second_bonus';
+                secondBonus.name = 'Secondary Orbiter';
+                secondBonus.orbitSystem.setCircularOrbit('first_bonus', 50, 5); // Orbit the first bonus
+                this.objects.push(secondBonus);
+                this.objectMap.set(secondBonus.id, secondBonus);
+                
+                // Create third bonus orbiting the second bonus (triple hierarchy)
+                const thirdBonus = new Bonus(580, 300, 25, this.assetLoader, gameObjectLookup);
+                thirdBonus.id = 'third_bonus';
+                thirdBonus.name = 'Tertiary Orbiter';
+                thirdBonus.orbitSystem.setCircularOrbit('second_bonus', 30, 8); // Orbit the second bonus
+                this.objects.push(thirdBonus);
+                this.objectMap.set(thirdBonus.id, thirdBonus);
+                
+                // Objects created (removed console.log)
+                this.objects.forEach(obj => {
+                                          // Object details (removed console.log)
+                        position: obj.position,
+                        orbitTargetId: obj.orbitSystem?.orbitTargetId,
+                        orbitRadius: obj.orbitSystem?.orbitRadius,
+                        orbitSpeed: obj.orbitSystem?.orbitSpeed
+                    });
+                });
+                
+                this.startAnimation();
+            }
+            
+            startAnimation() {
+                this.running = true;
+                this.lastTime = performance.now();
+                this.animate();
+            }
+            
+            animate() {
+                if (!this.running) return;
+                
+                const currentTime = performance.now();
+                const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
+                this.lastTime = currentTime;
+                
+                // Update objects
+                this.objects.forEach(obj => {
+                    obj.update(deltaTime);
+                });
+                
+                // Clear canvas
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw orbit paths (for visualization)
+                this.drawOrbitPaths();
+                
+                // Draw objects
+                this.objects.forEach(obj => {
+                    obj.draw(this.ctx);
+                });
+                
+                // Draw object info
+                this.drawObjectInfo();
+                
+                requestAnimationFrame(() => this.animate());
+            }
+            
+            drawOrbitPaths() {
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                this.ctx.lineWidth = 1;
+                
+                this.objects.forEach(obj => {
+                    if (obj.orbitSystem && obj.orbitSystem.orbitRadius > 0) {
+                        const center = obj.orbitSystem.getResolvedCenter();
+                        if (center) {
+                            this.ctx.beginPath();
+                            this.ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
+                            this.ctx.stroke();
+                        }
+                    }
+                });
+            }
+            
+            drawObjectInfo() {
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = '12px Arial';
+                
+                let y = 20;
+                this.objects.forEach(obj => {
+                    const center = obj.orbitSystem?.getResolvedCenter();
+                    const centerText = center ? `(${Math.round(center.x)}, ${Math.round(center.y)})` : 'none';
+                    const text = `${obj.name}: pos(${Math.round(obj.position.x)}, ${Math.round(obj.position.y)}) center${centerText}`;
+                    this.ctx.fillText(text, 10, y);
+                    y += 15;
+                });
+            }
+        }
+        
+        // Start the test
+        new HierarchicalOrbitTest();
+    </script>
+</body>
+</html>

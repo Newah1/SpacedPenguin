@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Key Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: #000;
+            color: #fff;
+        }
+        #testArea {
+            border: 2px solid #fff;
+            padding: 20px;
+            margin: 20px;
+            min-height: 200px;
+        }
+        #log {
+            text-align: left;
+            background: #333;
+            padding: 10px;
+            margin: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Space Key Test</h1>
+    <div id="testArea">
+        <p>Click here and press SPACE to test</p>
+        <p>Current state: <span id="state">MENU</span></p>
+        <p>Press SPACE to start game</p>
+    </div>
+    
+    <div id="log"></div>
+    
+    <script type="module">
+        import { GameState } from './js/game.js';
+        import { InputActionManager } from './js/inputActions.js';
+        
+        // Mock game object for testing
+        const mockGame = {
+            state: GameState.MENU,
+            startGame() {
+                log('Game.startGame() called!');
+                document.getElementById('state').textContent = 'PLAYING';
+            },
+            console: { visible: false },
+            levelEditor: { active: false }
+        };
+        
+        // Mock root context
+        const rootContext = {
+            canvas: document.getElementById('testArea'),
+            game: mockGame,
+            setupResponsiveCanvas: () => {},
+            pause: () => {},
+            resume: () => {}
+        };
+        
+        // Initialize input action manager
+        const inputManager = new InputActionManager(rootContext);
+        inputManager.updateActiveActions();
+        
+        // Add some basic event logging
+        document.addEventListener('keydown', (e) => {
+            log(`Document keydown: ${e.code} (${e.key})`);
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            log(`Document keyup: ${e.code} (${e.key})`);
+        });
+        
+        // Focus the test area
+        document.getElementById('testArea').focus();
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        log('Test initialized. Press SPACE to test input handling.');
+    </script>
+</body>
+</html>
+

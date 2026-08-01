@@ -172,10 +172,13 @@ export class MenuInputAction extends InputAction {
 
 export class KeyboardInputAction extends InputAction {
     setupListeners() {
+        console.log('KeyboardInputAction: Setting up keydown listener on document');
         this.addListener(document, 'keydown', this.handleKeyDown);
     }
     
     handleKeyDown(e) {
+        console.log('KeyboardInputAction: Key pressed:', e.code, 'Game state:', this.getGameState());
+
         const game = this.getGame();
         if (!game) return;
         
@@ -198,6 +201,8 @@ export class KeyboardInputAction extends InputAction {
                     game.levelEditor.toggle();
                 } else if (gameState === GameState.PLAYING) {
                     game.setState(GameState.PAUSED);
+                } else if (gameState === GameState.PAUSED) {
+                    game.setState(GameState.PLAYING);
                 }
                 break;
                 
@@ -235,7 +240,10 @@ export class KeyboardInputAction extends InputAction {
         switch (e.code) {
             case 'Space':
             case 'Enter':
+                console.log('InputActionManager: Handling space/enter key for menu');
+                console.log('Event details:', { code: e.code, key: e.key, defaultPrevented: e.defaultPrevented });
                 e.preventDefault();
+                console.log('After preventDefault:', { defaultPrevented: e.defaultPrevented });
                 game.startGame();
                 break;
         }
@@ -423,7 +431,6 @@ export class WindowInputAction extends InputAction {
     setupListeners() {
         this.addListener(window, 'resize', this.handleResize);
         this.addListener(window, 'orientationchange', this.handleOrientationChange);
-        this.addListener(document, 'visibilitychange', this.handleVisibilityChange);
     }
     
     handleResize() {
@@ -438,13 +445,6 @@ export class WindowInputAction extends InputAction {
         }, 100);
     }
     
-    handleVisibilityChange() {
-        if (document.hidden) {
-            this.rootContext.pause?.();
-        } else {
-            this.rootContext.resume?.();
-        }
-    }
 }
 
 export class InputActionManager {
@@ -488,6 +488,8 @@ export class InputActionManager {
         const gameState = game.state;
         const isLevelEditorActive = game.levelEditor?.active;
         
+        console.log('InputActionManager: Updating active actions for state:', gameState);
+
         // Always active actions
         this.activateAction('keyboard');
         this.activateAction('window');
@@ -503,12 +505,16 @@ export class InputActionManager {
             
             switch (gameState) {
                 case GameState.MENU:
+                    console.log('InputActionManager: Activating menu actions');
                     this.activateAction('menu');
                     this.deactivateAction('gameplay');
                     break;
                 case GameState.PLAYING:
-                case GameState.PAUSED:
                     this.activateAction('gameplay');
+                    this.deactivateAction('menu');
+                    break;
+                case GameState.PAUSED:
+                    this.deactivateAction('gameplay');
                     this.deactivateAction('menu');
                     break;
                 default:

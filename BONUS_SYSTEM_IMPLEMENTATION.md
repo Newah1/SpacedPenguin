@@ -54,11 +54,10 @@ class Bonus extends GameObject {
 
 ### SVG Loading Process
 1. Fetch SVG file as text
-2. Create canvas element for rendering
-3. Convert SVG to image using Blob URL
-4. Draw image to canvas
-5. Create PIXI texture from canvas
-6. Clean up Blob URL
+2. Create a Blob URL for the SVG text
+3. Load the Blob URL into an `Image`
+4. Revoke the Blob URL after load/error
+5. Draw that image through the Canvas 2D entity renderer
 
 ### Integration Points
 - **GameObjectFactory**: Creates bonuses with asset loader
@@ -159,7 +158,6 @@ if (bonus.state === 'Hit') {
 - `test_bonus.html`: Test page for verification
 
 ## Future Enhancements
-- Add sound effects for collection
-- Implement bonus popup animations
+- Sound effects and the `BonusPopup` animation are implemented in `Game.collectBonus()`
 - Add particle effects for collection
-- Support for different bonus types/values 
+- Support for different bonus types/values

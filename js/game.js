@@ -85,6 +85,19 @@ class Game {
         this.arrow.setStageRect(this.stageRect);
         this.arrow.setFlightRect(this.flightRect);
         this.gameObjects.push(this.arrow);
+
+        // Responsive picture-in-picture view shown while Kevin is off-screen.
+        // Ratios are based on the logical canvas, so the inset scales with the
+        // parent viewport everywhere the main canvas does.
+        this.kevinCam = {
+            widthRatio: 0.22,
+            aspectRatio: 4 / 3,
+            minWidth: 140,
+            maxWidth: 200,
+            margin: 12,
+            headerHeight: 25,
+            zoom: 2.2
+        };
         
         // Initialize console and level editor
         this.console = new Console(this);
@@ -149,6 +162,9 @@ class Game {
         plog.success('Game constructor completed');
         // Don't load level immediately - wait for start
         this.stars = [];
+        this.starfieldTime = 0;
+        this.starDriftSpeed = { x: 2, y: 0.4 };
+        this.generateStars();
     }
     
     setState(newState) {
@@ -566,8 +582,12 @@ class Game {
                 break;
             case ' ':
                 // Only allow spacebar to start game on desktop
-                if (this.state === GameState.MENU && !this.isMobileDevice()) {
+                // But don't interfere if InputActionManager already handled it
+                if (this.state === GameState.MENU && !this.isMobileDevice() && !e.defaultPrevented) {
+                    console.log('Game class: Handling space key for menu');
                     this.startGame();
+                } else if (this.state === GameState.MENU && e.defaultPrevented) {
+                    console.log('Game class: Space key already handled by InputActionManager');
                 }
                 break;
             default:
@@ -752,32 +772,18 @@ class Game {
     
     update(deltaTime) {
         this.deltaTime = deltaTime;
+        this.starfieldTime = (this.starfieldTime || 0) + deltaTime;
         
         // Update UI Manager
         this.uiManager.update(deltaTime);
         
-        // Skip game updates if in scoring state
-        if (this.state === GameState.SCORING) {
+        // UI screens may animate while paused/scoring, but the world must not.
+        if (this.state === GameState.PAUSED || this.state === GameState.SCORING) {
             return;
         }
-        
-        // Update game objects with optimized loop
-        const gameObjectCount = this.gameObjects.length;
-        for (let i = 0; i < gameObjectCount; i++) {
-            const obj = this.gameObjects[i];
-            if (obj.constructor.name === 'Arrow') {
-                // Only update arrow if penguin exists and has position AND is soaring
-                if (this.penguin && this.penguin.position && this.penguin.state === 'soaring') {
-                    obj.update(this.penguin);
-                } else {
-                    // Make sure arrow is hidden when penguin is not soaring
-                    obj.visible = false;
-                }
-            } else {
-                obj.update(deltaTime);
-            }
-        }
-        
+
+        this.updateGameObjects(deltaTime);
+
         // Update physics for penguin based on state (optimized)
         if (this.penguin) {
             const penguinState = this.penguin.state;
@@ -791,7 +797,7 @@ class Game {
                 this.penguin.vy = 0;
             }
         }
-        
+
         // Check for target collision
         if (this.penguin && this.penguin.state === 'soaring') {
             if (this.target.checkCollision(this.penguin)) {
@@ -826,6 +832,31 @@ class Game {
             if (failureCheck.failed) {
                 this.showMessage(failureCheck.reason);
                 this.setState(GameState.GAME_OVER);
+            }
+        }
+    }
+
+    updateGameObjects(deltaTime) {
+        // Update game objects with optimized loop
+        const gameObjectCount = this.gameObjects.length;
+        for (let i = 0; i < gameObjectCount; i++) {
+            const obj = this.gameObjects[i];
+
+            // Penguin movement, trail, and animation are updated by the
+            // dedicated state-specific path below. Updating it here as well
+            // advances the simulation twice per rendered frame.
+            if (obj === this.penguin) continue;
+
+            if (obj.constructor.name === 'Arrow') {
+                // Only update arrow if penguin exists and has position AND is soaring
+                if (this.penguin && this.penguin.position && this.penguin.state === 'soaring') {
+                    obj.update(this.penguin);
+                } else {
+                    // Make sure arrow is hidden when penguin is not soaring
+                    obj.visible = false;
+                }
+            } else {
+                obj.update(deltaTime);
             }
         }
     }
@@ -1143,6 +1174,10 @@ class Game {
         for (let i = 0; i < objCount; i++) {
             this._cachedSortedObjects[i].draw(this.ctx);
         }
+
+        // Keep this tied to Arrow.visible so both off-screen indicators always
+        // appear and disappear together.
+        this.drawKevinCam();
         
         // Draw UI overlays
         this.drawUI();
@@ -1152,6 +1187,86 @@ class Game {
         
         // Draw level editor overlay
         this.levelEditor.render(this.ctx);
+    }
+
+    drawKevinCam() {
+        if (!this.arrow?.visible || !this.penguin || this.penguin.state !== 'soaring') {
+            return;
+        }
+
+        const config = this.kevinCam;
+        const width = Math.max(
+            config.minWidth,
+            Math.min(this.canvas.width * config.widthRatio, config.maxWidth)
+        );
+        const height = width / config.aspectRatio;
+        const x = config.margin;
+        const y = this.canvas.height - height - config.margin;
+        const contentY = y + config.headerHeight;
+        const contentHeight = height - config.headerHeight;
+        const centerX = x + width / 2;
+        const centerY = contentY + contentHeight / 2;
+
+        this.ctx.save();
+
+        // Frame and header.
+        this.ctx.shadowColor = '#00d9ff';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = 'rgba(0, 8, 24, 0.94)';
+        this.ctx.fillRect(x, y, width, height);
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = '#13224a';
+        this.ctx.fillRect(x, y, width, config.headerHeight);
+
+        // A deliberately goofy, hand-lettered label.
+        const label = 'kEvIn cAm';
+        const colors = ['#7dfffb', '#ffef65', '#ff70d7'];
+        this.ctx.font = 'bold 16px "Comic Sans MS", "Comic Sans", cursive';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        const letterSpacing = 13;
+        const labelStart = centerX - ((label.length - 1) * letterSpacing) / 2;
+        for (let i = 0; i < label.length; i++) {
+            this.ctx.save();
+            this.ctx.translate(labelStart + i * letterSpacing, y + config.headerHeight / 2 + (i % 2 ? 2 : -1));
+            this.ctx.rotate((i % 2 ? 1 : -1) * 0.08);
+            this.ctx.fillStyle = colors[i % colors.length];
+            this.ctx.fillText(label[i], 0, 0);
+            this.ctx.restore();
+        }
+
+        // Clip the live view so Kevin and his trail cannot cover the frame.
+        this.ctx.beginPath();
+        this.ctx.rect(x + 3, contentY, width - 6, contentHeight - 3);
+        this.ctx.clip();
+
+        // Parallax stars keep the inset visibly moving even far beyond the
+        // authored stage. Wrapping makes the field continuous in every direction.
+        this.ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 28; i++) {
+            const rawX = i * 67.31 - this.penguin.x * 0.12;
+            const rawY = i * i * 19.17 - this.penguin.y * 0.12;
+            const starX = x + 4 + ((rawX % (width - 8)) + (width - 8)) % (width - 8);
+            const starY = contentY + 3 + ((rawY % (contentHeight - 6)) + (contentHeight - 6)) % (contentHeight - 6);
+            const size = i % 7 === 0 ? 2 : 1;
+            this.ctx.globalAlpha = i % 3 === 0 ? 0.9 : 0.55;
+            this.ctx.fillRect(starX, starY, size, size);
+        }
+        this.ctx.globalAlpha = 1;
+
+        // Reuse Kevin's current animation frame and trail, translated into the
+        // center of this local camera rather than advancing a separate animation.
+        this.ctx.translate(centerX - this.penguin.x * config.zoom, centerY - this.penguin.y * config.zoom);
+        this.ctx.scale(config.zoom, config.zoom);
+        this.penguin.draw(this.ctx);
+        this.ctx.restore();
+
+        // Crisp border is drawn last so it remains above the clipped camera view.
+        this.ctx.save();
+        this.ctx.strokeStyle = '#51efff';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(x + 1.5, y + 1.5, width - 3, height - 3);
+        this.ctx.restore();
     }
     
     generateStars() {
@@ -1184,10 +1299,20 @@ class Game {
     }
     
     drawStars() {
+        // The playfield camera is static, so its stars drift independently of
+        // Kevin. Each size is a depth layer: larger/nearer stars move faster.
+        const elapsed = this.starfieldTime || 0;
+        const drift = this.starDriftSpeed || { x: 2, y: 0.4 };
+
         this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.globalAlpha = 0.5;
         for (const star of this.stars) {
-            this.ctx.fillRect(star.x, star.y, star.size, star.size);
+            const rawX = star.x + elapsed * drift.x * star.size;
+            const rawY = star.y + elapsed * drift.y * star.size;
+            const x = ((rawX % this.canvas.width) + this.canvas.width) % this.canvas.width;
+            const y = ((rawY % this.canvas.height) + this.canvas.height) % this.canvas.height;
+
+            this.ctx.globalAlpha = 0.35 + star.size * 0.2;
+            this.ctx.fillRect(x, y, star.size, star.size);
         }
         this.ctx.globalAlpha = 1.0;
     }
@@ -1741,4 +1866,4 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = Game;
 } 
 
-export { Game, GameState }; 
+export { Game, GameState };

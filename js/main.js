@@ -25,8 +25,9 @@ class GameManager {
         this.lastStartScreenDraw = 0; // Throttle start screen redraws
         this.performanceUtils = new PerformanceUtils();
         this.inputActionManager = null;
-        this.isPageVisible = true;
-        this.wasHidden = false;
+        this.isPageVisible = !document.hidden;
+        this.animationFrameId = null;
+        this.handlePageVisibilityChange = null;
         
         this.init();
         this.setupPageVisibilityHandling();
@@ -177,6 +178,9 @@ class GameManager {
             resume: this.resume.bind(this)
         });
         
+        // Initialize input actions for the current game state
+        this.inputActionManager.updateActiveActions();
+
         // Load levels before starting the game
         plog.info('Loading level definitions...');
         await this.game.levelLoader.loadDefaultLevels();
@@ -197,9 +201,8 @@ class GameManager {
         // Hide loading screen
         this.hideLoadingScreen();
         
-        // Start game loop
-        this.isRunning = true;
-        this.gameLoop();
+        // Start exactly one animation-frame chain.
+        this.resume();
         
         // Show start screen with real graphics (unless jumping to level)
         if (this.game.state === GameState.MENU) {
@@ -255,23 +258,17 @@ class GameManager {
     }
     
     gameLoop(currentTime = 0) {
-        // Continue game loop first to ensure smooth RAF
-        requestAnimationFrame((time) => this.gameLoop(time));
-        
+        // The scheduled callback has fired; a new one may now be queued.
+        this.animationFrameId = null;
+
         if (!this.isRunning || !this.isPageVisible) {
-            // Skip updates when tab is hidden but keep RAF running
             return;
         }
-        
-        // Reset timer after visibility change to prevent large delta jumps
-        if (this.wasHidden) {
-            this.lastTime = currentTime;
-            this.wasHidden = false;
-            return; // Skip this frame to avoid timing issues
-        }
+
+        this.scheduleNextFrame();
         
         // Calculate delta time with better precision
-        const deltaTime = (currentTime - this.lastTime) / 1000;
+        const deltaTime = this.lastTime === 0 ? 0 : (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
         
         // Cap delta time more intelligently - allow up to 30fps minimum
@@ -287,8 +284,8 @@ class GameManager {
         
         // Update game with performance optimization
         if (this.game && this.assetsLoaded) {
-            // Update input actions only when needed
-            if (this.inputActionManager && this.game.state !== GameState.MENU) {
+            // Update input actions when needed
+            if (this.inputActionManager) {
                 this.inputActionManager.updateActiveActions();
             }
             
@@ -305,6 +302,14 @@ class GameManager {
                 this.game.render();
             }
         }
+    }
+
+    scheduleNextFrame() {
+        if (!this.isRunning || !this.isPageVisible || this.animationFrameId !== null) {
+            return;
+        }
+
+        this.animationFrameId = requestAnimationFrame((time) => this.gameLoop(time));
     }
     
     showStartScreen() {
@@ -470,43 +475,38 @@ class GameManager {
     }
     
     setupPageVisibilityHandling() {
-        // Handle page visibility changes to prevent performance debt
-        const handleVisibilityChange = () => {
+        // GameManager is the single owner of visibility-driven loop control.
+        this.handlePageVisibilityChange = () => {
             if (document.hidden) {
                 this.isPageVisible = false;
+                this.pause();
                 plog.debug('Page hidden - pausing updates');
             } else {
                 this.isPageVisible = true;
-                this.wasHidden = true; // Flag to reset timers
+                this.resume();
                 plog.debug('Page visible - resuming updates');
             }
         };
 
-        // Add event listeners for visibility changes
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-        // Also handle window focus/blur as fallback
-        window.addEventListener('focus', () => {
-            if (!this.isPageVisible) {
-                this.isPageVisible = true;
-                this.wasHidden = true;
-                plog.debug('Window focused - resuming updates');
-            }
-        });
-        
-        window.addEventListener('blur', () => {
-            this.isPageVisible = false;
-            plog.debug('Window blurred - pausing updates');
-        });
+        document.addEventListener('visibilitychange', this.handlePageVisibilityChange);
     }
     
     pause() {
         this.isRunning = false;
+
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
     }
     
     resume() {
+        if (!this.assetsLoaded || !this.isPageVisible) return;
+        if (this.isRunning && this.animationFrameId !== null) return;
+
         this.isRunning = true;
-        this.gameLoop();
+        this.lastTime = 0;
+        this.scheduleNextFrame();
     }
     
     checkLevelParameter() {
@@ -567,7 +567,11 @@ class GameManager {
     }
     
     destroy() {
-        this.isRunning = false;
+        this.pause();
+        if (this.handlePageVisibilityChange) {
+            document.removeEventListener('visibilitychange', this.handlePageVisibilityChange);
+            this.handlePageVisibilityChange = null;
+        }
         if (this.inputActionManager) {
             this.inputActionManager.destroy();
         }
@@ -584,9 +588,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.gameManager = gameManager; // Make it globally accessible for debugging
 });
 
-// Note: Page visibility and window resize events are now handled by InputActionManager
+// Page visibility is owned here; window resize/orientation is handled by InputActionManager.
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = GameManager;
-} 
+}
+
+export { GameManager };

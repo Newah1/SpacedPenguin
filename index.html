@@ -38,6 +38,30 @@
             align-items: center;
         }
         
+        /* Mobile responsive adjustments */
+        @media screen and (max-width: 768px) {
+            #gameContainer {
+                min-width: 300px;
+                min-height: 200px;
+                border: none;
+                width: 100vw;
+                height: 100vh;
+            }
+            
+            body {
+                padding: 0;
+                margin: 0;
+            }
+        }
+        
+        /* Landscape mobile adjustments */
+        @media screen and (max-width: 1024px) and (orientation: landscape) {
+            #gameContainer {
+                width: 100vw;
+                height: 100vh;
+            }
+        }
+        
         #gameCanvas {
             display: block;
             background: #000;

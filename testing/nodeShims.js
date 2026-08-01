@@ -1,15 +1,33 @@
 // Node.js shims for browser-specific functionality
 // Provides minimal implementations to make browser modules work in Node.js
 
-// Global shims
-globalThis.window = undefined; // Ensure Node.js detection works
+// Global shims used when importing production browser modules in Node tests.
+globalThis.window = {
+    innerWidth: 800,
+    innerHeight: 600,
+    addEventListener() {},
+    removeEventListener() {}
+};
+Object.defineProperty(globalThis, 'navigator', {
+    value: { userAgent: 'node' },
+    configurable: true
+});
 globalThis.document = {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+    getElementById: () => null,
     createElement: () => ({ 
         getContext: () => null,
+        addEventListener() {},
+        removeEventListener() {},
+        appendChild() {},
+        style: {},
         width: 0,
         height: 0
     })
 };
+globalThis.Image = class MockImage {};
 
 // Canvas-like object for fallback rendering
 export class MockCanvas {

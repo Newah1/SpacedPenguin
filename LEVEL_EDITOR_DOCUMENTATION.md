@@ -8,20 +8,22 @@
 5. [Editing Objects](#editing-objects)
 6. [Object Types and Properties](#object-types-and-properties)
 7. [Visual Indicators](#visual-indicators)
-8. [Export and Import](#export-and-import)
+8. [Export and Persistence](#export-and-persistence)
 9. [Advanced Features](#advanced-features)
 10. [Troubleshooting](#troubleshooting)
 11. [Technical Implementation](#technical-implementation)
 
 ## Overview
 
-The Spaced Penguin Level Editor is a comprehensive in-game tool that allows you to create, modify, and test custom levels directly within the browser. The editor provides a visual interface for placing game objects, editing their properties, and exporting complete level definitions.
+The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, and exporting levels in the browser. It edits the live game object graph; it is not a separate document model and does not currently provide import, save, undo, or redo persistence.
 
 ### Key Features
-- **Visual Object Placement**: Click and drag to position objects
+- **Desktop Editing**: Mouse and keyboard editing through the centralized input router
+- **Visual Object Placement**: Toolbar creation and drag-to-position
 - **Real-time Property Editing**: Modify object properties with instant visual feedback
-- **Reflection-based System**: Automatically discovers all available game object types and properties
-- **Comprehensive Export**: Generates complete JSON level definitions with full fidelity matching game format
+- **Mobile Toolbar**: Responsive add/select controls; canvas long-press/touch editing is currently not connected by `InputActionManager`
+- **Property Discovery**: Discovers many editable properties, with explicit per-class handling for important fields
+- **JSON Export**: Downloads a level definition for review and manual promotion into `levels/`
 - **Robust Object Management**: Advanced deletion system with automatic cleanup from all game systems
 - **Sprite Selection**: Real-time sprite changing with dropdown menus for planets and targets
 - **Play Mode Testing**: Switch between edit and play modes to test levels immediately
@@ -40,14 +42,25 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 
 ### Basic Workflow
 
-1. **Create Objects**: Right-click in empty space to create new objects
+#### Desktop (Mouse)
+1. **Create Objects**: Use an **Add Type** button in the editor toolbar
 2. **Select Objects**: Left-click on any object to select it (highlighted in green)
 3. **Edit Properties**: Use the properties panel on the right to modify object settings
 4. **Move Objects**: Drag selected objects to reposition them
 5. **Delete Objects**: Select object and press **Delete** key or use Delete button
 6. **Change Sprites**: Use dropdown menus in properties panel for visual appearance
-7. **Test Level**: Press **E** to toggle between Edit and Play modes
-8. **Export Level**: Use the console command `/export_level` to generate JSON
+7. **Test Level**: Use the editor mode toggle button
+8. **Export Level**: Use the Export button or console command `/export [filename]`
+
+#### Mobile (Touch)
+1. **Create Objects**: Use the **+** button in the mobile toolbar
+2. **Select Objects**: Use the object list/toolbar. Canvas long-press and touch-drag methods exist in `LevelEditor`, but the current centralized editor action does not register touch listeners.
+3. **Edit Properties**: Use the properties panel (automatically repositioned for mobile screens)
+4. **Move Objects**: Tap and drag selected objects to reposition them (larger touch targets on mobile)
+5. **Delete Objects**: Select object and use the Delete button in the toolbar
+6. **Clear Selection**: Use the **✕** button in the mobile toolbar
+7. **Test Level**: Use the mode toggle button in the main toolbar
+8. **Export Level**: Use the Export button in the main toolbar
 
 ## Interface Components
 
@@ -55,7 +68,7 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 - **Activation**: Backtick key (`)
 - **Commands**:
   - `/level_editor` - Start/stop the level editor
-  - `/export_level` - Export current level as JSON
+  - `/export [filename]` - Download the current level as JSON
   - `/help` - Show available commands
 - **Command History**: Use Up/Down arrow keys to navigate previous commands
 
@@ -73,8 +86,8 @@ Located on the right side of the screen when an object is selected:
 - **Arrow Target Lines**: Cyan lines show what PointingArrows are pointing at
 - **Mode Indicator**: "EDIT MODE" or "PLAY MODE" text in top-right corner
 
-### Object Creation Menu
-Right-click context menu with available object types:
+### Object Creation Controls
+The desktop add-button row and mobile **+** menu expose these types:
 - Planet
 - Bonus
 - Target
@@ -86,9 +99,9 @@ Right-click context menu with available object types:
 
 ### Object Creation Process
 
-1. **Right-click** in an empty area of the game canvas
-2. **Select object type** from the context menu
-3. **Object appears** at the click location with sensible defaults and proper sprites
+1. **Choose an object type** from the add-button row or mobile **+** menu
+2. **Object appears** at its type-specific default position
+3. **Drag or edit coordinates** to place it
 4. **Automatically selected** for immediate property editing
 
 ### Default Properties by Object Type
@@ -151,7 +164,7 @@ Gravitational bodies that affect penguin movement.
 **Available Sprites:**
 - `planet_grey` - Default grey planet (sensible default)
 - `planet_pink` - Pink planet
-- `planet_red_gumball` - Red textured planet  
+- `planet_red_gumball` - Red textured planet
 - `planet_saturn` - Saturn with rings
 - `planet_sun` - Sun appearance
 
@@ -280,18 +293,18 @@ Animated arrows that point to specific locations.
 - **Font**: Bold 16px Arial
 - **Position**: Fixed top-right corner
 
-## Export and Import
+## Export and Persistence
 
 ### Export Process
 
-1. **Open Console**: Press backtick (`)
-2. **Run Export**: Type `/export_level` and press Enter
-3. **Copy JSON**: Complete level definition is logged to console
-4. **Save File**: Copy the JSON to a `.json` file
+1. **Export**: Click the editor Export button, or open the console and run `/export [filename]`.
+2. **Download**: The browser creates and downloads a JSON file.
+3. **Review**: Inspect authored positions, IDs, orbit relationships, rules, and any state changed during play preview.
+4. **Promote manually**: Rename/copy the reviewed file to `levels/levelN.json`, then reload the game over HTTP.
 
 ### Export Format
 
-The export system generates comprehensive JSON matching the game's level format:
+The exporter generates JSON accepted by the level loader, subject to the round-trip caveats below:
 
 ```json
 {
@@ -333,25 +346,23 @@ The export system generates comprehensive JSON matching the game's level format:
 }
 ```
 
-### Comprehensive Export Features
+### Export Coverage and Caveats
 
-The export system captures ALL objects and properties with full fidelity:
+The export system gathers current live objects and writes the primary level envelope. It is not a lossless authored-state codec:
 
 - **Complete Object Lists**: All planets, bonuses, targets, text objects, arrows
 - **Proper Structure**: Objects nested under `properties` matching game format
 - **Position Objects**: Coordinates as `{x, y}` objects, not flat properties
 - **Sprite Information**: Complete sprite type data for visual fidelity
 - **Orbit Systems**: Full orbital motion parameters and center points
-- **Nested Properties**: Pointing targets, text content, all object-specific data
-- **Standard Format**: Compatible with existing level loading system
+- **Runtime State**: A play preview can change positions, states, orbit angles, and gravity-orbit velocity before export
+- **Asymmetry**: Some exported fields are not restored by `GameObjectFactory`
+- **Relationships**: IDs must be unique; cloned hierarchical orbits can lose their target ID
+- **Singletons**: Loading preserves only the first lowercase target and slingshot definition
 
-### Import Support
+### Import and Save Status
 
-Generated JSON can be loaded using the game's level loading system:
-
-1. **Save JSON**: Save exported data as `custom_level.json`
-2. **Place in Levels**: Put file in the `levels/` directory
-3. **Load in Game**: Use level loader to load the custom level
+There is no file picker, arbitrary-path loader, server save, autosave, local-storage save, undo, or redo implementation. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. The editor's save/undo/redo methods are placeholders even though keyboard bindings call them.
 
 ## Advanced Features
 
@@ -363,7 +374,8 @@ Objects can orbit around specified center points with various patterns:
 - **Circular**: Perfect circles at fixed radius
 - **Elliptical**: Oval paths with major/minor axes
 - **Figure-8**: Lemniscate patterns
-- **Custom**: User-defined mathematical functions
+- **Gravity**: Numerically integrated orbit with initial velocity and strength
+- **Custom**: Programmatic functions only; JSON custom configuration falls back to circular
 
 **Configuration:**
 1. Select planet or bonus object
@@ -379,7 +391,7 @@ The editor automatically discovers object properties using JavaScript reflection
 - **Dynamic Discovery**: Finds all enumerable properties
 - **Type Detection**: Determines appropriate input types
 - **Validation**: Respects min/max ranges and options
-- **Extensibility**: New object types automatically supported
+- **Extensibility**: New object types require coordinated factory, editor, collection, serialization, and loader changes
 
 ### Real-time Sprite Management
 
@@ -389,16 +401,16 @@ Sprite changes apply immediately with proper defaults:
 - **Sensible Defaults**: New objects start with appropriate sprites, not fallbacks
 - **Instant Updates**: Visual changes happen immediately without page refresh
 - **Proper Integration**: Uses object refreshSprite() methods for clean updates
-- **Asset Validation**: Ensures sprites exist and load correctly
+- **Asset Selection**: Uses fixed sprite options; export does not validate asset files
 
 ### Play Mode Testing
 
 Test levels without leaving the editor:
 
-1. **Toggle Mode**: Press **E** key to switch modes
+1. **Toggle Mode**: Use the editor mode button
 2. **Play Mode**: Full game functionality active
-3. **Edit Mode**: Return to editing with **E** key
-4. **State Preservation**: Object positions and properties maintained
+3. **Edit Mode**: Use the same button to return to editing
+4. **State Preservation**: The same live objects are retained, including simulation mutations; there is no authored-state snapshot
 
 ## Troubleshooting
 
@@ -443,7 +455,7 @@ Test levels without leaving the editor:
 
 **Browser Compatibility:**
 - Modern browsers recommended (Chrome, Firefox, Safari)
-- Enable JavaScript and WebGL
+- Enable JavaScript and Canvas 2D
 - Ensure adequate system memory
 
 ### Debug Information
@@ -481,7 +493,7 @@ js/
 - Object selection and manipulation with robust deletion system
 - Dynamic property panel generation with sprite selection
 - Visual indicator rendering (orbits, arrows, selection)
-- Comprehensive export/import functionality with proper JSON format
+- JSON download/export with manual review and promotion workflow
 
 **Game Object Integration:**
 - Reflection-based property discovery with special handling for nested properties
@@ -494,7 +506,7 @@ js/
 **Adding New Object Types:**
 1. Create class in `gameObjects.js`
 2. Add factory method in `levelLoader.js`
-3. Properties automatically discovered by reflection
+3. Add editor defaults/property controls, runtime collection registration, clone serialization, and export/loader support
 
 **Custom Property Types:**
 1. Add handling in `createPropertyInput()`
@@ -519,8 +531,8 @@ js/
 - **Canvas 2D**: Object rendering and visual indicators
 - **DOM Events**: Mouse and keyboard input handling
 - **Reflection**: Dynamic property discovery
-- **JSON**: Level export/import serialization
-- **Local Storage**: Future save/load functionality
+- **JSON**: Level download/export serialization
+- **Blob/Object URL**: Browser file download
 
 ---
 

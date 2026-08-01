@@ -3,6 +3,7 @@
 
 import { MockCanvas, MockAudioManager, mockLogger } from './nodeShims.js';
 import { GRAVITATIONAL_CONSTANT } from './constants.js';
+import { integratePlanetGravity } from '../js/simulation.js';
 
 // Create minimal implementations of browser modules for Node.js
 const NodeUtils = {
@@ -50,8 +51,8 @@ class HeadlessPhysics {
         this.planets.push({
             sprite: planet,
             mass: planet.mass,
-            collisionRadius: planet.radius + 8,
-            gravitationalReach: planet.gravitationalReach || 5000
+            collisionRadius: planet.collisionRadius ?? planet.radius + 8,
+            gravitationalReach: planet.gravitationalReach ?? 5000
         });
     }
     
@@ -61,38 +62,29 @@ class HeadlessPhysics {
         // Update orbiting planets first
         this.updateOrbitingPlanets(deltaTime);
 
-        // Apply gravitational forces from all planets (matching real game physics)
-        for (const planetData of this.planets) {
-            const planet = planetData.sprite;
-            const changeLoc = { x: planet.x - penguin.x, y: planet.y - penguin.y };
-            const distanceSquared = changeLoc.x * changeLoc.x + changeLoc.y * changeLoc.y;
-            
-            if (distanceSquared === 0) continue;
+        const planets = this.planets.map(planetData => ({
+            x: planetData.sprite.x,
+            y: planetData.sprite.y,
+            mass: planetData.mass,
+            gravitationalReach: planetData.gravitationalReach
+        }));
+        const result = integratePlanetGravity(
+            { x: penguin.x, y: penguin.y },
+            penguin.velocity,
+            planets,
+            this.gravitationalConstant,
+            deltaTime
+        );
 
-            const distance = Math.sqrt(distanceSquared);
-            
-            // Check if within gravitational reach
-            if (planetData.gravitationalReach > 0 && distance > planetData.gravitationalReach) {
-                continue;
-            }
-
-            // Calculate gravitational force (matching real game: mass * constant / distance^2)
-            const gravitationalForce = (planetData.mass * this.gravitationalConstant) / distanceSquared;
-            
-            // Apply force to velocity (NO deltaTime multiplication here, like real game)
-            penguin.velocity.x += gravitationalForce * changeLoc.x;
-            penguin.velocity.y += gravitationalForce * changeLoc.y;
-        }
-
-        // Update position (WITH deltaTime multiplication, like real game)
-        penguin.x += penguin.velocity.x * deltaTime;
-        penguin.y += penguin.velocity.y * deltaTime;
+        penguin.x = result.position.x;
+        penguin.y = result.position.y;
+        penguin.velocity = result.velocity;
     }
     
     updateOrbitingPlanets(deltaTime) {
         for (const planetData of this.planets) {
             const planet = planetData.sprite;
-            if (planet.orbit) {
+            if (planet.orbit?.center && planet.orbit.radius > 0 && planet.orbit.speed !== 0) {
                 // Update orbit time
                 planet.orbitTime += deltaTime * planet.orbit.speed;
                 
@@ -101,6 +93,15 @@ class HeadlessPhysics {
                 planet.x = planet.orbit.center.x + Math.cos(angle) * planet.orbit.radius;
                 planet.y = planet.orbit.center.y + Math.sin(angle) * planet.orbit.radius;
             }
+        }
+    }
+
+    resetOrbitingPlanets() {
+        for (const planetData of this.planets) {
+            const planet = planetData.sprite;
+            planet.x = planet.initialX;
+            planet.y = planet.initialY;
+            planet.orbitTime = planet.initialOrbitTime;
         }
     }
     
@@ -130,12 +131,12 @@ class HeadlessPhysics {
     checkTargetCollision(penguin, target) {
         if (!penguin || !target) return false;
 
-        // Use rectangular collision detection like real game (80x80 target)
+        // Use rectangular collision detection like the production target.
         const targetRect = {
-            x: target.x - (target.width || 80) / 2,
-            y: target.y - (target.height || 80) / 2,
-            width: target.width || 80,
-            height: target.height || 80
+            x: target.x - (target.width || 60) / 2,
+            y: target.y - (target.height || 60) / 2,
+            width: target.width || 60,
+            height: target.height || 60
         };
 
         return NodeUtils.inside(
@@ -166,10 +167,25 @@ class HeadlessPenguin {
         this.radius = 8; // From original game
     }
     
-    launch(angle, power, velocityMultiplier = 15) {
-        // Convert angle/power to velocity (from original slingshot logic)
+    launch(angle, power, slingshot = {}) {
+        // Match Slingshot.release(): power is pullback distance in pixels.
+        const velocityMultiplier = slingshot.velocityMultiplier ?? 15;
+        const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? 100;
+        const minPullback = slingshot.minPullback ?? 10;
+        const pullback = NodeUtils.clamp(power, minPullback, maxPullback);
+        const normalizedDistance = pullback / maxPullback;
+        let nonLinearScale;
+        if (normalizedDistance <= 0.3) {
+            nonLinearScale = 0.5 + (normalizedDistance / 0.3) * 0.5;
+        } else if (normalizedDistance <= 0.7) {
+            nonLinearScale = 1 + ((normalizedDistance - 0.3) / 0.4) * 0.5;
+        } else {
+            nonLinearScale = 1.5 + Math.pow((normalizedDistance - 0.7) / 0.3, 1.5) * 0.5;
+        }
+
         const radians = (angle * Math.PI) / 180;
-        const speed = power * velocityMultiplier / 100; // Scale like real game
+        const scaledPullback = pullback * nonLinearScale;
+        const speed = (scaledPullback * scaledPullback / 250) * velocityMultiplier;
         
         this.velocity.x = Math.cos(radians) * speed;
         this.velocity.y = Math.sin(radians) * speed;
@@ -229,31 +245,44 @@ export class HeadlessGameEngine {
     
     loadLevel(levelData) {
         this.physics.clear();
+        this.physics.gravitationalConstant = levelData.rules?.gravitationalConstant ?? GRAVITATIONAL_CONSTANT;
         this.level = levelData;
+        this.penguin = null;
+        this.target = null;
+        this.slingshot = null;
+        const objectsById = new Map();
+        const pendingOrbits = [];
         
         // Parse objects array from level JSON
         if (levelData.objects) {
             for (const obj of levelData.objects) {
                 switch (obj.type) {
                     case 'planet':
+                        const properties = obj.properties || {};
                         const planet = {
                             x: obj.position.x,
                             y: obj.position.y,
-                            mass: obj.properties.mass || 100,
-                            radius: obj.properties.radius || 30,
-                            gravitationalReach: obj.properties.gravitationalReach || 5000,
-                            orbit: obj.properties.orbit || null,
-                            orbitTime: 0  // Track orbit position
+                            initialX: obj.position.x,
+                            initialY: obj.position.y,
+                            mass: properties.mass ?? 100,
+                            radius: properties.radius ?? 30,
+                            collisionRadius: properties.collisionRadius,
+                            gravitationalReach: properties.gravitationalReach ?? 5000,
+                            orbit: null,
+                            orbitTime: 0,
+                            initialOrbitTime: 0
                         };
                         this.physics.addPlanet(planet);
+                        if (properties.id) objectsById.set(properties.id, planet);
+                        if (properties.orbit) pendingOrbits.push({ planet, config: properties.orbit });
                         break;
                         
                     case 'target':
                         this.target = {
                             x: obj.position.x,
                             y: obj.position.y,
-                            width: obj.properties.width || 80,
-                            height: obj.properties.height || 80
+                            width: obj.properties.width || 60,
+                            height: obj.properties.height || 60
                         };
                         break;
                         
@@ -266,6 +295,24 @@ export class HeadlessGameEngine {
                         break;
                 }
             }
+
+            // Current levels can orbit an object by ID; older levels embed a center.
+            // Resolve after every planet has been created so declaration order is irrelevant.
+            for (const { planet, config } of pendingOrbits) {
+                const targetId = config.orbitTargetId ?? config.targetId ?? null;
+                const center = targetId
+                    ? objectsById.get(targetId)
+                    : (config.orbitCenter ?? config.center ?? null);
+                const radius = config.orbitRadius ?? config.radius ?? 0;
+                const speed = config.orbitSpeed ?? config.speed ?? 0;
+                const angle = config.orbitAngle ?? config.angle ?? 0;
+
+                if (center && radius > 0 && speed !== 0) {
+                    planet.orbit = { center, radius, speed };
+                    planet.orbitTime = angle;
+                    planet.initialOrbitTime = angle;
+                }
+            }
         }
         
         // Fallback: older level format support
@@ -274,9 +321,13 @@ export class HeadlessGameEngine {
                 const planet = {
                     x: planetData.position[0],
                     y: planetData.position[1],
-                    mass: planetData.mass || 100,
-                    radius: planetData.radius || 30,
-                    gravitationalReach: planetData.gravityReach || 5000
+                    initialX: planetData.position[0],
+                    initialY: planetData.position[1],
+                    mass: planetData.mass ?? 100,
+                    radius: planetData.radius ?? 30,
+                    gravitationalReach: planetData.gravityReach ?? 5000,
+                    orbitTime: 0,
+                    initialOrbitTime: 0
                 };
                 this.physics.addPlanet(planet);
             }
@@ -311,10 +362,10 @@ export class HeadlessGameEngine {
         this.penguin.x = startPos.x;
         this.penguin.y = startPos.y;
         this.penguin.velocity = { x: 0, y: 0 };
+        this.physics.resetOrbitingPlanets();
         
         // Launch penguin
-        const velocityMultiplier = this.slingshot?.velocityMultiplier || 15;
-        this.penguin.launch(angle, power, velocityMultiplier);
+        this.penguin.launch(angle, power, this.slingshot);
         
         const simulationTime = maxTime || this.maxSimulationTime;
         const maxSteps = Math.floor(simulationTime / this.timeStep);
@@ -386,19 +437,24 @@ export class HeadlessGameEngine {
     }
     
     // Test multiple trajectories to find successful ones
-    findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 300], samples = 100) {
+    findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 100], samples = 100, maxTime = null) {
         const results = [];
-        const angleStep = (angleRange[1] - angleRange[0]) / Math.sqrt(samples / 1024); // Increased step size for faster testing
-        const powerStep = (powerRange[1] - powerRange[0]) / Math.sqrt(samples / 2);
+        const normalizedSamples = Math.max(1, Math.floor(samples));
+        const gridSize = Math.ceil(Math.sqrt(normalizedSamples));
         
-        this.logger.info(`Testing ${samples} trajectory combinations...`);
+        this.logger.info(`Testing ${normalizedSamples} trajectory combinations...`);
         
         let tested = 0;
         let successful = 0;
         
-        for (let angle = angleRange[0]; angle < angleRange[1]; angle += angleStep) {
-            for (let power = powerRange[0]; power < powerRange[1]; power += powerStep) {
-                const result = this.simulateTrajectory(angle, power);
+        for (let angleIndex = 0; angleIndex < gridSize && tested < normalizedSamples; angleIndex++) {
+            const angleFraction = gridSize === 1 ? 0.5 : angleIndex / (gridSize - 1);
+            const angle = angleRange[0] + (angleRange[1] - angleRange[0]) * angleFraction;
+
+            for (let powerIndex = 0; powerIndex < gridSize && tested < normalizedSamples; powerIndex++) {
+                const powerFraction = gridSize === 1 ? 0.5 : powerIndex / (gridSize - 1);
+                const power = powerRange[0] + (powerRange[1] - powerRange[0]) * powerFraction;
+                const result = this.simulateTrajectory(angle, power, maxTime);
                 tested++;
                 
                 if (result.success) {

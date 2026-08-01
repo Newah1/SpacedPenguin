@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-// Level Testing CLI for Spaced Penguin
-// Fast CPU-bound trajectory simulation and validation
+// Dependency-free CLI for approximate level trajectory testing.
 
 import { HeadlessGameEngine } from './headlessEngine.js';
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 class LevelTester {
     constructor() {
@@ -16,8 +16,7 @@ class LevelTester {
     async loadLevelFile(levelPath) {
         try {
             const fullPath = resolve(levelPath);
-            const levelData = JSON.parse(await readFile(fullPath, 'utf8'));
-            return levelData;
+            return JSON.parse(await readFile(fullPath, 'utf8'));
         } catch (error) {
             throw new Error(`Failed to load level file ${levelPath}: ${error.message}`);
         }
@@ -27,131 +26,65 @@ class LevelTester {
         const {
             samples = 100,
             angleRange = [0, 360],
-            powerRange = [10, 300],
+            powerRange = [10, 100],
             maxTime = 30,
-            findAll = false
+            findAll = false,
+            ascii = false
         } = options;
 
-        // Testing level (removed console.log)
-        // Parameters logged (removed console.log)
-        
         const startTime = Date.now();
-        
-        // Load level
         const levelData = await this.loadLevelFile(levelPath);
-        const loaded = this.engine.loadLevel(levelData);
-        
-        if (!loaded) {
+        if (!this.engine.loadLevel(levelData)) {
             throw new Error('Failed to load level into engine');
         }
-        
-        // Debug level loading
-        const planetsInLevel = levelData.objects?.filter(obj => obj.type === 'planet').length || 0;
-        const target = levelData.objects?.find(obj => obj.type === 'target');
-        const targetPos = target ? `${target.position.x}, ${target.position.y}` : 'unknown';
-        
-        // Level loaded (removed console.log)
-        
-        // Find working trajectories
-        const results = this.engine.findWorkingTrajectories(angleRange, powerRange, samples);
-        
-        const endTime = Date.now();
-        const duration = (endTime - startTime) / 1000;
-        
-        // Simulation completed (removed console.log)
-        // Results summary (removed console.log)
-        
-        if (results.length > 0) {
-            // Sort by distance (longer shots are more interesting)
-            results.sort((a, b) => b.distance - a.distance);
-            
-            // Best trajectories (removed console.log)
-            const showCount = findAll ? results.length : Math.min(5, results.length);
-            
-            for (let i = 0; i < showCount; i++) {
-                const result = results[i];
-                // Trajectory details (removed console.log)
-            }
-            
-            if (this.verbose && results.length > 0) {
-                // Detailed trajectory for best result (removed console.log)
-                const best = results[0];
-                // Trajectory points (removed console.log)
-                // Final position (removed console.log)
-                // Success reason (removed console.log)
-            }
-            
-            return {
-                success: true,
-                levelPath,
-                totalSamples: samples,
-                successfulTrajectories: results.length,
-                bestResult: results[0],
-                allResults: results,
-                duration
-            };
-        } else {
-            // No successful trajectories found (removed console.log)
-            
-            return {
-                success: false,
-                levelPath,
-                totalSamples: samples,
-                successfulTrajectories: 0,
-                duration
-            };
+
+        const results = this.engine.findWorkingTrajectories(
+            angleRange,
+            powerRange,
+            samples,
+            maxTime
+        );
+        results.sort((a, b) => b.distance - a.distance);
+
+        const duration = (Date.now() - startTime) / 1000;
+        const displayedResults = findAll ? results : results.slice(0, 5);
+        const summary = {
+            success: results.length > 0,
+            levelPath,
+            totalSamples: Math.max(1, Math.floor(samples)),
+            successfulTrajectories: results.length,
+            bestResult: results[0] || null,
+            allResults: displayedResults,
+            asciiMaps: ascii
+                ? displayedResults.map(result => renderAsciiTrajectory(levelData, result))
+                : [],
+            duration
+        };
+
+        if (this.verbose && summary.bestResult) {
+            summary.bestTrajectory = summary.bestResult.trajectory;
         }
+
+        return summary;
     }
 
     async testSingleTrajectory(levelPath, angle, power, options = {}) {
-        const { maxTime = 30, showTrajectory = false } = options;
-        
-        // Testing single trajectory (removed console.log)
-        
-        // Load level
+        const { maxTime = 30 } = options;
         const levelData = await this.loadLevelFile(levelPath);
-        this.engine.loadLevel(levelData);
-        
-        const startTime = Date.now();
-        const result = this.engine.simulateTrajectory(angle, power, maxTime);
-        const endTime = Date.now();
-        
-        // Simulation completed (removed console.log)
-        // Result summary (removed console.log)
-        // Final position (removed console.log)
-        // Steps simulated (removed console.log)
-        
-        if (result.success) {
-            // Distance traveled (removed console.log)
+        if (!this.engine.loadLevel(levelData)) {
+            throw new Error('Failed to load level into engine');
         }
-        
-        if (showTrajectory && result.trajectory.length > 0) {
-            // Trajectory points (removed console.log)
-            result.trajectory.slice(0, 10).forEach((point, i) => {
-                // Trajectory point details (removed console.log)
-            });
-            if (result.trajectory.length > 10) {
-                // Additional trajectory points (removed console.log)
-            }
-        }
-        
-        return result;
+
+        return this.engine.simulateTrajectory(angle, power, maxTime);
     }
 
     async batchTestLevels(levelPaths, options = {}) {
         const results = [];
-        
-        // Batch testing levels (removed console.log)
-        
-        for (let i = 0; i < levelPaths.length; i++) {
-            const levelPath = levelPaths[i];
-            // Testing level progress (removed console.log)
-            
+
+        for (const levelPath of levelPaths) {
             try {
-                const result = await this.testLevel(levelPath, options);
-                results.push(result);
+                results.push(await this.testLevel(levelPath, options));
             } catch (error) {
-                console.error(`❌ Failed to test ${levelPath}: ${error.message}`);
                 results.push({
                     success: false,
                     levelPath,
@@ -159,146 +92,253 @@ class LevelTester {
                 });
             }
         }
-        
-        // Summary
-        // Batch test summary (removed console.log)
-        const successful = results.filter(r => r.success).length;
-        // Levels with viable solutions (removed console.log)
-        
-        const failed = results.filter(r => !r.success);
-        if (failed.length > 0) {
-            // Levels with no solutions (removed console.log)
-        }
-        
+
         return results;
     }
 }
 
-// CLI Interface
-async function main() {
-    const args = process.argv.slice(2);
-    const tester = new LevelTester();
-    
-    if (args.includes('--verbose') || args.includes('-v')) {
-        tester.verbose = true;
-        // Verbose mode enabled (removed console.log)
+function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
+    const columns = Math.max(20, Math.floor(width));
+    const rows = Math.max(10, Math.floor(height));
+    const objects = levelData.objects || [];
+    const slingshot = objects.find(object => object.type === 'slingshot');
+    const target = objects.find(object => object.type === 'target');
+    const planets = objects.filter(object => object.type === 'planet');
+    const path = [...(result.trajectory || []).map(point => ({ x: point.x, y: point.y }))];
+    if (result.finalPosition) path.push(result.finalPosition);
+
+    const points = [
+        ...path,
+        ...planets.map(planet => planet.position),
+        slingshot?.position,
+        target?.position
+    ].filter(point => Number.isFinite(point?.x) && Number.isFinite(point?.y));
+
+    if (points.length === 0) return '(no plottable trajectory data)';
+
+    let minX = Math.min(...points.map(point => point.x));
+    let maxX = Math.max(...points.map(point => point.x));
+    let minY = Math.min(...points.map(point => point.y));
+    let maxY = Math.max(...points.map(point => point.y));
+    const paddingX = Math.max((maxX - minX) * 0.05, 10);
+    const paddingY = Math.max((maxY - minY) * 0.05, 10);
+    minX -= paddingX;
+    maxX += paddingX;
+    minY -= paddingY;
+    maxY += paddingY;
+
+    const grid = Array.from({ length: rows }, () => Array(columns).fill(' '));
+    const priorities = Array.from({ length: rows }, () => Array(columns).fill(0));
+    const project = point => ({
+        column: Math.round(((point.x - minX) / (maxX - minX)) * (columns - 1)),
+        row: Math.round(((point.y - minY) / (maxY - minY)) * (rows - 1))
+    });
+    const plot = (column, row, character, priority) => {
+        if (column < 0 || column >= columns || row < 0 || row >= rows) return;
+        if (priority >= priorities[row][column]) {
+            grid[row][column] = character;
+            priorities[row][column] = priority;
+        }
+    };
+    const drawLine = (from, to) => {
+        let x = from.column;
+        let y = from.row;
+        const dx = Math.abs(to.column - x);
+        const dy = Math.abs(to.row - y);
+        const sx = x < to.column ? 1 : -1;
+        const sy = y < to.row ? 1 : -1;
+        let error = dx - dy;
+
+        while (true) {
+            plot(x, y, '.', 1);
+            if (x === to.column && y === to.row) break;
+            const doubledError = error * 2;
+            if (doubledError > -dy) {
+                error -= dy;
+                x += sx;
+            }
+            if (doubledError < dx) {
+                error += dx;
+                y += sy;
+            }
+        }
+    };
+
+    const projectedPath = path.map(project);
+    for (let index = 1; index < projectedPath.length; index++) {
+        drawLine(projectedPath[index - 1], projectedPath[index]);
     }
-    
-    try {
-        if (args.includes('--help') || args.includes('-h')) {
-            showHelp();
-            return;
+
+    for (const planet of planets) {
+        const orbit = planet.properties?.orbit;
+        const isOrbiting = Boolean(
+            (orbit?.orbitTargetId || orbit?.targetId || orbit?.orbitCenter || orbit?.center) &&
+            (orbit?.orbitRadius ?? orbit?.radius ?? 0) > 0 &&
+            (orbit?.orbitSpeed ?? orbit?.speed ?? 0) !== 0
+        );
+        const position = project(planet.position);
+        plot(position.column, position.row, isOrbiting ? 'o' : 'O', isOrbiting ? 2 : 3);
+    }
+
+    if (slingshot?.position) {
+        const position = project(slingshot.position);
+        plot(position.column, position.row, 'S', 4);
+    }
+    if (target?.position) {
+        const position = project(target.position);
+        plot(position.column, position.row, 'T', 5);
+    }
+
+    const border = `+${'-'.repeat(columns)}+`;
+    const map = grid.map(row => `|${row.join('')}|`).join('\n');
+    return [
+        `angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)}`,
+        border,
+        map,
+        border,
+        `S slingshot  T target  O root/static planet  o orbiting planet  . flight path`,
+        `view x=${minX.toFixed(0)}..${maxX.toFixed(0)}, y=${minY.toFixed(0)}..${maxY.toFixed(0)}`
+    ].join('\n');
+}
+
+function optionValue(args, name, fallback = null) {
+    const index = args.indexOf(name);
+    return index >= 0 && index + 1 < args.length ? args[index + 1] : fallback;
+}
+
+function parseNumber(args, name, fallback) {
+    const raw = optionValue(args, name);
+    if (raw === null) return fallback;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) {
+        throw new Error(`${name} requires a finite number`);
+    }
+    return value;
+}
+
+function parseRange(args, name, fallback) {
+    const raw = optionValue(args, name);
+    if (raw === null) return fallback;
+    const values = raw.split(':').map(Number);
+    if (values.length !== 2 || values.some(value => !Number.isFinite(value))) {
+        throw new Error(`${name} requires MIN:MAX`);
+    }
+    return values;
+}
+
+function printLevelSummary(summary, showAll, showAscii = false) {
+    console.log(`Level: ${summary.levelPath}`);
+    console.log(`Successful trajectories: ${summary.successfulTrajectories}/${summary.totalSamples}`);
+    console.log(`Duration: ${summary.duration.toFixed(2)}s`);
+
+    const results = showAll ? summary.allResults : summary.allResults.slice(0, 5);
+    for (const result of results) {
+        console.log(
+            `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
+            `distance=${result.distance.toFixed(2)}`
+        );
+    }
+
+    if (showAscii) {
+        for (const asciiMap of summary.asciiMaps) {
+            console.log(`\n${asciiMap}`);
         }
-        
-        if (args.includes('--single')) {
-            // Test single trajectory
-            const levelIndex = args.indexOf('--level');
-            const angleIndex = args.indexOf('--angle');
-            const powerIndex = args.indexOf('--power');
-            
-            if (levelIndex === -1 || angleIndex === -1 || powerIndex === -1) {
-                console.error('❌ --single requires --level, --angle, and --power arguments');
-                process.exit(1);
-            }
-            
-            const levelPath = args[levelIndex + 1];
-            const angle = parseFloat(args[angleIndex + 1]);
-            const power = parseFloat(args[powerIndex + 1]);
-            
-            await tester.testSingleTrajectory(levelPath, angle, power, {
-                showTrajectory: args.includes('--trajectory')
-            });
-            
-        } else if (args.includes('--batch')) {
-            // Batch test multiple levels
-            const levelPaths = args.filter(arg => arg.endsWith('.json'));
-            
-            if (levelPaths.length === 0) {
-                console.error('❌ No level files specified for batch testing');
-                process.exit(1);
-            }
-            
-            await tester.batchTestLevels(levelPaths, {
-                samples: args.includes('--samples') ? parseInt(args[args.indexOf('--samples') + 1]) : 100
-            });
-            
-        } else {
-            // Test single level
-            const levelIndex = args.indexOf('--level');
-            if (levelIndex === -1) {
-                console.error('❌ Missing --level argument');
-                showHelp();
-                process.exit(1);
-            }
-            
-            const levelPath = args[levelIndex + 1];
-            const samples = args.includes('--samples') ? parseInt(args[args.indexOf('--samples') + 1]) : 100;
-            
-            // Parse custom angle range
-            let angleRange = [0, 360];
-            if (args.includes('--angle-range')) {
-                const rangeIndex = args.indexOf('--angle-range');
-                const rangeStr = args[rangeIndex + 1];
-                const [min, max] = rangeStr.split(':').map(parseFloat);
-                angleRange = [min, max];
-            }
-            
-            // Parse custom power range  
-            let powerRange = [100, 300];
-            if (args.includes('--power-range')) {
-                const rangeIndex = args.indexOf('--power-range');
-                const rangeStr = args[rangeIndex + 1];
-                const [min, max] = rangeStr.split(':').map(parseFloat);
-                powerRange = [min, max];
-            }
-            
-            await tester.testLevel(levelPath, {
-                samples,
-                angleRange,
-                powerRange,
-                findAll: args.includes('--all')
-            });
-        }
-        
-    } catch (error) {
-        console.error(`❌ Error: ${error.message}`);
-        process.exit(1);
     }
 }
 
 function showHelp() {
-            // Help text (removed console.log)
-🐧 Spaced Penguin Level Tester
+    console.log(`Spaced Penguin Level Tester
 
 Usage:
-  node levelTester.js --level <path> [options]              Test a single level
-  node levelTester.js --single --level <path> --angle <deg> --power <num>  Test specific trajectory
-  node levelTester.js --batch <level1.json> <level2.json>   Test multiple levels
+  node levelTester.js --level <path> [options]
+  node levelTester.js --single --level <path> --angle <deg> --power <num>
+  node levelTester.js --batch <level1.json> <level2.json> [options]
 
 Options:
-  --level <path>        Path to level JSON file
-  --samples <num>       Number of trajectory samples to test (default: 100)
-  --angle <degrees>     Launch angle for single trajectory test
-  --power <number>      Launch power for single trajectory test
-  --all                 Show all successful trajectories (not just top 5)
-  --verbose, -v         Show detailed output
-  --trajectory          Show trajectory points for single test
+  --samples <num>       Exact number of trajectory combinations (default: 100)
+  --angle-range <a:b>   Angle range for a sweep (default: 0:360)
+  --power-range <a:b>   Pullback range in pixels (default: 10:100)
+  --max-time <seconds>  Maximum simulation time per trajectory (default: 30)
+  --trajectory          Include trajectory points for a single simulation
+  --ascii               Draw successful trajectories as terminal ASCII maps
+  --all                 Print every successful trajectory
+  --verbose, -v         Include the best trajectory points in API results
   --help, -h            Show this help
-
-Examples:
-  node levelTester.js --level ../levels/level4.json
-  node levelTester.js --level ../levels/level4.json --samples 500 --all
-  node levelTester.js --single --level ../levels/level4.json --angle 45 --power 80 --trajectory
-  node levelTester.js --batch ../levels/level4.json ../levels/level5.json
 `);
 }
 
-// Run CLI if this file is executed directly
-const currentFile = new URL(import.meta.url).pathname;
-const scriptFile = process.argv[1];
-if (currentFile.endsWith(scriptFile) || currentFile.endsWith('levelTester.js')) {
-            // Starting LevelTester (removed console.log)
-    main().catch(console.error);
+async function main(args = process.argv.slice(2)) {
+    if (args.includes('--help') || args.includes('-h')) {
+        showHelp();
+        return 0;
+    }
+
+    const tester = new LevelTester();
+    tester.verbose = args.includes('--verbose') || args.includes('-v');
+
+    const maxTime = parseNumber(args, '--max-time', 30);
+
+    if (args.includes('--single')) {
+        const levelPath = optionValue(args, '--level');
+        if (!levelPath) throw new Error('--single requires --level');
+
+        const angle = parseNumber(args, '--angle', NaN);
+        const power = parseNumber(args, '--power', NaN);
+        if (!Number.isFinite(angle) || !Number.isFinite(power)) {
+            throw new Error('--single requires --angle and --power');
+        }
+
+        const result = await tester.testSingleTrajectory(levelPath, angle, power, { maxTime });
+        const output = args.includes('--trajectory')
+            ? result
+            : { ...result, trajectory: undefined };
+        console.log(JSON.stringify(output, null, 2));
+        return result.success ? 0 : 1;
+    }
+
+    const commonOptions = {
+        samples: parseNumber(args, '--samples', 100),
+        angleRange: parseRange(args, '--angle-range', [0, 360]),
+        powerRange: parseRange(args, '--power-range', [10, 100]),
+        maxTime,
+        findAll: args.includes('--all'),
+        ascii: args.includes('--ascii')
+    };
+
+    if (args.includes('--batch')) {
+        const levelPaths = args.filter(arg => arg.toLowerCase().endsWith('.json'));
+        if (levelPaths.length === 0) throw new Error('--batch requires at least one JSON level path');
+
+        const results = await tester.batchTestLevels(levelPaths, commonOptions);
+        for (const result of results) {
+            if (result.error) console.error(`${result.levelPath}: ${result.error}`);
+            else printLevelSummary(result, commonOptions.findAll, commonOptions.ascii);
+        }
+        return results.every(result => result.success) ? 0 : 1;
+    }
+
+    const levelPath = optionValue(args, '--level');
+    if (!levelPath) {
+        showHelp();
+        throw new Error('Missing --level argument');
+    }
+
+    const summary = await tester.testLevel(levelPath, commonOptions);
+    printLevelSummary(summary, commonOptions.findAll, commonOptions.ascii);
+    return summary.success ? 0 : 1;
 }
 
-export { LevelTester };
+const currentFile = fileURLToPath(import.meta.url);
+const scriptFile = process.argv[1] ? resolve(process.argv[1]) : null;
+if (scriptFile === currentFile) {
+    main()
+        .then(exitCode => {
+            process.exitCode = exitCode;
+        })
+        .catch(error => {
+            console.error(`Error: ${error.message}`);
+            process.exitCode = 1;
+        });
+}
+
+export { LevelTester, main, renderAsciiTrajectory };

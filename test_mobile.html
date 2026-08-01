@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile Test - Spaced Penguin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+        }
+        
+        .test-info {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .mobile-detected {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .desktop-detected {
+            color: #FF9800;
+            font-weight: bold;
+        }
+        
+        .screen-info {
+            background: #444;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            touch-action: manipulation;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mobile Compatibility Test</h1>
+    
+    <div class="test-info">
+        <h2>Device Detection</h2>
+        <div id="deviceInfo">Detecting...</div>
+        <div id="screenInfo">Screen info loading...</div>
+    </div>
+    
+    <div class="test-info">
+        <h2>Touch Test</h2>
+        <button class="test-button" onclick="testTouch()">Test Touch</button>
+        <div id="touchResult">Tap the button to test touch functionality</div>
+    </div>
+    
+    <div class="test-info">
+        <h2>Game Link</h2>
+        <a href="index.html" class="test-button" style="text-decoration: none; display: inline-block;">Launch Game</a>
+    </div>
+    
+    <script>
+        function detectMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   (window.innerWidth <= 768 && window.innerHeight <= 1024);
+        }
+        
+        function updateDeviceInfo() {
+            const isMobile = detectMobile();
+            const deviceInfo = document.getElementById('deviceInfo');
+            const screenInfo = document.getElementById('screenInfo');
+            
+            if (isMobile) {
+                deviceInfo.innerHTML = '<span class="mobile-detected">✓ Mobile Device Detected</span>';
+            } else {
+                deviceInfo.innerHTML = '<span class="desktop-detected">✓ Desktop Device Detected</span>';
+            }
+            
+            screenInfo.innerHTML = `
+                <div class="screen-info">
+                    <strong>Screen Size:</strong> ${window.innerWidth} x ${window.innerHeight}<br>
+                    <strong>User Agent:</strong> ${navigator.userAgent}<br>
+                    <strong>Touch Support:</strong> ${('ontouchstart' in window) ? 'Yes' : 'No'}<br>
+                    <strong>Orientation:</strong> ${window.innerWidth > window.innerHeight ? 'Landscape' : 'Portrait'}
+                </div>
+            `;
+        }
+        
+        function testTouch() {
+            const result = document.getElementById('touchResult');
+            result.innerHTML = '<span style="color: #4CAF50;">✓ Touch event detected!</span>';
+            
+            // Test haptic feedback if available
+            if ('vibrate' in navigator) {
+                navigator.vibrate(100);
+            }
+        }
+        
+        // Update info on load and resize
+        updateDeviceInfo();
+        window.addEventListener('resize', updateDeviceInfo);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateDeviceInfo, 100);
+        });
+    </script>
+</body>
+</html> 
