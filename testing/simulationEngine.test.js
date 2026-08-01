@@ -6,8 +6,10 @@ import {
     calculateLevelScore,
     evaluateFailureRules,
     launchSimulationPenguin,
+    launchSimulationPenguinMutable,
     SimulationEventType,
-    stepSimulation
+    stepSimulation,
+    stepSimulationMutable
 } from '../js/simulationEngine.js';
 import {
     cloneSimulationState,
@@ -15,6 +17,11 @@ import {
     resetSimulationAttempt
 } from '../js/simulationState.js';
 import { HeadlessGameEngine } from './headlessEngine.js';
+import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
+import {
+    MAX_TRAJECTORY_WORKERS,
+    resolveTrajectoryWorkerCount
+} from './parallelTrajectoryRunner.js';
 
 function levelWith(objects = [], rules = {}) {
     return {
@@ -69,6 +76,57 @@ test('simulation steps are immutable and deterministic across 30 and 60 FPS', ()
     assert.deepEqual(initial, snapshot);
     assertPointClose(at30.planets[1].position, at60.planets[1].position);
     assert.ok(Math.abs(at30.planets[1].orbit.angle - at60.planets[1].orbit.angle) < 1e-10);
+});
+
+test('compiled world frames and mutable stepping exactly match immutable simulation', () => {
+    const initial = createSimulationStateFromLevel(levelWith([
+        {
+            type: 'planet',
+            position: { x: 400, y: 300 },
+            properties: {
+                id: 'root', mass: 0, gravitationalReach: 5000,
+                orbit: { orbitCenter: { x: 350, y: 300 }, orbitRadius: 50, orbitSpeed: 0.75 }
+            }
+        },
+        {
+            type: 'bonus',
+            position: { x: 500, y: 300 },
+            properties: {
+                id: 'child',
+                orbit: { orbitTargetId: 'root', orbitRadius: 100, orbitSpeed: 1.25 }
+            }
+        }
+    ]));
+    const timeline = new CompiledWorldTimeline(initial, 1 / 60, 120);
+    let immutable = launchSimulationPenguin(initial, 180, 10);
+    const compiled = cloneSimulationState(initial);
+    launchSimulationPenguinMutable(compiled, 180, 10);
+
+    for (let step = 0; step < 120; step++) {
+        immutable = stepSimulation(immutable, 1 / 60).state;
+        timeline.applyFrame(compiled, step);
+        stepSimulationMutable(compiled, 1 / 60, {
+            advanceWorld: false,
+            emitMovementEvents: false
+        });
+        assert.deepEqual(compiled.penguin, immutable.penguin);
+        assert.deepEqual(compiled.counters, immutable.counters);
+        assert.deepEqual(compiled.planets, immutable.planets);
+        assert.deepEqual(compiled.bonuses, immutable.bonuses);
+        assert.deepEqual(compiled.target, immutable.target);
+    }
+});
+
+test('movement-event suppression changes observations but not simulation state', () => {
+    const initial = createSimulationStateFromLevel(levelWith([]));
+    const withEvents = launchSimulationPenguin(initial, 0, 20);
+    const withoutEvents = cloneSimulationState(withEvents);
+    const immutable = stepSimulation(withEvents, 1 / 60);
+    const lean = stepSimulationMutable(withoutEvents, 1 / 60, { emitMovementEvents: false });
+
+    assert.deepEqual(lean.state, immutable.state);
+    assert.equal(immutable.events.some(event => event.type === SimulationEventType.PENGUIN_MOVED), true);
+    assert.equal(lean.events.some(event => event.type === SimulationEventType.PENGUIN_MOVED), false);
 });
 
 test('moving gravity sources produce the same flight at 30 and 60 FPS', () => {
@@ -284,4 +342,24 @@ test('headless trajectory candidates do not consume one another\'s attempt budge
     assert.equal(engine.simulateTrajectory(0, 50, 5).success, true);
     assert.equal(engine.simulateTrajectory(0, 50, 5).success, true);
     assert.equal(engine.state.counters.tries, 1);
+});
+
+test('bounded worker sweeps preserve sequential candidate results', async () => {
+    const level = levelWith([]);
+    level.objects[1].position = { x: 300, y: 0 };
+    const sequentialEngine = new HeadlessGameEngine();
+    const workerEngine = new HeadlessGameEngine();
+    sequentialEngine.logger = { info() {} };
+    workerEngine.logger = { info() {} };
+    sequentialEngine.loadLevel(level);
+    workerEngine.loadLevel(level);
+
+    const sequential = sequentialEngine.findWorkingTrajectories([0, 180], [10, 100], 25, 5);
+    const parallel = await workerEngine.findWorkingTrajectoriesAsync(
+        [0, 180], [10, 100], 25, 5, { workers: 2 }
+    );
+
+    assert.deepEqual(parallel, sequential);
+    assert.equal(resolveTrajectoryWorkerCount(999, 1000) <= MAX_TRAJECTORY_WORKERS, true);
+    assert.equal(resolveTrajectoryWorkerCount('auto', 100), 1);
 });

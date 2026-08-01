@@ -1,5 +1,7 @@
 # Spaced Penguin Original Level System Analysis
 
+> **Historical scope:** This document analyzes the original Director/Shockwave movie and its estimated 25-level timeline. The current HTML5 rewrite ships 19 validated JSON levels. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`levels/README.md`](levels/README.md) for current behavior.
+
 ## Executive Summary
 
 After comprehensive analysis of the original Shockwave source code, **the original 25 levels are not stored as extractable data files**. Instead, they exist as **frame-based layouts** within the Director movie file (`spaced_penguin.dir`), making automated extraction impossible without the original Director project file.
@@ -165,9 +167,9 @@ To recreate the 25 original levels, you must:
 3. **Behavior Property Export**: Extract behavior script properties
 4. **Automated Conversion**: Write script to transform Director data to JSON
 
-### Modern JSON Level Schema
+### Historical proposed JSON schema
 
-Based on the behavior analysis, here's the recommended JSON structure:
+The following draft predates the current loader and is retained only as design history. It is **not** accepted by the current runtime. Current levels use the envelope and object definitions documented in [`levels/README.md`](levels/README.md).
 
 ```json
 {
@@ -231,9 +233,9 @@ Based on the behavior analysis, here's the recommended JSON structure:
 ### For Modern Implementation
 
 1. **Preserve Original Mechanics**: Maintain exact physics constants and formulas
-2. **Enhance JSON Schema**: Add modern features while keeping backward compatibility
-3. **Validation System**: Ensure converted levels match original difficulty progression
-4. **Community Tools**: Create level editor for new content creation
+2. **Current JSON format**: Implemented with compatibility aliases; executable validation exists, but a generated JSON Schema artifact does not
+3. **Validation System**: Implemented for structure, numeric constraints, identities, orbit references/cycles, composition, and rules
+4. **Level editor**: Implemented for live editing and JSON download; import, persistent save, undo, and redo remain future work
 
 ## Conclusion
 

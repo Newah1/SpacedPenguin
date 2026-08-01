@@ -81,9 +81,11 @@ Set `pointAfterDelay` to a positive number of seconds to hide the arrow until it
 
 ## Testing status
 
-The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for the shared immutable simulation core, level validation, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. Browser gameplay and the headless runner use the same fixed-step orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
+The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for the shared deterministic simulation core, level validation, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
+
+Headless sweeps compile deterministic planet, bonus, and target world frames—including position, orbit angle, and orbit velocity—once per level and reuse them across candidates. Large sweeps automatically use up to four worker threads at 5,000 samples; override this with `--workers 1` or `--workers N`. Both modes preserve exact 1/60-second simulation results and deterministic candidate ordering.
 
 Validate a definition without simulation using `node .\levelTester.js --validate-only --level <path>` from `testing/`. Browser and headless loading use the same structural and semantic validator, including finite coordinates, supported types, unique IDs, orbit references/cycles, and rule constraints.
 

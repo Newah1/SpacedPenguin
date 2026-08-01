@@ -87,7 +87,7 @@ The default value is 100.
 }
 ```
 
-Only the first lowercase target definition is used as the singleton goal. If absent, the loader creates a 60 x 60 default target at `targetPosition`.
+The validated model permits at most one target definition. If absent, the loader creates a 60 x 60 default target at `targetPosition`.
 
 ### Slingshot
 
@@ -104,7 +104,7 @@ Only the first lowercase target definition is used as the singleton goal. If abs
 }
 ```
 
-Only the first lowercase slingshot definition is used. Without one, a default is created at `startPosition`.
+The validated model permits at most one slingshot definition. Without one, a default is created at `startPosition`.
 
 ### Tutorial text
 
@@ -165,7 +165,7 @@ Use `pointingAt`, not the older documented `pointTo` name. An optional positive 
 
 ### Unsupported placeholder
 
-`obstacle` is recognized by the factory but is not implemented; the loader logs a warning and creates no object.
+`obstacle` has a dormant factory placeholder but is not part of the shared loadable vocabulary. Validation rejects it before runtime construction.
 
 ## Orbit configuration
 
@@ -323,10 +323,10 @@ Programmatic `OrbitSystem` instances can receive custom functions. JSON cannot r
 | `maxTries` | Maximum launched attempts; the last allowed shot runs to an outcome before failure is evaluated. |
 | `requiredBonuses` | Enforced when the target is reached. |
 | `allowedMisses` | Maximum planet collisions tolerated; failure occurs when the count exceeds it. |
-| `gravitationalConstant` | Applied to the level physics system. Default is 3.0. |
+| `gravitationalConstant` | Applied by the shared simulation engine for the level. Default is 3.0. |
 | `scoreMultiplier` | Applied after completion to the accumulated score. Default is 1.0. |
 | `timeLimit` | Parsed but not enforced. |
-| `customBehaviors` | Parsed but not dispatched. |
+| `customBehaviors` | Parsed but not dispatched; the current editor exporter omits it. |
 
 Rule defaults use nullish semantics, so meaningful zero values such as `gravitationalConstant: 0` and `requiredBonuses: 0` are preserved. Validation rejects zero where the contract requires a positive value, such as `maxTries` and `scoreMultiplier`.
 
@@ -367,7 +367,7 @@ Export is not a lossless authored-model codec:
 - It can include mutable runtime positions, states, orbit angles, and gravity velocity after play mode.
 - It writes some properties the loader does not restore.
 - It emits inert orbit blocks for objects that own a default orbit system.
-- Multiple target/slingshot instances are not preserved by loading.
+- Validation rejects multiple target or slingshot definitions because the runtime model has one of each.
 - Cloning an object-referenced orbit can lose its target relationship.
 
 Review and normalize exported JSON before promoting it to `levels/levelN.json`.

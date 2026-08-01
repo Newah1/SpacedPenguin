@@ -14,7 +14,7 @@ Spaced Penguin is a client-only, static web game. The browser loads one HTML pag
 
 The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
 
-The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. This keeps deployment and iteration simple, but concentrates responsibilities in `Game` and permits some global access through `window`. Gameplay transitions now live in a pure deterministic simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
+The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. This keeps deployment and iteration simple, but concentrates responsibilities in `Game` and permits some global access through `window`. Gameplay transitions now live in a deterministic, environment-independent simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
 
 ## 2. System context
 
@@ -132,8 +132,9 @@ flowchart TB
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
 | `GameObjectFactory` | Validated JSON-to-runtime entity mapping and orbit configuration | Entity constructors, `LevelSchema` | Supports canonical types plus configured text/arrow aliases; exported penguin state is intentionally ignored. |
-| `SimulationEngine` | Immutable fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Authoritative path for browser and headless flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
+| `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
+| `CompiledWorldTimeline` | Exact fixed-step world-state cache for repeated headless candidates | Orbit simulation, simulation state | Stores positions plus orbit angle/velocity in compact `Float64Array` buffers; it changes evaluation cost, not gameplay semantics. |
 | `GameSimulationAdapter` | Translate live browser objects to/from simulation state and events | `Game`, simulation engine | Effects such as audio, popups, target animation, and UI remain outside the pure core. |
 | `OrbitSimulation` | Pure parametric/gravity orbit stepping and dependency-ordered graph resolution | Simulation engine, `OrbitSystem` adapter | Resolves parents recursively, independent of JSON declaration order. |
 | `Physics` | Runtime registries and trace/legacy helper compatibility | Loader, renderer | It is no longer the authoritative gameplay integrator. |
@@ -239,9 +240,13 @@ flowchart LR
 
 ### Deterministic simulation path
 
-`stepSimulation(state, delta)` is the single authoritative gameplay transition. It clones its input, divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
+`stepSimulation(state, delta)` is the authoritative immutable gameplay transition. It clones its input and delegates to `stepSimulationMutable`, the same transition kernel used by optimized headless sessions. The kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
 
-The result is `{ state, events }`. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` consumes the same result directly, so it is a runner rather than a second physics implementation.
+The result is `{ state, events }`. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same mutable kernel with browser-only movement observations disabled, so it is a runner rather than a second physics implementation.
+
+For a trajectory sweep, world motion is candidate-independent: planets, bonuses, and the target never react to the penguin. `CompiledWorldTimeline` therefore advances the same orbit graph once for every fixed step and stores exact positions and mutable orbit fields. Each candidate owns a fresh mutable penguin/bonus/counter state, applies the corresponding world frame, and invokes the shared kernel with orbit advancement disabled. Timeline frames follow the production ordering—world advance first, then collision/gravity/bonus/target evaluation. Optional worker threads each own their timeline and candidate subset; results are restored to canonical grid order before returning.
+
+The headless engine sizes a timeline from `floor(maxTime / timeStep)`. A shorter later request reuses the existing cache; a longer request replaces it with a sufficiently large cache. `applyFrame` rejects an out-of-range step with `RangeError`, so a trajectory cannot silently consume stale or undefined world data. The browser does not use this cache because it advances one live world, supports editor mutation, and receives little benefit from precomputing future frames.
 
 ```mermaid
 flowchart LR
@@ -252,7 +257,10 @@ flowchart LR
     Step --> Events[Domain events]
     Next -->|apply| Live
     Events --> Effects[Audio, popup, UI, scoring screen]
-    Next --> Headless[Headless result/trajectory]
+    Level --> Timeline[Compiled world timeline]
+    Timeline --> Session[Lean headless candidate session]
+    Step --> Session
+    Session --> Headless[Headless result/trajectory]
 ```
 
 ## 7. State models
@@ -407,7 +415,7 @@ Validation explicitly rejects duplicate IDs, missing or unavailable references, 
 | `gravitationalConstant` | Replaces the physics constant for that level. | Default is `3.0`; zero is valid and disables penguin gravity. |
 | `scoreMultiplier` | Multiplies accumulated score after level completion. | Default `1.0`; applied to total score rather than only the current level. |
 | `timeLimit` | Parsed, retained, and exported. | Not enforced by the current game loop. |
-| `customBehaviors` | Parsed, retained, and exported. | No runtime dispatcher currently consumes it. |
+| `customBehaviors` | Parsed and retained by `LevelRules`. | No runtime dispatcher consumes it, and editor export currently omits it. |
 
 ## 9. Assets and audio
 
@@ -554,7 +562,7 @@ Maintain these constraints when changing the system:
 9. Asset keys must match loader normalization and consumer lookup names.
 10. A failed optional asset must not prevent bootstrap; an invalid structural level should fail validation rather than silently create a misleading partial level.
 11. Gameplay movement and outcomes must enter through `stepSimulation`; rendering objects and adapters may apply state/effects but must not independently advance orbit or flight physics.
-12. Simulation functions must remain deterministic, immutable, dependency-free from DOM/audio/timers, and stable across 30/60 Hz callers.
+12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and stable across 30/60 Hz callers. The browser-facing `stepSimulation` contract is immutable; mutable entry points are restricted to isolated sessions that own their state.
 
 ## 15. Extension playbooks
 
@@ -597,19 +605,24 @@ Maintain these constraints when changing the system:
 There are two current test surfaces:
 
 1. Root `test_*.html` pages are manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
-2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same immutable simulation step, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. The CLI can render successful routes as terminal ASCII maps.
+2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
 
 ```mermaid
 flowchart TB
     Production[Production browser engine]
     BrowserTests[Manual test HTML pages]
     Headless[testing/headlessEngine.js]
+    Timeline[js/compiledWorldTimeline.js]
+    Workers[Bounded trajectory workers]
     CLI[testing/levelTester.js]
     Levels[(Level JSON)]
 
     Production --> Levels
     BrowserTests -. manually exercise .-> Production
     CLI --> Headless
+    CLI --> Workers
+    Workers --> Headless
+    Timeline --> Headless
     CLI --> Validator[Shared levelValidation.js]
     Headless --> Levels
     Production --> Validator
@@ -621,6 +634,7 @@ flowchart TB
 Verified limitations as of 2026-08-01:
 
 - The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
+- Worker count is capped at four. `auto` remains single-threaded below 5,000 candidates to avoid paying worker startup and duplicate-timeline costs on small sweeps.
 - There is executable structural/semantic level validation but no JSON Schema artifact, linting, browser end-to-end runner, coverage, or CI pipeline. Node regression tests use the built-in `node:test` runner.
 
 Recommended quality direction, in order:
@@ -651,7 +665,7 @@ Recommended quality direction, in order:
 The safest incremental boundaries are:
 
 - **Composition root:** keep construction and browser globals in `main.js`, passing an explicit context to subsystems.
-- **Pure simulation core:** established across geometry, gravity, orbit graph, state, engine, and browser adapter modules; preserve this boundary as features are added.
+- **Deterministic simulation boundary:** established across geometry, gravity, orbit graph, state, engine, and browser adapter modules; preserve its browser-free transition contract as features are added.
 - **Validated level model:** parse raw JSON into a normalized in-memory level before mutating `Game`.
 - **Runtime world API:** encapsulate entity add/remove/query so typed arrays, physics registration, singleton references, and render cache cannot diverge.
 - **Persistence adapter:** hide `localStorage` and file download behind small interfaces.

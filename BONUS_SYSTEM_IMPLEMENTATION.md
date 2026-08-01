@@ -1,163 +1,85 @@
-# Bonus System Implementation
+# Bonus System
 
-## Overview
+**Status:** Current focused implementation reference
 
-The bonus system has been updated to use the decompiled SVG files and implement the exact behavior from the original Spaced Penguin game. This implementation faithfully recreates the original bonus mechanics including visual states, rotation behavior, and collection logic.
+**Historical fidelity:** The `notHit`/`Hit` state names, value-returning `collect()`, rotation burst, and reset behavior derive from the original Lingo bonus behavior.
 
-## Key Features
+## Responsibilities
 
-### 1. SVG-Based Visual Assets
-- **bonus.svg**: Normal state bonus sprite with blue/green gradient
-- **bonus_hit.svg**: Hit state bonus sprite with orange/red gradient
-- Automatic loading and rendering of SVG files
-- Fallback to programmatically drawn star shape if SVG loading fails
+The bonus feature is deliberately split across layers:
 
-### 2. State Management (Matching Original)
-- **notHit**: Initial state, bonus can be collected
-- **Hit**: Collected state, bonus shows hit animation
-- State transitions match the original game's member switching system
+| Layer | Responsibility |
+|---|---|
+| `Bonus` in `gameObjects.js` | Sprite loading/fallback drawing, visual state, rotation/pulse animation, `collect()`, and `reset()`. |
+| `SimulationState` | Normalized bonus ID, position, width, value, collected flag, collection radius, and orbit state. |
+| `SimulationEngine` | Exact overlap detection, collected-state transition, attempt-score increment, and `BONUS_COLLECTED` event. |
+| `GameSimulationAdapter` | Apply collected/reset visual state, play `16_snd_bonus`, and show `BonusPopup`. |
+| `LevelLoader` / validator | Validate and construct authored bonus definitions and orbits. |
+| Headless runner | Consume the same collection transition; no visual, popup, or audio modeling. |
 
-### 3. Rotation Behavior (Matching Original)
-- **Normal rotation speed**: 3.0 (matching original `pRotationVel = 3.0`)
-- **Hit rotation speed**: 30.0 (matching original `pRotationVel = 30.0`)
-- **Decay rate**: 0.1 per frame (matching original `pRotationVel = pRotationVel - 0.1`)
-- Rotation speed gradually returns to 3.0 after being hit
+`Physics.checkBonusCollection()` remains only as legacy helper compatibility. Active browser and headless gameplay use `SimulationEngine`.
 
-### 4. Collection Logic (Matching Original)
-- **collect()** method returns the bonus value (matching original `return pValue`)
-- Returns 0 if already collected (matching original behavior)
-- Triggers state change and rotation speed increase
-- Switches to hit sprite (equivalent to original's member switching)
+## Runtime sequence
 
-### 5. Reset Functionality (Matching Original)
-- **reset()** method restores bonus to notHit state
-- Resets rotation speed to 3.0
-- Switches back to normal sprite
-- Used when level is reset or penguin is reset
+```mermaid
+sequenceDiagram
+    participant S as SimulationEngine
+    participant B as Bonus simulation state
+    participant A as GameSimulationAdapter
+    participant V as Bonus visual object
+    participant UI as Audio and BonusPopup
 
-## Implementation Details
+    S->>S: test penguin/bonus overlap
+    S->>B: collected = true
+    S->>S: add value to currentAttemptScore
+    S-->>A: BONUS_COLLECTED event
+    A->>V: apply collected state via collect()
+    A->>UI: play sound and show popup
+```
 
-### Class Structure
-```javascript
-class Bonus extends GameObject {
-    constructor(x, y, value, assetLoader = null)
-    async initializeSprites()
-    async loadSVGSprite(spriteName)
-    update(deltaTime)
-    drawSprite(ctx)
-    drawFallbackStar(ctx)
-    collect()
-    reset()
-    setOrbit(center, radius, speed)
+Bonus collection happens before target-victory evaluation in the same fixed simulation slice. A bonus positioned at the target can therefore satisfy `requiredBonuses` before the target outcome is decided.
+
+## Visual behavior
+
+- `notHit` is collectible and uses `assets/sprites/bonus.svg`.
+- `Hit` is collected and uses `assets/sprites/bonus_hit.svg`.
+- The class can fetch those SVGs directly and falls back to a programmatically drawn star.
+- Normal rotation speed is `3.0`; collection raises it to `30.0`, after which it decays toward the normal speed.
+- `reset()` restores `notHit`, normal rotation speed, and the normal sprite.
+
+Visual updates are not authoritative for collection or scoring. The simulation state is applied first, and the adapter synchronizes the visual object.
+
+## Level contract
+
+```json
+{
+  "type": "bonus",
+  "position": { "x": 320, "y": 240 },
+  "properties": {
+    "id": "bonus_1",
+    "value": 100,
+    "orbit": null
+  }
 }
 ```
 
-### SVG Loading Process
-1. Fetch SVG file as text
-2. Create a Blob URL for the SVG text
-3. Load the Blob URL into an `Image`
-4. Revoke the Blob URL after load/error
-5. Draw that image through the Canvas 2D entity renderer
+- `value` defaults to `100` and must be non-negative.
+- Stable IDs are required when another object references the bonus as an orbit target.
+- Bonuses may be orbit sources and may orbit a planet or another bonus.
+- The attempt reset restores every bonus from the initial level state and clears `currentAttemptScore` while preserving aggregate try/collision counters.
 
-### Integration Points
-- **GameObjectFactory**: Creates bonuses with asset loader
-- **Physics System**: Checks for collection using state-based logic
-- **Game Engine**: Handles collection and scoring
-- **Level Rules**: Counts collected bonuses using state checking
+## Headless optimization
 
-## Original Game Behavior Analysis
+Bonus motion is independent of the penguin, so exact position and orbit state are stored in `CompiledWorldTimeline` once per sweep. Each trajectory still owns its collected bit and score. Reusing motion cannot leak collection state between candidates.
 
-### From BehaviorScript 13 - Bonus.ls:
-```lingo
-property pSprite, pValue, pState, pRotationVel
+## Verification
 
-on beginSprite me
-  pState = #notHit
-  pRotationVel = 3.0
-end
+- `test_bonus.html` manually exercises sprite and visual behavior.
+- `testing/simulationEngine.test.js` covers collection-before-target ordering, reset isolation, compiled-timeline parity, and headless/shared-kernel parity.
+- `npm.cmd test` from `testing/` runs the automated suite.
 
-on collectBonus me
-  if pState = #notHit then
-    pRotationVel = 30.0
-    pState = #Hit
-    pSprite.member = member(pSprite.memberNum + 1)
-    return pValue
-  else
-    return 0
-  end if
-end
+## Known limitations
 
-on resetBonus me
-  if pState = #Hit then
-    pRotationVel = 3.0
-    pState = #notHit
-    pSprite.member = member(pSprite.memberNum - 1)
-  end if
-end
-
-on prepareFrame me
-  if pRotationVel > 3.0 then
-    pRotationVel = pRotationVel - 0.1
-  else
-    pRotationVel = 3.0
-  end if
-  pSprite.rotation = pSprite.rotation + pRotationVel
-end
-```
-
-### Key Behaviors Implemented:
-1. **State Management**: `#notHit` and `#Hit` states
-2. **Rotation Speed**: 3.0 normal, 30.0 when hit, decays by 0.1
-3. **Member Switching**: Changes sprite when hit (implemented as SVG switching)
-4. **Collection Logic**: Returns value only if not already collected
-5. **Reset Logic**: Restores original state and sprite
-
-## Testing
-
-A test page (`test_bonus.html`) has been created to verify:
-- SVG loading functionality
-- Bonus behavior and rotation
-- Collection mechanics
-- Reset functionality
-
-## Usage
-
-### Creating a Bonus
-```javascript
-const bonus = new Bonus(x, y, value, assetLoader);
-```
-
-### Collecting a Bonus
-```javascript
-const collectedValue = bonus.collect();
-if (collectedValue > 0) {
-    // Bonus was successfully collected
-    score += collectedValue;
-}
-```
-
-### Resetting a Bonus
-```javascript
-bonus.reset(); // Restores to notHit state
-```
-
-### Checking Bonus State
-```javascript
-if (bonus.state === 'Hit') {
-    // Bonus has been collected
-}
-```
-
-## File Structure
-- `js/gameObjects.js`: Updated Bonus class implementation
-- `js/levelLoader.js`: Updated GameObjectFactory to pass assetLoader
-- `js/physics.js`: Updated collection detection logic
-- `js/game.js`: Updated collection and reset handling
-- `assets/sprites/bonus.svg`: Normal state sprite
-- `assets/sprites/bonus_hit.svg`: Hit state sprite
-- `test_bonus.html`: Test page for verification
-
-## Future Enhancements
-- Sound effects and the `BonusPopup` animation are implemented in `Game.collectBonus()`
-- Add particle effects for collection
-- Support for different bonus types/values
+- Bonus SVG paths are still hard-coded in the visual class rather than sourced exclusively from the manifest.
+- Editor export after play mode can capture mutable collected/position/orbit state and must be reviewed before promotion.
+- The editor/runtime export codec is not fully lossless.

@@ -37,6 +37,10 @@ export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot =
 
 export function launchSimulationPenguin(stateInput, angleDegrees, pullbackPower) {
     const state = cloneSimulationState(stateInput);
+    return launchSimulationPenguinMutable(state, angleDegrees, pullbackPower);
+}
+
+export function launchSimulationPenguinMutable(state, angleDegrees, pullbackPower) {
     state.penguin.position = clonePoint(state.slingshot.position);
     state.penguin.velocity = calculateLaunchVelocity(angleDegrees, pullbackPower, state.slingshot);
     state.penguin.state = 'soaring';
@@ -47,11 +51,15 @@ export function launchSimulationPenguin(stateInput, angleDegrees, pullbackPower)
 
 export function stepSimulation(stateInput, deltaTime) {
     const state = cloneSimulationState(stateInput);
+    return stepSimulationMutable(state, deltaTime);
+}
+
+export function stepSimulationMutable(state, deltaTime, options = {}) {
     const events = [];
     let remainingTime = Math.max(0, deltaTime);
     while (remainingTime > 0) {
         const step = Math.min(remainingTime, MAX_PHYSICS_STEP);
-        stepSimulationSlice(state, step, events);
+        stepSimulationSlice(state, step, events, options);
         remainingTime -= step;
         if (remainingTime < Number.EPSILON) remainingTime = 0;
     }
@@ -59,13 +67,13 @@ export function stepSimulation(stateInput, deltaTime) {
     return { state, events };
 }
 
-function stepSimulationSlice(state, deltaTime, events) {
+function stepSimulationSlice(state, deltaTime, events, options) {
     state.time += deltaTime;
-    advanceWorldOrbits(state, deltaTime);
+    if (options.advanceWorld !== false) advanceWorldOrbits(state, deltaTime);
     if (state.penguin.state === 'soaring') {
-        stepSoaringPenguin(state, deltaTime, events);
+        stepSoaringPenguin(state, deltaTime, events, options);
     } else if (state.penguin.state === 'crashed') {
-        stepCrashedPenguin(state, deltaTime, events);
+        stepCrashedPenguin(state, deltaTime, events, options);
     }
     appendFailureEvent(state, events);
 }
@@ -103,7 +111,7 @@ function stripSimulationMetadata(entity) {
     return clean;
 }
 
-function stepSoaringPenguin(state, deltaTime, events) {
+function stepSoaringPenguin(state, deltaTime, events, options) {
     const collisionIndex = findPlanetCollision(state.penguin.position, state.planets);
     if (collisionIndex >= 0) {
         const planet = state.planets[collisionIndex];
@@ -139,13 +147,15 @@ function stepSoaringPenguin(state, deltaTime, events) {
     state.penguin.velocity = gravity.velocity;
     const traveled = distance(previousPosition, state.penguin.position);
     state.counters.distance += traveled;
-    events.push({
-        type: SimulationEventType.PENGUIN_MOVED,
-        from: previousPosition,
-        position: clonePoint(state.penguin.position),
-        distance: traveled,
-        deltaTime
-    });
+    if (options.emitMovementEvents !== false) {
+        events.push({
+            type: SimulationEventType.PENGUIN_MOVED,
+            from: previousPosition,
+            position: clonePoint(state.penguin.position),
+            distance: traveled,
+            deltaTime
+        });
+    }
 
     collectBonuses(state, events);
     if (circlesOverlap(state.penguin.position, 0, state.target.position, state.target.width / 2)) {
@@ -179,7 +189,7 @@ function stepSoaringPenguin(state, deltaTime, events) {
     }
 }
 
-function stepCrashedPenguin(state, deltaTime, events) {
+function stepCrashedPenguin(state, deltaTime, events, options) {
     state.penguin.crashFramesRemaining -= deltaTime * LEGACY_PHYSICS_FPS;
     if (!pointInRect(state.penguin.position, state.bounds.stage)) {
         state.penguin.velocity = { x: 0, y: 0 };
@@ -199,12 +209,14 @@ function stepCrashedPenguin(state, deltaTime, events) {
                 position: clonePoint(state.penguin.position)
             });
         }
-        events.push({
-            type: SimulationEventType.PENGUIN_MOVED,
-            position: clonePoint(state.penguin.position),
-            distance: 0,
-            deltaTime
-        });
+        if (options.emitMovementEvents !== false) {
+            events.push({
+                type: SimulationEventType.PENGUIN_MOVED,
+                position: clonePoint(state.penguin.position),
+                distance: 0,
+                deltaTime
+            });
+        }
     }
 
     if (state.penguin.crashFramesRemaining <= 0 || !pointInRect(state.penguin.position, state.bounds.stage)) {

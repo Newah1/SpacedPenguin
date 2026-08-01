@@ -1,191 +1,75 @@
-# Audio System Implementation
+# Audio System
 
-## Overview
+**Status:** Current focused implementation reference
 
-The audio system for Spaced Penguin has been implemented using the Web Audio API to provide high-quality sound effects that match the original game. The system includes proper audio loading, playback, volume control, and fallback handling.
+**Scope:** Browser audio only; the headless simulator intentionally has no audio dependency.
 
-## Key Features
+## Ownership
 
-### 1. Web Audio API Integration
-- **AudioContext**: Modern browser audio context with fallback support
-- **AudioBuffer**: Efficient sound loading and caching
-- **GainNode**: Volume control and mixing
-- **Autoplay Policy Limitation**: Initialization attempts to resume immediately; there is no centralized user-gesture resume hook yet
+`AssetLoader` constructs the shared `AudioManager`, reads audio entries from `assets/manifest.json`, and asks the manager to fetch/decode each WAV file. `Game` receives that same manager and exposes `playSound(name)` as a small browser-facing convenience boundary.
 
-### 2. Sound Effects (Matching Original)
-- **Launch Sound** (`17_snd_launch.wav`): Played when penguin is launched from slingshot
-- **Bonus Sound** (`16_snd_bonus.wav`): Played when collecting bonus items
-- **Hit Planet Sound** (`20_snd_HitPlanet.wav`): Played when penguin collides with planets
-- **Enter Ship Sound** (`21_snd_enterShip.wav`): Played when penguin reaches the target
-- **Arp Sound** (`15_Arp.wav`): One-shot scoring/UI cue through the convenience method
+The deterministic simulation emits domain events. `GameSimulationAdapter` translates bonus, collision, and target events into sound calls; launch audio is triggered by `Game.launchPenguin()`. This keeps Web Audio out of gameplay transition code.
 
-### 3. Volume Control
-- **Master Volume**: Global volume control (0-100%)
-- **Individual Sound Volumes**: Per-sound volume adjustments
-- **Real-time Control**: Volume slider in the game UI
-- **Session Settings**: Volume is maintained for the page lifetime and resets from the HTML slider on reload
-
-### 4. Error Handling
-- **Graceful Degradation**: Game continues without audio if Web Audio API fails
-- **Loading Failures**: Individual sound loading failures don't break the system
-- **Browser Compatibility**: Fallback for older browsers without Web Audio API
-
-## Implementation Details
-
-### AudioManager Class
-```javascript
-class AudioManager {
-    constructor() {
-        this.audioContext = null;
-        this.sounds = new Map();
-        this.masterVolume = 0.7;
-        this.enabled = true;
-    }
-}
+```mermaid
+flowchart LR
+    Manifest[assets/manifest.json] --> Loader[AssetLoader]
+    Loader --> Manager[AudioManager]
+    Manager --> Cache[(AudioBuffer Map)]
+    Simulation[Simulation events] --> Adapter[GameSimulationAdapter]
+    Adapter --> Game[Game.playSound]
+    Launch[Game.launchPenguin] --> Game
+    Game --> Manager
+    Manager --> Output[Web Audio destination]
 ```
 
-### Sound Loading Process
-1. **Asset Manifest**: Audio files listed in `assets/manifest.json`
-2. **AssetLoader Integration**: Audio loading integrated with existing asset system
-3. **Web Audio API**: Files loaded as ArrayBuffer and decoded to AudioBuffer
-4. **Caching**: Loaded sounds stored in Map for instant playback
+## Sound keys
 
-### Playback System
-```javascript
-playSound(name, volume = 1.0, pitch = 1.0) {
-    // Create audio source and gain node
-    // Apply volume and pitch
-    // Start playback
-}
-```
+| Key | Current trigger |
+|---|---|
+| `17_snd_launch` | Penguin launch |
+| `16_snd_bonus` | `BONUS_COLLECTED` event |
+| `20_snd_HitPlanet` | Planet collision or crash bounce event |
+| `21_snd_enterShip` | Successful target handling |
+| `15_Arp` | Available through `AudioManager.playArp()`; not background music |
 
-### Integration Points
+## Loading and playback
 
-#### Game Events
-- **Launch**: `game.launchPenguin()` → `playSound('17_snd_launch')`
-- **Bonus Collection**: `game.collectBonus()` → `playSound('16_snd_bonus')`
-- **Planet Collision**: `game.updatePenguinPhysics()` → `playSound('20_snd_HitPlanet')`
-- **Target Hit**: `game.handleTargetHit()` → `playSound('21_snd_enterShip')`
+1. The manifest audio category is flattened by `AssetLoader`.
+2. `AudioManager.loadSound(name, url)` fetches the WAV as an `ArrayBuffer`.
+3. `decodeAudioData` produces an `AudioBuffer` stored by sound name.
+4. `playSound` creates a new `AudioBufferSourceNode` and `GainNode`, applies per-call volume, master volume, pitch, and looping, then starts playback.
+5. A looped source is returned to the caller so it can be stopped.
 
-#### UI Integration
-- **Volume Slider**: Real-time volume control in game UI
-- **Audio Status**: Loading and error status display
-- **Test Interface**: `test_audio.html` for sound testing
+Audio loading is currently part of the loader's priority-ordered eager asset pass, not true lazy loading.
 
-## File Structure
+## Volume and lifecycle
 
-### Core Files
-- `js/audioManager.js`: Main audio system implementation
-- `js/assetLoader.js`: Updated to handle audio loading
-- `js/game.js`: Updated to use audio manager for sound effects
+- Master volume defaults to `0.7` and is clamped to `0..1`.
+- `setEnabled(false)` prevents loading/playback but does not affect gameplay.
+- Volume is page-session state; it is not persisted to `localStorage`.
+- `AudioManager` attempts to resume a suspended context during initialization. Browsers may reject this before a user gesture; there is no centralized gesture-time resume hook yet.
 
-### Test Files
-- `test_audio.html`: Standalone audio testing interface
-- `assets/audio/`: Directory containing all sound files
+## Failure behavior
 
-### Audio Assets
-- `15_Arp.wav`: Background/ambient sound
-- `16_snd_bonus.wav`: Bonus collection sound
-- `17_snd_launch.wav`: Launch sound
-- `20_snd_HitPlanet.wav`: Planet collision sound
-- `21_snd_enterShip.wav`: Target landing sound
+- Audio-context initialization failure disables audio without blocking graphics or gameplay.
+- An individual fetch/decode failure omits that sound and logs the error.
+- A play request for a disabled or unloaded sound returns `null`.
+- Manifest-fetch failure is a broader bootstrap concern documented in `ARCHITECTURE.md`.
 
-## Usage Examples
+## Adding a sound
 
-### Playing a Sound
-```javascript
-// Direct method call
-audioManager.playSound('17_snd_launch');
+1. Put the WAV under `assets/audio/`.
+2. Add it to the `audio` section of `assets/manifest.json`.
+3. Trigger it from a browser adapter, game transition, or UI component—not from `simulationEngine.js`.
+4. Test normal playback, muted/disabled playback, and a missing-file response over HTTP.
 
-// Through game system
-game.playSound('17_snd_launch');
-```
+## Verification
 
-### Volume Control
-```javascript
-// Set master volume (0.0 to 1.0)
-audioManager.setMasterVolume(0.8);
+`test_audio.html` is the manual component harness. Also exercise the main-game launch, bonus, collision, and target flows because those validate event-to-effect wiring that the standalone page does not cover.
 
-// Enable/disable audio
-audioManager.setEnabled(false);
-```
+## Known improvements
 
-### Convenience Methods
-```javascript
-audioManager.playLaunch();      // Launch sound
-audioManager.playBonus();       // Bonus sound
-audioManager.playHitPlanet();   // Planet collision
-audioManager.playEnterShip();   // Target landing
-audioManager.playArp();         // One-shot arp cue
-```
-
-## Browser Compatibility
-
-### Supported Browsers
-- **Chrome**: Full Web Audio API support
-- **Firefox**: Full Web Audio API support
-- **Safari**: Full Web Audio API support
-- **Edge**: Full Web Audio API support
-
-### Fallback Behavior
-- **No Web Audio API**: Audio disabled, game continues
-- **Loading Failures**: Individual sounds disabled, others continue
-- **Autoplay Blocked**: Audio may remain suspended; a gesture-time resume path is a known gap
-
-## Performance Considerations
-
-### Memory Management
-- **AudioBuffer Caching**: Sounds loaded once and reused
-- **Efficient Playback**: Minimal overhead for sound triggering
-- **Garbage Collection**: Proper cleanup of audio sources
-
-### Loading Optimization
-- **Async Loading**: Non-blocking asset loading
-- **Progress Tracking**: Loading progress displayed to user
-- **Error Recovery**: Failed loads don't block other assets
-
-## Future Enhancements
-
-### Potential Improvements
-- **Spatial Audio**: 3D positioning for immersive experience
-- **Audio Filters**: Reverb, echo, and other effects
-- **Music System**: Background music with looping
-- **Sound Variations**: Randomized pitch/volume for variety
-- **Mobile Optimization**: Touch-specific audio handling
-
-### Advanced Features
-- **Audio Compression**: Smaller file sizes with quality preservation
-- **Streaming Audio**: Progressive loading for large audio files
-- **Audio Analysis**: Real-time audio visualization
-- **Custom Soundtracks**: User-provided audio support
-
-## Testing
-
-### Test Interface
-The `test_audio.html` file provides a comprehensive testing interface:
-- **Sound Testing**: Individual sound effect playback
-- **Volume Control**: Real-time volume adjustment
-- **Status Display**: Audio system health monitoring
-- **Error Reporting**: Detailed error information
-
-### Manual Testing
-1. Open `test_audio.html` in browser
-2. Verify all sounds load successfully
-3. Test volume control functionality
-4. Check error handling with disabled audio
-5. Verify integration with main game
-
-## Troubleshooting
-
-### Common Issues
-- **No Audio**: Check browser autoplay policies
-- **Loading Failures**: Verify audio file paths and formats
-- **Volume Issues**: Check audio context state
-- **Performance**: Monitor memory usage with many sounds
-
-### Debug Information
-- **Console Logging**: Detailed audio system logs
-- **Status Display**: Real-time audio system status
-- **Error Messages**: Specific error reporting for issues
-
-This audio system provides a robust, feature-rich sound experience that enhances the Spaced Penguin gameplay while maintaining compatibility and performance across different browsers and devices.
+- Add a centralized user-gesture `AudioContext.resume()` path.
+- Check `response.ok` before decode.
+- Normalize eager and on-demand asset record shapes.
+- Add automated browser smoke coverage for silent degradation and volume controls.

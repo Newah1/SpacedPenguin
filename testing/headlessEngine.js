@@ -3,15 +3,16 @@
 import { mockLogger } from './nodeShims.js';
 import {
     calculateLaunchVelocity,
-    launchSimulationPenguin,
+    launchSimulationPenguinMutable,
     SimulationEventType,
-    stepSimulation
+    stepSimulationMutable
 } from '../js/simulationEngine.js';
 import {
     cloneSimulationState,
     createSimulationStateFromLevel
 } from '../js/simulationState.js';
 import { distance, pointInRect } from '../js/simulationGeometry.js';
+import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
 
 const NodeUtils = {
     distance,
@@ -75,6 +76,7 @@ export class HeadlessGameEngine {
         this.initialState = null;
         this.maxSimulationTime = 30;
         this.timeStep = 1 / 60;
+        this.worldTimeline = null;
         this.logger = mockLogger;
     }
 
@@ -88,8 +90,18 @@ export class HeadlessGameEngine {
         this.level = levelData;
         this.initialState = createSimulationStateFromLevel(levelData, { source: 'headless level' });
         this.state = cloneSimulationState(this.initialState);
+        this.worldTimeline = null;
         this.synchronizeFacade();
         return true;
+    }
+
+    ensureWorldTimeline(maxSteps) {
+        if (!this.worldTimeline ||
+            this.worldTimeline.timeStep !== this.timeStep ||
+            this.worldTimeline.maxSteps < maxSteps) {
+            this.worldTimeline = new CompiledWorldTimeline(this.initialState, this.timeStep, maxSteps);
+        }
+        return this.worldTimeline;
     }
 
     synchronizeFacade() {
@@ -116,10 +128,11 @@ export class HeadlessGameEngine {
         // attempt counters, but a search candidate must not consume the rule
         // budget of candidates evaluated later in the grid.
         this.state = cloneSimulationState(this.initialState);
-        this.state = launchSimulationPenguin(this.state, angle, power);
+        launchSimulationPenguinMutable(this.state, angle, power);
 
         const simulationTime = maxTime ?? this.maxSimulationTime;
         const maxSteps = Math.max(0, Math.floor(simulationTime / this.timeStep));
+        const worldTimeline = this.ensureWorldTimeline(maxSteps);
         const result = {
             success: false,
             reason: 'timeout',
@@ -140,8 +153,11 @@ export class HeadlessGameEngine {
                 });
             }
 
-            const stepped = stepSimulation(this.state, this.timeStep);
-            this.state = stepped.state;
+            worldTimeline.applyFrame(this.state, step);
+            const stepped = stepSimulationMutable(this.state, this.timeStep, {
+                advanceWorld: false,
+                emitMovementEvents: false
+            });
             result.steps = step + 1;
             result.events.push(...stepped.events);
             result.finalPosition = { ...this.state.penguin.position };
@@ -180,30 +196,78 @@ export class HeadlessGameEngine {
     }
 
     findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 100], samples = 100, maxTime = null) {
-        const results = [];
-        const normalizedSamples = Math.max(1, Math.floor(samples));
-        const gridSize = Math.ceil(Math.sqrt(normalizedSamples));
-        this.logger.info(`Testing ${normalizedSamples} trajectory combinations...`);
-        let tested = 0;
-
-        for (let angleIndex = 0; angleIndex < gridSize && tested < normalizedSamples; angleIndex++) {
-            const angleFraction = gridSize === 1 ? 0.5 : angleIndex / (gridSize - 1);
-            const angle = angleRange[0] + (angleRange[1] - angleRange[0]) * angleFraction;
-            for (let powerIndex = 0; powerIndex < gridSize && tested < normalizedSamples; powerIndex++) {
-                const powerFraction = gridSize === 1 ? 0.5 : powerIndex / (gridSize - 1);
-                const power = powerRange[0] + (powerRange[1] - powerRange[0]) * powerFraction;
-                const result = this.simulateTrajectory(angle, power, maxTime);
-                tested++;
-                if (result.success) results.push({ angle, power, ...result });
-                if (tested % 10 === 0) {
-                    this.logger.info(`Tested ${tested} trajectories, found ${results.length} successful. ${angle} ${power}`);
-                }
+        const candidates = buildTrajectoryCandidates(angleRange, powerRange, samples);
+        const progressInterval = Math.max(10, Math.ceil(candidates.length / 10));
+        this.logger.info(`Testing ${candidates.length} trajectory combinations...`);
+        const results = this.simulateCandidates(candidates, maxTime, (tested, successful) => {
+            if (tested % progressInterval === 0) {
+                this.logger.info(`Tested ${tested} trajectories, found ${successful} successful.`);
             }
-        }
+        });
+        this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
+        return results.map(withoutCandidateIndex);
+    }
 
-        this.logger.info(`Testing complete: ${results.length}/${tested} successful trajectories`);
+    simulateCandidates(candidates, maxTime = null, onProgress = null) {
+        const results = [];
+        for (let index = 0; index < candidates.length; index++) {
+            const candidate = candidates[index];
+            const result = this.simulateTrajectory(candidate.angle, candidate.power, maxTime);
+            if (result.success) results.push({ ...candidate, ...result });
+            onProgress?.(index + 1, results.length);
+        }
         return results;
     }
+
+    async findWorkingTrajectoriesAsync(
+        angleRange = [0, 360],
+        powerRange = [10, 100],
+        samples = 100,
+        maxTime = null,
+        options = {}
+    ) {
+        const candidates = buildTrajectoryCandidates(angleRange, powerRange, samples);
+        const { resolveTrajectoryWorkerCount, runTrajectoryWorkers } = await import('./parallelTrajectoryRunner.js');
+        const workerCount = resolveTrajectoryWorkerCount(options.workers, candidates.length);
+        if (workerCount === 1) {
+            return this.findWorkingTrajectories(angleRange, powerRange, samples, maxTime);
+        }
+
+        this.logger.info(`Testing ${candidates.length} trajectory combinations across ${workerCount} workers...`);
+        const results = await runTrajectoryWorkers({
+            level: this.level,
+            candidates,
+            maxTime: maxTime ?? this.maxSimulationTime,
+            timeStep: this.timeStep,
+            workerCount
+        });
+        this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
+        return results;
+    }
+}
+
+export function buildTrajectoryCandidates(angleRange, powerRange, samples) {
+    const normalizedSamples = Math.max(1, Math.floor(samples));
+    const gridSize = Math.ceil(Math.sqrt(normalizedSamples));
+    const candidates = [];
+    for (let angleIndex = 0; angleIndex < gridSize && candidates.length < normalizedSamples; angleIndex++) {
+        const angleFraction = gridSize === 1 ? 0.5 : angleIndex / (gridSize - 1);
+        const angle = angleRange[0] + (angleRange[1] - angleRange[0]) * angleFraction;
+        for (let powerIndex = 0; powerIndex < gridSize && candidates.length < normalizedSamples; powerIndex++) {
+            const powerFraction = gridSize === 1 ? 0.5 : powerIndex / (gridSize - 1);
+            candidates.push({
+                candidateIndex: candidates.length,
+                angle,
+                power: powerRange[0] + (powerRange[1] - powerRange[0]) * powerFraction
+            });
+        }
+    }
+    return candidates;
+}
+
+function withoutCandidateIndex(result) {
+    const { candidateIndex, ...publicResult } = result;
+    return publicResult;
 }
 
 export { HeadlessPhysics, HeadlessPenguin, NodeUtils };

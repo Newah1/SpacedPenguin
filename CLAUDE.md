@@ -1,159 +1,82 @@
-# CLAUDE.md
+# Repository Working Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file is a concise implementation guide for coding agents and contributors. The authoritative design reference is [`ARCHITECTURE.md`](ARCHITECTURE.md); level authors should also read [`levels/README.md`](levels/README.md).
 
-## Project Overview
+## Project
 
-**Spaced Penguin** is a 1:1 HTML5/JavaScript port of a classic Shockwave gravity-based slingshot game. Players launch a penguin character through gravitational fields created by planets, collecting bonuses and landing in targets.
+Spaced Penguin is a browser-native JavaScript rewrite of a Shockwave gravity-slingshot game. It runs directly as ES modules with Canvas 2D, Web Audio, JSON levels, and no application build step.
 
-## Development Commands
+Serve the repository over HTTP because modules, levels, the asset manifest, SVGs, and animation metadata use `fetch`:
 
-### Running the Game
-```bash
-# Start a local web server
+```powershell
 python -m http.server 8000
-# Then open http://localhost:8000 in browser
 ```
 
-### Testing Components
-- `test_audio.html` - Audio system testing
-- `test_bonus.html` - Bonus collection mechanics
-- `test_orbits.html` - Orbital mechanics visualization
-- `test_planets.html` - Planet physics testing  
-- `test_text_arrows.html` - Text/arrow system testing
+Open `http://localhost:8000` or select an authored level with `http://localhost:8000/?level=5`.
 
-**Note:** No build system, linting, or testing framework is currently configured. The project runs directly in the browser with ES6 modules.
+## Verification commands
 
-## Architecture Overview
+From `testing/`:
 
-### Core Architecture Pattern
-The game follows a **modular ES6 class-based architecture** with these key systems:
-
-1. **Game Engine** (`js/game.js`) - Central game state and loop management
-2. **Physics System** (`js/physics.js`) - Gravitational calculations and collision detection
-3. **Asset Management** (`js/assetLoader.js` + `js/audioManager.js`) - Loading and caching of visual/audio assets
-4. **Level System** (`js/levelLoader.js` + `levels/*.json`) - Dynamic level loading with JSON definitions
-5. **Game Objects** (`js/gameObjects.js`) - Polymorphic game entities (planets, bonuses, etc.)
-
-### Entry Point Flow
-```
-main.js → AssetLoader → Game → LevelLoader → GameObjects
+```powershell
+npm.cmd test
+node .\levelTester.js --validate-only --level ..\levels\level10.json
+node .\levelTester.js --level ..\levels\level10.json --samples 100 --ascii
 ```
 
-**Key Flow:**
-1. `main.js` initializes `AssetLoader` and loads assets
-2. Once loaded, creates `Game` instance with canvas and assets
-3. `Game` creates `LevelLoader` and loads first level
-4. `LevelLoader` parses JSON and creates game objects via factory pattern
-5. Game loop runs physics updates and rendering
+The Node suite uses built-in `node:test`; there are no package dependencies. Root `test_*.html` files are manual browser harnesses, not an automated suite.
 
-### Physics Architecture
-- **Centralized Physics** (`Physics` class) handles all gravitational calculations
-- **Component-based Objects** each have `update()` and `render()` methods
-- **State-based Penguin** follows original game's state machine (idle, pullback, soaring, etc.)
+## Current architecture
 
-### Asset System Architecture
-- **Manifest-driven Loading** (`assets/manifest.json`) defines all assets
-- **Multi-format Support** - SVG sprites, WAV audio, PNG images
-- **Fallback Rendering** - programmatic drawing if SVG loading fails
-- **Web Audio API** - modern audio with volume control and mixing
+- `js/main.js`: composition root, browser lifecycle, one animation-frame owner, responsive sizing, and input-context updates.
+- `js/game.js`: live runtime aggregate, attempt/level transitions, rendering, UI coordination, editor integration, and effects.
+- `js/simulationEngine.js`: authoritative deterministic gameplay transitions, launch math, collisions, bonuses, target outcomes, rules, and scoring.
+- `js/gameSimulationAdapter.js`: browser object snapshots/state application and translation of domain events into sound, animation, messages, and scoring flow.
+- `js/orbitSimulation.js`: pure circular, elliptical, figure-8, gravity, and hierarchical orbit advancement.
+- `js/simulationState.js`: normalized serializable simulation state and reset/clone operations.
+- `js/compiledWorldTimeline.js`: exact headless-only cache of candidate-independent world motion.
+- `js/physics.js`: entity registries, trace data, and legacy helper compatibility; it is not the active gameplay integrator.
+- `js/levelSchema.js` and `js/levelValidation.js`: shared level vocabulary, normalization, capabilities, and executable diagnostics.
+- `js/levelLoader.js`: validated JSON loading and runtime entity construction.
+- `testing/headlessEngine.js`: exact trajectory runner over the shared transition kernel.
 
-## Key Architectural Decisions
+The browser calls the immutable `stepSimulation()` API. Headless sweeps use the same mutable transition kernel with exact precompiled world frames and movement-only events disabled. Do not introduce separate headless physics.
 
-### Original Game Fidelity
-The codebase prioritizes **exact behavioral replication** of the original Shockwave game:
-- Physics constants match original values (`GRAVITATIONAL_CONSTANT = 3.0`)
-- Object behaviors preserve original state machines and timing
-- Asset loading recreates original sprites from decompiled sources
+## Important contracts
 
-### Level System Design
-- **JSON-based Levels** allow for easy level creation without code changes
-- **Factory Pattern** (`GameObjectFactory`) creates objects from JSON definitions
-- **Extensible Rules** system supports custom gameplay modifiers per level
-- **Advanced Orbit System** supports circular, elliptical, and figure-8 orbits
+1. The logical world is 800 × 600; display scaling must not alter simulation coordinates.
+2. `GameManager` owns the only recurring `requestAnimationFrame` chain.
+3. Gameplay changes enter through the shared simulation kernel. Visual objects must not independently advance flight or orbit physics during normal game frames.
+4. Level validation occurs before the current world is cleared or mutated.
+5. Shared object/orbit vocabulary belongs in `levelSchema.js`, not in individual loaders or tools.
+6. Object-referenced orbits require unique IDs and an acyclic reference graph. Only planets and bonuses may be orbit targets; planet, bonus, and target objects may be orbit sources.
+7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
+8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
+9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.
+10. The level editor mutates the live runtime graph. Export after play mode can contain mutated positions and orbit state and must be reviewed.
 
-### Modern Web Standards
-- **ES6 Modules** for clean dependency management
-- **Canvas 2D API** for rendering (no WebGL complexity)
-- **Web Audio API** for sound (with graceful degradation)
-- **Responsive Design** with fixed 800x600 game canvas
+## Common changes
 
-## Critical Implementation Details
+### Add a game object
 
-### Physics Integration Points
-- All objects register with `Physics` class for gravitational calculations
-- Planet collision detection uses separate collision and gravitational radii
-- Penguin trajectory updates occur in `updatePenguinPhysics()` in `game.js:429`
+Update the runtime class, `GameObjectFactory`, shared type vocabulary/validation, simulation state if gameplay-relevant, editor creation/property/clone/export paths, collection registration, tests, and level documentation.
 
-### State Management
-- Game state tracked in `Game.state` (menu, playing, paused, gameOver, scoring)
-- Penguin state tracked in `Penguin.state` (idle, pullback, snapping, soaring, crashed, hitTarget)
-- Bonus collection uses state-based logic (`notHit` vs `Hit` states)
+### Add a rule
 
-### Asset Loading Dependencies
-- Game cannot start until `AssetLoader.loadAssets()` completes
-- Audio system requires user interaction for autoplay policy compliance  
-- SVG sprites converted to canvas textures for rendering performance
+Normalize and validate it, add it to `SimulationState.rules`, enforce it at an explicit transition boundary, translate any effect in the browser adapter, export it, and add browser/headless parity tests. `timeLimit` and `customBehaviors` are currently parsed but not enforced.
 
-### Level Rules System
-The `rules` section in level JSON supports:
-- `maxTries`, `timeLimit`, `scoreMultiplier` 
-- `requiredBonuses`, `allowedMisses`
-- Custom `gravitationalConstant` per level
+### Add an orbit type
 
-## Original Source Integration
+Update `levelSchema.js`, pure math in `orbitSimulation.js`, factory/editor/export handling, validation, compiled-timeline parity tests, and `levels/README.md`. JSON custom functions are not supported.
 
-The `OldSource/` directory contains decompiled Shockwave source files that inform the implementation:
-- **Lingo Scripts** (`.ls` files) provide original behavior logic
-- **Asset Chunks** (`chunks/*.json`) contain original asset metadata
-- **Documentation files** explain original game mechanics
+### Add audio
 
-## Common Development Patterns
+Add the WAV to `assets/audio/`, register it in `assets/manifest.json`, trigger it from a browser-side event/effect handler, and verify graceful missing-audio behavior. Do not call audio from the simulation core.
 
-### Adding New Game Objects
-1. Extend `GameObject` class in `gameObjects.js`
-2. Add factory case in `GameObjectFactory.createObject()`
-3. Update level JSON schema documentation
-4. Create test page if complex behavior
+## Documentation scope
 
-### Modifying Physics
-- All physics constants defined in `globalConstants.js`
-- Gravitational calculations centralized in `Physics.updateGravity()`
-- Collision detection in `Physics.checkCollisions()`
-
-### Adding Audio
-1. Add files to `assets/audio/` directory
-2. Update `assets/manifest.json` 
-3. Use `audioManager.playSound(name)` for playback
-4. Test with `test_audio.html`
-
-## Project Structure Context
-
-```
-js/
-├── main.js              # Entry point and game initialization
-├── game.js              # Core game engine and state management  
-├── gameObjects.js       # All game entity classes
-├── penguin.js           # Penguin character with state machine
-├── physics.js           # Gravitational physics and collisions
-├── levelLoader.js       # JSON level parsing and object factory
-├── assetLoader.js       # Asset management and loading
-├── audioManager.js      # Web Audio API integration
-├── utils.js             # Mathematical and utility functions
-└── globalConstants.js   # Game physics constants
-
-assets/
-├── manifest.json        # Asset loading configuration
-├── audio/              # Sound effects (WAV format)
-├── sprites/            # Game sprites (SVG/PNG format)
-├── planets/            # Planet sprites
-└── animations/         # Sprite sheet animations
-
-levels/
-├── README.md           # Level system documentation
-└── *.json              # Level definitions
-
-OldSource/              # Original decompiled Shockwave source
-```
-
-This modular architecture enables easy modification of individual systems while maintaining the original game's behavior and feel.
+- `ARCHITECTURE.md`: current architecture authority.
+- `README.md`: current entry point and operations.
+- `levels/README.md`: current level contract.
+- `LEVEL_EDITOR_DOCUMENTATION.md`: current editor behavior and limitations.
+- `SpacedPenguin_Documentation.md` and `ORIGINAL_LEVELS_ANALYSIS.md`: historical Shockwave/reference material, not current runtime design.

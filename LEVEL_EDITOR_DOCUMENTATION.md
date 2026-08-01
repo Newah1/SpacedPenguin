@@ -56,7 +56,7 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 1. **Create Objects**: Use the **+** button in the mobile toolbar
 2. **Select Objects**: Use the object list/toolbar. Canvas long-press and touch-drag methods exist in `LevelEditor`, but the current centralized editor action does not register touch listeners.
 3. **Edit Properties**: Use the properties panel (automatically repositioned for mobile screens)
-4. **Move Objects**: Tap and drag selected objects to reposition them (larger touch targets on mobile)
+4. **Move Objects**: Edit coordinates through the properties panel. Canvas touch-drag is not currently connected by the centralized input router.
 5. **Delete Objects**: Select object and use the Delete button in the toolbar
 6. **Clear Selection**: Use the **✕** button in the mobile toolbar
 7. **Test Level**: Use the mode toggle button in the main toolbar
@@ -155,9 +155,9 @@ Gravitational bodies that affect penguin movement.
 **Core Properties:**
 - **Position**: X, Y coordinates
 - **Radius**: Visual and collision size (1+ pixels)
-- **Mass**: Gravitational strength (1+ units)
+- **Mass**: Gravitational strength (the editor control uses 1+; manually authored validated JSON may use `0` to disable gravity)
 - **Collision Radius**: Collision detection size
-- **Gravitational Reach**: Maximum influence distance (0 = infinite)
+- **Gravitational Reach**: Maximum influence distance. Omitted, null, or zero values normalize to the legacy default `5000`; set mass to zero for no gravity.
 - **Color**: Fallback rendering color
 - **Planet Sprite**: Visual appearance (dropdown selection)
 
@@ -172,7 +172,7 @@ Gravitational bodies that affect penguin movement.
 - **Orbit Center X/Y**: Center point of orbital motion
 - **Orbit Radius**: Distance from center
 - **Orbit Speed**: Rotation speed (positive/negative for direction)
-- **Orbit Type**: circular, elliptical, figure8, custom
+- **Orbit Type**: circular, elliptical, figure8, gravity, custom
 
 ### Bonus
 Collectible items that add to the player's score.
@@ -206,18 +206,18 @@ The destination object that the penguin must reach to complete the level.
 
 **Behavior:**
 - Closes when penguin enters
-- Reopens after brief delay
-- Triggers level completion
+- Remains closed while the delayed scoring transition is pending
+- Triggers the scoring screen after the game-level delay
 
 ### Slingshot
 The launching mechanism for the penguin.
 
 **Core Properties:**
 - **Position**: X, Y coordinates (anchor point)
-- **Angle**: Orientation in degrees (0-360)
+- **Width/Height**: Visual/editor dimensions
 
 **Advanced Properties:**
-- **Stretch Limit**: Maximum pullback distance
+- **Max Pullback**: Maximum pullback distance
 - **Velocity Multiplier**: Launch power scaling
 
 **Usage:**
@@ -322,9 +322,13 @@ The exporter generates JSON accepted by the level loader, subject to the round-t
         "gravitationalReach": 5000,
         "planetType": "planet_grey",
         "orbit": {
-          "center": { "x": 300, "y": 200 },
-          "radius": 120,
-          "speed": 0.8
+          "orbitCenter": { "x": 300, "y": 200 },
+          "orbitTargetId": null,
+          "orbitRadius": 120,
+          "orbitSpeed": 0.8,
+          "orbitAngle": 0,
+          "orbitType": "circular",
+          "orbitParams": {}
         }
       }
     },
@@ -341,7 +345,10 @@ The exporter generates JSON accepted by the level loader, subject to the round-t
   "rules": {
     "maxTries": null,
     "timeLimit": null,
-    "scoreMultiplier": 1.0
+    "scoreMultiplier": 1.0,
+    "gravitationalConstant": 3,
+    "requiredBonuses": null,
+    "allowedMisses": null
   }
 }
 ```
@@ -350,15 +357,16 @@ The exporter generates JSON accepted by the level loader, subject to the round-t
 
 The export system gathers current live objects and writes the primary level envelope. It is not a lossless authored-state codec:
 
-- **Complete Object Lists**: All planets, bonuses, targets, text objects, arrows
+- **Authorable Object Lists**: Planets, bonuses, target, slingshot, text objects, and pointing arrows are gathered; runtime-only Penguin, off-screen Arrow, and BonusPopup objects are excluded.
 - **Proper Structure**: Objects nested under `properties` matching game format
 - **Position Objects**: Coordinates as `{x, y}` objects, not flat properties
-- **Sprite Information**: Complete sprite type data for visual fidelity
-- **Orbit Systems**: Full orbital motion parameters and center points
+- **Sprite Fields**: Known planet and target sprite type fields are included; export does not validate the referenced asset
+- **Orbit Systems**: Current orbital parameters and centers are serialized, including mutable angle and gravity velocity after play preview.
 - **Runtime State**: A play preview can change positions, states, orbit angles, and gravity-orbit velocity before export
 - **Asymmetry**: Some exported fields are not restored by `GameObjectFactory`
+- **Rule Omission**: `customBehaviors` is accepted by loading but omitted by `Game.exportLevelRules()`
 - **Relationships**: IDs must be unique; cloned hierarchical orbits can lose their target ID
-- **Singletons**: Loading preserves only the first lowercase target and slingshot definition
+- **Singletons**: Validation rejects multiple target or slingshot definitions; the runtime model supports one of each.
 
 ### Import and Save Status
 
@@ -378,11 +386,13 @@ Objects can orbit around specified center points with various patterns:
 - **Custom**: Programmatic functions only; JSON custom configuration falls back to circular
 
 **Configuration:**
-1. Select planet or bonus object
+1. Select a planet, bonus, or target object
 2. Set orbit center coordinates
 3. Choose orbit radius and speed
 4. Select orbit type from dropdown
 5. Observe real-time orbital motion
+
+The editor's object-target dropdown can display IDs that the runtime does not support as orbit centers. For promotable JSON, select only planet or bonus IDs and run the shared CLI validator after export.
 
 ### Reflection-Based Properties
 
@@ -390,7 +400,7 @@ The editor automatically discovers object properties using JavaScript reflection
 
 - **Dynamic Discovery**: Finds all enumerable properties
 - **Type Detection**: Determines appropriate input types
-- **Validation**: Respects min/max ranges and options
+- **Input Constraints**: Property controls apply configured min/max ranges and options; export itself does not run the complete level validator.
 - **Extensibility**: New object types require coordinated factory, editor, collection, serialization, and loader changes
 
 ### Real-time Sprite Management
@@ -511,20 +521,20 @@ js/
 **Custom Property Types:**
 1. Add handling in `createPropertyInput()`
 2. Update `handlePropertyChange()`
-3. Define validation in property maps
+3. Define editor input constraints in property maps
+4. If the property is persisted gameplay data, also update shared level validation and loader/export handling
 
 **New Visual Indicators:**
 1. Add rendering in `renderVisualIndicators()`
 2. Define indicator logic in object classes
 3. Configure visibility toggles
 
-### Performance Optimizations
+### Performance Characteristics
 
-- **Event Delegation**: Efficient mouse event handling with mode-aware routing
-- **Selective Rendering**: Only updates changed elements and visual indicators
-- **Property Caching**: Reduces reflection overhead in property discovery
-- **Batch Updates**: Groups related property changes for smooth performance
-- **Robust Cleanup**: Efficient object deletion with comprehensive array management
+- Input listeners are activated according to game/editor state through the centralized input router.
+- Visual indicators and property controls operate directly on the live object graph.
+- Deletion updates the known runtime collections and invalidates render ordering.
+- There is no separate editor document cache or batched persistence layer.
 
 ### Browser API Usage
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Dependency-free CLI for approximate level trajectory testing.
+// Dependency-free CLI for exact deterministic level trajectory testing.
 
 import { HeadlessGameEngine } from './headlessEngine.js';
 import { readFile } from 'fs/promises';
@@ -30,7 +30,8 @@ class LevelTester {
             powerRange = [10, 100],
             maxTime = 30,
             findAll = false,
-            ascii = false
+            ascii = false,
+            workers = 'auto'
         } = options;
 
         const startTime = Date.now();
@@ -39,11 +40,12 @@ class LevelTester {
             throw new Error('Failed to load level into engine');
         }
 
-        const results = this.engine.findWorkingTrajectories(
+        const results = await this.engine.findWorkingTrajectoriesAsync(
             angleRange,
             powerRange,
             samples,
-            maxTime
+            maxTime,
+            { workers }
         );
         results.sort((a, b) => b.distance - a.distance);
 
@@ -232,6 +234,16 @@ function parseRange(args, name, fallback) {
     return values;
 }
 
+function parseWorkers(args) {
+    const raw = optionValue(args, '--workers', 'auto');
+    if (raw === 'auto') return raw;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error('--workers requires "auto" or a positive integer');
+    }
+    return value;
+}
+
 function printLevelSummary(summary, showAll, showAscii = false) {
     console.log(`Level: ${summary.levelPath}`);
     console.log(`Successful trajectories: ${summary.successfulTrajectories}/${summary.totalSamples}`);
@@ -273,6 +285,7 @@ Options:
   --angle-range <a:b>   Angle range for a sweep (default: 0:360)
   --power-range <a:b>   Pullback range in pixels (default: 10:100)
   --max-time <seconds>  Maximum simulation time per trajectory (default: 30)
+  --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
   --trajectory          Include trajectory points for a single simulation
   --ascii               Draw successful trajectories as terminal ASCII maps
   --validate-only       Validate definitions without simulating trajectories
@@ -331,6 +344,7 @@ async function main(args = process.argv.slice(2)) {
         angleRange: parseRange(args, '--angle-range', [0, 360]),
         powerRange: parseRange(args, '--power-range', [10, 100]),
         maxTime,
+        workers: parseWorkers(args),
         findAll: args.includes('--all'),
         ascii: args.includes('--ascii')
     };
