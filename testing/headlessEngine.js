@@ -7,6 +7,7 @@ import {
     SimulationEventType,
     stepSimulationMutable
 } from '../js/simulationEngine.js';
+import { LevelObjectType, normalizeLevelObjectType } from '../js/levelSchema.js';
 import {
     cloneSimulationState,
     createSimulationStateFromLevel
@@ -258,7 +259,7 @@ export class HeadlessGameEngine {
 
 export function requireEveryBonus(levelData) {
     const bonusCount = (levelData.objects || [])
-        .filter(object => String(object.type).toLowerCase() === 'bonus')
+        .filter(object => normalizeLevelObjectType(object.type) === LevelObjectType.BONUS)
         .length;
     return {
         ...levelData,

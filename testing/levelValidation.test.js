@@ -10,7 +10,13 @@ import {
     LEVEL_OBJECT_TYPE_NAMES,
     LEVEL_ORBIT_TYPES,
     LevelObjectType,
-    normalizeLevelObjectType
+    LevelOrbitType,
+    isLevelObjectType,
+    isLevelOrbitType,
+    levelObjectTypeFromClassName,
+    normalizeLevelObjectType,
+    normalizeLevelOrbitType,
+    normalizeOrbitDefinition
 } from '../js/levelSchema.js';
 
 function object(type, x, y, properties = {}) {
@@ -75,6 +81,32 @@ test('invalid levels throw a typed error with machine-readable diagnostics', () 
 test('shared schema owns aliases and supported orbit vocabulary', () => {
     assert.equal(normalizeLevelObjectType('text'), LevelObjectType.TEXT);
     assert.equal(normalizeLevelObjectType('ARROW'), LevelObjectType.POINTING_ARROW);
+    assert.equal(normalizeLevelObjectType(' Planet '), LevelObjectType.PLANET);
+    assert.equal(isLevelObjectType(' BONUS '), true);
+    assert.equal(levelObjectTypeFromClassName('PointingArrow'), LevelObjectType.POINTING_ARROW);
+    assert.equal(levelObjectTypeFromClassName('BonusPopup'), null);
     assert.equal(LEVEL_OBJECT_TYPE_NAMES.includes('penguin'), true);
     assert.deepEqual(LEVEL_ORBIT_TYPES, ['circular', 'elliptical', 'figure8', 'gravity', 'custom']);
+    assert.equal(normalizeLevelOrbitType(' GRAVITY '), LevelOrbitType.GRAVITY);
+    assert.equal(isLevelOrbitType('Circular'), true);
+    assert.equal(normalizeOrbitDefinition({ type: 'ELLIPTICAL' }).type, LevelOrbitType.ELLIPTICAL);
+});
+
+test('validation and normalization use the same case-insensitive schema vocabulary', () => {
+    const level = {
+        objects: [
+            object(' SLINGSHOT ', 100, 100),
+            object('Target', 700, 300),
+            object('PLANET', 300, 300, {
+                orbit: {
+                    orbitCenter: { x: 400, y: 300 },
+                    orbitRadius: 100,
+                    orbitSpeed: 1,
+                    orbitType: 'ELLIPTICAL'
+                }
+            })
+        ]
+    };
+
+    assert.equal(validateLevelDefinition(level).valid, true);
 });

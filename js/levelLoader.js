@@ -14,6 +14,7 @@ import {
 } from './levelValidation.js';
 import {
     LevelObjectType,
+    LevelOrbitType,
     normalizeLevelObjectType,
     normalizeOrbitDefinition
 } from './levelSchema.js';
@@ -29,7 +30,8 @@ export class GameObjectFactory {
         }
         
         // Debug logging for problematic objects
-        if (!position && (type === 'bonus' || type === 'planet' || type === 'target')) {
+        if (!position && [LevelObjectType.BONUS, LevelObjectType.PLANET, LevelObjectType.TARGET]
+            .includes(normalizeLevelObjectType(type))) {
             console.error('Object creation failed: missing position', { 
                 type, 
                 position, 
@@ -345,23 +347,23 @@ export class GameObjectFactory {
         const orbitCenter = targetId || center;
         
         switch (type) {
-            case 'circular':
+            case LevelOrbitType.CIRCULAR:
                 object.orbitSystem.setCircularOrbit(orbitCenter, radius, speed);
                 break;
                 
-            case 'elliptical':
+            case LevelOrbitType.ELLIPTICAL:
                 const semiMajorAxis = params.semiMajorAxis ?? radius;
                 const semiMinorAxis = params.semiMinorAxis ?? radius * 0.7;
                 const rotation = params.rotation ?? 0;
                 object.orbitSystem.setEllipticalOrbit(orbitCenter, semiMajorAxis, semiMinorAxis, speed, rotation);
                 break;
                 
-                case 'figure8':
+                case LevelOrbitType.FIGURE_8:
                 const size = params.size ?? radius;
                 object.orbitSystem.setFigure8Orbit(orbitCenter, size, speed);
                     break;
                     
-                case 'gravity':
+                case LevelOrbitType.GRAVITY:
                     const initialVelocity = params.initialVelocity ?? { x: 0, y: 50 };
                     const gravityStrength = params.gravityStrength ?? 1000;
                     // Pass object position to store as initial position
@@ -369,7 +371,7 @@ export class GameObjectFactory {
                     object.orbitSystem.setGravityOrbit(orbitCenter, initialVelocity, gravityStrength, objectPosition);
                     break;
                     
-                case 'custom':
+                case LevelOrbitType.CUSTOM:
                     if (params.xFunction && params.yFunction) {
                         // For custom orbits, we'd need to pass functions
                         // This is more complex and would require special handling
@@ -655,7 +657,7 @@ export class LevelLoader {
         const planetTypes = Planet.planetTypes;
         for (let i = 0; i < numPlanets; i++) {
             levelDefinition.objects.push({
-                type: 'planet',
+                type: LevelObjectType.PLANET,
                 position: {
                     x: Utils.random(200, 600),
                     y: Utils.random(100, 500)
@@ -672,7 +674,7 @@ export class LevelLoader {
         // Generate bonuses
         for (let i = 0; i < numBonuses; i++) {
             levelDefinition.objects.push({
-                type: 'bonus',
+                type: LevelObjectType.BONUS,
                 position: {
                     x: Utils.random(150, 650),
                     y: Utils.random(50, 550)

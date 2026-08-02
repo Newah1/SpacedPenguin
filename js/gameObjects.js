@@ -5,6 +5,7 @@ import Utils from './utils.js';
 import plog from './penguinLogger.js';
 import { stepOrbit } from './orbitSimulation.js';
 import { calculateLaunchVelocity } from './simulationEngine.js';
+import { LevelOrbitType } from './levelSchema.js';
 
 // New consolidated orbit system supporting non-circular orbits and hierarchical targets
 class OrbitSystem {
@@ -14,7 +15,7 @@ class OrbitSystem {
         this.orbitRadius = 0;
         this.orbitSpeed = 0;
         this.orbitAngle = 0;
-        this.orbitType = 'circular'; // 'circular', 'elliptical', 'figure8', 'gravity', 'custom'
+        this.orbitType = LevelOrbitType.CIRCULAR;
         this.orbitParams = {}; // Additional parameters for complex orbits
         this.gameObjectLookup = gameObjectLookup; // Function to resolve object IDs
         
@@ -35,7 +36,7 @@ class OrbitSystem {
         }
         this.orbitRadius = radius;
         this.orbitSpeed = speed;
-        this.orbitType = 'circular';
+        this.orbitType = LevelOrbitType.CIRCULAR;
         this.orbitParams = {};
     }
     
@@ -50,7 +51,7 @@ class OrbitSystem {
         }
         this.orbitRadius = semiMajorAxis; // Keep for compatibility
         this.orbitSpeed = speed;
-        this.orbitType = 'elliptical';
+        this.orbitType = LevelOrbitType.ELLIPTICAL;
         this.orbitParams = {
             semiMajorAxis: semiMajorAxis,
             semiMinorAxis: semiMinorAxis,
@@ -69,7 +70,7 @@ class OrbitSystem {
         }
         this.orbitRadius = size;
         this.orbitSpeed = speed;
-        this.orbitType = 'figure8';
+        this.orbitType = LevelOrbitType.FIGURE_8;
         this.orbitParams = {
             size: size
         };
@@ -84,7 +85,7 @@ class OrbitSystem {
             this.orbitCenter = center;
             this.orbitTargetId = null;
         }
-        this.orbitType = 'gravity';
+        this.orbitType = LevelOrbitType.GRAVITY;
         this.velocity = { x: initialVelocity.x, y: initialVelocity.y };
         this.gravityStrength = gravityStrength;
         
@@ -143,7 +144,7 @@ class OrbitSystem {
             this.orbitTargetId = null;
         }
         this.orbitSpeed = speed;
-        this.orbitType = 'custom';
+        this.orbitType = LevelOrbitType.CUSTOM;
         this.orbitParams = {
             xFunction: xFunction,
             yFunction: yFunction
@@ -513,7 +514,7 @@ class Planet extends GameObject {
     
     update(deltaTime, options = {}) {
         // Update orbiting using consolidated system
-        if (options.updateOrbit !== false && this.orbitSystem.orbitType === 'gravity') {
+        if (options.updateOrbit !== false && this.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
             // For gravity orbits, the orbit system modifies position based on physics
             // Don't override position - let gravity system update it naturally
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
@@ -529,7 +530,7 @@ class Planet extends GameObject {
         // For gravity orbits, ensure we set up proper initial velocity if needed
         // DISABLED FOR DEBUGGING - using manual setup
         /*
-        if (this.orbitSystem.orbitType === 'gravity' && !this.orbitSystem._gravityInitialized) {
+        if (this.orbitSystem.orbitType === LevelOrbitType.GRAVITY && !this.orbitSystem._gravityInitialized) {
             const center = this.orbitSystem.getResolvedCenter();
             if (center) {
                 this.orbitSystem.setStableCircularOrbit(
@@ -708,7 +709,7 @@ class Bonus extends GameObject {
         this.rotation += this.rotationSpeed * deltaTime;
         
         // Update orbiting using consolidated system
-        if (options.updateOrbit !== false && this.orbitSystem.orbitType === 'gravity') {
+        if (options.updateOrbit !== false && this.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
             // For gravity orbits, the orbit system modifies position based on physics
             // Don't override position - let gravity system update it naturally
             const newPosition = this.orbitSystem.update(deltaTime, this.position);
@@ -724,7 +725,7 @@ class Bonus extends GameObject {
         // For gravity orbits, ensure we set up proper initial velocity if needed
         // DISABLED FOR DEBUGGING - using manual setup
         /*
-        if (this.orbitSystem.orbitType === 'gravity' && !this.orbitSystem._gravityInitialized) {
+        if (this.orbitSystem.orbitType === LevelOrbitType.GRAVITY && !this.orbitSystem._gravityInitialized) {
             const center = this.orbitSystem.getResolvedCenter();
             if (center) {
                 this.orbitSystem.setStableCircularOrbit(
@@ -1057,7 +1058,7 @@ class Target extends GameObject {
         
         // Update orbiting using consolidated system (same pattern as Bonus/Planet)
         if (options.updateOrbit !== false && this.orbitSystem && this.orbitSystem.orbitType) {
-            if (this.orbitSystem.orbitType === 'gravity') {
+            if (this.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
                 const newPosition = this.orbitSystem.update(deltaTime, this.position);
                 this.position = newPosition;
             } else {

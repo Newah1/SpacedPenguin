@@ -1,11 +1,12 @@
 import { cloneOrbitState } from './orbitSimulation.js';
 import { stepSimulation, SimulationEventType } from './simulationEngine.js';
 import { effectiveGravitationalReach } from './globalConstants.js';
+import { LevelOrbitType } from './levelSchema.js';
 
 function orbitFromRuntime(system) {
     if (!system) return null;
     const meaningful = system.orbitTargetId || system.orbitCenter ||
-        system.orbitRadius !== 0 || system.orbitSpeed !== 0 || system.orbitType === 'gravity';
+        system.orbitRadius !== 0 || system.orbitSpeed !== 0 || system.orbitType === LevelOrbitType.GRAVITY;
     if (!meaningful) return null;
     return cloneOrbitState({
         type: system.orbitType,

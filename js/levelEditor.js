@@ -1,6 +1,6 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
-import { LEVEL_ORBIT_TYPES } from './levelSchema.js';
+import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, screenToStage, stageToScreen } from './viewport.js';
 
 class LevelEditor {
@@ -1059,7 +1059,7 @@ class LevelEditor {
                 </button>`;
         
         // Add reset button for gravity orbits
-        if (obj.orbitSystem && obj.orbitSystem.orbitType === 'gravity') {
+        if (obj.orbitSystem && obj.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
             plog.debug('Adding reset button to quick actions');
             quickActionsHtml += `
                 <button id="reset-gravity-orbit-btn" 
@@ -1371,13 +1371,13 @@ class LevelEditor {
             properties.push({ 
                 label: 'Orbit Type', 
                 key: 'orbitType', 
-                value: orbitSystem.orbitType || 'circular', 
+                value: orbitSystem.orbitType || LevelOrbitType.CIRCULAR,
                 type: 'select', 
                 options: LEVEL_ORBIT_TYPES
             });
             
             // Add gravity-specific properties
-            if (orbitSystem.orbitType === 'gravity') {
+            if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
                 properties.push({ 
                     label: 'Gravity Strength', 
                     key: 'gravityStrength', 
@@ -1681,7 +1681,7 @@ class LevelEditor {
                 obj.orbitSystem.orbitType = value;
                 
                 // If switching to gravity orbit and no initial state is stored, save current state
-                if (value === 'gravity' && (!obj.orbitSystem.orbitParams || !obj.orbitSystem.orbitParams.initialPosition)) {
+                if (value === LevelOrbitType.GRAVITY && (!obj.orbitSystem.orbitParams || !obj.orbitSystem.orbitParams.initialPosition)) {
                     let objX, objY;
                     if (typeof obj.x === 'number') {
                         objX = obj.x;
@@ -1750,7 +1750,7 @@ class LevelEditor {
                 plog.success('Object values validated and fixed');
                 
                 // TEMPORARY: Also test reset if this is a gravity orbit
-                if (obj.orbitSystem && obj.orbitSystem.orbitType === 'gravity') {
+                if (obj.orbitSystem && obj.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
                     plog.debug('TEMP: Also testing reset since this is a gravity orbit');
                     this.resetGravityOrbit(obj);
                 }
@@ -1768,17 +1768,17 @@ class LevelEditor {
             const speed = obj.orbitSystem.orbitSpeed;
             
             switch (obj.orbitSystem.orbitType) {
-                case 'circular':
+                case LevelOrbitType.CIRCULAR:
                     obj.orbitSystem.setCircularOrbit(center, radius, speed);
                     break;
-                case 'elliptical':
+                case LevelOrbitType.ELLIPTICAL:
                     // Use radius as semi-major axis, and radius * 0.7 as semi-minor
                     obj.orbitSystem.setEllipticalOrbit(center, radius, radius * 0.7, speed, 0);
                     break;
-                case 'figure8':
+                case LevelOrbitType.FIGURE_8:
                     obj.orbitSystem.setFigure8Orbit(center, radius, speed);
                     break;
-                case 'gravity':
+                case LevelOrbitType.GRAVITY:
                     // For gravity orbits, set up initial conditions
                     const initialVelocity = obj.orbitSystem.velocity || { x: 0, y: 50 }; // Default orbital velocity
                     const gravityStrength = obj.orbitSystem.gravityStrength || 1000;
@@ -1793,7 +1793,7 @@ class LevelEditor {
         plog.debug('Object orbit system:', obj.orbitSystem);
         plog.debug('Orbit type:', obj.orbitSystem?.orbitType);
         
-        if (!obj.orbitSystem || obj.orbitSystem.orbitType !== 'gravity') {
+        if (!obj.orbitSystem || obj.orbitSystem.orbitType !== LevelOrbitType.GRAVITY) {
             plog.warn('Cannot reset gravity orbit: object does not have a gravity orbit system');
             plog.warn('Reset failed: no orbit system or not gravity type');
             return;
@@ -1901,7 +1901,7 @@ class LevelEditor {
         }
         
         // Reset the orbit system completely with initial values
-        obj.orbitSystem.orbitType = 'gravity';
+        obj.orbitSystem.orbitType = LevelOrbitType.GRAVITY;
         obj.orbitSystem.gravityStrength = gravityStrength;
         obj.orbitSystem.orbitRadius = distance;
         obj.orbitSystem.orbitSpeed = 3; // Fixed orbital speed for consistency
@@ -3059,10 +3059,10 @@ class LevelEditor {
             
             // Draw different orbit shapes based on orbit type
             switch (obj.orbitSystem.orbitType) {
-                case 'circular':
+                case LevelOrbitType.CIRCULAR:
                     ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
                     break;
-                case 'elliptical':
+                case LevelOrbitType.ELLIPTICAL:
                     if (obj.orbitSystem.orbitParams) {
                         const { semiMajorAxis, semiMinorAxis, rotation } = obj.orbitSystem.orbitParams;
                         ctx.save();
@@ -3075,7 +3075,7 @@ class LevelEditor {
                         ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
                     }
                     break;
-                case 'figure8':
+                case LevelOrbitType.FIGURE_8:
                     // Draw figure-8 approximation
                     const size = obj.orbitSystem.orbitRadius;
                     for (let t = 0; t <= Math.PI * 2; t += 0.1) {
@@ -3086,7 +3086,7 @@ class LevelEditor {
                         else ctx.lineTo(x, y);
                     }
                     break;
-                case 'gravity':
+                case LevelOrbitType.GRAVITY:
                     // Draw dashed circle to indicate gravitational influence zone
                     ctx.setLineDash([10, 10]);
                     ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius || 100, 0, Math.PI * 2);

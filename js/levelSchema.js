@@ -21,6 +21,16 @@ export const LEVEL_OBJECT_TYPE_NAMES = Object.freeze([
     ...Object.keys(LEVEL_OBJECT_TYPE_ALIASES)
 ]);
 
+export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze({
+    Planet: LevelObjectType.PLANET,
+    Bonus: LevelObjectType.BONUS,
+    Target: LevelObjectType.TARGET,
+    Slingshot: LevelObjectType.SLINGSHOT,
+    TextObject: LevelObjectType.TEXT,
+    PointingArrow: LevelObjectType.POINTING_ARROW,
+    Penguin: LevelObjectType.PENGUIN
+});
+
 export const LevelOrbitType = Object.freeze({
     CIRCULAR: 'circular',
     ELLIPTICAL: 'elliptical',
@@ -45,8 +55,25 @@ export const ORBIT_SOURCE_TYPES = Object.freeze([
 
 export function normalizeLevelObjectType(type) {
     if (typeof type !== 'string') return null;
-    const normalized = type.toLowerCase();
+    const normalized = type.trim().toLowerCase();
     return LEVEL_OBJECT_TYPE_ALIASES[normalized] || normalized;
+}
+
+export function isLevelObjectType(type) {
+    return LEVEL_OBJECT_TYPES.includes(normalizeLevelObjectType(type));
+}
+
+export function levelObjectTypeFromClassName(className) {
+    return LEVEL_OBJECT_TYPE_BY_CLASS_NAME[className] ?? null;
+}
+
+export function normalizeLevelOrbitType(type) {
+    if (typeof type !== 'string') return null;
+    return type.trim().toLowerCase();
+}
+
+export function isLevelOrbitType(type) {
+    return LEVEL_ORBIT_TYPES.includes(normalizeLevelOrbitType(type));
 }
 
 export function normalizeOrbitDefinition(orbit = {}) {
@@ -56,7 +83,7 @@ export function normalizeOrbitDefinition(orbit = {}) {
         radius: orbit.orbitRadius ?? orbit.radius ?? 0,
         speed: orbit.orbitSpeed ?? orbit.speed ?? 0,
         angle: orbit.orbitAngle ?? orbit.angle ?? 0,
-        type: orbit.orbitType ?? orbit.type ?? LevelOrbitType.CIRCULAR,
+        type: normalizeLevelOrbitType(orbit.orbitType ?? orbit.type) ?? LevelOrbitType.CIRCULAR,
         params: orbit.orbitParams ?? orbit.params ?? {}
     };
 }

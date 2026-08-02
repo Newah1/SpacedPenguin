@@ -2,12 +2,12 @@
 // This module deliberately has no DOM, game-object, or filesystem dependencies.
 
 import {
-    LEVEL_OBJECT_TYPE_NAMES,
-    LEVEL_ORBIT_TYPES,
     LevelObjectType,
     LevelOrbitType,
     ORBIT_LOOKUP_TARGET_TYPES,
     ORBIT_SOURCE_TYPES,
+    isLevelObjectType,
+    isLevelOrbitType,
     normalizeLevelObjectType,
     normalizeOrbitDefinition
 } from './levelSchema.js';
@@ -103,7 +103,7 @@ function validateObjectShape(object, index, collector) {
     }
 
     const type = normalizeLevelObjectType(object.type);
-    if (!LEVEL_OBJECT_TYPE_NAMES.includes(object.type.toLowerCase())) {
+    if (!isLevelObjectType(object.type)) {
         collector.error('OBJECT_TYPE_UNKNOWN', `${path}.type`, `unsupported object type "${object.type}"`);
     }
     if (object.properties !== undefined && !isRecord(object.properties)) {
@@ -179,7 +179,7 @@ function validateOrbits(objects, identifiers, collector) {
         validateOptionalNumber(orbit.radius, `${path}.orbitRadius`, collector, { min: 0 });
         validateOptionalNumber(orbit.speed, `${path}.orbitSpeed`, collector);
         validateOptionalNumber(orbit.angle, `${path}.orbitAngle`, collector);
-        if (typeof orbit.type !== 'string' || !LEVEL_ORBIT_TYPES.includes(orbit.type)) {
+        if (!isLevelOrbitType(orbit.type)) {
             collector.error('ORBIT_KIND_UNKNOWN', `${path}.orbitType`, `unsupported orbit type "${orbit.type}"`);
         }
         if (!isRecord(orbit.params)) {

@@ -10,6 +10,7 @@ import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levelValidation.js';
+import { LevelObjectType, normalizeLevelObjectType, normalizeOrbitDefinition } from '../js/levelSchema.js';
 
 class LevelTester {
     constructor() {
@@ -122,9 +123,9 @@ function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
     const columns = Math.max(20, Math.floor(width));
     const rows = Math.max(10, Math.floor(height));
     const objects = levelData.objects || [];
-    const slingshot = objects.find(object => object.type === 'slingshot');
-    const target = objects.find(object => object.type === 'target');
-    const planets = objects.filter(object => object.type === 'planet');
+    const slingshot = objects.find(object => normalizeLevelObjectType(object.type) === LevelObjectType.SLINGSHOT);
+    const target = objects.find(object => normalizeLevelObjectType(object.type) === LevelObjectType.TARGET);
+    const planets = objects.filter(object => normalizeLevelObjectType(object.type) === LevelObjectType.PLANET);
     const path = [...(result.trajectory || []).map(point => ({ x: point.x, y: point.y }))];
     if (result.finalPosition) path.push(result.finalPosition);
 
@@ -191,11 +192,12 @@ function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
     }
 
     for (const planet of planets) {
-        const orbit = planet.properties?.orbit;
+        const sourceOrbit = planet.properties?.orbit;
+        const orbit = sourceOrbit ? normalizeOrbitDefinition(sourceOrbit) : null;
         const isOrbiting = Boolean(
-            (orbit?.orbitTargetId || orbit?.targetId || orbit?.orbitCenter || orbit?.center) &&
-            (orbit?.orbitRadius ?? orbit?.radius ?? 0) > 0 &&
-            (orbit?.orbitSpeed ?? orbit?.speed ?? 0) !== 0
+            (orbit?.targetId || orbit?.center) &&
+            orbit.radius > 0 &&
+            orbit.speed !== 0
         );
         const position = project(planet.position);
         plot(position.column, position.row, isOrbiting ? 'o' : 'O', isOrbiting ? 2 : 3);

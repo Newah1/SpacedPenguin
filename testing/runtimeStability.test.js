@@ -117,6 +117,22 @@ test('level export persists the configured text wrap width', () => {
     assert.equal(properties.width, 360);
 });
 
+test('level export derives canonical object types from the shared schema', () => {
+    const textObject = new TextObject(10, 20, 'Tutorial text');
+    const game = {
+        getObjectCoordinates: Game.prototype.getObjectCoordinates,
+        extractAllProperties: Game.prototype.extractAllProperties,
+        addDiscoveredProperties: Game.prototype.addDiscoveredProperties,
+        isInternalProperty: Game.prototype.isInternalProperty,
+        exportOrbitSystem: Game.prototype.exportOrbitSystem
+    };
+
+    const exported = Game.prototype.exportObjectComprehensively.call(game, textObject);
+
+    assert.equal(exported.type, 'textobject');
+    assert.equal('className' in exported, false);
+});
+
 function simulateAtRate(rate, seconds = 1) {
     const planets = [{
         x: 400,

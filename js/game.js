@@ -15,6 +15,11 @@ import plog from './penguinLogger.js';
 import { applyGameSimulationEvents, stepGameSimulation } from './gameSimulationAdapter.js';
 import { calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
 import {
+    LevelObjectType,
+    LevelOrbitType,
+    levelObjectTypeFromClassName
+} from './levelSchema.js';
+import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
     applyViewportTransform,
@@ -1590,9 +1595,9 @@ class Game {
     }
     
     shouldExportObject(obj) {
-        // Skip utility objects that shouldn't be exported
-        const skipTypes = ['BonusPopup', 'Arrow', 'Penguin']; // Skip runtime/UI objects
-        return !skipTypes.includes(obj.constructor.name);
+        // Only schema-backed runtime objects belong in a level definition.
+        const type = levelObjectTypeFromClassName(obj.constructor.name);
+        return type !== null && type !== LevelObjectType.PENGUIN;
     }
     
     exportObjectComprehensively(obj) {
@@ -1600,9 +1605,13 @@ class Game {
         plog.debug(`Exporting ${className}:`, obj);
         
         // Start with base object data
+        const type = levelObjectTypeFromClassName(className);
+        if (!type) {
+            plog.warn(`Skipping runtime object without a level schema type: ${className}`);
+            return null;
+        }
         const exportData = {
-            type: className.toLowerCase(),
-            className: className, // Keep original class name for precision
+            type
         };
         
         // Export position as object (matching level JSON format)
@@ -1727,7 +1736,7 @@ class Game {
         };
         
         // Add gravity-specific properties if it's a gravity orbit
-        if (orbitSystem.orbitType === 'gravity') {
+        if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
             exportData.orbitParams = {
                 ...exportData.orbitParams,
                 gravityStrength: orbitSystem.gravityStrength || 1000,
