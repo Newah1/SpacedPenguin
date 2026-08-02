@@ -184,6 +184,14 @@ export class KeyboardInputAction extends InputAction {
         if (e.ctrlKey || e.metaKey) {
             return;
         }
+
+        // Use the physical key code so console access works across keyboard
+        // layouts where the Backquote key may report a different `key` value.
+        if (e.code === 'Backquote') {
+            e.preventDefault();
+            game.console?.toggle();
+            return;
+        }
         
         // Don't intercept keys when console is open - let console handle input
         if (game.console && game.console.visible) {

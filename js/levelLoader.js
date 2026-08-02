@@ -80,6 +80,7 @@ export class GameObjectFactory {
             name = null,
             radius = 30,
             mass = 100,
+            collisionRadius = radius + 8,
             gravitationalReach = 5000,
             orbit = null,
             planetType = null,
@@ -87,6 +88,7 @@ export class GameObjectFactory {
         } = properties;
         
         const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader, gameObjectLookup);
+        planet.collisionRadius = collisionRadius;
         
         // Set name and ID if provided
         if (name) {

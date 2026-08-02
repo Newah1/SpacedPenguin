@@ -87,9 +87,6 @@ class Console {
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 this.navigateHistory(1);
-            } else if (e.key === '`') {
-                e.preventDefault();
-                this.hide();
             }
         });
     }

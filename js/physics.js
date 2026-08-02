@@ -19,7 +19,7 @@ export class Physics {
         this.planets.push({
             sprite: planet,
             mass: planet.mass,
-            collisionRadius: planet.radius + 8,
+            collisionRadius: planet.collisionRadius,
             gravitationalReach: effectiveGravitationalReach(planet.gravitationalReach)
         });
     }

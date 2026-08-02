@@ -2698,6 +2698,7 @@ class LevelEditor {
                     props.planetType || 'planet_grey',
                     this.game.assetLoader
                 );
+                clonedObject.collisionRadius = props.collisionRadius ?? (clonedObject.radius + 8);
                 break;
             case 'Bonus':
                 clonedObject = new ClassConstructor(

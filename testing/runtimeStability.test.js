@@ -79,6 +79,17 @@ test('text factory restores an explicitly exported wrap limit', () => {
     assert.equal(textObject.maxWidth, 340);
 });
 
+test('planet factory respects an explicit collision radius', () => {
+    const planet = GameObjectFactory.createPlanet({ x: 100, y: 200 }, {
+        radius: 65.8413472395633,
+        collisionRadius: 62.8,
+        mass: 128.841347239563
+    }, null);
+
+    assert.equal(planet.radius, 65.8413472395633);
+    assert.equal(planet.collisionRadius, 62.8);
+});
+
 test('level export persists the configured text wrap width', () => {
     const textObject = new TextObject(10, 20, 'Tutorial text', {
         width: 360,
