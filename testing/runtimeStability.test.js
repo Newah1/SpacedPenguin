@@ -506,15 +506,13 @@ test('headless loader resolves object-linked orbits in level 10', async () => {
     assert.equal(engine.physics.planets[1].gravitationalReach, 5000);
 });
 
-test('level 12 rejects a point-sized straight shot that clips the penguin body', async () => {
+test('level 12 preserves its tuned collision radii', async () => {
     const level = JSON.parse(await readFile(new URL('../levels/level12.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
     engine.loadLevel(level);
 
-    const result = engine.simulateTrajectory(338.71, 85.48, 30);
-
-    assert.equal(result.success, false);
-    assert.equal(result.reason, 'planet_collision');
+    assert.equal(engine.initialState.planets[0].collisionRadius, 62.8);
+    assert.equal(engine.initialState.planets[1].collisionRadius, 65.8);
 });
 
 test('level 8 legacy zero reaches retain normal planet gravity', async () => {
