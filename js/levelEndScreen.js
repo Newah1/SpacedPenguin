@@ -35,8 +35,8 @@ export class LevelEndScreen extends UIScreen {
         const tries = this.game.tries;
         const calculatedScore = Math.floor(distance * level / tries);
         
-        // Get the previous score before this level's calculation
-        const previousScore = this.game.score - calculatedScore;
+        // A retry only improves the total when it beats this level's prior best.
+        const previousScore = this.game.score - (this.game.lastScoreImprovement ?? 0);
         
         return {
             distance: {

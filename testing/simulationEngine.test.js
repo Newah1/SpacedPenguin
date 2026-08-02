@@ -310,7 +310,42 @@ test('launch and scoring calculations are shared deterministic functions', () =>
         attemptBonus: 50,
         totalScore: 1000,
         multiplier: 1.5
-    }), { levelScore: 100, totalScore: 1725 });
+    }), {
+        levelScore: 100,
+        levelContribution: 725,
+        scoreImprovement: 725,
+        totalScore: 1725
+    });
+
+    assert.deepEqual(calculateLevelScore({
+        distance: 80,
+        level: 2,
+        tries: 2,
+        attemptBonus: 25,
+        totalScore: 1725,
+        previousLevelContribution: 725,
+        multiplier: 1.5
+    }), {
+        levelScore: 80,
+        levelContribution: 725,
+        scoreImprovement: 0,
+        totalScore: 1725
+    });
+
+    assert.deepEqual(calculateLevelScore({
+        distance: 200,
+        level: 2,
+        tries: 2,
+        attemptBonus: 100,
+        totalScore: 1725,
+        previousLevelContribution: 725,
+        multiplier: 1.5
+    }), {
+        levelScore: 200,
+        levelContribution: 950,
+        scoreImprovement: 225,
+        totalScore: 1950
+    });
 });
 
 test('headless runner is a thin consumer of the same deterministic steps', () => {

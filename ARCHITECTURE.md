@@ -306,7 +306,7 @@ Comments retain a historical `snapping`/`scoring` vocabulary, but the current pr
 - `tries` counts launch attempts and is reset for a new level.
 - `distance` accumulates travel and participates in the original-style `floor(distance * level / tries)` level score.
 - `currentAttemptScore` holds collected bonus value for the current attempt; reset paths determine whether bonuses and score are retained.
-- On completion, the level score and current attempt bonuses are added to total `score`; then a non-default level multiplier is applied to the total accumulated score.
+- On completion, the level score and current attempt bonuses produce that level's contribution; retries replace the contribution only when the new result is higher. A non-default level multiplier is applied while calculating the candidate total.
 - The high score is updated and saved after final score calculation.
 
 ## 8. Level ingestion and object graph construction

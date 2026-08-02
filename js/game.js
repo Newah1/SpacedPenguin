@@ -52,6 +52,7 @@ class Game {
         this.state = GameState.MENU;
         this.level = 1;
         this.score = 0;
+        this.currentLevelBestScore = 0;
         this.currentAttemptScore = 0; // Track score for current attempt only
         this.distance = 0;
         this.tries = 0;
@@ -857,10 +858,13 @@ class Game {
             tries: this.tries,
             attemptBonus: this.currentAttemptScore,
             totalScore: this.score,
+            previousLevelContribution: this.currentLevelBestScore,
             multiplier: this.levelRules?.scoreMultiplier ?? 1
         });
         const levelScore = result.levelScore;
+        this.currentLevelBestScore = result.levelContribution;
         this.score = result.totalScore;
+        this.lastScoreImprovement = result.scoreImprovement;
         
         this.updateUI();
         
@@ -881,6 +885,7 @@ class Game {
     
     nextLevel() {
         this.level++;
+        this.currentLevelBestScore = 0;
         this.tries = 0;
         this.distance = 0;
         this.planetCollisions = 0;
@@ -899,6 +904,10 @@ class Game {
     }
     
     resetLevel() {
+        this.tries = 0;
+        this.distance = 0;
+        this.currentAttemptScore = 0;
+        this.planetCollisions = 0;
         this.resetPenguin();
         this.resetBonuses();
         this.physics.clearTrace();
@@ -1325,6 +1334,7 @@ class Game {
     startGame() {
         this.level = 1;
         this.score = 0;
+        this.currentLevelBestScore = 0;
         this.currentAttemptScore = 0;
         this.distance = 0;
         this.tries = 0;
@@ -1345,6 +1355,7 @@ class Game {
         // Set up game state for the target level
         this.level = targetLevel;
         this.score = 0; // Start fresh for testing purposes
+        this.currentLevelBestScore = 0;
         this.currentAttemptScore = 0;
         this.distance = 0;
         this.tries = 0;

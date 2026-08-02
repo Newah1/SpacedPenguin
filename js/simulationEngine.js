@@ -318,14 +318,29 @@ export function evaluateVictoryRules(state) {
     };
 }
 
-export function calculateLevelScore({ distance, level, tries, attemptBonus, totalScore, multiplier = 1 }) {
+export function calculateLevelScore({
+    distance,
+    level,
+    tries,
+    attemptBonus,
+    totalScore,
+    previousLevelContribution = 0,
+    multiplier = 1
+}) {
     const safeTries = Math.max(1, tries);
     const levelScore = Math.floor(distance * level / safeTries);
-    const scoreBeforeMultiplier = totalScore + levelScore + attemptBonus;
+    const scoreBeforeLevel = totalScore - previousLevelContribution;
+    const scoreBeforeMultiplier = scoreBeforeLevel + levelScore + attemptBonus;
+    const candidateTotalScore = multiplier === 1
+        ? scoreBeforeMultiplier
+        : Math.floor(scoreBeforeMultiplier * multiplier);
+    const candidateLevelContribution = candidateTotalScore - scoreBeforeLevel;
+    const levelContribution = Math.max(previousLevelContribution, candidateLevelContribution);
+
     return {
         levelScore,
-        totalScore: multiplier === 1
-            ? scoreBeforeMultiplier
-            : Math.floor(scoreBeforeMultiplier * multiplier)
+        levelContribution,
+        scoreImprovement: levelContribution - previousLevelContribution,
+        totalScore: scoreBeforeLevel + levelContribution
     };
 }
