@@ -1,0 +1,22 @@
+{
+  "name": "spaced-penguin-rewrite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "serve": "node testing/staticServer.js",
+    "test": "npm run test:unit && npm run test:policy && npm run test:levels && npm run test:syntax && npm run test:e2e",
+    "test:unit": "node --test testing/config.test.js testing/inputActions.test.js testing/levelValidation.test.js testing/runtimeStability.test.js testing/simulationEngine.test.js testing/viewport.test.js",
+    "test:policy": "node --test testing/configurationPolicy.test.js",
+    "test:levels": "node testing/validateLevels.js",
+    "test:syntax": "node testing/checkSyntax.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0"
+  }
+}

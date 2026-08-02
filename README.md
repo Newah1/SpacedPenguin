@@ -87,7 +87,19 @@ Set `pointAfterDelay` to a positive number of seconds to hide the arrow until it
 
 ## Testing status
 
-The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for configuration invariants, the shared deterministic simulation core, level validation and normalization, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
+The root `test_*.html` files remain useful manual diagnostics. Automated coverage includes Node regression tests, validation of every shipped level, JavaScript syntax checks, configuration-policy checks, and Playwright browser smoke tests. The browser suite covers bootstrap, rendering, a real canvas launch, pause/resume, level completion, failed-audio degradation, mobile coordinate mapping, and editor JSON export.
+
+Install the pinned development dependency and Chromium once, then run every local gate from the repository root:
+
+```powershell
+npm install
+npx playwright install chromium
+npm test
+```
+
+Individual gates are available as `npm run test:unit`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
+
+The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic.
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 

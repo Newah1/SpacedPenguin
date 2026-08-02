@@ -86,7 +86,7 @@ flowchart TB
     Modules <--> Local
 ```
 
-There is no bundler, transpiler, package dependency, service worker, backend, authentication, telemetry service, or CI configuration in the current repository. Browser support therefore depends directly on native ES modules, Canvas 2D, `fetch`, `Map`, optional chaining, Web Audio, Fullscreen, and related contemporary APIs.
+There is no runtime bundler, transpiler, production package dependency, service worker, backend, authentication, or telemetry service. Browser support therefore depends directly on native ES modules, Canvas 2D, `fetch`, `Map`, optional chaining, Web Audio, Fullscreen, and related contemporary APIs. Development uses pinned Playwright tooling, and GitHub Actions runs the repository's automated quality gates.
 
 ## 4. Component model and ownership
 
@@ -608,10 +608,13 @@ Maintain these constraints when changing the system:
 
 ## 16. Testing and quality architecture
 
-There are two current test surfaces:
+There are three current test surfaces:
 
 1. Root `test_*.html` pages are manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
 2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
+3. `e2e/` contains Playwright smoke tests against a dependency-free local static server. They exercise production bootstrap, canvas input and rendering, pause/resume, scoring transition, failed-audio degradation, responsive coordinate mapping, and editor download/export. Network substitution supplies a deterministic level while leaving the production runtime path intact.
+
+The `.github/workflows/ci.yml` workflow runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests. Failed browser runs retain traces, screenshots, videos, and an HTML report.
 
 ```mermaid
 flowchart TB
@@ -641,15 +644,15 @@ Verified limitations as of 2026-08-01:
 
 - The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
 - Worker count is capped at four. `auto` remains single-threaded below 5,000 candidates to avoid paying worker startup and duplicate-timeline costs on small sweeps.
-- There is executable structural/semantic level validation but no JSON Schema artifact, linting, browser end-to-end runner, coverage, or CI pipeline. Node regression tests use the built-in `node:test` runner.
+- There is executable structural/semantic level validation but no generated JSON Schema artifact, linting, or coverage reporting. Node regression tests use the built-in `node:test` runner; browser coverage uses Playwright with Chromium.
 
 Recommended quality direction, in order:
 
 1. Generate a JSON Schema from the shared contract for editor tooling and IDE completion.
 2. Add recorded golden trajectories for representative shipped levels and protect intentional balance changes with fixture review.
 3. Extend deterministic tests to multi-bounce crash sequences and terminal level transitions.
-4. Add a browser automation smoke test for bootstrap, start, launch, pause, level completion, editor export, audio degradation, and mobile coordinate mapping.
-5. Gate changes in CI with syntax checks, level validation, unit tests, and the browser smoke suite.
+4. Expand browser coverage to failure recovery, fullscreen behavior, and cross-browser compatibility where those risks justify the added runtime.
+5. Add linting and coverage thresholds after establishing a maintainable baseline.
 
 ## 17. Risks and architectural debt
 
