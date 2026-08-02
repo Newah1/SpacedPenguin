@@ -465,14 +465,14 @@ class GameManager {
         ctx.font = '700 12px "Trebuchet MS", Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.letterSpacing = '2px';
-        ctx.fillText('A GRAVITY SLINGSHOT ADVENTURE', 400, 182);
+        // ctx.fillText('A GRAVITY SLINGSHOT ADVENTURE', 400, 182);
     }
 
     drawMenuConsole(ctx, time) {
         const x = 125;
         const y = 205;
         const width = 550;
-        const height = 282;
+        const height = 292;
 
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
@@ -541,7 +541,7 @@ class GameManager {
         });
 
         const buttonX = x + 143;
-        const buttonY = y + 220;
+        const buttonY = y + 210;
         const buttonWidth = 264;
         const buttonHeight = 47;
         this.roundedRectPath(ctx, buttonX, buttonY + 4, buttonWidth, buttonHeight, 10);

@@ -1037,7 +1037,12 @@ class Game {
         // Draw all game objects in render order
         const objCount = this._cachedSortedObjects.length;
         for (let i = 0; i < objCount; i++) {
-            this._cachedSortedObjects[i].draw(this.ctx);
+            const object = this._cachedSortedObjects[i];
+            if (object === this.penguin) {
+                this.drawPenguinInPlayfield();
+            } else {
+                object.draw(this.ctx);
+            }
         }
 
         // Keep this tied to Arrow.visible so both off-screen indicators always
@@ -1052,6 +1057,26 @@ class Game {
         
         // Draw level editor overlay
         this.levelEditor.render(this.ctx);
+    }
+
+    drawPenguinInPlayfield() {
+        if (!this.penguin) {
+            return;
+        }
+
+        const playfield = this.stageRect || {
+            x: 0,
+            y: 0,
+            width: STAGE_WIDTH,
+            height: STAGE_HEIGHT
+        };
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(playfield.x, playfield.y, playfield.width, playfield.height);
+        this.ctx.clip();
+        this.penguin.draw(this.ctx);
+        this.ctx.restore();
     }
 
     drawKevinCam() {
@@ -1604,6 +1629,12 @@ class Game {
                 properties[prop] = obj[prop];
             }
         });
+
+        // Auto-sized text changes its rendered width every frame. Persist the
+        // editor's configured wrap limit instead of that transient measurement.
+        if (className === 'TextObject' && obj.maxWidth !== undefined) {
+            properties.width = obj.maxWidth + (obj.padding * 2);
+        }
         
         // Handle special nested properties
         if (className === 'PointingArrow' && obj.pointingAt) {

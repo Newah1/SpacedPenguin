@@ -206,6 +206,7 @@ export class GameObjectFactory {
             color = '#FFFFCC',
             backgroundColor = 'rgba(0, 0, 0, 0.7)',
             padding = 10,
+            maxWidth = null,
             autoSize = true,
             fadeIn = false,
             fadeInDuration = 1.0,
@@ -214,7 +215,7 @@ export class GameObjectFactory {
         
         const options = {
             width, height, visible, textAlign, fontSize, fontFamily,
-            color, backgroundColor, padding, autoSize, fadeIn, 
+            color, backgroundColor, padding, maxWidth, autoSize, fadeIn,
             fadeInDuration, renderOrder
         };
         
@@ -469,7 +470,10 @@ export class LevelLoader {
     
     async loadLevelFromFile(levelNumber, filePath) {
         try {
-            const response = await fetch(filePath);
+            // Level JSON is frequently replaced while using the editor. Avoid
+            // reusing a stale browser response after an export is copied over a
+            // built-in level file.
+            const response = await fetch(filePath, { cache: 'no-store' });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status} ${response.statusText}`);
             }

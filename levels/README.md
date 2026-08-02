@@ -135,6 +135,8 @@ Both `text` and `textobject` are accepted.
 ```
 
 Text formatting is parsed into Canvas text runs; it is not arbitrary DOM HTML execution.
+In the level editor, **Width / Wrap Limit** controls where text wraps. With `autoSize`
+enabled, the rendered background can shrink to its content while retaining this wrap limit.
 
 ### Pointing arrow
 

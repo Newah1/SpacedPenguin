@@ -17,10 +17,85 @@ const { Game, GameState } = await import('../js/game.js');
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
-const { OrbitSystem, Target } = await import('../js/gameObjects.js');
+const LevelEditor = (await import('../js/levelEditor.js')).default;
+const { OrbitSystem, Target, TextObject } = await import('../js/gameObjects.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
 const { HeadlessGameEngine, HeadlessPenguin } = await import('./headlessEngine.js');
 const { compareAsciiTrajectoryResults, renderAsciiTrajectory } = await import('./levelTester.js');
+
+test('level files bypass the browser cache when reloaded', async () => {
+    const requests = [];
+    const loader = new (await import('../js/levelLoader.js')).LevelLoader(null);
+    const level = {
+        name: 'Fresh level',
+        startPosition: { x: 100, y: 300 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [],
+        rules: {}
+    };
+
+    await withGlobalOverrides({
+        fetch: async (path, options) => {
+            requests.push({ path, options });
+            return { ok: true, json: async () => level };
+        }
+    }, () => loader.loadLevelFromFile(1, 'levels/level1.json'));
+
+    assert.deepEqual(requests, [{
+        path: 'levels/level1.json',
+        options: { cache: 'no-store' }
+    }]);
+});
+
+test('level editor text width updates the renderer wrap limit', () => {
+    const editor = Object.create(LevelEditor.prototype);
+    editor.selectedObject = new TextObject(100, 100, 'Text that should wrap later', {
+        width: 200,
+        padding: 10,
+        autoSize: true
+    });
+
+    editor.handlePropertyChange({
+        target: {
+            dataset: { property: 'width' },
+            type: 'number',
+            value: '360'
+        }
+    });
+
+    assert.equal(editor.selectedObject.width, 360);
+    assert.equal(editor.selectedObject.maxWidth, 340);
+});
+
+test('text factory restores an explicitly exported wrap limit', () => {
+    const textObject = GameObjectFactory.createTextObject({ x: 10, y: 20 }, {
+        content: 'Tutorial text',
+        width: 360,
+        padding: 10,
+        maxWidth: 340
+    });
+
+    assert.equal(textObject.width, 360);
+    assert.equal(textObject.maxWidth, 340);
+});
+
+test('level export persists the configured text wrap width', () => {
+    const textObject = new TextObject(10, 20, 'Tutorial text', {
+        width: 360,
+        padding: 10,
+        autoSize: true
+    });
+    // Simulate the rendered background shrinking around its current content.
+    textObject.width = 140;
+
+    const game = {
+        addDiscoveredProperties: Game.prototype.addDiscoveredProperties,
+        isInternalProperty: Game.prototype.isInternalProperty
+    };
+    const properties = Game.prototype.extractAllProperties.call(game, textObject);
+
+    assert.equal(properties.width, 360);
+});
 
 function simulateAtRate(rate, seconds = 1) {
     const planets = [{
@@ -253,6 +328,27 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
         calls.filter(call => call[0] === 'fillText').map(call => call[1]).join(''),
         'kEvIn cAm'
     );
+});
+
+test('main Kevin render is clipped to the playfield', () => {
+    const { calls, context } = createRecordingContext();
+    let penguinDraws = 0;
+    const game = createGameFixture({
+        ctx: context,
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        penguin: { draw: () => penguinDraws++ }
+    });
+
+    Game.prototype.drawPenguinInPlayfield.call(game);
+
+    assert.equal(penguinDraws, 1);
+    assert.deepEqual(calls, [
+        ['save'],
+        ['beginPath'],
+        ['rect', 0, 0, 800, 600],
+        ['clip'],
+        ['restore']
+    ]);
 });
 
 test('main starfield wraps with layered drift independent of Kevin', () => {

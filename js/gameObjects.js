@@ -1470,8 +1470,8 @@ class Slingshot extends GameObject {
 
 class TextObject extends GameObject {
     constructor(x, y, content, options = {}) {
-        const width = options.width || 200;
-        const height = options.height || 100;
+        const width = options.width ?? 200;
+        const height = options.height ?? 100;
         super(x, y, width, height);
         this.renderOrder = options.renderOrder || 8; // Render text on top of most things
         this.content = content; // HTML content
@@ -1484,8 +1484,8 @@ class TextObject extends GameObject {
         this.color = options.color || '#FFFFCC'; // Default yellow like original
         this.backgroundColor = options.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
         this.borderRadius = options.borderRadius || 8;
-        this.padding = options.padding || 10;
-        this.maxWidth = options.maxWidth || width - (this.padding * 2);
+        this.padding = options.padding ?? 10;
+        this.maxWidth = options.maxWidth ?? Math.max(1, width - (this.padding * 2));
         
         // Auto-sizing based on content
         this.autoSize = options.autoSize !== undefined ? options.autoSize : true;

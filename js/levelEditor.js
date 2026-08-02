@@ -1243,7 +1243,7 @@ class LevelEditor {
             ],
             'TextObject': [
                 { key: 'content', label: 'Text Content', type: 'text' },
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
+                { key: 'width', label: 'Width / Wrap Limit', type: 'number', min: 1 },
                 { key: 'height', label: 'Height', type: 'number', min: 1 },
                 { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 72 },
                 { key: 'color', label: 'Color', type: 'color' },
@@ -1276,6 +1276,10 @@ class LevelEditor {
                 value = obj.pointingAt ? obj.pointingAt.x : 0;
             } else if (propDef.key === 'pointingAtY') {
                 value = obj.pointingAt ? obj.pointingAt.y : 0;
+            } else if (propDef.key === 'width' && className === 'TextObject') {
+                // Auto-sized text mutates its rendered width. Show the stable
+                // configured wrap width (including padding) in the editor.
+                value = obj.maxWidth + (obj.padding * 2);
             } else if (obj[propDef.key] !== undefined) {
                 value = obj[propDef.key];
             } else {
@@ -1578,6 +1582,14 @@ class LevelEditor {
                 this.selectedObject.content = value;
                 this.selectedObject.parsedContent = this.selectedObject.parseHTMLContent(value);
                 plog.debug(`Updated text content to: ${value}`);
+            } else if (property === 'width' && this.selectedObject.constructor.name === 'TextObject') {
+                // Text wrapping uses maxWidth, not the auto-sized rendered width.
+                this.selectedObject.width = value;
+                this.selectedObject.maxWidth = Math.max(
+                    1,
+                    value - (this.selectedObject.padding * 2)
+                );
+                plog.debug(`Updated text wrap width to ${this.selectedObject.maxWidth}`);
             } else if ((property === 'width' || property === 'height') && this.selectedObject.constructor.name === 'Planet') {
                 // Handle Planet width/height changes - update radius to maintain consistency
                 this.selectedObject[property] = value;
@@ -2638,7 +2650,7 @@ class LevelEditor {
                 });
                 break;
             case 'TextObject':
-                ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'autoSize'].forEach(prop => {
+                ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'padding', 'maxWidth', 'autoSize'].forEach(prop => {
                     if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
                 });
                 break;
@@ -2727,6 +2739,8 @@ class LevelEditor {
                         fontFamily: props.fontFamily,
                         textAlign: props.textAlign,
                         backgroundColor: props.backgroundColor,
+                        padding: props.padding,
+                        maxWidth: props.maxWidth,
                         autoSize: props.autoSize
                     }
                 );
