@@ -1015,14 +1015,8 @@ class Game {
         // Draw background stars (cached)
         this.drawStars();
         
-        // Draw all shot paths (like original game)
-        this.drawAllShotPaths(this.ctx);
-        
-        // Draw alpha masks (matching original game's k1, k2, k3 sprites)
-        this.drawAlphaMasks(this.ctx);
-        
-        // Draw physics trace
-        this.physics.drawTrace(this.ctx);
+        // Keep trajectory lines and trail marks inside the authored playfield.
+        this.drawPlayfieldTraces();
         
         // Cache sorted objects if game objects haven't changed
         if (!this._cachedSortedObjects || this._gameObjectsChanged) {
@@ -1057,6 +1051,26 @@ class Game {
         
         // Draw level editor overlay
         this.levelEditor.render(this.ctx);
+    }
+
+    drawPlayfieldTraces() {
+        const playfield = this.stageRect || {
+            x: 0,
+            y: 0,
+            width: STAGE_WIDTH,
+            height: STAGE_HEIGHT
+        };
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(playfield.x, playfield.y, playfield.width, playfield.height);
+        this.ctx.clip();
+
+        this.drawAllShotPaths(this.ctx);
+        this.drawAlphaMasks(this.ctx);
+        this.physics.drawTrace(this.ctx);
+
+        this.ctx.restore();
     }
 
     drawPenguinInPlayfield() {

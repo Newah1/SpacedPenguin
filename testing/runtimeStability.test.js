@@ -351,6 +351,29 @@ test('main Kevin render is clipped to the playfield', () => {
     ]);
 });
 
+test('trajectory lines and trail marks are clipped to the playfield', () => {
+    const { calls, context } = createRecordingContext();
+    const rendered = [];
+    const game = createGameFixture({
+        ctx: context,
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        drawAllShotPaths: () => rendered.push('shot paths'),
+        drawAlphaMasks: () => rendered.push('alpha masks'),
+        physics: { drawTrace: () => rendered.push('physics trace') }
+    });
+
+    Game.prototype.drawPlayfieldTraces.call(game);
+
+    assert.deepEqual(rendered, ['shot paths', 'alpha masks', 'physics trace']);
+    assert.deepEqual(calls, [
+        ['save'],
+        ['beginPath'],
+        ['rect', 0, 0, 800, 600],
+        ['clip'],
+        ['restore']
+    ]);
+});
+
 test('main starfield wraps with layered drift independent of Kevin', () => {
     const { calls, context } = createRecordingContext();
     const game = createGameFixture({
