@@ -2,7 +2,10 @@
 
 // Dependency-free CLI for exact deterministic level trajectory testing.
 
-import { HeadlessGameEngine } from './headlessEngine.js';
+import {
+    DEFAULT_MAX_SIMULATION_TIME,
+    HeadlessGameEngine
+} from './headlessEngine.js';
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -28,15 +31,16 @@ class LevelTester {
             samples = 100,
             angleRange = [0, 360],
             powerRange = [10, 100],
-            maxTime = 30,
+            maxTime = DEFAULT_MAX_SIMULATION_TIME,
             findAll = false,
             ascii = false,
+            requireAllBonuses = false,
             workers = 'auto'
         } = options;
 
         const startTime = Date.now();
         const levelData = await this.loadLevelFile(levelPath);
-        if (!this.engine.loadLevel(levelData)) {
+        if (!this.engine.loadLevel(levelData, { requireAllBonuses })) {
             throw new Error('Failed to load level into engine');
         }
 
@@ -50,9 +54,15 @@ class LevelTester {
         results.sort(ascii ? compareAsciiTrajectoryResults : compareTrajectoryDistance);
 
         const duration = (Date.now() - startTime) / 1000;
-        const displayedResults = findAll ? results : results.slice(0, 5);
+        const displayedResults = findAll
+            ? results
+            : ascii
+                ? selectDiverseAsciiResults(results, 5)
+                : results.slice(0, 5);
         const summary = {
             success: results.length > 0,
+            requireAllBonuses,
+            totalBonuses: this.engine.initialState.bonuses.length,
             levelPath,
             totalSamples: Math.max(1, Math.floor(samples)),
             successfulTrajectories: results.length,
@@ -77,9 +87,12 @@ class LevelTester {
     }
 
     async testSingleTrajectory(levelPath, angle, power, options = {}) {
-        const { maxTime = 30 } = options;
+        const {
+            maxTime = DEFAULT_MAX_SIMULATION_TIME,
+            requireAllBonuses = false
+        } = options;
         const levelData = await this.loadLevelFile(levelPath);
-        if (!this.engine.loadLevel(levelData)) {
+        if (!this.engine.loadLevel(levelData, { requireAllBonuses })) {
             throw new Error('Failed to load level into engine');
         }
 
@@ -200,7 +213,10 @@ function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
     const border = `+${'-'.repeat(columns)}+`;
     const map = grid.map(row => `|${row.join('')}|`).join('\n');
     return [
-        `angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} bonuses=${bonusCount(result)}`,
+        `/launch ${result.angle} ${result.power}`,
+        `angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
+            `score=${trajectoryScore(result)} bonuses=${bonusCount(result)} ` +
+            `distance=${trajectoryDistance(result).toFixed(2)}`,
         border,
         map,
         border,
@@ -214,11 +230,104 @@ function bonusCount(result) {
 }
 
 function compareTrajectoryDistance(a, b) {
-    return b.distance - a.distance;
+    return trajectoryDistance(b) - trajectoryDistance(a);
 }
 
 function compareAsciiTrajectoryResults(a, b) {
-    return bonusCount(b) - bonusCount(a) || compareTrajectoryDistance(a, b);
+    return trajectoryScore(b) - trajectoryScore(a) || compareTrajectoryDistance(a, b);
+}
+
+function trajectoryScore(result) {
+    if (Number.isFinite(result.score)) return result.score;
+    if (Number.isFinite(result.bonusScore)) return result.bonusScore;
+    return bonusCount(result);
+}
+
+function trajectoryDistance(result) {
+    return Number.isFinite(result.distance) ? result.distance : 0;
+}
+
+function trajectoryFingerprint(result, sampleCount = 16) {
+    const points = [...(result.trajectory || []), result.finalPosition]
+        .filter(point => Number.isFinite(point?.x) && Number.isFinite(point?.y));
+    if (points.length < 2) return null;
+
+    const cumulativeDistances = [0];
+    for (let index = 1; index < points.length; index++) {
+        const dx = points[index].x - points[index - 1].x;
+        const dy = points[index].y - points[index - 1].y;
+        cumulativeDistances.push(cumulativeDistances[index - 1] + Math.hypot(dx, dy));
+    }
+
+    const totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
+    if (totalDistance === 0) return null;
+
+    const samples = [];
+    let segment = 1;
+    for (let sample = 0; sample < sampleCount; sample++) {
+        const targetDistance = totalDistance * sample / (sampleCount - 1);
+        while (segment < cumulativeDistances.length - 1 && cumulativeDistances[segment] < targetDistance) {
+            segment++;
+        }
+
+        const startDistance = cumulativeDistances[segment - 1];
+        const endDistance = cumulativeDistances[segment];
+        const span = endDistance - startDistance;
+        const ratio = span > 0 ? (targetDistance - startDistance) / span : 0;
+        const start = points[segment - 1];
+        const end = points[segment];
+        samples.push({
+            x: start.x + (end.x - start.x) * ratio,
+            y: start.y + (end.y - start.y) * ratio
+        });
+    }
+
+    return { samples, totalDistance };
+}
+
+function trajectoriesAreClose(left, right, threshold = 24) {
+    if (!left || !right) return false;
+
+    const relativeLengthDifference = Math.abs(left.totalDistance - right.totalDistance) /
+        Math.max(left.totalDistance, right.totalDistance);
+    if (relativeLengthDifference > 0.08) return false;
+
+    let squaredDistance = 0;
+    for (let index = 0; index < left.samples.length; index++) {
+        const dx = left.samples[index].x - right.samples[index].x;
+        const dy = left.samples[index].y - right.samples[index].y;
+        squaredDistance += dx * dx + dy * dy;
+    }
+
+    return Math.sqrt(squaredDistance / left.samples.length) <= threshold;
+}
+
+function selectDiverseAsciiResults(results, limit = 5, closenessThreshold = 24) {
+    const ranked = [...results].sort(compareAsciiTrajectoryResults);
+    const selected = [];
+    const fingerprints = new Map(
+        ranked.map(result => [result, trajectoryFingerprint(result)])
+    );
+
+    for (const candidate of ranked) {
+        const candidateFingerprint = fingerprints.get(candidate);
+        const duplicatesSelectedRoute = selected.some(result => trajectoriesAreClose(
+            candidateFingerprint,
+            fingerprints.get(result),
+            closenessThreshold
+        ));
+        if (!duplicatesSelectedRoute) selected.push(candidate);
+        if (selected.length === limit) return selected;
+    }
+
+    // If there are not enough distinct routes, retain the best remaining shots
+    // so callers still receive the requested number of samples.
+    for (const candidate of ranked) {
+        if (!selected.includes(candidate)) selected.push(candidate);
+        if (selected.length === limit) break;
+    }
+
+    return selected;
 }
 
 function optionValue(args, name, fallback = null) {
@@ -258,6 +367,9 @@ function parseWorkers(args) {
 
 function printLevelSummary(summary, showAll, showAscii = false) {
     console.log(`Level: ${summary.levelPath}`);
+    if (summary.requireAllBonuses) {
+        console.log(`Success requirement: target + all ${summary.totalBonuses} bonuses`);
+    }
     console.log(`Successful trajectories: ${summary.successfulTrajectories}/${summary.totalSamples}`);
     console.log(`Duration: ${summary.duration.toFixed(2)}s`);
 
@@ -265,7 +377,8 @@ function printLevelSummary(summary, showAll, showAscii = false) {
     for (const result of results) {
         console.log(
             `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
-            `bonuses=${bonusCount(result)} distance=${result.distance.toFixed(2)}`
+            `score=${trajectoryScore(result)} bonuses=${bonusCount(result)} ` +
+            `distance=${trajectoryDistance(result).toFixed(2)}`
         );
     }
 
@@ -296,10 +409,11 @@ Options:
   --samples <num>       Exact number of trajectory combinations (default: 100)
   --angle-range <a:b>   Angle range for a sweep (default: 0:360)
   --power-range <a:b>   Pullback range in pixels (default: 10:100)
-  --max-time <seconds>  Maximum simulation time per trajectory (default: 30)
+  --max-time <seconds>  Maximum simulation time per trajectory (default: ${DEFAULT_MAX_SIMULATION_TIME})
   --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
   --trajectory          Include trajectory points for a single simulation
-  --ascii               Draw successful trajectories, prioritizing bonus count
+  --ascii               Draw distinct successful routes ranked by score and distance
+  --all-bonuses         Count success only after collecting every bonus and hitting the target
   --validate-only       Validate definitions without simulating trajectories
   --all                 Print every successful trajectory
   --verbose, -v         Include the best trajectory points in API results
@@ -316,7 +430,7 @@ async function main(args = process.argv.slice(2)) {
     const tester = new LevelTester();
     tester.verbose = args.includes('--verbose') || args.includes('-v');
 
-    const maxTime = parseNumber(args, '--max-time', 30);
+    const maxTime = parseNumber(args, '--max-time', DEFAULT_MAX_SIMULATION_TIME);
 
     if (args.includes('--validate-only')) {
         const levelPaths = args.includes('--batch')
@@ -343,7 +457,10 @@ async function main(args = process.argv.slice(2)) {
             throw new Error('--single requires --angle and --power');
         }
 
-        const result = await tester.testSingleTrajectory(levelPath, angle, power, { maxTime });
+        const result = await tester.testSingleTrajectory(levelPath, angle, power, {
+            maxTime,
+            requireAllBonuses: args.includes('--all-bonuses')
+        });
         const output = args.includes('--trajectory')
             ? result
             : { ...result, trajectory: undefined };
@@ -358,7 +475,8 @@ async function main(args = process.argv.slice(2)) {
         maxTime,
         workers: parseWorkers(args),
         findAll: args.includes('--all'),
-        ascii: args.includes('--ascii')
+        ascii: args.includes('--ascii'),
+        requireAllBonuses: args.includes('--all-bonuses')
     };
 
     if (args.includes('--batch')) {
@@ -397,4 +515,10 @@ if (scriptFile === currentFile) {
         });
 }
 
-export { LevelTester, compareAsciiTrajectoryResults, main, renderAsciiTrajectory };
+export {
+    LevelTester,
+    compareAsciiTrajectoryResults,
+    main,
+    renderAsciiTrajectory,
+    selectDiverseAsciiResults
+};

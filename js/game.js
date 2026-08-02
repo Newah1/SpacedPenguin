@@ -13,7 +13,7 @@ import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
 import { applyGameSimulationEvents, stepGameSimulation } from './gameSimulationAdapter.js';
-import { calculateLevelScore } from './simulationEngine.js';
+import { calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
@@ -636,6 +636,26 @@ class Game {
         this.startRecordingShotPath();
         
 
+    }
+
+    launchTestTrajectory(angle, power) {
+        if (!Number.isFinite(angle) || !Number.isFinite(power)) {
+            throw new Error('Launch angle and power must be finite numbers');
+        }
+
+        // Headless samples always begin from a freshly loaded level. Reloading
+        // here also resets orbiting objects to simulation time zero so the live
+        // game starts from the exact same world state.
+        this.loadLevel(this.level);
+        this.setState(GameState.PLAYING);
+
+        const velocity = calculateLaunchVelocity(angle, power, {
+            velocityMultiplier: this.slingshot.velocityMultiplier,
+            maxPullback: this.slingshot.maxPullback,
+            minPullback: this.slingshot.minPullback
+        });
+        this.launchPenguin(velocity);
+        return velocity;
     }
     
     // Shot path recording methods (matching original game behavior)

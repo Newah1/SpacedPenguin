@@ -24,6 +24,8 @@ const NodeUtils = {
     }
 };
 
+export const DEFAULT_MAX_SIMULATION_TIME = 120;
+
 class HeadlessPenguin {
     constructor(x, y) {
         this.x = x;
@@ -66,7 +68,7 @@ class HeadlessPhysics {
 }
 
 export class HeadlessGameEngine {
-    constructor() {
+    constructor(options = {}) {
         this.physics = new HeadlessPhysics();
         this.penguin = null;
         this.target = null;
@@ -74,10 +76,11 @@ export class HeadlessGameEngine {
         this.slingshot = null;
         this.state = null;
         this.initialState = null;
-        this.maxSimulationTime = 30;
+        this.maxSimulationTime = DEFAULT_MAX_SIMULATION_TIME;
         this.timeStep = 1 / 60;
         this.worldTimeline = null;
         this.logger = mockLogger;
+        this.requireAllBonuses = options.requireAllBonuses ?? false;
     }
 
     getStartPosition() {
@@ -86,9 +89,12 @@ export class HeadlessGameEngine {
             : { x: 100, y: 300 };
     }
 
-    loadLevel(levelData) {
-        this.level = levelData;
-        this.initialState = createSimulationStateFromLevel(levelData, { source: 'headless level' });
+    loadLevel(levelData, options = {}) {
+        this.requireAllBonuses = options.requireAllBonuses ?? this.requireAllBonuses;
+        this.level = this.requireAllBonuses
+            ? requireEveryBonus(levelData)
+            : levelData;
+        this.initialState = createSimulationStateFromLevel(this.level, { source: 'headless level' });
         this.state = cloneSimulationState(this.initialState);
         this.worldTimeline = null;
         this.synchronizeFacade();
@@ -141,6 +147,9 @@ export class HeadlessGameEngine {
             trajectory: [],
             distance: 0,
             collectedBonuses: [],
+            totalBonuses: this.state.bonuses.length,
+            requiredBonuses: this.state.rules.requiredBonuses,
+            bonusScore: 0,
             events: []
         };
 
@@ -165,6 +174,7 @@ export class HeadlessGameEngine {
             for (const event of stepped.events) {
                 if (event.type === SimulationEventType.BONUS_COLLECTED) {
                     result.collectedBonuses.push(event.bonusId);
+                    result.bonusScore += event.value;
                 } else if (event.type === SimulationEventType.TARGET_HIT) {
                     result.success = true;
                     result.reason = 'target_hit';
@@ -244,6 +254,19 @@ export class HeadlessGameEngine {
         this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
         return results;
     }
+}
+
+export function requireEveryBonus(levelData) {
+    const bonusCount = (levelData.objects || [])
+        .filter(object => String(object.type).toLowerCase() === 'bonus')
+        .length;
+    return {
+        ...levelData,
+        rules: {
+            ...(levelData.rules || {}),
+            requiredBonuses: bonusCount
+        }
+    };
 }
 
 export function buildTrajectoryCandidates(angleRange, powerRange, samples) {

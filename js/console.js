@@ -79,6 +79,10 @@ class Console {
         // Handle input
         this.input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                // Commands such as /launch hide the console. Do not let the
+                // same Enter event then bubble into gameplay and reset Kevin.
+                e.preventDefault();
+                e.stopPropagation();
                 this.executeCommand(this.input.value);
                 this.input.value = '';
             } else if (e.key === 'ArrowUp') {
@@ -153,7 +157,7 @@ class Console {
         this.historyIndex = -1;
         
         // Parse command
-        const parts = command.trim().split(' ');
+        const parts = command.trim().split(/\s+/);
         const cmd = parts[0].toLowerCase();
         const args = parts.slice(1);
         
@@ -173,6 +177,9 @@ class Console {
             case '/export':
                 this.exportLevel(args[0]);
                 break;
+            case '/launch':
+                this.launchTrajectory(args);
+                break;
             default:
                 this.log('Unknown command: ' + cmd);
                 this.log('Type /help for available commands');
@@ -186,6 +193,7 @@ Available Commands:
 /level_editor - Enter level editor mode
 /level - Show current level information
 /export [filename] - Export current level as JSON
+/launch [angle] [power] - Replay an ASCII trajectory sample
 /clear - Clear console output
 
 Level Editor Commands (when in editor mode):
@@ -234,6 +242,18 @@ Level Editor Commands (when in editor mode):
         URL.revokeObjectURL(url);
         
         this.log(`Level exported successfully!`);
+    }
+
+    launchTrajectory(args) {
+        const angle = Number(args[0]);
+        const power = Number(args[1]);
+        if (args.length !== 2 || !Number.isFinite(angle) || !Number.isFinite(power)) {
+            this.log('Usage: /launch [angle] [power]');
+            return;
+        }
+
+        this.game.launchTestTrajectory(angle, power);
+        this.hide();
     }
 }
 

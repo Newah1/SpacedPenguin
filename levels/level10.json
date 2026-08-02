@@ -106,7 +106,7 @@
         "width": 64.5,
         "height": 64,
         "renderOrder": 1,
-        "value": 100,
+        "value": 3000,
         "rotationSpeed": 3,
         "state": "notHit",
         "collectedRotationSpeed": 30,

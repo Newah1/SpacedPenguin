@@ -14,14 +14,23 @@ import {
 
 const { integratePlanetGravity } = await import('../js/simulation.js');
 const { Game, GameState } = await import('../js/game.js');
+const Console = (await import('../js/console.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
 const { OrbitSystem, Target, TextObject } = await import('../js/gameObjects.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
-const { HeadlessGameEngine, HeadlessPenguin } = await import('./headlessEngine.js');
-const { compareAsciiTrajectoryResults, renderAsciiTrajectory } = await import('./levelTester.js');
+const {
+    DEFAULT_MAX_SIMULATION_TIME,
+    HeadlessGameEngine,
+    HeadlessPenguin
+} = await import('./headlessEngine.js');
+const {
+    compareAsciiTrajectoryResults,
+    renderAsciiTrajectory,
+    selectDiverseAsciiResults
+} = await import('./levelTester.js');
 
 test('level files bypass the browser cache when reloaded', async () => {
     const requests = [];
@@ -493,6 +502,110 @@ test('headless baseline can complete the simple straight-line level', () => {
     assert.equal(result.reason, 'target_hit');
 });
 
+test('headless trajectories allow extended orbit time by default', () => {
+    const engine = new HeadlessGameEngine();
+
+    assert.equal(DEFAULT_MAX_SIMULATION_TIME, 120);
+    assert.equal(engine.maxSimulationTime, DEFAULT_MAX_SIMULATION_TIME);
+});
+
+test('all-bonuses headless mode rejects target hits that miss a bonus', () => {
+    const level = {
+        startPosition: { x: 100, y: 300 },
+        objects: [
+            {
+                type: 'slingshot',
+                position: { x: 100, y: 300 },
+                properties: { velocityMultiplier: 15 }
+            },
+            {
+                type: 'target',
+                position: { x: 750, y: 300 },
+                properties: { width: 80, height: 80 }
+            },
+            {
+                type: 'bonus',
+                position: { x: 400, y: 500 },
+                properties: { id: 'off_route', value: 3000 }
+            }
+        ]
+    };
+    const normalEngine = new HeadlessGameEngine();
+    normalEngine.loadLevel(level);
+    const strictEngine = new HeadlessGameEngine({ requireAllBonuses: true });
+    strictEngine.loadLevel(level);
+
+    assert.equal(normalEngine.simulateTrajectory(0, 300, 20).success, true);
+    const strictResult = strictEngine.simulateTrajectory(0, 300, 20);
+    assert.equal(strictResult.success, false);
+    assert.equal(strictResult.reason, 'target_blocked');
+    assert.equal(strictResult.requiredBonuses, 1);
+    assert.deepEqual(strictResult.collectedBonuses, []);
+});
+
+test('all-bonuses headless mode accepts a route that collects every bonus', () => {
+    const engine = new HeadlessGameEngine({ requireAllBonuses: true });
+    engine.loadLevel({
+        startPosition: { x: 100, y: 300 },
+        objects: [
+            {
+                type: 'slingshot',
+                position: { x: 100, y: 300 },
+                properties: { velocityMultiplier: 15 }
+            },
+            {
+                type: 'target',
+                position: { x: 750, y: 300 },
+                properties: { width: 80, height: 80 }
+            },
+            {
+                type: 'bonus',
+                position: { x: 400, y: 300 },
+                properties: { id: 'on_route', value: 3000 }
+            }
+        ]
+    });
+
+    const result = engine.simulateTrajectory(0, 300, 20);
+    assert.equal(result.success, true);
+    assert.equal(result.reason, 'target_hit');
+    assert.deepEqual(result.collectedBonuses, ['on_route']);
+});
+
+test('parallel trajectory workers preserve the all-bonuses requirement', async () => {
+    const engine = new HeadlessGameEngine({ requireAllBonuses: true });
+    engine.loadLevel({
+        startPosition: { x: 100, y: 300 },
+        objects: [
+            {
+                type: 'slingshot',
+                position: { x: 100, y: 300 },
+                properties: { velocityMultiplier: 15 }
+            },
+            {
+                type: 'target',
+                position: { x: 750, y: 300 },
+                properties: { width: 80, height: 80 }
+            },
+            {
+                type: 'bonus',
+                position: { x: 400, y: 500 },
+                properties: { id: 'off_route', value: 3000 }
+            }
+        ]
+    });
+
+    const results = await engine.findWorkingTrajectoriesAsync(
+        [0, 0],
+        [300, 300],
+        2,
+        20,
+        { workers: 2 }
+    );
+
+    assert.deepEqual(results, []);
+});
+
 test('headless loader resolves object-linked orbits in level 10', async () => {
     const level = JSON.parse(await readFile(new URL('../levels/level10.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
@@ -557,6 +670,73 @@ test('ASCII trajectory output plots the route and level landmarks', () => {
     assert.match(output, /O/);
     assert.match(output, /o/);
     assert.match(output, /\. flight path/);
+    assert.match(output, /^\/launch 0 50/m);
+});
+
+test('ASCII launch commands reload the level and fire the exact sampled angle and power', () => {
+    const calls = [];
+    const game = createGameFixture({
+        level: 7,
+        slingshot: {
+            velocityMultiplier: 15,
+            maxPullback: 100,
+            minPullback: 10
+        },
+        loadLevel: level => calls.push(['loadLevel', level]),
+        setState: state => calls.push(['setState', state]),
+        launchPenguin: velocity => calls.push(['launchPenguin', velocity])
+    });
+
+    const velocity = Game.prototype.launchTestTrajectory.call(game, 12.3456789, 67.8901234);
+
+    assert.deepEqual(calls.slice(0, 2), [
+        ['loadLevel', 7],
+        ['setState', GameState.PLAYING]
+    ]);
+    assert.deepEqual(calls[2], ['launchPenguin', velocity]);
+
+    let launched = null;
+    let hidden = false;
+    Console.prototype.launchTrajectory.call({
+        game: { launchTestTrajectory: (angle, power) => launched = { angle, power } },
+        hide: () => hidden = true,
+        log: () => assert.fail('valid launch command should not log an error')
+    }, ['12.3456789', '67.8901234']);
+
+    assert.deepEqual(launched, { angle: 12.3456789, power: 67.8901234 });
+    assert.equal(hidden, true);
+});
+
+test('submitting a console launch cannot bubble Enter into gameplay', () => {
+    let keydownHandler = null;
+    let submitted = null;
+    let propagationStopped = false;
+    let defaultPrevented = false;
+    const consoleFixture = {
+        input: {
+            value: '/launch 48.04387568555759 53.76599634369287',
+            addEventListener: (type, handler) => {
+                if (type === 'keydown') keydownHandler = handler;
+            }
+        },
+        executeCommand(command) {
+            assert.equal(propagationStopped, true);
+            submitted = command;
+        },
+        navigateHistory: () => {}
+    };
+    Console.prototype.setupEventListeners.call(consoleFixture);
+
+    keydownHandler({
+        key: 'Enter',
+        preventDefault: () => defaultPrevented = true,
+        stopPropagation: () => propagationStopped = true
+    });
+
+    assert.equal(defaultPrevented, true);
+    assert.equal(propagationStopped, true);
+    assert.equal(submitted, '/launch 48.04387568555759 53.76599634369287');
+    assert.equal(consoleFixture.input.value, '');
 });
 
 test('ASCII trajectory samples prioritize collected bonuses before distance', () => {
@@ -569,4 +749,30 @@ test('ASCII trajectory samples prioritize collected bonuses before distance', ()
     results.sort(compareAsciiTrajectoryResults);
 
     assert.deepEqual(results.map(result => result.distance), [700, 500, 900]);
+});
+
+test('ASCII trajectory samples favor distinct high-scoring routes over near-duplicates', () => {
+    const route = (score, distance, offset) => ({
+        score,
+        distance,
+        trajectory: [
+            { x: 0, y: offset },
+            { x: 200, y: offset },
+            { x: 400, y: offset }
+        ],
+        finalPosition: { x: 600, y: offset }
+    });
+    const best = route(1000, 900, 0);
+    const nearDuplicate = route(990, 850, 4);
+    const distinctSecond = route(980, 800, 100);
+    const distinctThird = route(970, 700, 200);
+
+    const selected = selectDiverseAsciiResults([
+        nearDuplicate,
+        distinctThird,
+        best,
+        distinctSecond
+    ], 3);
+
+    assert.deepEqual(selected, [best, distinctSecond, distinctThird]);
 });
