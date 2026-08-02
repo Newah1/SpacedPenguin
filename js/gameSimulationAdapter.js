@@ -2,6 +2,8 @@ import { cloneOrbitState } from './orbitSimulation.js';
 import { stepSimulation, SimulationEventType } from './simulationEngine.js';
 import { effectiveGravitationalReach } from './globalConstants.js';
 import { LevelOrbitType } from './levelSchema.js';
+import { LEVEL_DEFAULTS } from './config/gameConfig.js';
+import { AudioCue, getAudioCue } from './config/audioConfig.js';
 
 function orbitFromRuntime(system) {
     if (!system) return null;
@@ -55,7 +57,7 @@ export function captureGameSimulationState(game) {
             width: bonus.width,
             value: bonus.value,
             collected: bonus.state === 'Hit',
-            collectionRadius: 8 + bonus.width / 2,
+            collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + bonus.width / 2,
             orbit: orbitFromRuntime(bonus.orbitSystem)
         })),
         target: {
@@ -79,7 +81,7 @@ export function captureGameSimulationState(game) {
             maxTries: game.levelRules?.maxTries ?? null,
             requiredBonuses: game.levelRules?.requiredBonuses ?? null,
             allowedMisses: game.levelRules?.allowedMisses ?? null,
-            scoreMultiplier: game.levelRules?.scoreMultiplier ?? 1,
+            scoreMultiplier: game.levelRules?.scoreMultiplier ?? LEVEL_DEFAULTS.rules.scoreMultiplier,
             gravitationalConstant: game.physics.gravitationalConstant
         },
         counters: {
@@ -136,19 +138,19 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 break;
             case SimulationEventType.BONUS_COLLECTED: {
                 const bonus = game.bonuses[event.bonusIndex];
-                game.playSound('16_snd_bonus');
+                game.playSound(getAudioCue(AudioCue.BONUS).soundId);
                 if (bonus && game.bonusPopup) game.bonusPopup.show(event.value, bonus.position);
                 break;
             }
             case SimulationEventType.PLANET_COLLISION: {
                 const planet = game.planets[event.planetIndex];
                 game.penguin.beginCrash(planet, false);
-                game.playSound('20_snd_HitPlanet');
+                game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                 game.endRecordingShotPath();
                 break;
             }
             case SimulationEventType.PLANET_BOUNCE:
-                game.playSound('20_snd_HitPlanet');
+                game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                 break;
             case SimulationEventType.TARGET_HIT:
                 game.endRecordingShotPath();

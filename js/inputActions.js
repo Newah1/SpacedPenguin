@@ -3,6 +3,7 @@
 
 import { GameState } from './game.js';
 import { screenToStage } from './viewport.js';
+import { INPUT_CONFIG } from './config/inputConfig.js';
 
 export class InputAction {
     constructor(rootContext) {
@@ -149,7 +150,7 @@ export class MenuInputAction extends InputAction {
         const touchEndTime = Date.now();
         const touchDuration = touchEndTime - this.touchStartTime;
         
-        if (touchDuration < 300) { // Quick tap
+        if (touchDuration < INPUT_CONFIG.tapMaxDurationMs.menu) {
             const syntheticClick = new MouseEvent('click', {
                 clientX: e.changedTouches[0].clientX,
                 clientY: e.changedTouches[0].clientY,
@@ -446,7 +447,7 @@ export class WindowInputAction extends InputAction {
     handleOrientationChange() {
         setTimeout(() => {
             this.handleResize();
-        }, 100);
+        }, INPUT_CONFIG.orientationSettleMs);
     }
     
 }

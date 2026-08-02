@@ -2,12 +2,13 @@
 // Handles loading and playing sound effects
 
 import plog from './penguinLogger.js';
+import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
 
 export class AudioManager {
     constructor() {
         this.audioContext = null;
         this.sounds = new Map();
-        this.masterVolume = 0.7; // Default volume
+        this.masterVolume = AUDIO_CONFIG.defaultMasterVolume;
         this.enabled = true;
         
         // Initialize audio context
@@ -99,26 +100,40 @@ export class AudioManager {
             }
         }
     }
+
+    playCue(cue, overrides = {}) {
+        const configured = getAudioCue(cue);
+        if (!configured) {
+            plog.warn(`Unknown audio cue: ${cue}`);
+            return null;
+        }
+        return this.playSound(
+            configured.soundId,
+            overrides.volume ?? configured.volume,
+            overrides.pitch ?? configured.pitch,
+            overrides.loop ?? configured.loop
+        );
+    }
     
     // Convenience methods for specific game sounds
     playLaunch() {
-        this.playSound('17_snd_launch', 0.8);
+        this.playCue(AudioCue.LAUNCH);
     }
     
     playBonus() {
-        this.playSound('16_snd_bonus', 0.9);
+        this.playCue(AudioCue.BONUS);
     }
     
     playHitPlanet() {
-        this.playSound('20_snd_HitPlanet', 0.7);
+        this.playCue(AudioCue.HIT_PLANET);
     }
     
     playEnterShip() {
-        this.playSound('21_snd_enterShip', 0.8);
+        this.playCue(AudioCue.ENTER_SHIP);
     }
     
     playArp() {
-        this.playSound('15_Arp', 0.6);
+        this.playCue(AudioCue.ARP);
     }
     
     // Volume control
@@ -142,4 +157,4 @@ export class AudioManager {
     isSoundLoaded(name) {
         return this.sounds.has(name);
     }
-} 
+}

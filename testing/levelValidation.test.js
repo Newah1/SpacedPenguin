@@ -15,6 +15,8 @@ import {
     isLevelOrbitType,
     levelObjectTypeFromClassName,
     normalizeLevelObjectType,
+    normalizeLevelDefinition,
+    normalizeLevelObjectDefinition,
     normalizeLevelOrbitType,
     normalizeOrbitDefinition
 } from '../js/levelSchema.js';
@@ -109,4 +111,24 @@ test('validation and normalization use the same case-insensitive schema vocabula
     };
 
     assert.equal(validateLevelDefinition(level).valid, true);
+});
+
+test('level normalization applies shared defaults while preserving explicit zero overrides', () => {
+    const planet = normalizeLevelObjectDefinition(object('PLANET', 10, 20, {
+        radius: 0,
+        mass: null,
+        gravitationalReach: 0
+    }));
+
+    assert.equal(planet.type, LevelObjectType.PLANET);
+    assert.equal(planet.properties.radius, 0);
+    assert.equal(planet.properties.mass, 100);
+    assert.equal(planet.properties.gravitationalReach, 0);
+    assert.equal(planet.properties.collisionRadius, 8);
+
+    const normalized = normalizeLevelDefinition({ objects: [] });
+    assert.deepEqual(normalized.startPosition, { x: 100, y: 300 });
+    assert.deepEqual(normalized.targetPosition, { x: 700, y: 300 });
+    assert.equal(normalized.rules.scoreMultiplier, 1);
+    assert.equal(normalized.rules.gravitationalConstant, 3);
 });

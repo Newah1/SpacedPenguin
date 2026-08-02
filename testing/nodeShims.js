@@ -1,10 +1,12 @@
 // Node.js shims for browser-specific functionality
 // Provides minimal implementations to make browser modules work in Node.js
 
+import { WORLD_CONFIG } from '../js/config/gameConfig.js';
+
 // Global shims used when importing production browser modules in Node tests.
 globalThis.window = {
-    innerWidth: 800,
-    innerHeight: 600,
+    innerWidth: WORLD_CONFIG.stage.width,
+    innerHeight: WORLD_CONFIG.stage.height,
     addEventListener() {},
     removeEventListener() {}
 };
@@ -31,7 +33,7 @@ globalThis.Image = class MockImage {};
 
 // Canvas-like object for fallback rendering
 export class MockCanvas {
-    constructor(width = 800, height = 600) {
+    constructor(width = WORLD_CONFIG.stage.width, height = WORLD_CONFIG.stage.height) {
         this.width = width;
         this.height = height;
     }

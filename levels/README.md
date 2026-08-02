@@ -2,6 +2,8 @@
 
 This directory contains the 19 JSON levels loaded by the current HTML5 runtime. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
 
+Every browser, editor, and headless consumer passes a level through the shared `LevelSchema` normalizer. Omitted fields receive the same configured defaults everywhere; explicit `0`, `false`, and empty-string values are retained unless validation rejects them for that specific field.
+
 For system-wide context and architectural limitations, see [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ## Top-level shape

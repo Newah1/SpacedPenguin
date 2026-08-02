@@ -41,7 +41,7 @@ flowchart LR
 | Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputActionManager`, `Game`, `UIManager`, `FullscreenManager` | Input actions are activated by game/editor state. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
 | Level definitions | `levels/level1.json` through `level19.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
-| URL level selector | `?level=N` | `GameManager` / `Utils` | Current shipped range is 1–19, despite a stale 1–25 validation bound in `main.js`. |
+| URL level selector | `?level=N` | `GameManager` / `Utils` | The shared catalog configuration distinguishes 19 shipped levels from procedural fallback through level 25. |
 | Prior high score | `localStorage.spacedPenguinHighScore` | `Game` | Only durable gameplay state in the current rewrite. |
 
 ### Outputs
@@ -147,6 +147,12 @@ flowchart TB
 | `FullscreenManager` | Fullscreen DOM and scaling behavior | Canvas/container | Uses vendor-prefixed fallbacks in addition to the standard API. |
 | `PenguinLogger` / `Console` | Themed logs and debug commands | DOM and global runtime handles | Operational diagnostics, not durable telemetry. |
 | `PerformanceUtils` | Frame-time tracking and browser timing helpers | `GameManager` | The main loop records capped frame durations. |
+
+### Configuration ownership
+
+Shared policy is split by domain under `js/config/`. `gameConfig.js` owns the world, catalog, generator, simulation, physics, and level defaults; the adjacent runtime, render, UI, input, editor, asset, and audio modules own their respective browser concerns. The Node trajectory tooling has a separate `testing/trajectoryConfig.js` because its search budgets and terminal output are not product behavior. Frozen configuration is consumed directly; `globalConstants.js` remains only as a compatibility view for older imports.
+
+Level JSON remains the source of authored content. `LevelSchema.normalizeLevelDefinition` merges shared defaults with authored values using nullish semantics before the loader, runtime factory, editor, or simulation state consumes them. This keeps browser and headless behavior aligned and preserves explicit zero/false overrides.
 
 ## 5. Bootstrap and lifecycle
 

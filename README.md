@@ -45,6 +45,12 @@ The game keeps a fixed 800 x 600 logical world while rendering at the viewport's
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for system boundaries, lifecycle and state diagrams, data contracts, design decisions, invariants, extension paths, risks, and testing architecture.
 
+## Configuration
+
+Reusable policy is grouped by domain under `js/config/`: gameplay and level defaults, runtime timing, rendering, UI, responsive/input behavior, editor behavior, assets, and semantic audio cues. Headless search and CLI policy lives in `testing/trajectoryConfig.js`. Level-authored positions, objects, orbits, and rules remain in JSON rather than global configuration.
+
+All level consumers normalize through `LevelSchema` before constructing runtime or deterministic state. This gives the browser loader, editor, and headless tools the same defaults while preserving explicit values such as `0` and `false`. See [CONFIGURATION_MIGRATION.md](CONFIGURATION_MIGRATION.md) for ownership rules and verification gates.
+
 ## Repository map
 
 ```text
@@ -81,7 +87,7 @@ Set `pointAfterDelay` to a positive number of seconds to hide the arrow until it
 
 ## Testing status
 
-The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for the shared deterministic simulation core, level validation, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
+The root `test_*.html` files are manual browser harnesses. The `testing/` package provides Node regression tests for configuration invariants, the shared deterministic simulation core, level validation and normalization, timing, pause/input behavior, and RAF ownership, plus a trajectory CLI. The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic. Run tests with `npm test` from `testing/` (or `npm.cmd test` in PowerShell environments that block the npm script shim).
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 

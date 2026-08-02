@@ -2,6 +2,7 @@ import { integratePlanetGravity, LEGACY_PHYSICS_FPS, MAX_PHYSICS_STEP } from './
 import { advanceOrbitGraph } from './orbitSimulation.js';
 import { cloneSimulationState } from './simulationState.js';
 import { circlesOverlap, clonePoint, distance, pointInRect } from './simulationGeometry.js';
+import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from './config/gameConfig.js';
 
 export const SimulationEventType = Object.freeze({
     PENGUIN_MOVED: 'penguin_moved',
@@ -15,22 +16,32 @@ export const SimulationEventType = Object.freeze({
     RULE_FAILURE: 'rule_failure'
 });
 
+export function calculateLaunchScale(normalizedDistance) {
+    const curve = SIMULATION_CONFIG.launchCurve;
+    if (normalizedDistance <= curve.lowBreakpoint) {
+        return curve.baseScale + (normalizedDistance / curve.lowBreakpoint) * curve.bandScaleGain;
+    }
+    if (normalizedDistance <= curve.highBreakpoint) {
+        const bandWidth = curve.highBreakpoint - curve.lowBreakpoint;
+        return curve.middleBaseScale +
+            ((normalizedDistance - curve.lowBreakpoint) / bandWidth) * curve.bandScaleGain;
+    }
+    const highBandWidth = 1 - curve.highBreakpoint;
+    return curve.highBaseScale + Math.pow(
+        (normalizedDistance - curve.highBreakpoint) / highBandWidth,
+        curve.highExponent
+    ) * curve.bandScaleGain;
+}
+
 export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot = {}) {
-    const velocityMultiplier = slingshot.velocityMultiplier ?? 15;
-    const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? 100;
-    const minPullback = slingshot.minPullback ?? 10;
+    const velocityMultiplier = slingshot.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier;
+    const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
+    const minPullback = slingshot.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
     const pullback = Math.min(Math.max(pullbackPower, minPullback), maxPullback);
     const normalizedDistance = pullback / maxPullback;
-    let scale;
-    if (normalizedDistance <= 0.3) {
-        scale = 0.5 + (normalizedDistance / 0.3) * 0.5;
-    } else if (normalizedDistance <= 0.7) {
-        scale = 1 + ((normalizedDistance - 0.3) / 0.4) * 0.5;
-    } else {
-        scale = 1.5 + Math.pow((normalizedDistance - 0.7) / 0.3, 1.5) * 0.5;
-    }
+    const scale = calculateLaunchScale(normalizedDistance);
     const scaledPullback = pullback * scale;
-    const speed = (scaledPullback * scaledPullback / 250) * velocityMultiplier;
+    const speed = (scaledPullback * scaledPullback / SIMULATION_CONFIG.launchCurve.speedDivisor) * velocityMultiplier;
     const radians = angleDegrees * Math.PI / 180;
     return { x: Math.cos(radians) * speed, y: Math.sin(radians) * speed };
 }
@@ -128,7 +139,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
         state.penguin.position = bounce.position;
         state.penguin.velocity = bounce.velocity;
         state.penguin.state = 'crashed';
-        state.penguin.crashFramesRemaining = 150;
+        state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.planetCrashFrames;
         state.counters.planetCollisions += 1;
         events.push({
             type: SimulationEventType.PLANET_COLLISION,
@@ -171,7 +182,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
         const victoryFailure = evaluateVictoryRules(state);
         if (victoryFailure) {
             state.penguin.state = 'crashed';
-            state.penguin.crashFramesRemaining = 2;
+            state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.terminalCrashFrames;
             events.push({
                 type: SimulationEventType.TARGET_BLOCKED,
                 ...victoryFailure,
@@ -190,7 +201,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
 
     if (!pointInRect(state.penguin.position, state.bounds.flight)) {
         state.penguin.state = 'crashed';
-        state.penguin.crashFramesRemaining = 2;
+        state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.terminalCrashFrames;
         events.push({
             type: SimulationEventType.OUT_OF_BOUNDS,
             position: clonePoint(state.penguin.position)
@@ -279,13 +290,16 @@ export function resolvePlanetBounce(position, velocity, planet, penguinRadius = 
     const ny = normalY / normalLength;
     const dot = velocity.x * nx + velocity.y * ny;
     let bouncedVelocity = {
-        x: (velocity.x - 2 * dot * nx) * 0.8,
-        y: (velocity.y - 2 * dot * ny) * 0.8
+        x: (velocity.x - 2 * dot * nx) * SIMULATION_CONFIG.collision.restitution,
+        y: (velocity.y - 2 * dot * ny) * SIMULATION_CONFIG.collision.restitution
     };
-    if (Math.hypot(bouncedVelocity.x, bouncedVelocity.y) < 50) {
-        bouncedVelocity = { x: nx * 50, y: ny * 50 };
+    if (Math.hypot(bouncedVelocity.x, bouncedVelocity.y) < SIMULATION_CONFIG.collision.minimumBounceSpeed) {
+        bouncedVelocity = {
+            x: nx * SIMULATION_CONFIG.collision.minimumBounceSpeed,
+            y: ny * SIMULATION_CONFIG.collision.minimumBounceSpeed
+        };
     }
-    const safeDistance = planet.collisionRadius + penguinRadius + 5;
+    const safeDistance = planet.collisionRadius + penguinRadius + SIMULATION_CONFIG.collision.separationPadding;
     return {
         position: {
             x: planet.position.x + nx * Math.max(normalLength, safeDistance),

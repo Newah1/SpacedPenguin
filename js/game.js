@@ -19,6 +19,12 @@ import {
     LevelOrbitType,
     levelObjectTypeFromClassName
 } from './levelSchema.js';
+import { LEVEL_CATALOG_CONFIG, LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
+import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
+import { RENDER_CONFIG } from './config/renderConfig.js';
+import { assetPath } from './config/assetConfig.js';
+import { AudioCue, getAudioCue } from './config/audioConfig.js';
+import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
@@ -69,14 +75,8 @@ class Game {
         this.levelRules = null;
         
         // Bounds system (matching original game's pFlightRect/pStageRect)
-        this.flightBorder = 400; // Grace distance around canvas (original default was 100)
         this.stageRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
-        this.flightRect = {
-            x: -this.flightBorder,
-            y: -this.flightBorder,
-            width: STAGE_WIDTH + (this.flightBorder * 4),
-            height: STAGE_HEIGHT + (this.flightBorder * 4)
-        };
+        this.flightRect = { ...WORLD_CONFIG.flightBounds };
         this.viewport = canvas.viewport || createViewport(STAGE_WIDTH, STAGE_HEIGHT, 1);
         this.viewRect = this.viewport.viewRect;
         
@@ -107,15 +107,7 @@ class Game {
         // Responsive picture-in-picture view shown while Kevin is off-screen.
         // Ratios are based on the logical canvas, so the inset scales with the
         // parent viewport everywhere the main canvas does.
-        this.kevinCam = {
-            widthRatio: 0.22,
-            aspectRatio: 4 / 3,
-            minWidth: 140,
-            maxWidth: 200,
-            margin: 12,
-            headerHeight: 25,
-            zoom: 2.2
-        };
+        this.kevinCam = RENDER_CONFIG.kevinCam;
         
         // Initialize console and level editor
         this.console = new Console(this);
@@ -143,15 +135,7 @@ class Game {
         // Shot path tracing system (like original game)
         this.shotPaths = []; // Array of complete shot paths
         this.currentShotPath = []; // Current shot being recorded
-        this.shotColors = [
-            '#00FFFF', // Cyan (rgb(0, 255, 255))
-            '#0000FF', // Blue (rgb(0, 0, 255))
-            '#FF00FF', // Magenta (rgb(255, 0, 255))
-            '#FF0000', // Red (rgb(255, 0, 0))
-            '#FFFF00', // Yellow (rgb(255, 255, 0))
-            '#00FF00', // Green (rgb(0, 255, 0))
-            '#C8C8C8'  // Light Gray (rgb(200, 200, 200))
-        ];
+        this.shotColors = RENDER_CONFIG.shotTrails.colors;
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
         
@@ -185,7 +169,7 @@ class Game {
         // Don't load level immediately - wait for start
         this.stars = [];
         this.starfieldTime = 0;
-        this.starDriftSpeed = { x: 2, y: 0.4 };
+        this.starDriftSpeed = RENDER_CONFIG.starfield.drift;
         this.generateStars();
     }
     
@@ -229,8 +213,7 @@ class Game {
     }
     
     isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+        return isMobileViewport();
     }
     
     createMobileControlButtons() {
@@ -288,7 +271,7 @@ class Game {
                 this.tryAgain();
                 // Haptic feedback
                 if ('vibrate' in navigator) {
-                    navigator.vibrate(50);
+                    navigator.vibrate(INPUT_CONFIG.hapticsMs.mobileControl);
                 }
             }
         });
@@ -356,7 +339,7 @@ class Game {
             if (this.mobileInstructions) {
                 this.mobileInstructions.style.opacity = '0.6';
             }
-        }, 5000);
+        }, RUNTIME_CONFIG.mobileInstructionsFadeDelayMs);
     }
     
     createLaunchFeedback() {
@@ -632,7 +615,7 @@ class Game {
         this.updateUI();
         
         // Play launch sound
-        this.playSound('17_snd_launch');
+        this.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
         
         // Clear physics trace
         this.physics.clearTrace();
@@ -711,8 +694,8 @@ class Game {
             
             ctx.save();
             ctx.strokeStyle = shotPath.color;
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.9;
+            ctx.lineWidth = RENDER_CONFIG.shotTrails.lineWidth;
+            ctx.globalAlpha = RENDER_CONFIG.shotTrails.completedAlpha;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
@@ -731,8 +714,8 @@ class Game {
         if (this.isRecordingPath && this.currentShotPath.length > 1) {
             ctx.save();
             ctx.strokeStyle = this.shotColors[this.currentColorIndex];
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.7;
+            ctx.lineWidth = RENDER_CONFIG.shotTrails.lineWidth;
+            ctx.globalAlpha = RENDER_CONFIG.shotTrails.activeAlpha;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
@@ -862,7 +845,7 @@ class Game {
     }
     
     handleTargetHit() {
-        this.playSound('21_snd_enterShip');
+        this.playSound(getAudioCue(AudioCue.ENTER_SHIP).soundId);
         
         // Stop the target's hit timer so ship stays closed during scoring
         if (this.target && this.target.isHit) {
@@ -873,7 +856,7 @@ class Game {
         // Wait a moment before showing scoring (matches original 30 frame delay)
         setTimeout(() => {
             this.showLevelEndScreen();
-        }, 500);
+        }, RUNTIME_CONFIG.levelEndTransitionDelayMs);
     }
     
     calculateFinalScore() {
@@ -1123,7 +1106,7 @@ class Game {
             return;
         }
 
-        const config = this.kevinCam;
+        const config = { ...RENDER_CONFIG.kevinCam, ...this.kevinCam };
         const viewRect = this.viewRect || this.stageRect || {
             x: 0,
             y: 0,
@@ -1145,21 +1128,21 @@ class Game {
         this.ctx.save();
 
         // Frame and header.
-        this.ctx.shadowColor = '#00d9ff';
-        this.ctx.shadowBlur = 10;
-        this.ctx.fillStyle = 'rgba(0, 8, 24, 0.94)';
+        this.ctx.shadowColor = config.shadowColor;
+        this.ctx.shadowBlur = config.shadowBlur;
+        this.ctx.fillStyle = config.backgroundColor;
         this.ctx.fillRect(x, y, width, height);
         this.ctx.shadowBlur = 0;
-        this.ctx.fillStyle = '#13224a';
+        this.ctx.fillStyle = config.headerColor;
         this.ctx.fillRect(x, y, width, config.headerHeight);
 
         // A deliberately goofy, hand-lettered label.
-        const label = 'kEvIn cAm';
-        const colors = ['#7dfffb', '#ffef65', '#ff70d7'];
-        this.ctx.font = 'bold 16px "Comic Sans MS", "Comic Sans", cursive';
+        const label = config.label;
+        const colors = config.labelColors;
+        this.ctx.font = config.labelFont;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        const letterSpacing = 13;
+        const letterSpacing = config.labelLetterSpacing;
         const labelStart = centerX - ((label.length - 1) * letterSpacing) / 2;
         for (let i = 0; i < label.length; i++) {
             this.ctx.save();
@@ -1177,8 +1160,8 @@ class Game {
 
         // Parallax stars keep the inset visibly moving even far beyond the
         // authored stage. Wrapping makes the field continuous in every direction.
-        this.ctx.fillStyle = '#ffffff';
-        for (let i = 0; i < 28; i++) {
+        this.ctx.fillStyle = config.starColor;
+        for (let i = 0; i < config.starCount; i++) {
             const rawX = i * 67.31 - this.penguin.x * 0.12;
             const rawY = i * i * 19.17 - this.penguin.y * 0.12;
             const starX = x + 4 + ((rawX % (width - 8)) + (width - 8)) % (width - 8);
@@ -1198,17 +1181,17 @@ class Game {
 
         // Crisp border is drawn last so it remains above the clipped camera view.
         this.ctx.save();
-        this.ctx.strokeStyle = '#51efff';
-        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = config.borderColor;
+        this.ctx.lineWidth = config.borderWidth;
         this.ctx.strokeRect(x + 1.5, y + 1.5, width - 3, height - 3);
         this.ctx.restore();
     }
     
     generateStars() {
         // Generate 100 random, spaced-out stars
-        const numStars = 100;
-        const minDist = 12; // Minimum distance between stars
-        const maxTries = 20;
+        const numStars = RENDER_CONFIG.starfield.count;
+        const minDist = RENDER_CONFIG.starfield.minimumDistance;
+        const maxTries = RENDER_CONFIG.starfield.placementAttempts;
         this.stars = [];
         for (let i = 0; i < numStars; i++) {
             let tries = 0;
@@ -1217,7 +1200,8 @@ class Game {
             while (!ok && tries < maxTries) {
                 x = Math.random() * STAGE_WIDTH;
                 y = Math.random() * STAGE_HEIGHT;
-                size = 1 + Math.floor(Math.random() * 3);
+                size = RENDER_CONFIG.starfield.minimumSize +
+                    Math.floor(Math.random() * RENDER_CONFIG.starfield.sizeVariants);
                 ok = true;
                 for (const s of this.stars) {
                     const dx = s.x - x;
@@ -1237,16 +1221,17 @@ class Game {
         // The playfield camera is static, so its stars drift independently of
         // Kevin. Each size is a depth layer: larger/nearer stars move faster.
         const elapsed = this.starfieldTime || 0;
-        const drift = this.starDriftSpeed || { x: 2, y: 0.4 };
+        const drift = this.starDriftSpeed || RENDER_CONFIG.starfield.drift;
 
-        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillStyle = RENDER_CONFIG.starfield.color;
         for (const star of this.stars) {
             const rawX = star.x + elapsed * drift.x * star.size;
             const rawY = star.y + elapsed * drift.y * star.size;
             const x = ((rawX % STAGE_WIDTH) + STAGE_WIDTH) % STAGE_WIDTH;
             const y = ((rawY % STAGE_HEIGHT) + STAGE_HEIGHT) % STAGE_HEIGHT;
 
-            this.ctx.globalAlpha = 0.35 + star.size * 0.2;
+            this.ctx.globalAlpha = RENDER_CONFIG.starfield.baseAlpha +
+                star.size * RENDER_CONFIG.starfield.sizeAlpha;
             this.ctx.fillRect(x, y, star.size, star.size);
         }
         this.ctx.globalAlpha = 1.0;
@@ -1408,9 +1393,9 @@ class Game {
     
     jumpToLevel(targetLevel) {
         // Validate level exists (check if level file is available)
-        const maxLevel = 25; // Based on original game analysis
-        if (targetLevel < 1 || targetLevel > maxLevel) {
-            plog.error(`Invalid level: ${targetLevel}. Must be 1-${maxLevel}.`);
+        const { firstLevel, maxGeneratedLevel } = LEVEL_CATALOG_CONFIG;
+        if (targetLevel < firstLevel || targetLevel > maxGeneratedLevel) {
+            plog.error(`Invalid level: ${targetLevel}. Must be ${firstLevel}-${maxGeneratedLevel}.`);
             return false;
         }
         
@@ -1529,18 +1514,22 @@ class Game {
         // fall back to penguin position, then defaults.
         const startPosForExport = this.slingshot && this.slingshot.position
             ? { x: this.slingshot.position.x, y: this.slingshot.position.y }
-            : (this.penguin ? { x: this.penguin.x, y: this.penguin.y } : { x: 100, y: 300 });
+            : (this.penguin
+                ? { x: this.penguin.x, y: this.penguin.y }
+                : { ...WORLD_CONFIG.defaultStartPosition });
 
         const levelData = {
             name: `Custom Level ${this.level}`,
             description: "Generated by Level Editor",
             startPosition: startPosForExport,
-            targetPosition: this.target ? { x: this.target.position.x, y: this.target.position.y } : { x: 700, y: 300 },
+            targetPosition: this.target
+                ? { x: this.target.position.x, y: this.target.position.y }
+                : { ...WORLD_CONFIG.defaultTargetPosition },
             objects: [],
             rules: this.levelRules ? this.exportLevelRules() : {
                 maxTries: null,
                 timeLimit: null,
-                scoreMultiplier: 1.0
+                scoreMultiplier: LEVEL_DEFAULTS.rules.scoreMultiplier
             }
         };
         
@@ -1739,11 +1728,11 @@ class Game {
         if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
             exportData.orbitParams = {
                 ...exportData.orbitParams,
-                gravityStrength: orbitSystem.gravityStrength || 1000,
+                gravityStrength: orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
                 initialVelocity: orbitSystem.velocity ? { 
                     x: orbitSystem.velocity.x, 
                     y: orbitSystem.velocity.y 
-                } : { x: 0, y: 50 }
+                } : { ...PHYSICS_CONFIG.orbit.initialVelocity }
             };
         }
         
@@ -1779,7 +1768,7 @@ class Game {
         
         // Shift existing masks (matching original game's setUpSnapping logic)
         // k3 gets k2's position, k2 gets k1's position, k1 gets current position
-        if (this.alphaMasks.length >= 3) {
+        if (this.alphaMasks.length >= RENDER_CONFIG.shotTrails.alphaMaskHistory) {
             this.alphaMasks[2] = this.alphaMasks[1]; // k3 = k2
             this.alphaMasks[1] = this.alphaMasks[0]; // k2 = k1
             this.alphaMasks[0] = alphaMask; // k1 = new position
@@ -1804,7 +1793,7 @@ class Game {
         this.alphaMaskImage.onerror = () => {
             plog.error('Failed to load alpha mask image');
         };
-        this.alphaMaskImage.src = 'assets/ui/alpha_mask.png';
+        this.alphaMaskImage.src = assetPath('ui/alpha_mask.png');
     }
 }
 

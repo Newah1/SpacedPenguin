@@ -15,14 +15,24 @@ import {
 import {
     LevelObjectType,
     LevelOrbitType,
+    normalizeLevelObjectDefinition,
     normalizeLevelObjectType,
     normalizeOrbitDefinition
 } from './levelSchema.js';
 import { evaluateFailureRules, evaluateVictoryRules } from './simulationEngine.js';
+import {
+    LEVEL_CATALOG_CONFIG,
+    LEVEL_DEFAULTS,
+    LEVEL_GENERATOR_CONFIG,
+    PHYSICS_CONFIG,
+    WORLD_CONFIG,
+    builtInLevelPath
+} from './config/gameConfig.js';
 
 export class GameObjectFactory {
     static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
-        let { type, position, properties = {} } = objectDefinition;
+        const normalizedDefinition = normalizeLevelObjectDefinition(objectDefinition);
+        let { type, position, properties = {} } = normalizedDefinition;
         
         // If position is not at top level, check if it's in properties
         if (!position && properties.x !== undefined && properties.y !== undefined) {
@@ -36,7 +46,7 @@ export class GameObjectFactory {
                 type, 
                 position, 
                 properties,
-                objectDefinition 
+                objectDefinition: normalizedDefinition
             });
             return null;
         }
@@ -80,10 +90,10 @@ export class GameObjectFactory {
         
         const {
             name = null,
-            radius = 30,
-            mass = 100,
-            collisionRadius = radius + 8,
-            gravitationalReach = 5000,
+            radius = LEVEL_DEFAULTS.planet.radius,
+            mass = LEVEL_DEFAULTS.planet.mass,
+            collisionRadius = radius + LEVEL_DEFAULTS.planet.collisionPadding,
+            gravitationalReach = LEVEL_DEFAULTS.planet.gravitationalReach,
             orbit = null,
             planetType = null,
             id = null
@@ -111,7 +121,7 @@ export class GameObjectFactory {
     }
     
     static createBonus(position, properties, assetLoader, gameObjectLookup = null) {
-        const { name = null, value = 100, id = null } = properties;
+        const { name = null, value = LEVEL_DEFAULTS.bonus.value, id = null } = properties;
         
         // Check if position is defined
         if (!position) {
@@ -148,7 +158,13 @@ export class GameObjectFactory {
             return null;
         }
         
-        const { name = null, width = 60, height = 60, spriteType = 'ship_open', id = null } = properties;
+        const {
+            name = null,
+            width = LEVEL_DEFAULTS.target.width,
+            height = LEVEL_DEFAULTS.target.height,
+            spriteType = LEVEL_DEFAULTS.target.spriteType,
+            id = null
+        } = properties;
         const target = new Target(position.x, position.y, width, height, spriteType, assetLoader, gameObjectLookup);
         
         // Set name and ID if provided
@@ -177,8 +193,8 @@ export class GameObjectFactory {
             name = null,
             anchorX = position.x,
             anchorY = position.y,
-            stretchLimit = properties.maxPullback ?? 100,
-            velocityMultiplier = 15
+            stretchLimit = properties.maxPullback ?? LEVEL_DEFAULTS.slingshot.maxPullback,
+            velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier
         } = properties;
         
         const slingshot = new Slingshot(position.x, position.y, anchorX, anchorY, stretchLimit);
@@ -200,21 +216,21 @@ export class GameObjectFactory {
     static createTextObject(position, properties) {
         const {
             name = null,
-            content = 'Sample Text',
-            width = 200,
-            height = 100,
-            visible = true,
-            textAlign = 'left',
-            fontSize = 16,
-            fontFamily = 'Arial, sans-serif',
-            color = '#FFFFCC',
-            backgroundColor = 'rgba(0, 0, 0, 0.7)',
-            padding = 10,
-            maxWidth = null,
-            autoSize = true,
-            fadeIn = false,
-            fadeInDuration = 1.0,
-            renderOrder = 8
+            content = LEVEL_DEFAULTS.text.content,
+            width = LEVEL_DEFAULTS.text.width,
+            height = LEVEL_DEFAULTS.text.height,
+            visible = LEVEL_DEFAULTS.text.visible,
+            textAlign = LEVEL_DEFAULTS.text.textAlign,
+            fontSize = LEVEL_DEFAULTS.text.fontSize,
+            fontFamily = LEVEL_DEFAULTS.text.fontFamily,
+            color = LEVEL_DEFAULTS.text.color,
+            backgroundColor = LEVEL_DEFAULTS.text.backgroundColor,
+            padding = LEVEL_DEFAULTS.text.padding,
+            maxWidth = LEVEL_DEFAULTS.text.maxWidth,
+            autoSize = LEVEL_DEFAULTS.text.autoSize,
+            fadeIn = LEVEL_DEFAULTS.text.fadeIn,
+            fadeInDuration = LEVEL_DEFAULTS.text.fadeInDuration,
+            renderOrder = LEVEL_DEFAULTS.text.renderOrder
         } = properties;
         
         const options = {
@@ -234,7 +250,7 @@ export class GameObjectFactory {
         if (properties.showAfterDelay) {
             textObject.visible = false;
             setTimeout(() => {
-                textObject.show(properties.fadeIn || false);
+                textObject.show(properties.fadeIn);
             }, properties.showAfterDelay * 1000);
         }
         
@@ -249,17 +265,17 @@ export class GameObjectFactory {
     static createPointingArrow(position, properties) {
         const {
             name = null,
-            color = '#00FFFF',
-            glowColor = '#0099FF',
-            baseWidth = 20,
-            scaleWithDistance = true,
-            maxDistance = 300,
-            minWidth = 15,
-            maxWidth = 60,
-            pulseSpeed = 3.0,
-            minAlpha = 0.6,
-            maxAlpha = 1.0,
-            renderOrder = 9,
+            color = LEVEL_DEFAULTS.pointingArrow.color,
+            glowColor = LEVEL_DEFAULTS.pointingArrow.glowColor,
+            baseWidth = LEVEL_DEFAULTS.pointingArrow.baseWidth,
+            scaleWithDistance = LEVEL_DEFAULTS.pointingArrow.scaleWithDistance,
+            maxDistance = LEVEL_DEFAULTS.pointingArrow.maxDistance,
+            minWidth = LEVEL_DEFAULTS.pointingArrow.minWidth,
+            maxWidth = LEVEL_DEFAULTS.pointingArrow.maxWidth,
+            pulseSpeed = LEVEL_DEFAULTS.pointingArrow.pulseSpeed,
+            minAlpha = LEVEL_DEFAULTS.pointingArrow.minAlpha,
+            maxAlpha = LEVEL_DEFAULTS.pointingArrow.maxAlpha,
+            renderOrder = LEVEL_DEFAULTS.pointingArrow.renderOrder,
             pointingAt = null // Target position {x, y}
         } = properties;
         
@@ -353,7 +369,7 @@ export class GameObjectFactory {
                 
             case LevelOrbitType.ELLIPTICAL:
                 const semiMajorAxis = params.semiMajorAxis ?? radius;
-                const semiMinorAxis = params.semiMinorAxis ?? radius * 0.7;
+                const semiMinorAxis = params.semiMinorAxis ?? radius * PHYSICS_CONFIG.orbit.ellipseMinorAxisRatio;
                 const rotation = params.rotation ?? 0;
                 object.orbitSystem.setEllipticalOrbit(orbitCenter, semiMajorAxis, semiMinorAxis, speed, rotation);
                 break;
@@ -364,8 +380,8 @@ export class GameObjectFactory {
                     break;
                     
                 case LevelOrbitType.GRAVITY:
-                    const initialVelocity = params.initialVelocity ?? { x: 0, y: 50 };
-                    const gravityStrength = params.gravityStrength ?? 1000;
+                    const initialVelocity = params.initialVelocity ?? PHYSICS_CONFIG.orbit.initialVelocity;
+                    const gravityStrength = params.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength;
                     // Pass object position to store as initial position
                     const objectPosition = object.position || { x: object.x, y: object.y };
                     object.orbitSystem.setGravityOrbit(orbitCenter, initialVelocity, gravityStrength, objectPosition);
@@ -398,7 +414,7 @@ export class LevelRules {
     constructor(rulesDefinition = {}) {
         this.maxTries = rulesDefinition.maxTries ?? null;
         this.timeLimit = rulesDefinition.timeLimit ?? null;
-        this.scoreMultiplier = rulesDefinition.scoreMultiplier ?? 1.0;
+        this.scoreMultiplier = rulesDefinition.scoreMultiplier ?? LEVEL_DEFAULTS.rules.scoreMultiplier;
         this.gravitationalConstant = rulesDefinition.gravitationalConstant ?? GRAVITATIONAL_CONSTANT;
         this.customBehaviors = rulesDefinition.customBehaviors ?? [];
         this.requiredBonuses = rulesDefinition.requiredBonuses ?? null; // Number of bonuses required to complete
@@ -456,8 +472,8 @@ export class LevelLoader {
     async loadDefaultLevels() {
         // Load built-in level definitions
         const totalLevels = TOTAL_LEVELS;
-        for (let i = 1; i <= totalLevels; i++) {
-            await this.tryLoadLevelFile(i, `levels/level${i}.json`);
+        for (let i = LEVEL_CATALOG_CONFIG.firstLevel; i <= totalLevels; i++) {
+            await this.tryLoadLevelFile(i, builtInLevelPath(i));
         }
     }
 
@@ -528,7 +544,7 @@ export class LevelLoader {
         game.pointingArrows.length = 0;
         
         // Create penguin at start position
-        const startPos = levelDefinition.startPosition || { x: 100, y: 300 };
+        const startPos = levelDefinition.startPosition || WORLD_CONFIG.defaultStartPosition;
         game.penguin = new Penguin(this.assetLoader);
         game.penguin.setPosition(startPos.x, startPos.y);
         game.addGameObject(game.penguin);
@@ -538,7 +554,15 @@ export class LevelLoader {
         if (slingshotDef) {
             game.slingshot = GameObjectFactory.create(slingshotDef, this.assetLoader, game);
         } else {
-            game.slingshot = new Slingshot(startPos.x, startPos.y, startPos.x, startPos.y, 100);
+            game.slingshot = new Slingshot(
+                startPos.x,
+                startPos.y,
+                startPos.x,
+                startPos.y,
+                LEVEL_DEFAULTS.slingshot.maxPullback
+            );
+            game.slingshot.minPullback = LEVEL_DEFAULTS.slingshot.minPullback;
+            game.slingshot.velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier;
         }
         game.slingshot.setPenguin(game.penguin);
         game.addGameObject(game.slingshot);
@@ -548,8 +572,15 @@ export class LevelLoader {
         if (targetDef) {
             game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         } else {
-            const targetPos = levelDefinition.targetPosition || { x: 700, y: 300 };
-            game.target = new Target(targetPos.x, targetPos.y, 60, 60, 'ship_open', this.assetLoader);
+            const targetPos = levelDefinition.targetPosition || WORLD_CONFIG.defaultTargetPosition;
+            game.target = new Target(
+                targetPos.x,
+                targetPos.y,
+                LEVEL_DEFAULTS.target.width,
+                LEVEL_DEFAULTS.target.height,
+                LEVEL_DEFAULTS.target.spriteType,
+                this.assetLoader
+            );
         }
         game.addGameObject(game.target);
         
@@ -639,17 +670,25 @@ export class LevelLoader {
     generateRandomLevel(levelNumber, game) {
         plog.level(`Generating random level ${levelNumber}`);
         
-        const numPlanets = Math.min(levelNumber + 1, 5);
-        const numBonuses = Math.min(levelNumber * 2, 8);
+        const generator = LEVEL_GENERATOR_CONFIG;
+        const numPlanets = Math.min(
+            generator.planets.baseCount + levelNumber * generator.planets.perLevel,
+            generator.planets.maximumCount
+        );
+        const numBonuses = Math.min(
+            levelNumber * generator.bonuses.perLevel,
+            generator.bonuses.maximumCount
+        );
         
         const levelDefinition = {
             name: `Generated Level ${levelNumber}`,
             description: `Randomly generated level with ${numPlanets} planets and ${numBonuses} bonuses`,
-            startPosition: { x: 100, y: 300 },
-            targetPosition: { x: 700, y: 300 },
+            startPosition: { ...WORLD_CONFIG.defaultStartPosition },
+            targetPosition: { ...WORLD_CONFIG.defaultTargetPosition },
             objects: [],
             rules: {
-                scoreMultiplier: 1.0 + (levelNumber - 1) * 0.1
+                scoreMultiplier: generator.scoreMultiplierBase +
+                    (levelNumber - LEVEL_CATALOG_CONFIG.firstLevel) * generator.scoreMultiplierPerLevel
             }
         };
         
@@ -659,13 +698,13 @@ export class LevelLoader {
             levelDefinition.objects.push({
                 type: LevelObjectType.PLANET,
                 position: {
-                    x: Utils.random(200, 600),
-                    y: Utils.random(100, 500)
+                    x: Utils.random(...generator.planets.xRange),
+                    y: Utils.random(...generator.planets.yRange)
                 },
                 properties: {
-                    radius: Utils.random(20, 40),
-                    mass: Utils.random(50, 200),
-                    gravitationalReach: 5000,
+                    radius: Utils.random(...generator.planets.radiusRange),
+                    mass: Utils.random(...generator.planets.massRange),
+                    gravitationalReach: PHYSICS_CONFIG.defaultGravitationalReach,
                     planetType: planetTypes[i % planetTypes.length]
                 }
             });
@@ -676,11 +715,11 @@ export class LevelLoader {
             levelDefinition.objects.push({
                 type: LevelObjectType.BONUS,
                 position: {
-                    x: Utils.random(150, 650),
-                    y: Utils.random(50, 550)
+                    x: Utils.random(...generator.bonuses.xRange),
+                    y: Utils.random(...generator.bonuses.yRange)
                 },
                 properties: {
-                    value: Utils.randomInt(50, 500)
+                    value: Utils.randomInt(...generator.bonuses.valueRange)
                 }
             });
         }

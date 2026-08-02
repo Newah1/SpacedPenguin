@@ -3,6 +3,12 @@
 
 import { AudioManager } from './audioManager.js';
 import plog from './penguinLogger.js';
+import {
+    ASSET_CONFIG,
+    assetPath,
+    assetTypeForPath,
+    penguinAnimationAssetPath
+} from './config/assetConfig.js';
 
 export class AssetLoader {
     constructor() {
@@ -26,7 +32,7 @@ export class AssetLoader {
         try {
             // Load manifest first
             plog.info('Loading asset manifest...');
-            const response = await fetch('assets/manifest.json');
+            const response = await fetch(assetPath(ASSET_CONFIG.manifest));
             this.manifest = await response.json();
             
             // Prepare assets to load
@@ -48,11 +54,11 @@ export class AssetLoader {
         
         // Essential animations
         Object.entries(this.manifest.animations).forEach(([name, path]) => {
-            if (path.endsWith('.png')) {
+            if (assetTypeForPath(path) === 'texture') {
                 const isEssential = essential.animations && essential.animations.includes(name);
                 this.assetsToLoad.push({ 
                     name, 
-                    url: `assets/${path}`, 
+                    url: assetPath(path),
                     type: 'texture', 
                     essential: isEssential 
                 });
@@ -61,11 +67,11 @@ export class AssetLoader {
 
         // Essential UI assets
         Object.entries(this.manifest.ui).forEach(([name, path]) => {
-            const type = path.endsWith('.svg') ? 'svg' : 'texture';
+            const type = assetTypeForPath(path);
             const isEssential = essential.ui && essential.ui.includes(name);
             this.assetsToLoad.push({ 
                 name: `ui_${name}`, 
-                url: `assets/${path}`, 
+                url: assetPath(path),
                 type, 
                 essential: isEssential 
             });
@@ -73,11 +79,11 @@ export class AssetLoader {
 
         // Essential planet assets
         Object.entries(this.manifest.planets).forEach(([name, path]) => {
-            const type = path.endsWith('.svg') ? 'svg' : 'texture';
+            const type = assetTypeForPath(path);
             const isEssential = essential.planets && essential.planets.includes(name);
             this.assetsToLoad.push({ 
                 name: `planet_${name}`, 
-                url: `assets/${path}`, 
+                url: assetPath(path),
                 type, 
                 essential: isEssential 
             });
@@ -85,11 +91,11 @@ export class AssetLoader {
 
         // Essential sprite assets
         Object.entries(this.manifest.sprites).forEach(([name, path]) => {
-            const type = path.endsWith('.svg') ? 'svg' : 'texture';
+            const type = assetTypeForPath(path);
             const isEssential = essential.sprites && essential.sprites.includes(name);
             this.assetsToLoad.push({ 
                 name: `sprite_${name}`, 
-                url: `assets/${path}`, 
+                url: assetPath(path),
                 type, 
                 essential: isEssential 
             });
@@ -100,7 +106,7 @@ export class AssetLoader {
             const isEssential = essential.audio && essential.audio.includes(name);
             this.assetsToLoad.push({ 
                 name: `audio_${name}`, 
-                url: `assets/${path}`, 
+                url: assetPath(path),
                 type: 'audio', 
                 essential: isEssential 
             });
@@ -212,7 +218,6 @@ export class AssetLoader {
 
         // Find asset in manifest
         let assetInfo = null;
-        let assetPath = null;
         
         // Search through all asset categories
         for (const [category, assets] of Object.entries(this.manifest)) {
@@ -221,7 +226,11 @@ export class AssetLoader {
             for (const [name, path] of Object.entries(assets)) {
                 const fullName = category === 'animations' ? name : `${category.slice(0, -1)}_${name}`;
                 if (fullName === assetName) {
-                    assetInfo = { name: fullName, url: `assets/${path}`, type: path.endsWith('.svg') ? 'svg' : path.endsWith('.wav') ? 'audio' : 'texture' };
+                    assetInfo = {
+                        name: fullName,
+                        url: assetPath(path),
+                        type: assetTypeForPath(path)
+                    };
                     break;
                 }
             }
@@ -276,31 +285,41 @@ export class AssetLoader {
         if (asset.type === 'texture' || asset.type === 'svg') {
             // Create a simple colored rectangle as fallback
             const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
+            canvas.width = ASSET_CONFIG.fallback.width;
+            canvas.height = ASSET_CONFIG.fallback.height;
             const ctx = canvas.getContext('2d');
             
             // Different colors for different asset types
             if (asset.name.includes('planet')) {
-                ctx.fillStyle = '#888888'; // Gray for planets
+                ctx.fillStyle = ASSET_CONFIG.fallback.colors.planet;
             } else if (asset.name.includes('bonus')) {
-                ctx.fillStyle = '#FFD700'; // Gold for bonuses
+                ctx.fillStyle = ASSET_CONFIG.fallback.colors.bonus;
             } else if (asset.name.includes('ship')) {
-                ctx.fillStyle = '#4A90E2'; // Blue for ships
+                ctx.fillStyle = ASSET_CONFIG.fallback.colors.ship;
             } else {
-                ctx.fillStyle = '#FF6B6B'; // Red for other sprites
+                ctx.fillStyle = ASSET_CONFIG.fallback.colors.other;
             }
             
-            ctx.fillRect(0, 0, 64, 64);
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(1, 1, 62, 62);
+            ctx.fillRect(0, 0, ASSET_CONFIG.fallback.width, ASSET_CONFIG.fallback.height);
+            ctx.strokeStyle = ASSET_CONFIG.fallback.borderColor;
+            ctx.lineWidth = ASSET_CONFIG.fallback.borderWidth;
+            const borderInset = ASSET_CONFIG.fallback.borderWidth / 2;
+            ctx.strokeRect(
+                borderInset,
+                borderInset,
+                ASSET_CONFIG.fallback.width - ASSET_CONFIG.fallback.borderWidth,
+                ASSET_CONFIG.fallback.height - ASSET_CONFIG.fallback.borderWidth
+            );
             
             // Add text label
-            ctx.fillStyle = '#000000';
-            ctx.font = '10px Arial';
+            ctx.fillStyle = ASSET_CONFIG.fallback.borderColor;
+            ctx.font = ASSET_CONFIG.fallback.labelFont;
             ctx.textAlign = 'center';
-            ctx.fillText(asset.name.split('_').pop(), 32, 35);
+            ctx.fillText(
+                asset.name.split('_').pop(),
+                ASSET_CONFIG.fallback.width / 2,
+                ASSET_CONFIG.fallback.height / 2 + 3
+            );
             
             this.resources[asset.name] = canvas;
             
@@ -321,7 +340,7 @@ export class AssetLoader {
 
         try {
             // Load metadata
-            const metadataResponse = await fetch(`assets/animations/penguin_spin_${animationType}_metadata.json`);
+            const metadataResponse = await fetch(penguinAnimationAssetPath(animationType, 'metadata'));
             const metadata = await metadataResponse.json();
             
             // Create animation object with sprite sheet and metadata
@@ -406,4 +425,4 @@ export class AssetLoader {
 }
 
 // Export for use in other modules
-window.AssetLoader = AssetLoader; 
+window.AssetLoader = AssetLoader;

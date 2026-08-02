@@ -9,7 +9,11 @@ import { InputActionManager } from './inputActions.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import PerformanceUtils from './performanceUtils.js';
-import { STAGE_WIDTH, createViewport } from './viewport.js';
+import { STAGE_HEIGHT, STAGE_WIDTH, createViewport } from './viewport.js';
+import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
+import { isMobileViewport } from './config/inputConfig.js';
+import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
+import { AUDIO_CONFIG } from './config/audioConfig.js';
 
 plog.info('main.js loaded');
 
@@ -37,9 +41,7 @@ class GameManager {
     }
     
     detectMobile() {
-        // Detect mobile devices
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+        return isMobileViewport();
     }
     
     init() {
@@ -69,8 +71,8 @@ class GameManager {
     setupResponsiveCanvas() {
         const canvas = this.canvas;
         const container = canvas.parentElement;
-        const cssWidth = container.clientWidth || window.innerWidth || 800;
-        const cssHeight = container.clientHeight || window.innerHeight || 600;
+        const cssWidth = container.clientWidth || window.innerWidth || STAGE_WIDTH;
+        const cssHeight = container.clientHeight || window.innerHeight || STAGE_HEIGHT;
         this.viewport = createViewport(cssWidth, cssHeight, window.devicePixelRatio || 1);
 
         canvas.style.width = `${this.viewport.cssWidth}px`;
@@ -205,10 +207,10 @@ class GameManager {
         this.lastTime = currentTime;
         
         // Cap delta time more intelligently - allow up to 30fps minimum
-        const cappedDeltaTime = Math.min(deltaTime, 1/30);
+        const cappedDeltaTime = Math.min(deltaTime, RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
         
         // Skip frame if deltaTime is too small (higher than 120fps)
-        if (cappedDeltaTime < 1/120) {
+        if (cappedDeltaTime < RUNTIME_CONFIG.frameTiming.minDeltaSeconds) {
             return;
         }
         
@@ -259,8 +261,8 @@ class GameManager {
         document.body.classList.add('is-menu');
         const ctx = this.canvas.getContext('2d');
         this.game.beginFrame();
-        const width = 800;
-        const height = 600;
+        const width = STAGE_WIDTH;
+        const height = STAGE_HEIGHT;
         const time = this.game.starfieldTime || 0;
 
         // Deep cobalt space, sampled from the original show's packaging and
@@ -629,7 +631,7 @@ class GameManager {
         // Check for level parameter in URL (e.g., ?level=5)
         const levelParam = Utils.getURLParameter('level');
         if (levelParam) {
-            const targetLevel = Utils.validateLevel(levelParam, 25);
+            const targetLevel = Utils.validateLevel(levelParam, LEVEL_CATALOG_CONFIG.maxGeneratedLevel);
             if (targetLevel) {
                 plog.info(`Jumping to level ${targetLevel} from URL parameter`);
                 this.game.jumpToLevel(targetLevel);
@@ -643,10 +645,13 @@ class GameManager {
                         if (loadingScreen) {
                             loadingScreen.style.display = 'none';
                         }
-                    }, 1000);
+                    }, RUNTIME_CONFIG.urlLevelLoadingDelayMs);
                 }
             } else {
-                plog.warn(`Invalid level parameter: ${levelParam}. Must be 1-25.`);
+                plog.warn(
+                    `Invalid level parameter: ${levelParam}. Must be ` +
+                    `${LEVEL_CATALOG_CONFIG.firstLevel}-${LEVEL_CATALOG_CONFIG.maxGeneratedLevel}.`
+                );
                 Utils.removeURLParameter('level');
             }
         }
@@ -662,8 +667,10 @@ class GameManager {
             
             if (audioManager) {
                 // Set initial volume
-                const initialVolume = volumeSlider.value / 100;
-                audioManager.setMasterVolume(initialVolume);
+                const initialPercent = Math.round(AUDIO_CONFIG.defaultMasterVolume * 100);
+                volumeSlider.value = String(initialPercent);
+                volumeValue.textContent = `${initialPercent}%`;
+                audioManager.setMasterVolume(AUDIO_CONFIG.defaultMasterVolume);
                 
                 // Add event listener for volume changes
                 volumeSlider.addEventListener('input', function() {

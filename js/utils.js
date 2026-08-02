@@ -1,5 +1,6 @@
 // Utility functions for Spaced Penguin
 // Based on the original Lingo utility functions
+import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
 
 export default class Utils {
     // Convert degrees to radians
@@ -167,9 +168,9 @@ export default class Utils {
     }
     
     // Level validation
-    static validateLevel(level, maxLevel = 25) {
+    static validateLevel(level, maxLevel = LEVEL_CATALOG_CONFIG.maxGeneratedLevel) {
         const parsed = parseInt(level);
-        if (isNaN(parsed) || parsed < 1 || parsed > maxLevel) {
+        if (isNaN(parsed) || parsed < LEVEL_CATALOG_CONFIG.firstLevel || parsed > maxLevel) {
             return null;
         }
         return parsed;
@@ -206,4 +207,4 @@ export default class Utils {
             }
         };
     }
-} 
+}

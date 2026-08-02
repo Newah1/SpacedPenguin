@@ -1,5 +1,7 @@
-export const STAGE_WIDTH = 800;
-export const STAGE_HEIGHT = 600;
+import { WORLD_CONFIG } from './config/gameConfig.js';
+
+export const STAGE_WIDTH = WORLD_CONFIG.stage.width;
+export const STAGE_HEIGHT = WORLD_CONFIG.stage.height;
 
 function positiveDimension(value, fallback) {
     return Number.isFinite(value) && value > 0 ? value : fallback;

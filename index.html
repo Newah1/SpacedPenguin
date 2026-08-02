@@ -8,6 +8,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Spaced Penguin</title>
     <style>
+        :root {
+            --page-space-inner: #122b68;
+            --page-space-mid: #071531;
+            --page-space-outer: #020611;
+            --game-border: #264f92;
+            --game-background: #000;
+            --hud-color: rgb(72, 247, 72);
+            --panel-radius: 10px;
+            --mobile-breakpoint: 768px; /* Mirrored by RESPONSIVE_CONFIG for media queries. */
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -16,7 +27,13 @@
             margin: 0;
             padding: 0;
             background:
-                radial-gradient(circle at 50% 45%, #122b68 0, #071531 38%, #020611 72%, #000 100%);
+                radial-gradient(
+                    circle at 50% 45%,
+                    var(--page-space-inner) 0,
+                    var(--page-space-mid) 38%,
+                    var(--page-space-outer) 72%,
+                    var(--game-background) 100%
+                );
             display: flex;
             justify-content: center;
             align-items: center;
@@ -28,9 +45,9 @@
         
         #gameContainer {
             position: relative;
-            border: 2px solid #264f92;
-            border-radius: 10px;
-            background: #000;
+            border: 2px solid var(--game-border);
+            border-radius: var(--panel-radius);
+            background: var(--game-background);
             box-shadow:
                 0 0 0 1px #091631,
                 0 0 30px rgba(28, 98, 210, 0.32),
@@ -69,7 +86,7 @@
         
         #gameCanvas {
             display: block;
-            background: #000;
+            background: var(--game-background);
             border-radius: 8px;
             width: 100%;
             height: 100%;
@@ -81,7 +98,7 @@
             top: 10px;
             left: 10px;
             display: flex;
-            color: rgb(72, 247, 72);
+            color: var(--hud-color);
             font-size: 16px;
             z-index: 10;
             justify-content: space-between;

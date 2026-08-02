@@ -1,15 +1,22 @@
 import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from './globalConstants.js';
 import {
     LevelObjectType,
+    normalizeLevelDefinition,
     normalizeLevelObjectType,
     normalizeOrbitDefinition
 } from './levelSchema.js';
 import { assertValidLevelDefinition } from './levelValidation.js';
 import { cloneOrbitState } from './orbitSimulation.js';
 import { clonePoint } from './simulationGeometry.js';
+import { LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
 
-export const DEFAULT_STAGE_BOUNDS = Object.freeze({ x: 0, y: 0, width: 800, height: 600 });
-export const DEFAULT_FLIGHT_BOUNDS = Object.freeze({ x: -400, y: -400, width: 2400, height: 2200 });
+export const DEFAULT_STAGE_BOUNDS = Object.freeze({
+    x: 0,
+    y: 0,
+    width: WORLD_CONFIG.stage.width,
+    height: WORLD_CONFIG.stage.height
+});
+export const DEFAULT_FLIGHT_BOUNDS = WORLD_CONFIG.flightBounds;
 
 function objectPosition(definition) {
     return definition.position || {
@@ -28,18 +35,19 @@ function orbitFromDefinition(definition) {
         center: normalized.center ? clonePoint(normalized.center) : null,
         params,
         velocity: clonePoint(params.initialVelocity || { x: 0, y: 0 }),
-        gravityStrength: params.gravityStrength ?? 1000,
-        maxGravityAccel: params.maxGravityAccel ?? 50
+        gravityStrength: params.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
+        maxGravityAccel: params.maxGravityAccel ?? PHYSICS_CONFIG.orbit.maxGravityAcceleration
     };
 }
 
 export function createSimulationStateFromLevel(level, options = {}) {
     if (options.validate !== false) assertValidLevelDefinition(level, options.source || 'simulation level');
-    const objects = level.objects || [];
+    const normalizedLevel = normalizeLevelDefinition(level);
+    const objects = normalizedLevel.objects;
     const slingshotDefinition = objects.find(object => normalizeLevelObjectType(object.type) === LevelObjectType.SLINGSHOT);
     const targetDefinition = objects.find(object => normalizeLevelObjectType(object.type) === LevelObjectType.TARGET);
     const startPosition = clonePoint(
-        slingshotDefinition ? objectPosition(slingshotDefinition) : (level.startPosition || { x: 100, y: 300 })
+        slingshotDefinition ? objectPosition(slingshotDefinition) : normalizedLevel.startPosition
     );
     const counters = new Map();
     const nextId = (type, configuredId) => {
@@ -58,21 +66,22 @@ export function createSimulationStateFromLevel(level, options = {}) {
             planets.push({
                 id: nextId(type, properties.id),
                 position: clonePoint(objectPosition(definition)),
-                radius: properties.radius ?? 30,
-                collisionRadius: properties.collisionRadius ?? (properties.radius ?? 30) + 8,
-                mass: properties.mass ?? 100,
+                radius: properties.radius ?? LEVEL_DEFAULTS.planet.radius,
+                collisionRadius: properties.collisionRadius ??
+                    (properties.radius ?? LEVEL_DEFAULTS.planet.radius) + LEVEL_DEFAULTS.planet.collisionPadding,
+                mass: properties.mass ?? LEVEL_DEFAULTS.planet.mass,
                 gravitationalReach: effectiveGravitationalReach(properties.gravitationalReach),
                 orbit: orbitFromDefinition(definition)
             });
         } else if (type === LevelObjectType.BONUS) {
-            const width = properties.width ?? 42.5;
+            const width = properties.width ?? LEVEL_DEFAULTS.bonus.width;
             bonuses.push({
                 id: nextId(type, properties.id),
                 position: clonePoint(objectPosition(definition)),
                 width,
-                value: properties.value ?? 100,
+                value: properties.value ?? LEVEL_DEFAULTS.bonus.value,
                 collected: properties.collected === true || properties.state === 'Hit',
-                collectionRadius: 8 + width / 2,
+                collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + width / 2,
                 orbit: orbitFromDefinition(definition)
             });
         }
@@ -81,12 +90,12 @@ export function createSimulationStateFromLevel(level, options = {}) {
     const targetProperties = targetDefinition?.properties || {};
     const targetPosition = targetDefinition
         ? objectPosition(targetDefinition)
-        : (level.targetPosition || { x: 700, y: 300 });
+        : normalizedLevel.targetPosition;
     const target = {
         id: nextId(LevelObjectType.TARGET, targetProperties.id),
         position: clonePoint(targetPosition),
-        width: targetProperties.width ?? 60,
-        height: targetProperties.height ?? 60,
+        width: targetProperties.width ?? LEVEL_DEFAULTS.target.width,
+        height: targetProperties.height ?? LEVEL_DEFAULTS.target.height,
         orbit: targetDefinition ? orbitFromDefinition(targetDefinition) : null
     };
     const slingshotProperties = slingshotDefinition?.properties || {};
@@ -96,7 +105,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
         penguin: {
             position: clonePoint(startPosition),
             velocity: { x: 0, y: 0 },
-            radius: options.penguinRadius ?? 16,
+            radius: options.penguinRadius ?? LEVEL_DEFAULTS.penguin.radius,
             state: 'idle',
             crashFramesRemaining: 0
         },
@@ -105,20 +114,20 @@ export function createSimulationStateFromLevel(level, options = {}) {
         target,
         slingshot: {
             position: clonePoint(startPosition),
-            velocityMultiplier: slingshotProperties.velocityMultiplier ?? 15,
-            maxPullback: slingshotProperties.maxPullback ?? slingshotProperties.stretchLimit ?? 100,
-            minPullback: slingshotProperties.minPullback ?? 10
+            velocityMultiplier: slingshotProperties.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier,
+            maxPullback: slingshotProperties.maxPullback ?? slingshotProperties.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback,
+            minPullback: slingshotProperties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback
         },
         bounds: {
             stage: { ...(options.stageBounds || DEFAULT_STAGE_BOUNDS) },
             flight: { ...(options.flightBounds || DEFAULT_FLIGHT_BOUNDS) }
         },
         rules: {
-            maxTries: level.rules?.maxTries ?? null,
-            requiredBonuses: level.rules?.requiredBonuses ?? null,
-            allowedMisses: level.rules?.allowedMisses ?? null,
-            scoreMultiplier: level.rules?.scoreMultiplier ?? 1,
-            gravitationalConstant: level.rules?.gravitationalConstant ?? GRAVITATIONAL_CONSTANT
+            maxTries: normalizedLevel.rules.maxTries ?? null,
+            requiredBonuses: normalizedLevel.rules.requiredBonuses ?? null,
+            allowedMisses: normalizedLevel.rules.allowedMisses ?? null,
+            scoreMultiplier: normalizedLevel.rules.scoreMultiplier,
+            gravitationalConstant: normalizedLevel.rules.gravitationalConstant ?? GRAVITATIONAL_CONSTANT
         },
         counters: {
             tries: options.tries ?? 0,

@@ -4,8 +4,15 @@
 import Utils from './utils.js';
 import plog from './penguinLogger.js';
 import { stepOrbit } from './orbitSimulation.js';
-import { calculateLaunchVelocity } from './simulationEngine.js';
+import { calculateLaunchScale, calculateLaunchVelocity } from './simulationEngine.js';
 import { LevelOrbitType } from './levelSchema.js';
+import { LEVEL_DEFAULTS, PHYSICS_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
+import { assetPath } from './config/assetConfig.js';
+import { RENDER_CONFIG } from './config/renderConfig.js';
+
+function colorForThreshold(value, thresholds, fallback) {
+    return thresholds.find(({ below }) => value < below)?.color ?? fallback;
+}
 
 // New consolidated orbit system supporting non-circular orbits and hierarchical targets
 class OrbitSystem {
@@ -21,8 +28,8 @@ class OrbitSystem {
         
         // Physics-based orbit properties
         this.velocity = { x: 0, y: 0 }; // Current velocity for gravity orbits
-        this.gravityStrength = 1000; // Gravitational parameter (GM) for physics orbits
-        this.maxGravityAccel = 50; // Cap on per-update acceleration magnitude to avoid extreme slingshot near center
+        this.gravityStrength = PHYSICS_CONFIG.orbit.gravityStrength;
+        this.maxGravityAccel = PHYSICS_CONFIG.orbit.maxGravityAcceleration;
     }
     
     // Set up circular orbit (original behavior)
@@ -77,7 +84,7 @@ class OrbitSystem {
     }
     
     // Set up physics-based gravity orbit
-    setGravityOrbit(center, initialVelocity, gravityStrength = 1000, currentPosition = null) {
+    setGravityOrbit(center, initialVelocity, gravityStrength = PHYSICS_CONFIG.orbit.gravityStrength, currentPosition = null) {
         if (typeof center === 'string') {
             this.orbitTargetId = center;
             this.orbitCenter = null;
@@ -111,7 +118,7 @@ class OrbitSystem {
     }
     
     // Helper method to set up a stable circular orbit given distance
-    setStableCircularOrbit(center, distance, gravityStrength = 1000, currentPosition = null) {
+    setStableCircularOrbit(center, distance, gravityStrength = PHYSICS_CONFIG.orbit.gravityStrength, currentPosition = null) {
         const orbitalSpeed = OrbitSystem.calculateOrbitalVelocity(distance, gravityStrength);
         
         // Calculate velocity vector perpendicular to position vector for circular orbit
@@ -454,11 +461,11 @@ class PenguinOld extends GameObject {
 class Planet extends GameObject {
     constructor(x, y, radius, mass, gravitationalReach = 0, planetType = null, assetLoader = null, gameObjectLookup = null) {
         super(x, y, radius * 2, radius * 2);
-        this.renderOrder = 2; // Render planets after bonuses (higher number = rendered later)
+        this.renderOrder = RENDER_CONFIG.layers.planet;
         this.radius = radius;
         this.mass = mass;
         this.gravitationalReach = gravitationalReach;
-        this.collisionRadius = radius + 8; // Matching old GPS script collision radius
+        this.collisionRadius = radius + LEVEL_DEFAULTS.planet.collisionPadding;
         this.color = this.getPlanetColor(mass);
         this.planetType = planetType;
         this.assetLoader = assetLoader;
@@ -477,13 +484,11 @@ class Planet extends GameObject {
     
     getPlanetColor(mass) {
         // Color based on mass
-        if (mass < 50) return '#00FFFF'; // Cyan
-        if (mass < 100) return '#0000FF'; // Blue
-        if (mass < 200) return '#FF00FF'; // Magenta
-        if (mass < 400) return '#FF0000'; // Red
-        if (mass < 600) return '#FFFF00'; // Yellow
-        if (mass < 800) return '#00FF00'; // Green
-        return '#C8C8C8'; // Gray
+        return colorForThreshold(
+            mass,
+            RENDER_CONFIG.entities.planetMassColors,
+            RENDER_CONFIG.entities.planetFallbackColor
+        );
     }
     
     async initializeSprite() {
@@ -572,7 +577,8 @@ class Planet extends GameObject {
         }
         
         // Draw gravitational reach indicator (if not infinite)
-        if (this.gravitationalReach > 0 && this.gravitationalReach < 5000) {
+        if (this.gravitationalReach > 0 &&
+            this.gravitationalReach < PHYSICS_CONFIG.defaultGravitationalReach) {
             ctx.strokeStyle = this.color;
             ctx.globalAlpha = 0.3;
             ctx.lineWidth = 1;
@@ -625,19 +631,19 @@ class Planet extends GameObject {
 
 class Bonus extends GameObject {
     constructor(x, y, value, assetLoader = null, gameObjectLookup = null) {
-        super(x, y, 85 / 2, 86 / 2); // Size based on SVG dimensions
-        this.renderOrder = 1; // Render bonuses before planets (lower number = rendered first)
+        super(x, y, LEVEL_DEFAULTS.bonus.width, LEVEL_DEFAULTS.bonus.height);
+        this.renderOrder = RENDER_CONFIG.layers.bonus;
         this.value = value;
         this.collected = false;
         this.state = 'notHit'; // notHit, Hit (matching original)
-        this.rotationSpeed = 3.0; // Normal rotation speed (matching original)
-        this.collectedRotationSpeed = 30.0; // Speed when hit (matching original)
+        this.rotationSpeed = RENDER_CONFIG.entities.bonus.rotationSpeed;
+        this.collectedRotationSpeed = RENDER_CONFIG.entities.bonus.collectedRotationSpeed;
         this.assetLoader = assetLoader;
         this.bonusSprite = null;
         this.bonusHitSprite = null;
         this.currentSprite = null;
         this.pulseTimer = 0;
-        this.pulseSpeed = 0.1;
+        this.pulseSpeed = RENDER_CONFIG.entities.bonus.pulseSpeed;
         this.alpha = 1.0;
         
         // Use consolidated orbit system
@@ -669,7 +675,7 @@ class Bonus extends GameObject {
     
     async loadSVGSprite(spriteName) {
         try {
-            const response = await fetch(`assets/sprites/${spriteName}.svg`);
+            const response = await fetch(assetPath(`sprites/${spriteName}.svg`));
             const svgText = await response.text();
             
             // Create an image from the SVG
@@ -699,10 +705,10 @@ class Bonus extends GameObject {
         }
         
         // Update rotation speed (matching original behavior)
-        if (this.rotationSpeed > 3.0) {
-            this.rotationSpeed -= 0.1 * deltaTime * 60; // Convert to frame-based like original
+        if (this.rotationSpeed > RENDER_CONFIG.entities.bonus.rotationSpeed) {
+            this.rotationSpeed -= RENDER_CONFIG.entities.bonus.rotationDecayPerLegacyFrame * deltaTime * SIMULATION_CONFIG.legacyPhysicsFps;
         } else {
-            this.rotationSpeed = 3.0;
+            this.rotationSpeed = RENDER_CONFIG.entities.bonus.rotationSpeed;
         }
         
         // Apply rotation
@@ -741,7 +747,9 @@ class Bonus extends GameObject {
         
         // Pulse effect
         this.pulseTimer += deltaTime;
-        const pulse = Math.sin(this.pulseTimer * this.pulseSpeed) * 0.2 + 0.8;
+        const pulse = Math.sin(this.pulseTimer * this.pulseSpeed)
+            * RENDER_CONFIG.entities.bonus.pulseAmplitude
+            + RENDER_CONFIG.entities.bonus.pulseBaseAlpha;
         this.alpha = pulse;
     }
     
@@ -761,8 +769,8 @@ class Bonus extends GameObject {
             ctx.rotate(this.rotation);
             
             // Draw the sprite centered
-            const spriteWidth = this.width * .8;
-            const spriteHeight = this.height * .8;
+            const spriteWidth = this.width * RENDER_CONFIG.entities.bonus.spriteScale;
+            const spriteHeight = this.height * RENDER_CONFIG.entities.bonus.spriteScale;
             ctx.drawImage(
                 this.currentSprite,
                 -spriteWidth / 2,
@@ -813,11 +821,11 @@ class Bonus extends GameObject {
     }
     
     getBonusColor(value) {
-        if (value < 100) return '#00FF00'; // Green
-        if (value < 500) return '#FFFF00'; // Yellow
-        if (value < 1000) return '#FF8000'; // Orange
-        if (value < 5000) return '#FF0000'; // Red
-        return '#FF00FF'; // Magenta
+        return colorForThreshold(
+            value,
+            RENDER_CONFIG.entities.bonusValueColors,
+            RENDER_CONFIG.entities.bonusFallbackColor
+        );
     }
     
     collect() {
@@ -844,7 +852,7 @@ class Bonus extends GameObject {
     reset() {
         if (this.state === 'Hit') {
             // Reset to normal state (matching original resetBonus function)
-            this.rotationSpeed = 3.0;
+            this.rotationSpeed = RENDER_CONFIG.entities.bonus.rotationSpeed;
             this.state = 'notHit';
             
             // Switch back to normal sprite (matching original member switching)
@@ -880,7 +888,7 @@ class Bonus extends GameObject {
 class BonusPopup extends GameObject {
     constructor(x, y, value) {
         super(x, y, 100, 30);
-        this.renderOrder = 7; // Render bonus popup on top of everything (highest priority)
+        this.renderOrder = RENDER_CONFIG.layers.popup;
         this.value = value;
         this.text = `+ ${value}`;
         this.visible = false;
@@ -894,11 +902,11 @@ class BonusPopup extends GameObject {
     }
     
     getBonusColor(value) {
-        if (value < 100) return '#00FF00'; // Green
-        if (value < 500) return '#FFFF00'; // Yellow
-        if (value < 1000) return '#FF8000'; // Orange
-        if (value < 5000) return '#FF0000'; // Red
-        return '#FF00FF'; // Magenta
+        return colorForThreshold(
+            value,
+            RENDER_CONFIG.entities.bonusValueColors,
+            RENDER_CONFIG.entities.bonusFallbackColor
+        );
     }
     
     show(value, location) {
@@ -960,16 +968,24 @@ class BonusPopup extends GameObject {
 }
 
 class Target extends GameObject {
-    constructor(x, y, width = 60, height = 60, spriteType = 'ship_open', assetLoader = null, gameObjectLookup = null) {
+    constructor(
+        x,
+        y,
+        width = LEVEL_DEFAULTS.target.width,
+        height = LEVEL_DEFAULTS.target.height,
+        spriteType = LEVEL_DEFAULTS.target.spriteType,
+        assetLoader = null,
+        gameObjectLookup = null
+    ) {
         super(x, y, width, height);
-        this.renderOrder = 4; // Render target after planets but before penguin
+        this.renderOrder = RENDER_CONFIG.layers.target;
         this.assetLoader = assetLoader;
         this.spriteType = spriteType; // Default sprite type
         this.shipState = 'open'; // open by default, closed when hit
         this.shipSprites = null;
         this.currentShipSprite = null;
         this.hitFrameCount = 0;
-        this.hitDuration = 30; // frames to show closed ship (like original)
+        this.hitDuration = RENDER_CONFIG.entities.targetHitFrames;
         this.isHit = false;
         
         // Use consolidated orbit system (matches Planet/Bonus behavior)
@@ -1007,8 +1023,8 @@ class Target extends GameObject {
             };
             
             // Load the ship images
-            this.shipSprites.closed.src = 'assets/sprites/ship_closed.png';
-            this.shipSprites.open.src = 'assets/sprites/ship_open.png';
+            this.shipSprites.closed.src = assetPath('sprites/ship_closed.png');
+            this.shipSprites.open.src = assetPath('sprites/ship_open.png');
             
             // Set current sprite based on spriteType, fallback to open
             if (this.spriteType === 'ship_closed') {
@@ -1145,11 +1161,11 @@ class Target extends GameObject {
 
 class Arrow extends GameObject {
     constructor(x, y) {
-        super(x, y, 20, 20); // Initial width is 20, will be adjusted based on distance
-        this.renderOrder = 6; // Render arrow on top of everything (highest priority)
+        super(x, y, RENDER_CONFIG.entities.arrow.initialSize, RENDER_CONFIG.entities.arrow.initialSize);
+        this.renderOrder = RENDER_CONFIG.layers.arrow;
         this.visible = false;
-        this.color = '#00FFFF'; // Bright cyan color like the original
-        this.glowColor = '#0099FF'; // Slightly darker blue for glow effect
+        this.color = RENDER_CONFIG.entities.arrow.color;
+        this.glowColor = RENDER_CONFIG.entities.arrow.glowColor;
         this.stageRect = null; // Will be set from game
         this.flightRect = null; // Will be set from game for proper bounds checking
     }
@@ -1237,16 +1253,16 @@ class Arrow extends GameObject {
         
         // Draw arrow with glow effect
         ctx.shadowColor = this.glowColor;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = RENDER_CONFIG.entities.arrow.shadowBlur;
         ctx.strokeStyle = this.color;
         ctx.fillStyle = this.color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = RENDER_CONFIG.entities.arrow.lineWidth;
         
         // Draw arrow body - tip should be at the edge, pointing toward penguin
         const arrowLength = this.width;
-        const arrowWidth = 10;
-        const headLength = 15;
-        const headWidth = 15;
+        const arrowWidth = RENDER_CONFIG.entities.arrow.shaftWidth;
+        const headLength = RENDER_CONFIG.entities.arrow.headLength;
+        const headWidth = RENDER_CONFIG.entities.arrow.headWidth;
         
         ctx.beginPath();
         // Arrow shaft (from edge toward penguin)
@@ -1270,24 +1286,24 @@ class Arrow extends GameObject {
 }
 
 class Slingshot extends GameObject {
-    constructor(x, y, anchorX = null, anchorY = null, stretchLimit = 150) {
-        super(x, y, 100, 100);
-        this.renderOrder = 3; // Render slingshot after bonuses but before planets
+    constructor(x, y, anchorX = null, anchorY = null, stretchLimit = LEVEL_DEFAULTS.slingshot.maxPullback) {
+        super(x, y, RENDER_CONFIG.entities.slingshot.size, RENDER_CONFIG.entities.slingshot.size);
+        this.renderOrder = RENDER_CONFIG.layers.slingshot;
         // Set position to anchor for consistency
         this.position = { x: anchorX !== null ? anchorX : x, y: anchorY !== null ? anchorY : y };
         this.anchor = this.position;
         this.pullback = { x: 0, y: 0 }; // Offset from anchor
         this.maxPullback = stretchLimit; // pStretchLimit from Lingo (increased by 50% for finer control)
-        this.minPullback = 10;
+        this.minPullback = LEVEL_DEFAULTS.slingshot.minPullback;
         this.isPulling = false;
         // Colors matched from original game screenshot - glowing blue/cyan effect
-        this.rubberBandColor = '#FFFF00'; // Bright cyan for rubber bands
-        this.hoopColor = '#00FFFF'; // Bright cyan for hoop
-        this.glowColor = '#0099FF'; // Slightly darker blue for the glow effect
-        this.hoopRadiusX = 16;
-        this.hoopRadiusY = 29;
+        this.rubberBandColor = RENDER_CONFIG.entities.slingshot.rubberBandColor;
+        this.hoopColor = RENDER_CONFIG.entities.slingshot.hoopColor;
+        this.glowColor = RENDER_CONFIG.entities.slingshot.glowColor;
+        this.hoopRadiusX = RENDER_CONFIG.entities.slingshot.hoopRadiusX;
+        this.hoopRadiusY = RENDER_CONFIG.entities.slingshot.hoopRadiusY;
         this.penguin = null; // Reference to penguin object
-        this.velocityMultiplier = 8; // Global velocity multiplier (reduced to work better with new non-linear scaling)
+        this.velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier;
         this.rotation = 0; // Hoop rotation (like pSHoopT.rotation)
     }
 
@@ -1314,7 +1330,7 @@ class Slingshot extends GameObject {
 
         // Draw hoop outline with glow
         ctx.strokeStyle = this.hoopColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = RENDER_CONFIG.entities.slingshot.lineWidth;
         ctx.beginPath();
         ctx.ellipse(0, 0, this.hoopRadiusX, this.hoopRadiusY, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -1343,7 +1359,7 @@ class Slingshot extends GameObject {
                     const metadata = this.penguin.metadata[this.penguin.currentAnimationType];
                     if (metadata && metadata.registration_points) {
                         const regPoint = metadata.registration_points[this.penguin.aniFrame] || metadata.registration_points[0];
-                        const scale = 1.5; // Same scale as in penguin drawing
+                        const scale = RENDER_CONFIG.entities.slingshot.spriteRegistrationScale;
                         
                         // Adjust for registration point offset and scaling
                         // The sprite is drawn at (x - regPoint[0], y - regPoint[1]) then scaled
@@ -1378,9 +1394,9 @@ class Slingshot extends GameObject {
 
         // Draw rubber bands with glow effect
         ctx.shadowColor = this.glowColor;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = RENDER_CONFIG.entities.slingshot.shadowBlur;
         ctx.strokeStyle = this.rubberBandColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = RENDER_CONFIG.entities.slingshot.lineWidth;
         ctx.lineCap = 'round';
 
         // Top rubber band
@@ -1447,53 +1463,35 @@ class Slingshot extends GameObject {
     }
     
     calculateNonLinearScale(normalizedDistance) {
-        // normalizedDistance is 0 to 1
-        // At low distances (0-0.3): linear 1:1 scaling with boost
-        // At medium distances (0.3-0.7): gradual increase
-        // At high distances (0.7-1.0): controlled exponential increase
-        
-        if (normalizedDistance <= 0.3) {
-            // Boost small pullbacks to make them meaningful
-            // Use a curve that starts at 0.5 and goes to 1.0 over 0-0.3 range
-            return 0.5 + (normalizedDistance / 0.3) * 0.5;
-        } else if (normalizedDistance <= 0.7) {
-            // Medium range: gradual increase from 1.0 to 1.5
-            const t = (normalizedDistance - 0.3) / 0.4; // 0 to 1 over this range
-            return 1.0 + t * 0.5;
-        } else {
-            // High range: controlled exponential from 1.5 to 2.0
-            const t = (normalizedDistance - 0.7) / 0.3; // 0 to 1 over this range
-            // Use a power curve that's less aggressive than pure exponential
-            return 1.5 + Math.pow(t, 1.5) * 0.5;
-        }
+        return calculateLaunchScale(normalizedDistance);
     }
 }
 
 class TextObject extends GameObject {
     constructor(x, y, content, options = {}) {
-        const width = options.width ?? 200;
-        const height = options.height ?? 100;
+        const width = options.width ?? LEVEL_DEFAULTS.text.width;
+        const height = options.height ?? LEVEL_DEFAULTS.text.height;
         super(x, y, width, height);
-        this.renderOrder = options.renderOrder || 8; // Render text on top of most things
+        this.renderOrder = options.renderOrder ?? LEVEL_DEFAULTS.text.renderOrder;
         this.content = content; // HTML content
         this.visible = options.visible !== undefined ? options.visible : true;
         
         // Text styling options (matching original HTML formatting)
-        this.textAlign = options.textAlign || 'left';
-        this.fontSize = options.fontSize || 16;
-        this.fontFamily = options.fontFamily || 'Arial, sans-serif';
-        this.color = options.color || '#FFFFCC'; // Default yellow like original
-        this.backgroundColor = options.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
+        this.textAlign = options.textAlign ?? LEVEL_DEFAULTS.text.textAlign;
+        this.fontSize = options.fontSize ?? LEVEL_DEFAULTS.text.fontSize;
+        this.fontFamily = options.fontFamily ?? LEVEL_DEFAULTS.text.fontFamily;
+        this.color = options.color ?? LEVEL_DEFAULTS.text.color;
+        this.backgroundColor = options.backgroundColor ?? LEVEL_DEFAULTS.text.backgroundColor;
         this.borderRadius = options.borderRadius || 8;
-        this.padding = options.padding ?? 10;
+        this.padding = options.padding ?? LEVEL_DEFAULTS.text.padding;
         this.maxWidth = options.maxWidth ?? Math.max(1, width - (this.padding * 2));
         
         // Auto-sizing based on content
-        this.autoSize = options.autoSize !== undefined ? options.autoSize : true;
+        this.autoSize = options.autoSize ?? LEVEL_DEFAULTS.text.autoSize;
         
         // Animation properties
-        this.fadeIn = options.fadeIn || false;
-        this.fadeInDuration = options.fadeInDuration || 1.0; // seconds
+        this.fadeIn = options.fadeIn ?? LEVEL_DEFAULTS.text.fadeIn;
+        this.fadeInDuration = options.fadeInDuration ?? LEVEL_DEFAULTS.text.fadeInDuration;
         this.fadeTimer = 0;
         
         // Parse HTML content to extract text and basic formatting
@@ -1650,22 +1648,22 @@ class TextObject extends GameObject {
 
 class PointingArrow extends GameObject {
     constructor(x, y, options = {}) {
-        super(x, y, 20, 20);
-        this.renderOrder = options.renderOrder || 9; // Render on top of text
-        this.color = options.color || '#00FFFF'; // Bright cyan like original
-        this.glowColor = options.glowColor || '#0099FF';
+        super(x, y, RENDER_CONFIG.entities.pointingArrow.initialSize, RENDER_CONFIG.entities.pointingArrow.initialSize);
+        this.renderOrder = options.renderOrder ?? LEVEL_DEFAULTS.pointingArrow.renderOrder;
+        this.color = options.color ?? LEVEL_DEFAULTS.pointingArrow.color;
+        this.glowColor = options.glowColor ?? LEVEL_DEFAULTS.pointingArrow.glowColor;
         this.pointingAt = null; // Target position to point at
-        this.baseWidth = options.baseWidth || 20;
-        this.scaleWithDistance = options.scaleWithDistance !== undefined ? options.scaleWithDistance : true;
-        this.maxDistance = options.maxDistance || 300; // Max distance for scaling
-        this.minWidth = options.minWidth || 15;
-        this.maxWidth = options.maxWidth || 60;
+        this.baseWidth = options.baseWidth ?? LEVEL_DEFAULTS.pointingArrow.baseWidth;
+        this.scaleWithDistance = options.scaleWithDistance ?? LEVEL_DEFAULTS.pointingArrow.scaleWithDistance;
+        this.maxDistance = options.maxDistance ?? LEVEL_DEFAULTS.pointingArrow.maxDistance;
+        this.minWidth = options.minWidth ?? LEVEL_DEFAULTS.pointingArrow.minWidth;
+        this.maxWidth = options.maxWidth ?? LEVEL_DEFAULTS.pointingArrow.maxWidth;
         
         // Pulsing animation
-        this.pulseSpeed = options.pulseSpeed || 3.0;
+        this.pulseSpeed = options.pulseSpeed ?? LEVEL_DEFAULTS.pointingArrow.pulseSpeed;
         this.pulseTimer = 0;
-        this.minAlpha = options.minAlpha || 0.6;
-        this.maxAlpha = options.maxAlpha || 1.0;
+        this.minAlpha = options.minAlpha ?? LEVEL_DEFAULTS.pointingArrow.minAlpha;
+        this.maxAlpha = options.maxAlpha ?? LEVEL_DEFAULTS.pointingArrow.maxAlpha;
     }
     
     // Set the target position this arrow should point to
@@ -1706,16 +1704,16 @@ class PointingArrow extends GameObject {
     drawSprite(ctx) {
         // Draw arrow with glow effect
         ctx.shadowColor = this.glowColor;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = RENDER_CONFIG.entities.pointingArrow.shadowBlur;
         ctx.strokeStyle = this.color;
         ctx.fillStyle = this.color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = RENDER_CONFIG.entities.pointingArrow.lineWidth;
         
         // Arrow dimensions
         const arrowLength = this.width;
-        const arrowWidth = 8;
-        const headLength = 12;
-        const headWidth = 12;
+        const arrowWidth = RENDER_CONFIG.entities.pointingArrow.shaftWidth;
+        const headLength = RENDER_CONFIG.entities.pointingArrow.headLength;
+        const headWidth = RENDER_CONFIG.entities.pointingArrow.headWidth;
         
         ctx.beginPath();
         // Arrow shaft

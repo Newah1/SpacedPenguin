@@ -3,6 +3,10 @@
 
 import { UIScreen, BackgroundOverlay, Panel, TextElement, Button, AnimatedNumber } from './uiManager.js';
 import { GameState } from './game.js';
+import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
+import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
+import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
+import { UI_CONFIG } from './config/uiConfig.js';
 
 export class LevelEndScreen extends UIScreen {
     constructor(uiManager, game) {
@@ -43,28 +47,28 @@ export class LevelEndScreen extends UIScreen {
                 value: distance,
                 animationSpeed: Math.max(200, distance * 10), // Much faster
                 duration: 0.15, // Very short
-                sound: '15_Arp',
+                soundCue: AudioCue.ARP,
                 loop: true
             },
             level: {
                 value: level,
                 animationSpeed: 2, // Slower so sound can loop properly
                 duration: 0.3,
-                sound: '21_snd_enterShip',
+                soundCue: AudioCue.ENTER_SHIP,
                 loop: true // Loop ALL sounds
             },
             tries: {
                 value: tries,
                 animationSpeed: 2, // Slower so sound can loop properly
                 duration: 0.3,
-                sound: '21_snd_enterShip',
+                soundCue: AudioCue.ENTER_SHIP,
                 loop: true // Loop ALL sounds
             },
             finalScore: {
                 value: calculatedScore,
                 animationSpeed: Math.max(500, calculatedScore * 5), // Much faster
                 duration: 0.4, // Shorter
-                sound: '15_Arp',
+                soundCue: AudioCue.ARP,
                 loop: true
             },
             previousScore: previousScore,
@@ -74,30 +78,31 @@ export class LevelEndScreen extends UIScreen {
     
     setupUI() {
         // Semi-transparent black background (matching original dAlert background)
-        this.addElement(new BackgroundOverlay('rgba(0, 0, 0, 0.8)'));
+        const config = UI_CONFIG.levelEnd;
+        this.addElement(new BackgroundOverlay(config.overlayColor));
         
         // Main scoring panel (centered like original)
-        const panelWidth = 400;
-        const panelHeight = 400;
-        const panelX = (800 - panelWidth) / 2;
-        const panelY = (600 - panelHeight) / 2;
+        const panelWidth = config.panel.width;
+        const panelHeight = config.panel.height;
+        const panelX = (STAGE_WIDTH - panelWidth) / 2;
+        const panelY = (STAGE_HEIGHT - panelHeight) / 2;
         
         this.panel = this.addElement(new Panel(panelX, panelY, panelWidth, panelHeight, {
-            backgroundColor: '#f5e4aa',
-            borderColor: '#cb7928',
-            cornerRadius: 10,
-            borderWidth: 5
+            backgroundColor: config.panelColor,
+            borderColor: config.accentColor,
+            cornerRadius: config.panel.cornerRadius,
+            borderWidth: config.panel.borderWidth
         }));
         
         // Title (matches original "Level x of x Complete!" display)
-        const totalLevels = 25; // Based on original game analysis
+        const totalLevels = LEVEL_CATALOG_CONFIG.maxGeneratedLevel;
         this.titleText = this.addElement(new TextElement(
-            panelX + panelWidth / 2, panelY + 30,
+            panelX + panelWidth / 2, panelY + config.titleOffsetY,
             `Level ${this.game.level} of ${totalLevels} Complete!`,
             {
                 fontSize: 20,
-                fontFamily: 'Verdana, sans-serif',
-                color: '#cb7928',
+                fontFamily: UI_CONFIG.fonts.primary,
+                color: config.accentColor,
                 align: 'center',
                 bold: true
             }
@@ -105,12 +110,12 @@ export class LevelEndScreen extends UIScreen {
         
         // Mathematical formula display (from original text_function member)
         this.formulaText = this.addElement(new TextElement(
-            panelX + panelWidth / 2, panelY + 60,
+            panelX + panelWidth / 2, panelY + config.formulaOffsetY,
             'Distance x Level / Tries = Score',
             {
                 fontSize: 14,
-                fontFamily: 'Courier New, monospace',
-                color: '#cb7928',
+                fontFamily: UI_CONFIG.fonts.monospace,
+                color: config.accentColor,
                 align: 'center',
                 bold: true
             }
@@ -118,113 +123,113 @@ export class LevelEndScreen extends UIScreen {
         
         // "Click to skip" text (initially visible)
         this.skipText = this.addElement(new TextElement(
-            panelX + panelWidth / 2, panelY + panelHeight - 25,
+            panelX + panelWidth / 2, panelY + panelHeight - config.skipOffsetBottom,
             'click to skip',
             {
                 fontSize: 12,
-                fontFamily: 'Verdana, sans-serif',
-                color: '#cb7928',
+                fontFamily: UI_CONFIG.fonts.primary,
+                color: config.accentColor,
                 align: 'center'
             }
         ));
         
         // Score breakdown table (matches original fld_score_actual format)
-        const tableY = panelY + 95;
-        const leftCol = panelX + 30;
-        const rightCol = panelX + panelWidth - 30;
-        const lineHeight = 25;
+        const tableY = panelY + config.tableOffsetY;
+        const leftCol = panelX + config.tableInsetX;
+        const rightCol = panelX + panelWidth - config.tableInsetX;
+        const lineHeight = config.lineHeight;
         
         // Column headers
         this.addElement(new TextElement(leftCol, tableY, 'Distance:', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         this.distanceValue = this.addElement(new AnimatedNumber(rightCol, tableY, 0, {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right', width: 5 // Wider to prevent overflow
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight, 'Level:', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         this.levelValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight, 0, {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right', width: 5
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 2, 'Tries:', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         this.triesValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 2, 0, {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right', width: 5
         }));
         
         // Separator line
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 3, '________________________', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 4, 'Score:', {
-            fontSize: 18, color: '#cb7928', fontFamily: 'Verdana, sans-serif', bold: true
+            fontSize: 18, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary, bold: true
         }));
         this.scoreValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 4, 0, {
-            fontSize: 18, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 18, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right', width: 5, bold: true // Much wider for scores
         }));
         
         // Total score display
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 5.5, 'Total Score:', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         this.totalScoreValue = this.addElement(new AnimatedNumber(rightCol, tableY + lineHeight * 5.5, this.scoringData.previousScore, {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right', width: 5 // Wider for total scores
         }));
         
         // High score display (matches original fld_your_high_score)
         this.addElement(new TextElement(leftCol, tableY + lineHeight * 7, 'Your Best:', {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif'
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary
         }));
         this.highScoreValue = this.addElement(new TextElement(rightCol, tableY + lineHeight * 7, this.game.highScore.toString(), {
-            fontSize: 16, color: '#cb7928', fontFamily: 'Verdana, sans-serif',
+            fontSize: 16, color: config.accentColor, fontFamily: UI_CONFIG.fonts.primary,
             align: 'right'
         }));
         
         // Continue and Retry buttons (initially hidden, centered together)
-        const buttonWidth = 100;
-        const buttonHeight = 30;
-        const buttonSpacing = 20;
+        const buttonWidth = config.button.width;
+        const buttonHeight = config.button.height;
+        const buttonSpacing = config.button.spacing;
         const totalButtonWidth = (buttonWidth * 2) + buttonSpacing;
         const buttonStartX = panelX + (panelWidth - totalButtonWidth) / 2;
         
         this.retryButton = this.addElement(new Button(
-            buttonStartX, panelY + panelHeight - 70,
+            buttonStartX, panelY + panelHeight - config.button.offsetBottom,
             buttonWidth, buttonHeight,
             'Retry',
             () => this.handleRetry(),
             {
                 fontSize: 14,
-                fontFamily: 'Verdana, sans-serif',
-                backgroundColor: '#cb7928',
-                hoverColor: '#cb7928',
-                borderColor: '#cb7928',
-                textColor: '#f5e4aa'
+                fontFamily: UI_CONFIG.fonts.primary,
+                backgroundColor: config.accentColor,
+                hoverColor: config.accentColor,
+                borderColor: config.accentColor,
+                textColor: config.panelColor
             }
         ));
         this.retryButton.visible = false;
         
         this.continueButton = this.addElement(new Button(
-            buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - 70,
+            buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - config.button.offsetBottom,
             buttonWidth, buttonHeight,
             'Continue',
             () => this.handleContinue(),
             {
                 fontSize: 14,
-                fontFamily: 'Verdana, sans-serif',
-                backgroundColor: '#cb7928',
-                hoverColor: '#cb7928',
-                borderColor: '#cb7928',
-                textColor: '#f5e4aa'
+                fontFamily: UI_CONFIG.fonts.primary,
+                backgroundColor: config.accentColor,
+                hoverColor: config.accentColor,
+                borderColor: config.accentColor,
+                textColor: config.panelColor
             }
         ));
         this.continueButton.visible = false;
@@ -253,10 +258,13 @@ export class LevelEndScreen extends UIScreen {
         
         // Play sound (looped if specified)
         if (stepData.loop && this.uiManager.audioManager) {
-            const source = this.uiManager.audioManager.playSound(stepData.sound, 0.6, 1.0, true);
+            const source = this.uiManager.audioManager.playCue(stepData.soundCue, {
+                volume: AUDIO_CONFIG.scoringLoopVolume,
+                loop: true
+            });
             this.loopingSounds.set(this.currentStep, source);
         } else {
-            this.uiManager.playSound(stepData.sound);
+            this.uiManager.playSound(getAudioCue(stepData.soundCue).soundId);
         }
         
         // Start animation for current step
@@ -266,7 +274,7 @@ export class LevelEndScreen extends UIScreen {
                 this.distanceValue.animationSpeed = this.scoringData.distance.animationSpeed;
                 this.distanceValue.onComplete = () => {
                     this.stopLoopingSound(0); // Stop distance sound
-                    setTimeout(() => this.nextStep(), 50); // Even shorter pause
+                    setTimeout(() => this.nextStep(), UI_CONFIG.levelEnd.animation.stepPauseMs);
                 };
                 break;
                 
@@ -275,7 +283,7 @@ export class LevelEndScreen extends UIScreen {
                 this.levelValue.animationSpeed = this.scoringData.level.animationSpeed;
                 this.levelValue.onComplete = () => {
                     this.stopLoopingSound(1); // Stop level sound
-                    setTimeout(() => this.nextStep(), 50);
+                    setTimeout(() => this.nextStep(), UI_CONFIG.levelEnd.animation.stepPauseMs);
                 };
                 break;
                 
@@ -284,7 +292,7 @@ export class LevelEndScreen extends UIScreen {
                 this.triesValue.animationSpeed = this.scoringData.tries.animationSpeed;
                 this.triesValue.onComplete = () => {
                     this.stopLoopingSound(2); // Stop tries sound
-                    setTimeout(() => this.nextStep(), 50);
+                    setTimeout(() => this.nextStep(), UI_CONFIG.levelEnd.animation.stepPauseMs);
                 };
                 break;
                 
@@ -301,18 +309,24 @@ export class LevelEndScreen extends UIScreen {
                         if (this.game.score > this.game.highScore) {
                             this.highScoreValue.setText(this.game.score.toString());
                         }
-                        setTimeout(() => this.nextStep(), 100); // Shorter final pause
+                        setTimeout(() => this.nextStep(), UI_CONFIG.levelEnd.animation.finalPauseMs);
                     };
                     
                     // Make total score update super fast - should take max 0.1 seconds
                     const scoreDifference = this.scoringData.newTotalScore - this.scoringData.previousScore;
                     // If difference is huge (like continuing from previous levels), make it instant
-                    if (scoreDifference > 5000) {
+                    if (scoreDifference > UI_CONFIG.levelEnd.animation.immediateScoreThreshold) {
                         this.totalScoreValue.currentValue = this.scoringData.newTotalScore;
                         // Trigger completion immediately
-                        setTimeout(() => this.totalScoreValue.onComplete(), 10);
+                        setTimeout(
+                            () => this.totalScoreValue.onComplete(),
+                            UI_CONFIG.levelEnd.animation.immediateCompletionMs
+                        );
                     } else {
-                        this.totalScoreValue.animationSpeed = Math.max(100000, scoreDifference * 1000); // Ultra fast
+                        this.totalScoreValue.animationSpeed = Math.max(
+                            UI_CONFIG.levelEnd.animation.minimumTotalScoreSpeed,
+                            scoreDifference * UI_CONFIG.levelEnd.animation.totalScoreSpeedMultiplier
+                        );
                     }
                 };
                 break;
@@ -359,7 +373,7 @@ export class LevelEndScreen extends UIScreen {
     
     handleContinue() {
         this.stopAllLoopingSounds(); // Clean up any remaining sounds
-        this.uiManager.playSound('17_snd_launch'); // Use launch sound for button clicks
+        this.uiManager.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
         this.close();
         
         // Return to game for next level or end game
@@ -372,7 +386,7 @@ export class LevelEndScreen extends UIScreen {
     
     handleRetry() {
         this.stopAllLoopingSounds(); // Clean up any remaining sounds
-        this.uiManager.playSound('17_snd_launch'); // Use launch sound for button clicks
+        this.uiManager.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
         this.close();
         
         // Reset the current level to retry it

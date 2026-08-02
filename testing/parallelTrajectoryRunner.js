@@ -1,8 +1,9 @@
 import { availableParallelism } from 'node:os';
 import { Worker } from 'node:worker_threads';
+import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 
-export const MAX_TRAJECTORY_WORKERS = 4;
-export const AUTO_WORKER_SAMPLE_THRESHOLD = 5000;
+export const MAX_TRAJECTORY_WORKERS = TRAJECTORY_CONFIG.workers.maximum;
+export const AUTO_WORKER_SAMPLE_THRESHOLD = TRAJECTORY_CONFIG.workers.automaticSampleThreshold;
 
 export function resolveTrajectoryWorkerCount(requested, sampleCount) {
     const available = Math.max(1, availableParallelism());

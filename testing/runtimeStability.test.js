@@ -19,7 +19,8 @@ const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
-const { OrbitSystem, Target, TextObject } = await import('../js/gameObjects.js');
+const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameObjects.js');
+const { LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
 const {
     DEFAULT_MAX_SIMULATION_TIME,
@@ -284,6 +285,14 @@ test('runtime orbit setup uses shared normalization and preserves canonical zero
     assert.equal(object.orbitSystem.orbitSpeed, 0);
     assert.equal(object.orbitSystem.orbitAngle, 0);
     assert.equal(object.orbitSystem.orbitRadius, 25);
+});
+
+test('runtime slingshot construction consumes shared gameplay defaults', () => {
+    const slingshot = new Slingshot(100, 300);
+
+    assert.equal(slingshot.maxPullback, LEVEL_DEFAULTS.slingshot.maxPullback);
+    assert.equal(slingshot.minPullback, LEVEL_DEFAULTS.slingshot.minPullback);
+    assert.equal(slingshot.velocityMultiplier, LEVEL_DEFAULTS.slingshot.velocityMultiplier);
 });
 
 test('delayed pointing arrows reveal the configured target without a loader error', () => {

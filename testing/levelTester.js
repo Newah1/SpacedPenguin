@@ -11,6 +11,7 @@ import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levelValidation.js';
 import { LevelObjectType, normalizeLevelObjectType, normalizeOrbitDefinition } from '../js/levelSchema.js';
+import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 
 class LevelTester {
     constructor() {
@@ -29,9 +30,9 @@ class LevelTester {
 
     async testLevel(levelPath, options = {}) {
         const {
-            samples = 100,
-            angleRange = [0, 360],
-            powerRange = [10, 100],
+            samples = TRAJECTORY_CONFIG.sweep.samples,
+            angleRange = TRAJECTORY_CONFIG.sweep.angleRange,
+            powerRange = TRAJECTORY_CONFIG.sweep.powerRange,
             maxTime = DEFAULT_MAX_SIMULATION_TIME,
             findAll = false,
             ascii = false,
@@ -58,8 +59,8 @@ class LevelTester {
         const displayedResults = findAll
             ? results
             : ascii
-                ? selectDiverseAsciiResults(results, 5)
-                : results.slice(0, 5);
+                ? selectDiverseAsciiResults(results, TRAJECTORY_CONFIG.ascii.resultLimit)
+                : results.slice(0, TRAJECTORY_CONFIG.ascii.resultLimit);
         const summary = {
             success: results.length > 0,
             requireAllBonuses,
@@ -119,7 +120,12 @@ class LevelTester {
     }
 }
 
-function renderAsciiTrajectory(levelData, result, width = 80, height = 24) {
+function renderAsciiTrajectory(
+    levelData,
+    result,
+    width = TRAJECTORY_CONFIG.ascii.width,
+    height = TRAJECTORY_CONFIG.ascii.height
+) {
     const columns = Math.max(20, Math.floor(width));
     const rows = Math.max(10, Math.floor(height));
     const objects = levelData.objects || [];
@@ -249,7 +255,7 @@ function trajectoryDistance(result) {
     return Number.isFinite(result.distance) ? result.distance : 0;
 }
 
-function trajectoryFingerprint(result, sampleCount = 16) {
+function trajectoryFingerprint(result, sampleCount = TRAJECTORY_CONFIG.ascii.fingerprintSamples) {
     const points = [...(result.trajectory || []), result.finalPosition]
         .filter(point => Number.isFinite(point?.x) && Number.isFinite(point?.y));
     if (points.length < 2) return null;
@@ -287,7 +293,7 @@ function trajectoryFingerprint(result, sampleCount = 16) {
     return { samples, totalDistance };
 }
 
-function trajectoriesAreClose(left, right, threshold = 24) {
+function trajectoriesAreClose(left, right, threshold = TRAJECTORY_CONFIG.ascii.routeClosenessThreshold) {
     if (!left || !right) return false;
 
     const relativeLengthDifference = Math.abs(left.totalDistance - right.totalDistance) /
@@ -304,7 +310,11 @@ function trajectoriesAreClose(left, right, threshold = 24) {
     return Math.sqrt(squaredDistance / left.samples.length) <= threshold;
 }
 
-function selectDiverseAsciiResults(results, limit = 5, closenessThreshold = 24) {
+function selectDiverseAsciiResults(
+    results,
+    limit = TRAJECTORY_CONFIG.ascii.resultLimit,
+    closenessThreshold = TRAJECTORY_CONFIG.ascii.routeClosenessThreshold
+) {
     const ranked = [...results].sort(compareAsciiTrajectoryResults);
     const selected = [];
     const fingerprints = new Map(
@@ -375,7 +385,9 @@ function printLevelSummary(summary, showAll, showAscii = false) {
     console.log(`Successful trajectories: ${summary.successfulTrajectories}/${summary.totalSamples}`);
     console.log(`Duration: ${summary.duration.toFixed(2)}s`);
 
-    const results = showAll ? summary.allResults : summary.allResults.slice(0, 5);
+    const results = showAll
+        ? summary.allResults
+        : summary.allResults.slice(0, TRAJECTORY_CONFIG.ascii.resultLimit);
     for (const result of results) {
         console.log(
             `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
@@ -408,9 +420,9 @@ Usage:
   node levelTester.js --validate-only --level <path>
 
 Options:
-  --samples <num>       Exact number of trajectory combinations (default: 100)
-  --angle-range <a:b>   Angle range for a sweep (default: 0:360)
-  --power-range <a:b>   Pullback range in pixels (default: 10:100)
+  --samples <num>       Exact number of trajectory combinations (default: ${TRAJECTORY_CONFIG.sweep.samples})
+  --angle-range <a:b>   Angle range for a sweep (default: ${TRAJECTORY_CONFIG.sweep.angleRange.join(':')})
+  --power-range <a:b>   Pullback range in pixels (default: ${TRAJECTORY_CONFIG.sweep.powerRange.join(':')})
   --max-time <seconds>  Maximum simulation time per trajectory (default: ${DEFAULT_MAX_SIMULATION_TIME})
   --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
   --trajectory          Include trajectory points for a single simulation
@@ -471,9 +483,9 @@ async function main(args = process.argv.slice(2)) {
     }
 
     const commonOptions = {
-        samples: parseNumber(args, '--samples', 100),
-        angleRange: parseRange(args, '--angle-range', [0, 360]),
-        powerRange: parseRange(args, '--power-range', [10, 100]),
+        samples: parseNumber(args, '--samples', TRAJECTORY_CONFIG.sweep.samples),
+        angleRange: parseRange(args, '--angle-range', TRAJECTORY_CONFIG.sweep.angleRange),
+        powerRange: parseRange(args, '--power-range', TRAJECTORY_CONFIG.sweep.powerRange),
         maxTime,
         workers: parseWorkers(args),
         findAll: args.includes('--all'),

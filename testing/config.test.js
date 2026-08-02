@@ -1,0 +1,133 @@
+import './nodeShims.js';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+    LEVEL_CATALOG_CONFIG,
+    LEVEL_DEFAULTS,
+    PHYSICS_CONFIG,
+    SIMULATION_CONFIG,
+    WORLD_CONFIG,
+    builtInLevelPath
+} from '../js/config/gameConfig.js';
+import {
+    DEFAULT_GRAVITATIONAL_REACH,
+    GRAVITATIONAL_CONSTANT,
+    TOTAL_LEVELS
+} from '../js/globalConstants.js';
+import { STAGE_HEIGHT, STAGE_WIDTH } from '../js/viewport.js';
+import {
+    DEFAULT_FLIGHT_BOUNDS,
+    DEFAULT_STAGE_BOUNDS,
+    createSimulationStateFromLevel
+} from '../js/simulationState.js';
+import {
+    INPUT_CONFIG,
+    RESPONSIVE_CONFIG,
+    isCompactEditorViewport,
+    isMobileViewport
+} from '../js/config/inputConfig.js';
+import { RUNTIME_CONFIG } from '../js/config/runtimeConfig.js';
+import {
+    ASSET_CONFIG,
+    assetPath,
+    assetTypeForPath,
+    penguinAnimationAssetPath
+} from '../js/config/assetConfig.js';
+import { AUDIO_CONFIG, AudioCue, getAudioCue } from '../js/config/audioConfig.js';
+import { RENDER_CONFIG } from '../js/config/renderConfig.js';
+import { EDITOR_CONFIG } from '../js/config/editorConfig.js';
+import { UI_CONFIG } from '../js/config/uiConfig.js';
+import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
+import { AssetLoader } from '../js/assetLoader.js';
+
+test('game configuration is deeply frozen and satisfies core invariants', () => {
+    for (const config of [
+        WORLD_CONFIG,
+        LEVEL_CATALOG_CONFIG,
+        SIMULATION_CONFIG,
+        PHYSICS_CONFIG,
+        LEVEL_DEFAULTS
+    ]) {
+        assert.equal(Object.isFrozen(config), true);
+    }
+    assert.equal(Object.isFrozen(LEVEL_DEFAULTS.slingshot), true);
+    assert.ok(WORLD_CONFIG.stage.width > 0);
+    assert.ok(WORLD_CONFIG.stage.height > 0);
+    assert.ok(SIMULATION_CONFIG.legacyPhysicsFps > 0);
+    assert.ok(LEVEL_CATALOG_CONFIG.shippedLevelCount <= LEVEL_CATALOG_CONFIG.maxGeneratedLevel);
+    assert.equal(builtInLevelPath(12), 'levels/level12.json');
+    assert.equal(Object.isFrozen(INPUT_CONFIG.hapticsMs), true);
+    assert.equal(Object.isFrozen(RENDER_CONFIG.starfield), true);
+    assert.equal(Object.isFrozen(EDITOR_CONFIG.authoringDefaults), true);
+    assert.equal(Object.isFrozen(UI_CONFIG.levelEnd), true);
+    assert.equal(Object.isFrozen(TRAJECTORY_CONFIG.workers), true);
+    assert.ok(RUNTIME_CONFIG.frameTiming.minDeltaSeconds < RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
+});
+
+test('asset and audio policy resolve semantic resources centrally', () => {
+    assert.equal(assetPath(ASSET_CONFIG.manifest), 'assets/manifest.json');
+    assert.equal(assetTypeForPath('sprites/bonus.svg'), 'svg');
+    assert.equal(assetTypeForPath('audio/launch.WAV'), 'audio');
+    assert.equal(assetTypeForPath('animations/penguin.png'), 'texture');
+    assert.equal(
+        penguinAnimationAssetPath('yc', 'metadata'),
+        'assets/animations/penguin_spin_yc_metadata.json'
+    );
+    assert.equal(getAudioCue(AudioCue.LAUNCH).soundId, '17_snd_launch');
+    assert.ok(AUDIO_CONFIG.defaultMasterVolume >= 0 && AUDIO_CONFIG.defaultMasterVolume <= 1);
+});
+
+test('lazy asset loading uses the configured asset root', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedUrl = null;
+    globalThis.fetch = async url => {
+        requestedUrl = url;
+        return { text: async () => '<svg></svg>' };
+    };
+
+    try {
+        const loader = new AssetLoader();
+        loader.manifest = { sprites: { bonus: 'sprites/bonus.svg' } };
+        assert.equal(await loader.loadAssetOnDemand('sprite_bonus'), '<svg></svg>');
+        assert.equal(requestedUrl, 'assets/sprites/bonus.svg');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('responsive policy is shared without requiring browser globals', () => {
+    assert.equal(isMobileViewport({ userAgent: '', width: 768, height: 1024 }), true);
+    assert.equal(isMobileViewport({ userAgent: '', width: 769, height: 1024 }), false);
+    assert.equal(isMobileViewport({ userAgent: 'Mozilla/5.0 (iPhone)', width: 1200, height: 900 }), true);
+    assert.equal(isCompactEditorViewport(RESPONSIVE_CONFIG.editorCompactBreakpoint - 1), true);
+    assert.equal(isCompactEditorViewport(RESPONSIVE_CONFIG.editorCompactBreakpoint), false);
+});
+
+test('legacy constant exports are views of domain configuration', () => {
+    assert.equal(STAGE_WIDTH, WORLD_CONFIG.stage.width);
+    assert.equal(STAGE_HEIGHT, WORLD_CONFIG.stage.height);
+    assert.equal(TOTAL_LEVELS, LEVEL_CATALOG_CONFIG.shippedLevelCount);
+    assert.equal(GRAVITATIONAL_CONSTANT, PHYSICS_CONFIG.gravitationalConstant);
+    assert.equal(DEFAULT_GRAVITATIONAL_REACH, PHYSICS_CONFIG.defaultGravitationalReach);
+    assert.deepEqual(DEFAULT_STAGE_BOUNDS, { x: 0, y: 0, ...WORLD_CONFIG.stage });
+    assert.deepEqual(DEFAULT_FLIGHT_BOUNDS, WORLD_CONFIG.flightBounds);
+});
+
+test('omitted level values compile from shared entity and world defaults', () => {
+    const state = createSimulationStateFromLevel({
+        objects: [
+            { type: 'planet', position: { x: 300, y: 300 }, properties: {} },
+            { type: 'bonus', position: { x: 400, y: 300 }, properties: {} }
+        ]
+    });
+
+    assert.deepEqual(state.slingshot.position, WORLD_CONFIG.defaultStartPosition);
+    assert.deepEqual(state.target.position, WORLD_CONFIG.defaultTargetPosition);
+    assert.equal(state.penguin.radius, LEVEL_DEFAULTS.penguin.radius);
+    assert.equal(state.slingshot.velocityMultiplier, LEVEL_DEFAULTS.slingshot.velocityMultiplier);
+    assert.equal(state.planets[0].radius, LEVEL_DEFAULTS.planet.radius);
+    assert.equal(state.planets[0].mass, LEVEL_DEFAULTS.planet.mass);
+    assert.equal(state.bonuses[0].value, LEVEL_DEFAULTS.bonus.value);
+    assert.equal(state.target.width, LEVEL_DEFAULTS.target.width);
+    assert.equal(state.rules.gravitationalConstant, PHYSICS_CONFIG.gravitationalConstant);
+});

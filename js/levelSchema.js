@@ -1,5 +1,7 @@
 // Shared vocabulary and runtime capabilities for the JSON level format.
 
+import { LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
+
 export const LevelObjectType = Object.freeze({
     PLANET: 'planet',
     BONUS: 'bonus',
@@ -85,5 +87,77 @@ export function normalizeOrbitDefinition(orbit = {}) {
         angle: orbit.orbitAngle ?? orbit.angle ?? 0,
         type: normalizeLevelOrbitType(orbit.orbitType ?? orbit.type) ?? LevelOrbitType.CIRCULAR,
         params: orbit.orbitParams ?? orbit.params ?? {}
+    };
+}
+
+export function getLevelObjectPropertyDefaults(type) {
+    switch (normalizeLevelObjectType(type)) {
+        case LevelObjectType.PLANET:
+            return {
+                radius: LEVEL_DEFAULTS.planet.radius,
+                mass: LEVEL_DEFAULTS.planet.mass,
+                gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach
+            };
+        case LevelObjectType.BONUS:
+            return {
+                value: LEVEL_DEFAULTS.bonus.value,
+                width: LEVEL_DEFAULTS.bonus.width,
+                height: LEVEL_DEFAULTS.bonus.height
+            };
+        case LevelObjectType.TARGET:
+            return { ...LEVEL_DEFAULTS.target };
+        case LevelObjectType.SLINGSHOT:
+            return { ...LEVEL_DEFAULTS.slingshot };
+        case LevelObjectType.TEXT:
+            return { ...LEVEL_DEFAULTS.text };
+        case LevelObjectType.POINTING_ARROW:
+            return { ...LEVEL_DEFAULTS.pointingArrow };
+        default:
+            return {};
+    }
+}
+
+export function normalizeLevelObjectDefinition(definition = {}) {
+    const type = normalizeLevelObjectType(definition.type);
+    const sourceProperties = definition.properties && typeof definition.properties === 'object'
+        ? definition.properties
+        : {};
+    const defaults = getLevelObjectPropertyDefaults(type);
+    const properties = { ...sourceProperties };
+    for (const [key, value] of Object.entries(defaults)) {
+        if (properties[key] == null) properties[key] = value;
+    }
+    if (type === LevelObjectType.PLANET && properties.collisionRadius == null) {
+        properties.collisionRadius = properties.radius + LEVEL_DEFAULTS.planet.collisionPadding;
+    }
+    if (sourceProperties.orbit) {
+        properties.orbit = normalizeOrbitDefinition(sourceProperties.orbit);
+    }
+    const position = definition.position ?? (
+        sourceProperties.x !== undefined || sourceProperties.y !== undefined
+            ? { x: sourceProperties.x, y: sourceProperties.y }
+            : undefined
+    );
+    return {
+        ...definition,
+        type,
+        ...(position === undefined ? {} : { position: { ...position } }),
+        properties
+    };
+}
+
+export function normalizeLevelDefinition(level = {}) {
+    return {
+        ...level,
+        startPosition: { ...(level.startPosition ?? WORLD_CONFIG.defaultStartPosition) },
+        targetPosition: { ...(level.targetPosition ?? WORLD_CONFIG.defaultTargetPosition) },
+        objects: Array.isArray(level.objects)
+            ? level.objects.map(normalizeLevelObjectDefinition)
+            : [],
+        rules: {
+            scoreMultiplier: LEVEL_DEFAULTS.rules.scoreMultiplier,
+            gravitationalConstant: PHYSICS_CONFIG.gravitationalConstant,
+            ...(level.rules || {})
+        }
     };
 }

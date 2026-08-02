@@ -1,6 +1,7 @@
 import { LEGACY_PHYSICS_FPS, MAX_PHYSICS_STEP } from './simulation.js';
 import { LevelOrbitType } from './levelSchema.js';
 import { clonePoint } from './simulationGeometry.js';
+import { PHYSICS_CONFIG } from './config/gameConfig.js';
 
 export function cloneOrbitState(orbit) {
     if (!orbit) return null;
@@ -13,8 +14,8 @@ export function cloneOrbitState(orbit) {
         angle: orbit.angle ?? 0,
         params: { ...(orbit.params || {}) },
         velocity: clonePoint(orbit.velocity || { x: 0, y: 0 }),
-        gravityStrength: orbit.gravityStrength ?? orbit.params?.gravityStrength ?? 1000,
-        maxGravityAccel: orbit.maxGravityAccel ?? 50
+        gravityStrength: orbit.gravityStrength ?? orbit.params?.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
+        maxGravityAccel: orbit.maxGravityAccel ?? PHYSICS_CONFIG.orbit.maxGravityAcceleration
     };
 }
 
@@ -55,7 +56,7 @@ function circularPosition(orbit, center) {
 
 function ellipticalPosition(orbit, center) {
     const semiMajorAxis = orbit.params.semiMajorAxis ?? orbit.radius;
-    const semiMinorAxis = orbit.params.semiMinorAxis ?? orbit.radius * 0.7;
+    const semiMinorAxis = orbit.params.semiMinorAxis ?? orbit.radius * PHYSICS_CONFIG.orbit.ellipseMinorAxisRatio;
     const rotation = orbit.params.rotation ?? 0;
     const x = Math.cos(orbit.angle) * semiMajorAxis;
     const y = Math.sin(orbit.angle) * semiMinorAxis;

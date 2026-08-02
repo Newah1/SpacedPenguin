@@ -14,18 +14,28 @@ import {
 } from '../js/simulationState.js';
 import { distance, pointInRect } from '../js/simulationGeometry.js';
 import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
+import {
+    LEVEL_CATALOG_CONFIG,
+    LEVEL_DEFAULTS,
+    PHYSICS_CONFIG,
+    SIMULATION_CONFIG,
+    WORLD_CONFIG
+} from '../js/config/gameConfig.js';
+import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 
 const NodeUtils = {
     distance,
     inside: pointInRect,
     clamp: (value, min, max) => Math.min(Math.max(value, min), max),
-    validateLevel: (level, maxLevel = 25) => {
+    validateLevel: (level, maxLevel = LEVEL_CATALOG_CONFIG.maxGeneratedLevel) => {
         const parsed = Number.parseInt(level, 10);
-        return Number.isInteger(parsed) && parsed >= 1 && parsed <= maxLevel ? parsed : null;
+        return Number.isInteger(parsed) && parsed >= LEVEL_CATALOG_CONFIG.firstLevel && parsed <= maxLevel
+            ? parsed
+            : null;
     }
 };
 
-export const DEFAULT_MAX_SIMULATION_TIME = 120;
+export const DEFAULT_MAX_SIMULATION_TIME = TRAJECTORY_CONFIG.simulation.maximumTimeSeconds;
 
 class HeadlessPenguin {
     constructor(x, y) {
@@ -33,7 +43,7 @@ class HeadlessPenguin {
         this.y = y;
         this.velocity = { x: 0, y: 0 };
         this.state = 'idle';
-        this.radius = 16;
+        this.radius = LEVEL_DEFAULTS.penguin.radius;
     }
 
     launch(angle, power, slingshot = {}) {
@@ -44,7 +54,7 @@ class HeadlessPenguin {
 
 class HeadlessPhysics {
     constructor() {
-        this.gravitationalConstant = 3;
+        this.gravitationalConstant = PHYSICS_CONFIG.gravitationalConstant;
         this.planets = [];
         this.bonuses = [];
     }
@@ -78,7 +88,7 @@ export class HeadlessGameEngine {
         this.state = null;
         this.initialState = null;
         this.maxSimulationTime = DEFAULT_MAX_SIMULATION_TIME;
-        this.timeStep = 1 / 60;
+        this.timeStep = 1 / SIMULATION_CONFIG.legacyPhysicsFps;
         this.worldTimeline = null;
         this.logger = mockLogger;
         this.requireAllBonuses = options.requireAllBonuses ?? false;
@@ -87,7 +97,7 @@ export class HeadlessGameEngine {
     getStartPosition() {
         return this.initialState
             ? { ...this.initialState.slingshot.position }
-            : { x: 100, y: 300 };
+            : { ...WORLD_CONFIG.defaultStartPosition };
     }
 
     loadLevel(levelData, options = {}) {
@@ -155,7 +165,7 @@ export class HeadlessGameEngine {
         };
 
         for (let step = 0; step < maxSteps; step++) {
-            if (step % 10 === 0) {
+            if (step % TRAJECTORY_CONFIG.simulation.captureStrideSteps === 0) {
                 result.trajectory.push({
                     ...this.state.penguin.position,
                     velocity: { ...this.state.penguin.velocity },
@@ -206,9 +216,17 @@ export class HeadlessGameEngine {
         return result;
     }
 
-    findWorkingTrajectories(angleRange = [0, 360], powerRange = [10, 100], samples = 100, maxTime = null) {
+    findWorkingTrajectories(
+        angleRange = TRAJECTORY_CONFIG.sweep.angleRange,
+        powerRange = TRAJECTORY_CONFIG.sweep.powerRange,
+        samples = TRAJECTORY_CONFIG.sweep.samples,
+        maxTime = null
+    ) {
         const candidates = buildTrajectoryCandidates(angleRange, powerRange, samples);
-        const progressInterval = Math.max(10, Math.ceil(candidates.length / 10));
+        const progressInterval = Math.max(
+            TRAJECTORY_CONFIG.sweep.minimumProgressInterval,
+            Math.ceil(candidates.length / TRAJECTORY_CONFIG.sweep.progressBuckets)
+        );
         this.logger.info(`Testing ${candidates.length} trajectory combinations...`);
         const results = this.simulateCandidates(candidates, maxTime, (tested, successful) => {
             if (tested % progressInterval === 0) {
@@ -231,9 +249,9 @@ export class HeadlessGameEngine {
     }
 
     async findWorkingTrajectoriesAsync(
-        angleRange = [0, 360],
-        powerRange = [10, 100],
-        samples = 100,
+        angleRange = TRAJECTORY_CONFIG.sweep.angleRange,
+        powerRange = TRAJECTORY_CONFIG.sweep.powerRange,
+        samples = TRAJECTORY_CONFIG.sweep.samples,
         maxTime = null,
         options = {}
     ) {

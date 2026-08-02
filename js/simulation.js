@@ -1,6 +1,7 @@
 // Pure simulation helpers shared by the browser runtime and Node tests.
+import { PHYSICS_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
 
-export const LEGACY_PHYSICS_FPS = 60;
+export const LEGACY_PHYSICS_FPS = SIMULATION_CONFIG.legacyPhysicsFps;
 export const MAX_PHYSICS_STEP = 1 / LEGACY_PHYSICS_FPS;
 
 /**
@@ -30,7 +31,7 @@ export function integratePlanetGravity(position, velocity, planets, gravitationa
             if (distanceSquared <= 0) continue;
 
             const distance = Math.sqrt(distanceSquared);
-            const gravitationalReach = planet.gravitationalReach ?? 5000;
+            const gravitationalReach = planet.gravitationalReach ?? PHYSICS_CONFIG.defaultGravitationalReach;
             if (distance >= gravitationalReach) continue;
 
             const gravitationalForce = planet.mass * gravitationalConstant / distanceSquared;

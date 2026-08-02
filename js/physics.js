@@ -3,6 +3,8 @@
 
 import Utils from './utils.js';
 import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from './globalConstants.js';
+import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from './config/gameConfig.js';
+import { RENDER_CONFIG } from './config/renderConfig.js';
 
 export class Physics {
     constructor() {
@@ -10,7 +12,7 @@ export class Physics {
         this.planets = [];
         this.bonuses = [];
         this.traceEnabled = true;
-        this.traceColor = '#00FFFF';
+        this.traceColor = RENDER_CONFIG.penguin.trail.color;
         this.tracePoints = [];
     }
     
@@ -114,7 +116,7 @@ export class Physics {
         const newVelocity = Utils.findPoint(
             { x: 0, y: 0 },
             bounceAngle,
-            velocityMagnitude * 0.8 // Reduce velocity on bounce
+            velocityMagnitude * SIMULATION_CONFIG.collision.restitution
         );
         
         return { velocity: newVelocity, collision: true, planet: planet };
@@ -128,7 +130,7 @@ export class Physics {
             // Check if bonus is in notHit state (not yet collected)
             if (bonus.sprite.state === 'notHit') {
                 const distance = Utils.distance(position, bonus.sprite.position);
-                const collectionRadius = 8 + (bonus.sprite.width / 2);
+            const collectionRadius = LEVEL_DEFAULTS.bonus.collectionPadding + (bonus.sprite.width / 2);
                 
                 if (distance < collectionRadius) {
                     collectedBonuses.push(bonus.sprite); // Return the actual Bonus object
@@ -168,7 +170,7 @@ export class Physics {
         this.tracePoints.push({ x: point.x, y: point.y, time: Date.now() });
         
         // Limit trace points to prevent memory issues
-        if (this.tracePoints.length > 1000) {
+        if (this.tracePoints.length > RENDER_CONFIG.penguin.trail.maximumPoints) {
             this.tracePoints.shift();
         }
     }
@@ -183,8 +185,8 @@ export class Physics {
         if (!this.traceEnabled || this.tracePoints.length < 2) return;
         
         ctx.strokeStyle = this.traceColor;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = RENDER_CONFIG.shotTrails.lineWidth;
+        ctx.globalAlpha = RENDER_CONFIG.shotTrails.activeAlpha;
         
         ctx.beginPath();
         ctx.moveTo(this.tracePoints[0].x, this.tracePoints[0].y);

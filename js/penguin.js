@@ -1,6 +1,10 @@
 // Penguin class with real sprite animations
 import plog from './penguinLogger.js';
 import { integratePlanetGravity } from './simulation.js';
+import { LEVEL_DEFAULTS, SIMULATION_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
+import { RENDER_CONFIG } from './config/renderConfig.js';
+import { penguinAnimationAssetPath } from './config/assetConfig.js';
+import { AudioCue, getAudioCue } from './config/audioConfig.js';
 
 export class Penguin {
     constructor(assetLoader) {
@@ -9,18 +13,18 @@ export class Penguin {
         this.animations = {};
         
         // Render order (higher number = rendered later/on top)
-        this.renderOrder = 5; // Render penguin on top of everything
+        this.renderOrder = RENDER_CONFIG.layers.penguin;
         
         // Physics properties
         this.x = 0;
         this.y = 0;
         this.vx = 0;
         this.vy = 0;
-        this.radius = 16;
-        this.mass = 1;
+        this.radius = LEVEL_DEFAULTS.penguin.radius;
+        this.mass = LEVEL_DEFAULTS.penguin.mass;
         this.launched = false;
         this.trail = [];
-        this.maxTrailLength = 20;
+        this.maxTrailLength = RENDER_CONFIG.penguin.trailLength;
         
         // Animation state (matching old GPS script)
         this.currentAnimationType = 'xc';
@@ -30,14 +34,14 @@ export class Penguin {
         // Animation frame control (from old GPS script)
         this.aniFrame = 0;
         this.aniDir = 1;
-        this.aniMax = 11;
-        this.aniMin = 0;
+        this.aniMax = RENDER_CONFIG.penguin.animationFrameMaximum;
+        this.aniMin = RENDER_CONFIG.penguin.animationFrameMinimum;
         this.aniSwap = 0; // Controls when to advance frames (0 = update this frame)
         
         // Game state (required for slingshot interaction)
         this.state = 'idle';
         this.crashedTimer = 0;
-        this.crashedDuration = 2.0; // seconds
+        this.crashedDuration = RENDER_CONFIG.penguin.crashedDurationSeconds;
         
         // Planet collision state (matching old GPS script)
         this.crashedFrameCount = 0;
@@ -76,7 +80,7 @@ export class Penguin {
                 plog.debug('XC sprite sheet loaded');
                 this.loadMetadata();
             };
-            xcImage.src = 'assets/animations/penguin_spin_xc_sheet.png';
+            xcImage.src = penguinAnimationAssetPath('xc');
             
             // Load YC animation
             const ycImage = new Image();
@@ -85,7 +89,7 @@ export class Penguin {
                 plog.debug('YC sprite sheet loaded');
                 this.loadMetadata();
             };
-            ycImage.src = 'assets/animations/penguin_spin_yc_sheet.png';
+            ycImage.src = penguinAnimationAssetPath('yc');
             
             // Load ZC animation
             const zcImage = new Image();
@@ -94,7 +98,7 @@ export class Penguin {
                 plog.debug('ZC sprite sheet loaded');
                 this.loadMetadata();
             };
-            zcImage.src = 'assets/animations/penguin_spin_zc_sheet.png';
+            zcImage.src = penguinAnimationAssetPath('zc');
             
         } catch (error) {
             console.error('Failed to load real penguin sprites:', error);
@@ -105,9 +109,9 @@ export class Penguin {
         if (this.spriteSheets.xc && this.spriteSheets.yc && this.spriteSheets.zc) {
             try {
                 const [xcMeta, ycMeta, zcMeta] = await Promise.all([
-                    fetch('assets/animations/penguin_spin_xc_metadata.json').then(r => r.json()),
-                    fetch('assets/animations/penguin_spin_yc_metadata.json').then(r => r.json()),
-                    fetch('assets/animations/penguin_spin_zc_metadata.json').then(r => r.json())
+                    fetch(penguinAnimationAssetPath('xc', 'metadata')).then(r => r.json()),
+                    fetch(penguinAnimationAssetPath('yc', 'metadata')).then(r => r.json()),
+                    fetch(penguinAnimationAssetPath('zc', 'metadata')).then(r => r.json())
                 ]);
                 
                 this.metadata = { xc: xcMeta, yc: ycMeta, zc: zcMeta };
@@ -143,8 +147,8 @@ export class Penguin {
             
             // Initialize animation frame control (matching old GPS script)
             this.aniFrame = 0;
-            this.aniMax = 11; // 12 frames (0-11)
-            this.aniMin = 0;
+            this.aniMax = RENDER_CONFIG.penguin.animationFrameMaximum;
+            this.aniMin = RENDER_CONFIG.penguin.animationFrameMinimum;
             this.aniDir = Math.random() < 0.5 ? 1 : -1; // Random direction like old script
             this.aniSwap = 1;
             
@@ -164,8 +168,8 @@ export class Penguin {
         // Match the old GPS script's setUpAnimation logic
         this.aniSwap = 0; // Start at 0 so first frame updates immediately
         this.aniFrame = 0;
-        this.aniMax = 11; // 12 frames (0-11)
-        this.aniMin = 0;
+        this.aniMax = RENDER_CONFIG.penguin.animationFrameMaximum;
+        this.aniMin = RENDER_CONFIG.penguin.animationFrameMinimum;
         this.aniDir = Math.random() < 0.5 ? 1 : -1;
         plog.debug(`Animation setup: frame ${this.aniFrame}, direction ${this.aniDir}`);
     }
@@ -301,7 +305,7 @@ export class Penguin {
 
     beginCrash(planet, applyBounce = true) {
         this.state = 'crashed';
-        this.crashedFrameCount = 150; // Original GPS script duration
+        this.crashedFrameCount = SIMULATION_CONFIG.collision.planetCrashFrames;
         this.hitPlanet = planet;
         
         // The shared simulation core may already have applied the bounce.
@@ -334,14 +338,14 @@ export class Penguin {
         this.vy = this.vy - 2 * dotProduct * ny;
         
         // Reduce velocity on bounce (matching original behavior)
-        this.vx *= 0.8;
-        this.vy *= 0.8;
+        this.vx *= SIMULATION_CONFIG.collision.restitution;
+        this.vy *= SIMULATION_CONFIG.collision.restitution;
         
         // Calculate velocity magnitude after bounce
         const velocityMagnitudeAfter = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
         
         // If velocity is too small after bounce, give it a minimum push away from planet
-        const minVelocity = 50; // Minimum velocity to ensure penguin moves away
+        const minVelocity = SIMULATION_CONFIG.collision.minimumBounceSpeed;
         if (velocityMagnitudeAfter < minVelocity) {
             // Push the penguin away from the planet with minimum velocity
             this.vx = nx * minVelocity;
@@ -371,7 +375,9 @@ export class Penguin {
         plog.crash(`Crash frame countdown: ${this.crashedFrameCount}`);
         
         // Check if penguin is out of stage bounds - if so, stop movement
-        const stageRect = window.game ? window.game.stageRect : { x: 0, y: 0, width: 800, height: 600 };
+        const stageRect = window.game
+            ? window.game.stageRect
+            : { x: 0, y: 0, width: WORLD_CONFIG.stage.width, height: WORLD_CONFIG.stage.height };
         const isOutOfBounds = this.x < stageRect.x || this.x > stageRect.x + stageRect.width ||
                              this.y < stageRect.y || this.y > stageRect.y + stageRect.height;
         
@@ -396,7 +402,7 @@ export class Penguin {
                     
                     // Play hit planet sound for additional bounces
                     if (window.game && window.game.playSound) {
-                        window.game.playSound('20_snd_HitPlanet');
+                        window.game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                     }
                     
                     plog.crash('Penguin bounced off planet during crash');
@@ -406,7 +412,7 @@ export class Penguin {
         }
         
         // Update animation frames (spinning during crash) - slowed down
-        if (this.crashedFrameCount % 4 === 0) { // Only update every 4th frame
+        if (this.crashedFrameCount % RENDER_CONFIG.penguin.crashAnimationStride === 0) {
             this.aniFrame = this.aniFrame + this.aniDir;
             if (this.aniFrame < this.aniMin) {
                 this.aniFrame = this.aniMax;
@@ -424,7 +430,7 @@ export class Penguin {
         // Update animation frame (matching old GPS script logic)
         if (this.isSpinning) {
             // Slow down animation by only updating every 4th call
-            this.aniSwap = (this.aniSwap + 1) % 8;
+            this.aniSwap = (this.aniSwap + 1) % RENDER_CONFIG.penguin.spinAnimationStride;
             
             if (this.aniSwap === 0) {
                 this.aniFrame = this.aniFrame + this.aniDir;
@@ -446,17 +452,21 @@ export class Penguin {
         
         // Adjust animation speed based on velocity
         if (this.currentAnimation) {
-            this.currentAnimation.animationSpeed = Math.max(0.1, Math.min(0.3, speed / 1000));
+            const animation = RENDER_CONFIG.penguin.animation;
+            this.currentAnimation.animationSpeed = Math.max(
+                animation.minimumSpeed,
+                Math.min(animation.maximumSpeed, speed / animation.velocityDivisor)
+            );
         }
         
         // Switch animation type based on movement direction
         let newType = this.currentAnimationType;
         
-        if (Math.abs(this.vx) > Math.abs(this.vy) * 1.5) {
+        if (Math.abs(this.vx) > Math.abs(this.vy) * RENDER_CONFIG.penguin.animation.horizontalBias) {
             newType = 'xc'; // Horizontal movement
-        } else if (this.vy > Math.abs(this.vx) * 0.5) {
+        } else if (this.vy > Math.abs(this.vx) * RENDER_CONFIG.penguin.animation.verticalBias) {
             newType = 'yc'; // Downward movement
-        } else if (this.vy < -Math.abs(this.vx) * 0.5) {
+        } else if (this.vy < -Math.abs(this.vx) * RENDER_CONFIG.penguin.animation.verticalBias) {
             newType = 'zc'; // Upward movement
         }
         
@@ -558,7 +568,7 @@ export class Penguin {
         ctx.translate(-regPoint[0], -regPoint[1]);
         
         // Scale up the sprite slightly (1.5x for better visibility)
-        const scale = 1.2;
+        const scale = RENDER_CONFIG.penguin.spriteScale;
         ctx.scale(scale, scale);
         
         // Create a temporary canvas for color keying
@@ -580,7 +590,7 @@ export class Penguin {
         
         // Color key: replace white (RGB:255) with transparent
         // Use a tolerance for slight color variations
-        const tolerance = 30;
+        const tolerance = RENDER_CONFIG.penguin.colorKeyTolerance;
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
@@ -639,12 +649,12 @@ export class Penguin {
         if (this.trail.length < 2) return;
         
         ctx.save();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = RENDER_CONFIG.penguin.trail.color;
+        ctx.lineWidth = RENDER_CONFIG.penguin.trail.lineWidth;
         
         for (let i = 1; i < this.trail.length; i++) {
             const alpha = i / this.trail.length;
-            ctx.globalAlpha = alpha * 0.5;
+            ctx.globalAlpha = alpha * RENDER_CONFIG.penguin.trail.maximumAlpha;
             ctx.beginPath();
             ctx.moveTo(this.trail[i-1].x, this.trail[i-1].y);
             ctx.lineTo(this.trail[i].x, this.trail[i].y);
@@ -657,12 +667,20 @@ export class Penguin {
     drawTrail(graphics) {
         if (this.trail.length < 2) return;
         
-        graphics.lineStyle(2, 0xFFFFFF, 0.5);
+        graphics.lineStyle(
+            RENDER_CONFIG.penguin.trail.lineWidth,
+            Number.parseInt(RENDER_CONFIG.penguin.trail.color.slice(1), 16),
+            RENDER_CONFIG.penguin.trail.maximumAlpha
+        );
         graphics.moveTo(this.trail[0].x, this.trail[0].y);
         
         for (let i = 1; i < this.trail.length; i++) {
             const alpha = i / this.trail.length;
-            graphics.lineStyle(2, 0xFFFFFF, alpha * 0.5);
+            graphics.lineStyle(
+                RENDER_CONFIG.penguin.trail.lineWidth,
+                Number.parseInt(RENDER_CONFIG.penguin.trail.color.slice(1), 16),
+                alpha * RENDER_CONFIG.penguin.trail.maximumAlpha
+            );
             graphics.lineTo(this.trail[i].x, this.trail[i].y);
         }
     }

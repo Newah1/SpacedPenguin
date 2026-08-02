@@ -1,7 +1,9 @@
 // UI Manager for Spaced Penguin
 // Provides an extensible system for menus, dialogs, and overlays
 
-import { screenToStage } from './viewport.js';
+import { STAGE_HEIGHT, STAGE_WIDTH, screenToStage } from './viewport.js';
+import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
+import { UI_CONFIG } from './config/uiConfig.js';
 
 export class UIManager {
     constructor(canvas, audioManager) {
@@ -10,8 +12,8 @@ export class UIManager {
         this.audioManager = audioManager;
         this.activeScreens = [];
         this.fonts = {
-            verdana: 'Verdana, sans-serif',
-            system: 'Arial, sans-serif'
+            verdana: UI_CONFIG.fonts.primary,
+            system: UI_CONFIG.fonts.system
         };
         
         // Bind methods to preserve context
@@ -30,8 +32,7 @@ export class UIManager {
     }
     
     detectMobile() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-               (window.innerWidth <= 768 && window.innerHeight <= 1024);
+        return isMobileViewport();
     }
     
     handleTouchStart(event) {
@@ -45,7 +46,7 @@ export class UIManager {
         
         // Only process as click if it was a quick tap (< 500ms)
         const touchDuration = Date.now() - this.touchStartTime;
-        if (touchDuration < 500 && this.touchStartPos) {
+        if (touchDuration < INPUT_CONFIG.tapMaxDurationMs.ui && this.touchStartPos) {
             this.handleStageClick(this.touchStartPos.x, this.touchStartPos.y);
         }
     }
@@ -207,7 +208,13 @@ export class UIElement {
 
 // Background overlay with semi-transparent fill
 export class BackgroundOverlay extends UIElement {
-    constructor(color = 'rgba(0, 0, 0, 0.7)', x = 0, y = 0, width = 800, height = 600) {
+    constructor(
+        color = UI_CONFIG.components.overlayColor,
+        x = 0,
+        y = 0,
+        width = STAGE_WIDTH,
+        height = STAGE_HEIGHT
+    ) {
         super(x, y, width, height);
         this.color = color;
     }
@@ -224,9 +231,9 @@ export class BackgroundOverlay extends UIElement {
 export class Panel extends UIElement {
     constructor(x, y, width, height, options = {}) {
         super(x, y, width, height);
-        this.backgroundColor = options.backgroundColor || '#2C2C2C';
-        this.borderColor = options.borderColor || '#FFFFCC';
-        this.borderWidth = options.borderWidth || 2;
+        this.backgroundColor = options.backgroundColor || UI_CONFIG.components.panelBackground;
+        this.borderColor = options.borderColor || UI_CONFIG.components.panelBorder;
+        this.borderWidth = options.borderWidth || UI_CONFIG.components.panelBorderWidth;
         this.cornerRadius = options.cornerRadius || 0;
     }
     
@@ -405,10 +412,10 @@ export class AnimatedNumber extends UIElement {
         super(x, y, 0, 0);
         this.targetValue = targetValue;
         this.currentValue = 0;
-        this.animationSpeed = options.animationSpeed || 25; // points per second
+        this.animationSpeed = options.animationSpeed || UI_CONFIG.components.animatedNumberSpeed;
         this.fontSize = options.fontSize || 16;
-        this.fontFamily = options.fontFamily || 'Verdana, sans-serif';
-        this.color = options.color || '#FFFFCC';
+        this.fontFamily = options.fontFamily || UI_CONFIG.fonts.primary;
+        this.color = options.color || UI_CONFIG.components.textColor;
         this.align = options.align || 'right';
         this.bold = options.bold || false;
         this.prefix = options.prefix || '';

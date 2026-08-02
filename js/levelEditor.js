@@ -2,6 +2,13 @@ import { GameState } from './game.js';
 import plog from './penguinLogger.js';
 import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, screenToStage, stageToScreen } from './viewport.js';
+import { EDITOR_CONFIG } from './config/editorConfig.js';
+import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
+import {
+    INPUT_CONFIG,
+    isCompactEditorViewport,
+    isTouchViewport
+} from './config/inputConfig.js';
 
 class LevelEditor {
     constructor(game) {
@@ -154,7 +161,7 @@ class LevelEditor {
         `;
         
         // Add mobile responsive behavior
-        if (window.innerWidth < 768) {
+        if (isCompactEditorViewport()) {
             this.propertiesPanel.style.cssText += `
                 width: calc(100vw - 40px);
                 max-width: 350px;
@@ -194,7 +201,7 @@ class LevelEditor {
         `;
         
         // Add mobile responsive behavior
-        if (window.innerWidth < 768) {
+        if (isCompactEditorViewport()) {
             this.objectListPanel.style.cssText += `
                 width: calc(100vw - 40px);
                 max-width: 350px;
@@ -392,7 +399,7 @@ class LevelEditor {
         this.container.appendChild(this.mobileToolbar);
         
         // Hide mobile toolbar on desktop
-        if (window.innerWidth >= 768) {
+        if (!isCompactEditorViewport()) {
             this.mobileToolbar.style.display = 'none';
         }
     }
@@ -478,7 +485,7 @@ class LevelEditor {
         
         // Update mobile toolbar visibility
         if (this.mobileToolbar) {
-            if (window.innerWidth < 768) {
+            if (isCompactEditorViewport()) {
                 this.mobileToolbar.style.display = 'flex';
             } else {
                 this.mobileToolbar.style.display = 'none';
@@ -486,7 +493,7 @@ class LevelEditor {
         }
         
         // Update toolbar and properties panel positioning for mobile
-        if (window.innerWidth < 768) {
+        if (isCompactEditorViewport()) {
             // Mobile layout: stack vertically
             if (this.toolbar) {
                 this.toolbar.style.cssText = `
@@ -549,7 +556,7 @@ class LevelEditor {
         }
         
         // Update object list panel positioning for mobile
-        if (this.objectListPanel && window.innerWidth < 768) {
+        if (this.objectListPanel && isCompactEditorViewport()) {
             this.objectListPanel.style.cssText += `
                 width: calc(100vw - 40px);
                 max-width: 350px;
@@ -643,13 +650,13 @@ class LevelEditor {
                 if (this.touchStartPos && this.mode === 'edit') {
                     // Haptic feedback for long press
                     if ('vibrate' in navigator) {
-                        navigator.vibrate(100);
+                        navigator.vibrate(INPUT_CONFIG.hapticsMs.contextMenu);
                     }
                     this.showContextMenu(this.touchStartPos.x, this.touchStartPos.y);
                     this.touchStartPos = null;
                     this.hideLongPressIndicator();
                 }
-            }, 500); // 500ms long press
+            }, EDITOR_CONFIG.interaction.longPressMs);
         }
     }
     
@@ -973,8 +980,10 @@ class LevelEditor {
                 const distance = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
                 
                 // Use larger hit area for mobile devices
-                const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
-                const hitRadius = isMobile ? 15 : 10; // Larger touch target on mobile
+                const isMobile = isCompactEditorViewport() || isTouchViewport();
+                const hitRadius = isMobile
+                    ? EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch
+                    : EDITOR_CONFIG.interaction.orbitCenterHitRadius.pointer;
                 
                 if (distance <= hitRadius) {
                     plog.debug('Selected orbit center for:', obj.constructor.name);
@@ -1003,9 +1012,11 @@ class LevelEditor {
         }
         
         // Use larger hit areas for mobile devices for easier touch selection
-        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
+        const isMobile = isCompactEditorViewport() || isTouchViewport();
         const baseRadius = obj.radius || obj.collisionRadius || 20;
-        const radius = isMobile ? Math.max(baseRadius, 30) : baseRadius; // Minimum 30px touch target on mobile
+        const radius = isMobile
+            ? Math.max(baseRadius, EDITOR_CONFIG.interaction.minimumTouchTargetRadius)
+            : baseRadius;
         
         const dx = x - objX;
         const dy = y - objY;
@@ -1026,7 +1037,7 @@ class LevelEditor {
         
         // Provide haptic feedback on mobile devices
         if (obj && 'vibrate' in navigator) {
-            navigator.vibrate(50); // Short vibration for selection
+            navigator.vibrate(INPUT_CONFIG.hapticsMs.selection);
         }
         
         this.updatePropertiesPanel();
@@ -1381,7 +1392,7 @@ class LevelEditor {
                 properties.push({ 
                     label: 'Gravity Strength', 
                     key: 'gravityStrength', 
-                    value: orbitSystem.gravityStrength || 1000, 
+                    value: orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
                     type: 'number',
                     min: 100,
                     max: 10000,
@@ -1780,8 +1791,8 @@ class LevelEditor {
                     break;
                 case LevelOrbitType.GRAVITY:
                     // For gravity orbits, set up initial conditions
-                    const initialVelocity = obj.orbitSystem.velocity || { x: 0, y: 50 }; // Default orbital velocity
-                    const gravityStrength = obj.orbitSystem.gravityStrength || 1000;
+                    const initialVelocity = obj.orbitSystem.velocity || PHYSICS_CONFIG.orbit.initialVelocity;
+                    const gravityStrength = obj.orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength;
                     obj.orbitSystem.setGravityOrbit(center, initialVelocity, gravityStrength);
                     break;
             }
@@ -1848,7 +1859,8 @@ class LevelEditor {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
                 // Only use current position if it's at a reasonable distance from center
-                if (distance >= 50 && distance <= 400) {
+                if (distance >= EDITOR_CONFIG.orbitReset.minimumInitialDistance &&
+                    distance <= EDITOR_CONFIG.orbitReset.maximumInitialDistance) {
                     initialX = currentX;
                     initialY = currentY;
                     hasInitialPosition = true;
@@ -1859,9 +1871,12 @@ class LevelEditor {
         
         // If still no valid initial position, create a default one
         if (!hasInitialPosition) {
-            initialX = center.x + 150; // 150 pixels to the right of center
+            initialX = center.x + EDITOR_CONFIG.orbitReset.fallbackInitialDistance;
             initialY = center.y;
-            plog.warn('Created default initial position at distance 150 from center');
+            plog.warn(
+                `Created default initial position at distance ` +
+                `${EDITOR_CONFIG.orbitReset.fallbackInitialDistance} from center`
+            );
         }
         
         // Move object back to initial position
@@ -1880,7 +1895,7 @@ class LevelEditor {
         
         // Set reasonable defaults for gravity system
         const gravityStrength = obj.orbitSystem.gravityStrength && !isNaN(obj.orbitSystem.gravityStrength) ? 
-            obj.orbitSystem.gravityStrength : 5000;
+            obj.orbitSystem.gravityStrength : EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength;
         
         // Use current velocity from UI inputs instead of stored initial velocity
         let resetVelocityX, resetVelocityY;
@@ -1945,7 +1960,7 @@ class LevelEditor {
                 } else {
                     plog.success('✓ Velocity remained stable');
                 }
-            }, 100);
+            }, EDITOR_CONFIG.interaction.orbitVerificationMs);
         }
         
         plog.success(`Reset position with current velocity: position=(${initialX.toFixed(1)}, ${initialY.toFixed(1)}), distance=${distance.toFixed(1)}, velocity=(${resetVelocityX.toFixed(2)}, ${resetVelocityY.toFixed(2)}), gravity=${gravityStrength}`);
@@ -1979,7 +1994,7 @@ class LevelEditor {
         // Fix orbit system values if they exist
         if (obj.orbitSystem) {
             if (obj.orbitSystem.gravityStrength && (isNaN(obj.orbitSystem.gravityStrength) || !isFinite(obj.orbitSystem.gravityStrength))) {
-                obj.orbitSystem.gravityStrength = 5000;
+                obj.orbitSystem.gravityStrength = EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength;
                 plog.warn('Fixed invalid gravity strength');
             }
             
@@ -2016,28 +2031,28 @@ class LevelEditor {
             'position.y': STAGE_HEIGHT / 2,
             
             // Size properties
-            'radius': 30,
-            'mass': 100,
-            'gravitationalReach': 5000,
-            'width': 60,
-            'height': 60,
-            'value': 100,
+            'radius': LEVEL_DEFAULTS.planet.radius,
+            'mass': LEVEL_DEFAULTS.planet.mass,
+            'gravitationalReach': LEVEL_DEFAULTS.planet.gravitationalReach,
+            'width': LEVEL_DEFAULTS.target.width,
+            'height': LEVEL_DEFAULTS.target.height,
+            'value': LEVEL_DEFAULTS.bonus.value,
             
             // Orbit properties
-            'orbitRadius': 100,
-            'orbitSpeed': 1,
+            'orbitRadius': EDITOR_CONFIG.authoringDefaults.orbit.radius,
+            'orbitSpeed': EDITOR_CONFIG.authoringDefaults.orbit.speed,
             'orbitAngle': 0,
             'orbitCenterX': STAGE_WIDTH / 2,
             'orbitCenterY': STAGE_HEIGHT / 2,
-            'gravityStrength': 5000,
-            'velocityX': 0,
-            'velocityY': 3,
+            'gravityStrength': EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength,
+            'velocityX': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.x,
+            'velocityY': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.y,
             
             // Physics properties
-            'stretchLimit': 100,
-            'velocityMultiplier': 15,
-            'fontSize': 16,
-            'padding': 10
+            'stretchLimit': LEVEL_DEFAULTS.slingshot.maxPullback,
+            'velocityMultiplier': LEVEL_DEFAULTS.slingshot.velocityMultiplier,
+            'fontSize': LEVEL_DEFAULTS.text.fontSize,
+            'padding': LEVEL_DEFAULTS.text.padding
         };
         
         return defaults[property] !== undefined ? defaults[property] : 0;
@@ -2220,12 +2235,30 @@ class LevelEditor {
     createObjectWithDefaults(ClassConstructor, className, x, y) {
         // Define default parameters for each class type
         const defaults = {
-            'Planet': [x, y, 50, 1000, 0, 'planet_grey', this.game.assetLoader], // x, y, radius, mass, gravitationalReach, planetType, assetLoader
-            'Bonus': [x, y, 100, this.game.assetLoader], // x, y, value, assetLoader
-            'Target': [x, y, 60, 60, 'ship_open', this.game.assetLoader], // x, y, width, height, spriteType, assetLoader
-            'Slingshot': [x, y, null, null, 150], // x, y, anchorX, anchorY, stretchLimit
-            'TextObject': [x, y, 'Sample Text', { width: 200, height: 100, fontSize: 16, color: '#FFFFFF' }], // x, y, content, options
-            'PointingArrow': [x, y, { baseWidth: 20 }] // x, y, options
+            'Planet': [
+                x, y,
+                EDITOR_CONFIG.authoringDefaults.planet.radius,
+                EDITOR_CONFIG.authoringDefaults.planet.mass,
+                EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach,
+                EDITOR_CONFIG.authoringDefaults.planet.planetType,
+                this.game.assetLoader
+            ],
+            'Bonus': [x, y, EDITOR_CONFIG.authoringDefaults.bonus.value, this.game.assetLoader],
+            'Target': [
+                x, y,
+                LEVEL_DEFAULTS.target.width,
+                LEVEL_DEFAULTS.target.height,
+                LEVEL_DEFAULTS.target.spriteType,
+                this.game.assetLoader
+            ],
+            'Slingshot': [x, y, null, null, EDITOR_CONFIG.authoringDefaults.slingshot.maxPullback],
+            'TextObject': [x, y, LEVEL_DEFAULTS.text.content, {
+                width: LEVEL_DEFAULTS.text.width,
+                height: LEVEL_DEFAULTS.text.height,
+                fontSize: LEVEL_DEFAULTS.text.fontSize,
+                color: LEVEL_DEFAULTS.text.color
+            }],
+            'PointingArrow': [x, y, { baseWidth: LEVEL_DEFAULTS.pointingArrow.baseWidth }]
         };
         
         const params = defaults[className] || [x, y];
@@ -2503,7 +2536,7 @@ class LevelEditor {
         setTimeout(() => {
             document.addEventListener('click', removeMenu);
             document.addEventListener('touchstart', removeMenu);
-        }, 100);
+        }, EDITOR_CONFIG.interaction.deferredListenerMs);
     }
     
     addObjectAtPosition(className, x, y) {
@@ -2555,8 +2588,8 @@ class LevelEditor {
         const clonedObject = this.cloneObject(this.selectedObject);
         if (clonedObject) {
             // Offset the clone slightly so it's visible
-            const offsetX = 50;
-            const offsetY = 50;
+            const offsetX = EDITOR_CONFIG.cloneOffset.x;
+            const offsetY = EDITOR_CONFIG.cloneOffset.y;
             
             if (typeof clonedObject.x === 'number') {
                 clonedObject.x += offsetX;
@@ -2690,53 +2723,54 @@ class LevelEditor {
         switch (data.className) {
             case 'Planet':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
-                    props.radius || 50,
-                    props.mass || 1000,
-                    props.gravitationalReach || 0,
-                    props.planetType || 'planet_grey',
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    props.radius ?? EDITOR_CONFIG.authoringDefaults.planet.radius,
+                    props.mass ?? EDITOR_CONFIG.authoringDefaults.planet.mass,
+                    props.gravitationalReach ?? EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach,
+                    props.planetType ?? EDITOR_CONFIG.authoringDefaults.planet.planetType,
                     this.game.assetLoader
                 );
-                clonedObject.collisionRadius = props.collisionRadius ?? (clonedObject.radius + 8);
+                clonedObject.collisionRadius = props.collisionRadius ??
+                    (clonedObject.radius + LEVEL_DEFAULTS.planet.collisionPadding);
                 break;
             case 'Bonus':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
-                    props.value || 100,
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    props.value ?? EDITOR_CONFIG.authoringDefaults.bonus.value,
                     this.game.assetLoader
                 );
                 break;
             case 'Target':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
-                    props.width || 60,
-                    props.height || 60,
-                    props.spriteType || 'ship_open',
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    props.width ?? LEVEL_DEFAULTS.target.width,
+                    props.height ?? LEVEL_DEFAULTS.target.height,
+                    props.spriteType ?? LEVEL_DEFAULTS.target.spriteType,
                     this.game.assetLoader
                 );
                 break;
             case 'Slingshot':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
                     props.anchorX,
                     props.anchorY,
-                    props.maxPullback || 150
+                    props.maxPullback ?? EDITOR_CONFIG.authoringDefaults.slingshot.maxPullback
                 );
                 break;
             case 'TextObject':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
-                    props.content || 'Text',
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    props.content ?? EDITOR_CONFIG.deserializationFallbacks.textContent,
                     {
-                        width: props.width || 200,
-                        height: props.height || 100,
-                        fontSize: props.fontSize || 16,
-                        color: props.color || '#FFFFFF',
+                        width: props.width ?? LEVEL_DEFAULTS.text.width,
+                        height: props.height ?? LEVEL_DEFAULTS.text.height,
+                        fontSize: props.fontSize ?? LEVEL_DEFAULTS.text.fontSize,
+                        color: props.color ?? EDITOR_CONFIG.deserializationFallbacks.textColor,
                         fontFamily: props.fontFamily,
                         textAlign: props.textAlign,
                         backgroundColor: props.backgroundColor,
@@ -2748,10 +2782,10 @@ class LevelEditor {
                 break;
             case 'PointingArrow':
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0,
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
                     {
-                        baseWidth: props.baseWidth || 20,
+                        baseWidth: props.baseWidth ?? LEVEL_DEFAULTS.pointingArrow.baseWidth,
                         color: props.color,
                         glowColor: props.glowColor,
                         scaleWithDistance: props.scaleWithDistance
@@ -2764,8 +2798,8 @@ class LevelEditor {
             default:
                 // Generic fallback
                 clonedObject = new ClassConstructor(
-                    props.position?.x || props.x || 0,
-                    props.position?.y || props.y || 0
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0
                 );
         }
         
@@ -2924,7 +2958,7 @@ class LevelEditor {
             
             // Provide visual feedback
             if ('vibrate' in navigator) {
-                navigator.vibrate(30);
+                navigator.vibrate(INPUT_CONFIG.hapticsMs.objectListSelection);
             }
             
             plog.debug('Selected from list:', obj.constructor.name);
@@ -3078,7 +3112,7 @@ class LevelEditor {
                 case LevelOrbitType.FIGURE_8:
                     // Draw figure-8 approximation
                     const size = obj.orbitSystem.orbitRadius;
-                    for (let t = 0; t <= Math.PI * 2; t += 0.1) {
+                    for (let t = 0; t <= Math.PI * 2; t += EDITOR_CONFIG.overlay.figure8StepRadians) {
                         const denominator = 1 + Math.sin(t) * Math.sin(t);
                         const x = center.x + size * Math.cos(t) / denominator;
                         const y = center.y + size * Math.sin(t) * Math.cos(t) / denominator;
@@ -3089,13 +3123,19 @@ class LevelEditor {
                 case LevelOrbitType.GRAVITY:
                     // Draw dashed circle to indicate gravitational influence zone
                     ctx.setLineDash([10, 10]);
-                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius || 100, 0, Math.PI * 2);
+                    ctx.arc(
+                        center.x,
+                        center.y,
+                        obj.orbitSystem.orbitRadius || EDITOR_CONFIG.overlay.gravityPreviewRadius,
+                        0,
+                        Math.PI * 2
+                    );
                     ctx.setLineDash([]);
                     // Draw velocity vector
                     const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
                     const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
                     if (obj.orbitSystem.velocity) {
-                        const velScale = 2; // Scale velocity for visibility
+                        const velScale = EDITOR_CONFIG.overlay.velocityVectorScale;
                         ctx.strokeStyle = '#FF6600'; // Orange for velocity vector
                         ctx.lineWidth = 2;
                         ctx.beginPath();
@@ -3174,7 +3214,7 @@ class LevelEditor {
     }
     
     drawGrid(ctx) {
-        const gridSize = 50;
+        const gridSize = EDITOR_CONFIG.overlay.gridSize;
         const width = STAGE_WIDTH;
         const height = STAGE_HEIGHT;
         
