@@ -99,6 +99,45 @@ test('start, launch, pause, resume, render, and finish a level', async ({ page }
     expect(renderedPixelCount).toBeGreaterThan(0);
 });
 
+test('slingshot pullback remains live-authoritative across animation frames', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+
+    const anchor = await stageToClient(page, 100, 300);
+    const pullback = await stageToClient(page, 20, 300);
+    await page.mouse.move(anchor.x, anchor.y);
+    await page.mouse.down();
+    await page.mouse.move(pullback.x, pullback.y, { steps: 5 });
+
+    await expect.poll(() => page.evaluate(() => (
+        window.game.penguin.state === 'pullback' &&
+        window.game.slingshot.isPulling &&
+        window.game.penguin.x < 40
+    ))).toBe(true);
+    const pulledPosition = await page.evaluate(() => ({
+        x: window.game.penguin.x,
+        y: window.game.penguin.y
+    }));
+
+    // Let several update/render frames apply the reusable simulation state. A
+    // regression would snap Kevin back to the anchor during this pause.
+    await page.waitForTimeout(150);
+    const heldPosition = await page.evaluate(() => ({
+        x: window.game.penguin.x,
+        y: window.game.penguin.y,
+        state: window.game.penguin.state
+    }));
+    expect(heldPosition.state).toBe('pullback');
+    expect(heldPosition.x).toBeCloseTo(pulledPosition.x, 8);
+    expect(heldPosition.y).toBeCloseTo(pulledPosition.y, 8);
+
+    await page.mouse.up();
+    await expect.poll(() => page.evaluate(() => window.game.tries)).toBe(1);
+});
+
 test('audio request failures degrade without blocking bootstrap', async ({ page }) => {
     await page.route('**/*.wav', route => route.abort('failed'));
     await page.goto('/');

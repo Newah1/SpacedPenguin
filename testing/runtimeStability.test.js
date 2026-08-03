@@ -19,6 +19,11 @@ const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
+const { Penguin } = await import('../js/penguin.js');
+const {
+    invalidateGameSimulationState,
+    stepGameSimulation
+} = await import('../js/gameSimulationAdapter.js');
 const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameObjects.js');
 const { LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
@@ -245,6 +250,118 @@ test('Game animates menu UI without stepping an unloaded world', () => {
     assert.equal(game.starfieldTime, 1 / 60);
 });
 
+test('HUD updates skip unchanged values and throttle in-flight distance layout writes', () => {
+    const writes = { level: 0, score: 0, distance: 0, tries: 0 };
+    const ui = Object.fromEntries(Object.keys(writes).map(key => [key, {
+        set textContent(value) {
+            writes[key]++;
+            this.value = value;
+        }
+    }]));
+    const game = {
+        ui,
+        state: GameState.PLAYING,
+        level: 1,
+        score: 0,
+        currentAttemptScore: 0,
+        distance: 10,
+        tries: 1,
+        simulationTime: 1,
+        _hudValues: Object.create(null),
+        _nextDistanceHudUpdate: 0,
+        updateHudValue: Game.prototype.updateHudValue
+    };
+
+    Game.prototype.updateUI.call(game);
+    Game.prototype.updateUI.call(game);
+    game.distance = 25;
+    game.simulationTime = 1.05;
+    Game.prototype.updateUI.call(game);
+
+    assert.deepEqual(writes, { level: 1, score: 1, distance: 1, tries: 1 });
+
+    game.simulationTime = 1.11;
+    Game.prototype.updateUI.call(game);
+    assert.equal(writes.distance, 2);
+});
+
+test('browser simulation reuses mutable state until the live world is invalidated', () => {
+    const game = {
+        simulationTime: 0,
+        penguin: {
+            x: 100, y: 200, vx: 0, vy: 0, radius: 10,
+            state: 'idle', crashedFrameCount: 0
+        },
+        planets: [],
+        bonuses: [],
+        target: {
+            id: 'target_1', position: { x: 700, y: 300 },
+            width: 50, height: 50, orbitSystem: null
+        },
+        slingshot: {
+            anchor: { x: 100, y: 200 },
+            velocityMultiplier: 100,
+            maxPullback: 100,
+            minPullback: 0
+        },
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        flightRect: { x: -100, y: -100, width: 1000, height: 800 },
+        levelRules: {},
+        physics: { gravitationalConstant: 3 },
+        tries: 0,
+        planetCollisions: 0,
+        currentAttemptScore: 0,
+        distance: 0
+    };
+
+    stepGameSimulation(game, 1 / 60);
+    const state = game._runtimeSimulationState;
+    stepGameSimulation(game, 1 / 60);
+    assert.equal(game._runtimeSimulationState, state);
+
+    game.penguin.state = 'pullback';
+    game.penguin.x = 45;
+    game.penguin.y = 260;
+    stepGameSimulation(game, 1 / 60);
+    assert.equal(game.penguin.x, 45);
+    assert.equal(game.penguin.y, 260);
+    assert.equal(game._runtimeSimulationState, state);
+
+    invalidateGameSimulationState(game);
+    assert.equal(game._runtimeSimulationState, null);
+});
+
+test('shot paths retain every distinct flight position without cumulative accuracy loss', () => {
+    const game = {
+        penguin: { state: 'soaring' },
+        isRecordingPath: true,
+        currentShotPath: [],
+        shotPaths: [],
+        shotColors: ['#fff'],
+        currentColorIndex: 0
+    };
+
+    for (let x = 0; x < 5000; x++) {
+        Game.prototype.recordPathPoint.call(game, x, Math.sin(x / 20) * 100);
+    }
+    assert.equal(game.currentShotPath.length, 5000);
+    assert.deepEqual(game.currentShotPath[2400], {
+        x: 2400,
+        y: Math.sin(2400 / 20) * 100
+    });
+
+    // Identical stationary samples add no geometry or memory.
+    Game.prototype.recordPathPoint.call(game, 4999, Math.sin(4999 / 20) * 100);
+    assert.equal(game.currentShotPath.length, 5000);
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+        game.currentShotPath = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
+        game.isRecordingPath = true;
+        Game.prototype.endRecordingShotPath.call(game);
+    }
+    assert.equal(game.shotPaths.length, 7);
+});
+
 test('level-end buttons handle clicks before the screen-wide continue action', () => {
     let buttonClicks = 0;
     let continueCalls = 0;
@@ -439,6 +556,44 @@ test('main Kevin render is clipped to the playfield', () => {
     ]);
 });
 
+test('real Penguin rendering draws a preprocessed frame without pixel-buffer work', () => {
+    const calls = [];
+    const cachedFrame = { kind: 'cached-frame' };
+    const context = {
+        imageSmoothingEnabled: true,
+        save: () => calls.push(['save']),
+        restore: () => calls.push(['restore']),
+        translate: (...args) => calls.push(['translate', ...args]),
+        scale: (...args) => calls.push(['scale', ...args]),
+        drawImage: (...args) => calls.push(['drawImage', ...args])
+    };
+    const penguin = Object.assign(Object.create(Penguin.prototype), {
+        x: 125,
+        y: 240,
+        aniFrame: 1,
+        currentAnimationType: 'xc',
+        metadata: {
+            xc: {
+                frame_width: 23,
+                frame_height: 31,
+                registration_points: [[10, 12], [11, 11]]
+            }
+        },
+        processedSpriteFrames: { xc: [{}, cachedFrame] }
+    });
+
+    penguin.drawRealSprite(context);
+
+    assert.deepEqual(calls, [
+        ['save'],
+        ['translate', 125, 240],
+        ['translate', -11, -11],
+        ['scale', 1.2, 1.2],
+        ['drawImage', cachedFrame, 0, 0],
+        ['restore']
+    ]);
+});
+
 test('trajectory lines and trail marks are clipped to the playfield', () => {
     const { calls, context } = createRecordingContext();
     const rendered = [];
@@ -458,6 +613,39 @@ test('trajectory lines and trail marks are clipped to the playfield', () => {
         ['beginPath'],
         ['rect', 0, 0, 800, 600],
         ['clip'],
+        ['restore']
+    ]);
+});
+
+test('alpha-mask rendering draws the canvas cached at launch without pixel-buffer work', () => {
+    const calls = [];
+    const renderCanvas = { kind: 'colored-alpha-mask' };
+    const context = {
+        globalAlpha: 1,
+        save: () => calls.push(['save']),
+        restore: () => calls.push(['restore']),
+        translate: (...args) => calls.push(['translate', ...args]),
+        drawImage: (...args) => calls.push(['drawImage', ...args])
+    };
+    const game = {
+        penguin: { x: 120, y: 230 },
+        shotColors: ['#ff00aa'],
+        currentColorIndex: 0,
+        alphaMasks: [],
+        getColoredAlphaMaskCanvas: color => {
+            assert.equal(color, '#ff00aa');
+            return renderCanvas;
+        }
+    };
+
+    Game.prototype.createAlphaMaskAtLaunchPosition.call(game);
+    Game.prototype.drawAlphaMasks.call(game, context);
+
+    assert.equal(game.alphaMasks[0].renderCanvas, renderCanvas);
+    assert.deepEqual(calls, [
+        ['save'],
+        ['translate', 120, 230],
+        ['drawImage', renderCanvas, -8, -13],
         ['restore']
     ]);
 });

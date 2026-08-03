@@ -1,5 +1,5 @@
 import { cloneOrbitState } from './orbitSimulation.js';
-import { stepSimulation, SimulationEventType } from './simulationEngine.js';
+import { stepSimulationMutable, SimulationEventType } from './simulationEngine.js';
 import { effectiveGravitationalReach } from './globalConstants.js';
 import { LevelOrbitType } from './levelSchema.js';
 import { LEVEL_DEFAULTS } from './config/gameConfig.js';
@@ -27,7 +27,9 @@ function orbitFromRuntime(system) {
 function applyOrbitToRuntime(system, orbit) {
     if (!system || !orbit) return;
     system.orbitAngle = orbit.angle;
-    system.velocity = { ...orbit.velocity };
+    system.velocity ||= { x: 0, y: 0 };
+    system.velocity.x = orbit.velocity.x;
+    system.velocity.y = orbit.velocity.y;
 }
 
 export function captureGameSimulationState(game) {
@@ -108,25 +110,44 @@ export function applyGameSimulationState(game, state) {
     state.planets.forEach((planetState, index) => {
         const planet = game.planets[index];
         if (!planet) return;
-        planet.position = { ...planetState.position };
+        planet.position.x = planetState.position.x;
+        planet.position.y = planetState.position.y;
         applyOrbitToRuntime(planet.orbitSystem, planetState.orbit);
     });
     state.bonuses.forEach((bonusState, index) => {
         const bonus = game.bonuses[index];
         if (!bonus) return;
-        bonus.position = { ...bonusState.position };
+        bonus.position.x = bonusState.position.x;
+        bonus.position.y = bonusState.position.y;
         applyOrbitToRuntime(bonus.orbitSystem, bonusState.orbit);
         if (bonusState.collected && bonus.state !== 'Hit') bonus.collect();
         else if (!bonusState.collected && bonus.state === 'Hit') bonus.reset();
     });
-    game.target.position = { ...state.target.position };
+    game.target.position.x = state.target.position.x;
+    game.target.position.y = state.target.position.y;
     applyOrbitToRuntime(game.target.orbitSystem, state.target.orbit);
 }
 
 export function stepGameSimulation(game, deltaTime) {
-    const result = stepSimulation(captureGameSimulationState(game), deltaTime);
-    applyGameSimulationState(game, result.state);
+    const state = game._runtimeSimulationState ||= captureGameSimulationState(game);
+    // Before launch, the slingshot interaction is the authoritative owner of
+    // Kevin's position. Keep the reusable simulation state aligned so applying
+    // it cannot snap an idle/pullback Penguin back to an older frame.
+    if (game.penguin.state !== 'soaring' && game.penguin.state !== 'crashed') {
+        state.penguin.position.x = game.penguin.x;
+        state.penguin.position.y = game.penguin.y;
+        state.penguin.velocity.x = game.penguin.vx;
+        state.penguin.velocity.y = game.penguin.vy;
+        state.penguin.state = game.penguin.state;
+        state.penguin.crashFramesRemaining = game.penguin.crashedFrameCount || 0;
+    }
+    const result = stepSimulationMutable(state, deltaTime);
+    applyGameSimulationState(game, state);
     return result;
+}
+
+export function invalidateGameSimulationState(game) {
+    game._runtimeSimulationState = null;
 }
 
 export function applyGameSimulationEvents(game, events, deltaTime) {

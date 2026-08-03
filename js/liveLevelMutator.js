@@ -48,6 +48,7 @@ export class LiveLevelMutator {
             addToPhysics.call(this.game.physics, object);
         }
 
+        this.game.invalidateSimulationState?.();
         return true;
     }
 
@@ -70,6 +71,7 @@ export class LiveLevelMutator {
             this.game[definition.singleton] = null;
         }
 
+        this.game.invalidateSimulationState?.();
         return true;
     }
 

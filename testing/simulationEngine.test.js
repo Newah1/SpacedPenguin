@@ -19,6 +19,11 @@ import {
 import { HeadlessGameEngine } from './headlessEngine.js';
 import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
 import {
+    advanceOrbitGraph,
+    advanceOrbitGraphMutable,
+    compileOrbitGraph
+} from '../js/orbitSimulation.js';
+import {
     MAX_TRAJECTORY_WORKERS,
     resolveTrajectoryWorkerCount
 } from './parallelTrajectoryRunner.js';
@@ -49,6 +54,38 @@ function assertPointClose(actual, expected, epsilon = 1e-8) {
     assert.ok(Math.abs(actual.x - expected.x) < epsilon, `${actual.x} != ${expected.x}`);
     assert.ok(Math.abs(actual.y - expected.y) < epsilon, `${actual.y} != ${expected.y}`);
 }
+
+test('compiled mutable orbit graphs preserve dependency ordering across repeated steps', () => {
+    const entities = [
+        {
+            id: 'moon',
+            position: { x: 140, y: 100 },
+            orbit: {
+                type: 'circular', targetId: 'planet', center: null,
+                radius: 40, speed: 1, angle: 0, params: {}, velocity: { x: 0, y: 0 }
+            }
+        },
+        {
+            id: 'planet',
+            position: { x: 100, y: 100 },
+            orbit: {
+                type: 'circular', targetId: null, center: { x: 200, y: 200 },
+                radius: 100, speed: 0.5, angle: 0, params: {}, velocity: { x: 0, y: 0 }
+            }
+        }
+    ];
+    const expectedFirst = advanceOrbitGraph(entities, 1 / 60);
+    const mutable = structuredClone(entities);
+    const graph = compileOrbitGraph(mutable);
+
+    assert.deepEqual(graph.order, [1, 0]);
+    assert.equal(advanceOrbitGraphMutable(mutable, 1 / 60, graph), mutable);
+    assert.deepEqual(mutable, expectedFirst);
+
+    const expectedSecond = advanceOrbitGraph(expectedFirst, 1 / 60);
+    advanceOrbitGraphMutable(mutable, 1 / 60, graph);
+    assert.deepEqual(mutable, expectedSecond);
+});
 
 test('simulation steps are immutable and deterministic across 30 and 60 FPS', () => {
     const initial = createSimulationStateFromLevel(levelWith([
@@ -309,10 +346,17 @@ test('launch and scoring calculations are shared deterministic functions', () =>
         maxPullback: 100,
         minPullback: 10
     }).x;
+    const none = launchSpeed(0);
+    const tiny = launchSpeed(1);
+    const gentle = launchSpeed(5);
     const minimum = launchSpeed(10);
     const low = launchSpeed(20);
     const middle = launchSpeed(50);
     const maximum = launchSpeed(100);
+    assert.equal(none, 0);
+    assert.ok(tiny > none);
+    assert.ok(gentle > tiny);
+    assert.ok(gentle < minimum);
     assert.equal(minimum, 120);
     assert.ok(low > minimum);
     assert.ok(middle > low);

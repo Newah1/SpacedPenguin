@@ -134,36 +134,43 @@ export function advanceOrbitGraph(entities, deltaTime) {
         position: clonePoint(entity.position),
         orbit: cloneOrbitState(entity.orbit)
     }));
-    const byId = new Map(source.map((entity, index) => [entity.id, { entity, index }]));
-    const resolved = new Map();
-    const resolving = new Set();
+    return advanceOrbitGraphMutable(source, deltaTime, compileOrbitGraph(source));
+}
 
-    const resolveEntity = index => {
-        if (resolved.has(index)) return resolved.get(index);
-        const entity = source[index];
-        if (!entity.orbit) {
-            resolved.set(index, entity);
-            return entity;
-        }
-        if (resolving.has(index)) {
-            resolved.set(index, entity);
-            return entity;
-        }
+export function compileOrbitGraph(entities) {
+    const indexesById = new Map(entities.map((entity, index) => [entity.id, index]));
+    const targetIndexes = entities.map(entity => (
+        entity.orbit?.targetId && indexesById.has(entity.orbit.targetId)
+            ? indexesById.get(entity.orbit.targetId)
+            : -1
+    ));
+    const visitState = new Uint8Array(entities.length);
+    const order = [];
 
-        resolving.add(index);
-        let target = null;
-        let center = entity.orbit.center;
-        if (entity.orbit.targetId && byId.has(entity.orbit.targetId)) {
-            const targetEntry = byId.get(entity.orbit.targetId);
-            target = resolveEntity(targetEntry.index);
-            center = target.position;
-        }
-        const stepped = stepOrbit(entity.orbit, entity.position, center, target, deltaTime);
-        const result = { ...entity, position: stepped.position, orbit: stepped.orbit };
-        resolving.delete(index);
-        resolved.set(index, result);
-        return result;
+    const visit = index => {
+        if (visitState[index] === 2) return;
+        if (visitState[index] === 1) return;
+        visitState[index] = 1;
+        const targetIndex = targetIndexes[index];
+        if (targetIndex >= 0) visit(targetIndex);
+        visitState[index] = 2;
+        order.push(index);
     };
 
-    return source.map((_, index) => resolveEntity(index));
+    for (let index = 0; index < entities.length; index++) visit(index);
+    return { order, targetIndexes };
+}
+
+export function advanceOrbitGraphMutable(entities, deltaTime, graph = compileOrbitGraph(entities)) {
+    for (const index of graph.order) {
+        const entity = entities[index];
+        if (!entity.orbit) continue;
+        const targetIndex = graph.targetIndexes[index];
+        const target = targetIndex >= 0 ? entities[targetIndex] : null;
+        const center = target?.position ?? entity.orbit.center;
+        const stepped = stepOrbit(entity.orbit, entity.position, center, target, deltaTime);
+        entity.position = stepped.position;
+        entity.orbit = stepped.orbit;
+    }
+    return entities;
 }

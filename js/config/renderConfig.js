@@ -106,7 +106,8 @@ export const RENDER_CONFIG = deepFreeze({
         lineWidth: 1,
         completedAlpha: 0.9,
         activeAlpha: 0.7,
-        alphaMaskHistory: 3
+        alphaMaskHistory: 3,
+        maximumCompletedPaths: 7
     },
     penguin: {
         renderOrder: 5,

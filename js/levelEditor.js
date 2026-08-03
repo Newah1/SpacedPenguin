@@ -193,6 +193,7 @@ class LevelEditor {
         this.container.style.display = 'none';
         this.cancelLongPress();
         this.selectObject(null);
+        this.game?.invalidateSimulationState?.();
         const nextState = this.previousGameState ?? GameState.PLAYING;
         this.previousGameState = null;
         if (typeof this.game.setState === 'function') this.game.setState(nextState);
@@ -215,6 +216,7 @@ class LevelEditor {
     toggleMode() {
         if (this.mode === 'edit') {
             this.mode = 'play';
+            this.game?.invalidateSimulationState?.();
             this.selectObject(null); // Clear selection when entering play mode
             this.stopDragging(); // Stop any ongoing drag operation
         } else {
@@ -814,6 +816,7 @@ class LevelEditor {
                 this.game.physics.gravitationalConstant = value;
             }
         }
+        this.game?.invalidateSimulationState?.();
     }
 
     captureObjectPropertyState(object) {
@@ -890,6 +893,7 @@ class LevelEditor {
         if (this.game.physics && state.gravitationalConstant !== undefined) {
             this.game.physics.gravitationalConstant = state.gravitationalConstant;
         }
+        this.game?.invalidateSimulationState?.();
     }
 
     editStatesEqual(left, right) {
@@ -897,6 +901,7 @@ class LevelEditor {
     }
 
     synchronizeEditedObject(object) {
+        this.game?.invalidateSimulationState?.();
         if (object.constructor.name === 'Planet') {
             this.game.physics?.refreshPlanet?.(object);
             this.refreshPlanetSprite(object);

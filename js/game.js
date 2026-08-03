@@ -12,7 +12,11 @@ import Console from './console.js';
 import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
-import { applyGameSimulationEvents, stepGameSimulation } from './gameSimulationAdapter.js';
+import {
+    applyGameSimulationEvents,
+    invalidateGameSimulationState,
+    stepGameSimulation
+} from './gameSimulationAdapter.js';
 import { calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
 import {
     LevelObjectType,
@@ -139,13 +143,17 @@ class Game {
         // Shot path tracing system (like original game)
         this.shotPaths = []; // Array of complete shot paths
         this.currentShotPath = []; // Current shot being recorded
+        this.currentShotRenderPath = null;
         this.shotColors = RENDER_CONFIG.shotTrails.colors;
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
+        this._runtimeSimulationState = null;
         
         // Alpha mask system (matching original game's k1, k2, k3 sprites)
         this.alphaMasks = []; // Array of last 3 launch positions with alpha masks
         this.alphaMaskImage = null; // The Kev_Alph alpha mask image
+        this.alphaMaskStencil = null;
+        this.coloredAlphaMaskCanvases = new Map();
         this.loadAlphaMask();
         
         // Input handling
@@ -164,6 +172,8 @@ class Game {
             distance: document.getElementById('distance'),
             tries: document.getElementById('tries')
         };
+        this._hudValues = Object.create(null);
+        this._nextDistanceHudUpdate = 0;
         
         plog.debug('UI elements found:', this.ui);
         plog.debug('Asset loader available:', !!this.assetLoader);
@@ -616,6 +626,7 @@ class Game {
         this.penguin.launch(velocity.x, velocity.y);
         this.penguin.setState('soaring');
         this.tries++;
+        this.invalidateSimulationState();
         this.updateUI();
         
         // Play launch sound
@@ -654,25 +665,41 @@ class Game {
     startRecordingShotPath() {
         this.isRecordingPath = true;
         this.currentShotPath = [];
+        this.currentShotRenderPath = typeof Path2D === 'function' ? new Path2D() : null;
         plog.waddle(`Started recording shot path ${this.shotPaths.length + 1} with color ${this.shotColors[this.currentColorIndex]}`);
     }
     
     recordPathPoint(x, y) {
-        if (this.isRecordingPath && this.penguin.state != "crashed") {
-            this.currentShotPath.push({ x: x, y: y });
+        if (!this.isRecordingPath || this.penguin.state === 'crashed') return;
+        const previous = this.currentShotPath.at(-1);
+        if (previous && x === previous.x && y === previous.y) {
+            return;
         }
+
+        if (this.currentShotRenderPath) {
+            if (previous) {
+                this.currentShotRenderPath.lineTo(x, y);
+            } else {
+                this.currentShotRenderPath.moveTo(x, y);
+            }
+        }
+        this.currentShotPath.push({ x, y });
     }
     
     endRecordingShotPath() {
         if (this.isRecordingPath && this.currentShotPath.length > 1) {
             // Store the complete path with its color
             const shotPath = {
-                points: [...this.currentShotPath],
+                points: this.currentShotPath,
+                renderPath: this.currentShotRenderPath,
                 color: this.shotColors[this.currentColorIndex],
                 shotNumber: this.shotPaths.length + 1
             };
             
             this.shotPaths.push(shotPath);
+            if (this.shotPaths.length > RENDER_CONFIG.shotTrails.maximumCompletedPaths) {
+                this.shotPaths.shift();
+            }
             plog.waddle(`Saved shot path ${shotPath.shotNumber} with ${shotPath.points.length} points in color ${shotPath.color}`);
             
             // Cycle to next color
@@ -681,11 +708,13 @@ class Game {
         
         this.isRecordingPath = false;
         this.currentShotPath = [];
+        this.currentShotRenderPath = null;
     }
     
     clearAllShotPaths() {
         this.shotPaths = [];
         this.currentShotPath = [];
+        this.currentShotRenderPath = null;
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
         plog.debug('Cleared all shot paths');
@@ -704,13 +733,15 @@ class Game {
             ctx.lineJoin = 'round';
             
             ctx.beginPath();
-            ctx.moveTo(shotPath.points[0].x, shotPath.points[0].y);
-            
-            for (let i = 1; i < shotPath.points.length; i++) {
-                ctx.lineTo(shotPath.points[i].x, shotPath.points[i].y);
+            if (shotPath.renderPath) {
+                ctx.stroke(shotPath.renderPath);
+            } else {
+                ctx.moveTo(shotPath.points[0].x, shotPath.points[0].y);
+                for (let i = 1; i < shotPath.points.length; i++) {
+                    ctx.lineTo(shotPath.points[i].x, shotPath.points[i].y);
+                }
+                ctx.stroke();
             }
-            
-            ctx.stroke();
             ctx.restore();
         }
         
@@ -724,75 +755,34 @@ class Game {
             ctx.lineJoin = 'round';
             
             ctx.beginPath();
-            ctx.moveTo(this.currentShotPath[0].x, this.currentShotPath[0].y);
-            
-            for (let i = 1; i < this.currentShotPath.length; i++) {
-                ctx.lineTo(this.currentShotPath[i].x, this.currentShotPath[i].y);
+            if (this.currentShotRenderPath) {
+                ctx.stroke(this.currentShotRenderPath);
+            } else {
+                ctx.moveTo(this.currentShotPath[0].x, this.currentShotPath[0].y);
+                for (let i = 1; i < this.currentShotPath.length; i++) {
+                    ctx.lineTo(this.currentShotPath[i].x, this.currentShotPath[i].y);
+                }
+                ctx.stroke();
             }
-            
-            ctx.stroke();
             ctx.restore();
         }
     }
     
     drawAlphaMasks(ctx) {
-        if (!this.alphaMaskImage || !this.alphaMaskImage.complete) return;
-        
         if (this.alphaMasks.length === 0) return;
         
         // Draw alpha masks in reverse order (oldest first, newest last)
         for (let i = this.alphaMasks.length - 1; i >= 0; i--) {
             const mask = this.alphaMasks[i];
+            if (!mask.renderCanvas) continue;
             
             ctx.save();
             ctx.globalAlpha = mask.alpha;
             ctx.translate(mask.x, mask.y);
-            
-            // Create a temporary canvas for the colored alpha mask
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = this.alphaMaskImage.width;
-            tempCanvas.height = this.alphaMaskImage.height;
-            
-            // Fill with the trace color
-            tempCtx.fillStyle = mask.color;
-            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-            
-            // Convert the black shape on white background to a proper alpha mask
-            // We want to keep the color only where the mask is black (the shape)
-            
-            // Get the alpha mask image data to convert black pixels to alpha
-            const maskCanvas = document.createElement('canvas');
-            const maskCtx = maskCanvas.getContext('2d');
-            maskCanvas.width = this.alphaMaskImage.width;
-            maskCanvas.height = this.alphaMaskImage.height;
-            
-            // Draw the alpha mask
-            maskCtx.drawImage(this.alphaMaskImage, 0, 0);
-            
-            // Get the mask image data
-            const maskImageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-            const maskData = maskImageData.data;
-            
-            // Convert grayscale values to alpha (black = opaque, white = transparent)
-            for (let i = 0; i < maskData.length; i += 4) {
-                const gray = (maskData[i] + maskData[i + 1] + maskData[i + 2]) / 3;
-                maskData[i] = 255;     // Red = white
-                maskData[i + 1] = 255; // Green = white
-                maskData[i + 2] = 255; // Blue = white
-                maskData[i + 3] = 255 - gray; // Alpha = inverted gray (black becomes opaque, white becomes transparent)
-            }
-            
-            // Put the converted mask back
-            maskCtx.putImageData(maskImageData, 0, 0);
-            
-            // Now use destination-in to apply this alpha mask
-            tempCtx.globalCompositeOperation = 'destination-in';
-            tempCtx.drawImage(maskCanvas, 0, 0);
-            
+
             // Draw the result centered on the launch position
             // Use the registration point from the original game: [8, 13]
-            ctx.drawImage(tempCanvas, -8, -13);
+            ctx.drawImage(mask.renderCanvas, -8, -13);
             
             ctx.restore();
         }
@@ -951,6 +941,7 @@ class Game {
         // Validate before clearing the current world so a bad definition cannot
         // leave the game half-loaded.
         this.levelLoader.assertLevelValid(level);
+        this.invalidateSimulationState();
 
         // Clear existing game state
         this.gameObjects = [];
@@ -1263,10 +1254,31 @@ class Game {
     }
     
     updateUI() {
-        this.ui.level.textContent = this.level;
-        this.ui.score.textContent = Utils.formatScore(this.score + this.currentAttemptScore);
-        this.ui.distance.textContent = Math.floor(this.distance);
-        this.ui.tries.textContent = this.tries;
+        this._hudValues ||= Object.create(null);
+        this.updateHudValue('level', this.level);
+        this.updateHudValue('score', Utils.formatScore(this.score + this.currentAttemptScore));
+        this.updateHudValue('tries', this.tries);
+
+        const simulationTime = this.simulationTime || 0;
+        if (
+            this.state !== GameState.PLAYING ||
+            this.distance === 0 ||
+            simulationTime >= (this._nextDistanceHudUpdate || 0)
+        ) {
+            this.updateHudValue('distance', Math.floor(this.distance));
+            this._nextDistanceHudUpdate = simulationTime + 0.1;
+        }
+    }
+
+    updateHudValue(key, value) {
+        const text = String(value);
+        if (this._hudValues[key] === text) return;
+        this._hudValues[key] = text;
+        if (this.ui[key]) this.ui[key].textContent = text;
+    }
+
+    invalidateSimulationState() {
+        invalidateGameSimulationState(this);
     }
     
     playSound(soundName) {
@@ -1460,6 +1472,7 @@ class Game {
             this.isDragging = false;
             this.mouseDown = false;
         }
+        this.invalidateSimulationState();
         plog.waddle(`Penguin reset to position: ${this.penguin.x}, ${this.penguin.y}, state: ${this.penguin.state}`);
     }
     
@@ -1767,7 +1780,8 @@ class Game {
             x: this.penguin.x,
             y: this.penguin.y,
             color: traceColor,
-            alpha: 0.6 // Semi-transparent like original
+            alpha: 0.6, // Semi-transparent like original
+            renderCanvas: this.getColoredAlphaMaskCanvas(traceColor)
         };
         
         // Shift existing masks (matching original game's setUpSnapping logic)
@@ -1792,12 +1806,61 @@ class Game {
         // Load the alpha mask image directly
         this.alphaMaskImage = new Image();
         this.alphaMaskImage.onload = () => {
-            plog.success('Alpha mask image loaded successfully');
+            try {
+                this.prepareAlphaMaskStencil();
+                for (const mask of this.alphaMasks) {
+                    mask.renderCanvas = this.getColoredAlphaMaskCanvas(mask.color);
+                }
+                plog.success('Alpha mask image loaded and cached successfully');
+            } catch (error) {
+                plog.error('Failed to prepare alpha mask image:', error);
+            }
         };
         this.alphaMaskImage.onerror = () => {
             plog.error('Failed to load alpha mask image');
         };
         this.alphaMaskImage.src = assetPath('ui/alpha_mask.png');
+    }
+
+    prepareAlphaMaskStencil() {
+        const width = this.alphaMaskImage.naturalWidth || this.alphaMaskImage.width;
+        const height = this.alphaMaskImage.naturalHeight || this.alphaMaskImage.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        context.drawImage(this.alphaMaskImage, 0, 0);
+
+        const imageData = context.getImageData(0, 0, width, height);
+        const pixels = imageData.data;
+        for (let index = 0; index < pixels.length; index += 4) {
+            const gray = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
+            pixels[index] = 255;
+            pixels[index + 1] = 255;
+            pixels[index + 2] = 255;
+            pixels[index + 3] = 255 - gray;
+        }
+        context.putImageData(imageData, 0, 0);
+
+        this.alphaMaskStencil = canvas;
+        this.coloredAlphaMaskCanvases.clear();
+    }
+
+    getColoredAlphaMaskCanvas(color) {
+        if (!this.alphaMaskStencil) return null;
+        const cached = this.coloredAlphaMaskCanvases.get(color);
+        if (cached) return cached;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = this.alphaMaskStencil.width;
+        canvas.height = this.alphaMaskStencil.height;
+        const context = canvas.getContext('2d');
+        context.fillStyle = color;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'destination-in';
+        context.drawImage(this.alphaMaskStencil, 0, 0);
+        this.coloredAlphaMaskCanvases.set(color, canvas);
+        return canvas;
     }
 }
 

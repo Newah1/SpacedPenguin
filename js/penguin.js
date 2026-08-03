@@ -6,6 +6,54 @@ import { RENDER_CONFIG } from './config/renderConfig.js';
 import { penguinAnimationAssetPath } from './config/assetConfig.js';
 import { AudioCue, getAudioCue } from './config/audioConfig.js';
 
+// All Penguin instances use the same animation assets. Keep one bounded set of
+// processed frames so the menu and live game do not repeat pixel conversion.
+const colorKeyedFrameCache = new Map();
+
+function createColorKeyedFrames(spriteSheet, metadata) {
+    const source = spriteSheet.currentSrc || spriteSheet.src || metadata.name;
+    const tolerance = RENDER_CONFIG.penguin.colorKeyTolerance;
+    const cacheKey = `${source}:${metadata.frame_width}x${metadata.frame_height}:${tolerance}`;
+    const cached = colorKeyedFrameCache.get(cacheKey);
+    if (cached) return cached;
+
+    const frameCount = metadata.frame_count ?? metadata.registration_points?.length ?? 0;
+    const frames = Array.from({ length: frameCount }, (_, frameIndex) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = metadata.frame_width;
+        canvas.height = metadata.frame_height;
+        const context = canvas.getContext('2d');
+        context.drawImage(
+            spriteSheet,
+            frameIndex * metadata.frame_width,
+            0,
+            metadata.frame_width,
+            metadata.frame_height,
+            0,
+            0,
+            metadata.frame_width,
+            metadata.frame_height
+        );
+
+        const imageData = context.getImageData(0, 0, metadata.frame_width, metadata.frame_height);
+        const pixels = imageData.data;
+        for (let index = 0; index < pixels.length; index += 4) {
+            if (
+                pixels[index] > 255 - tolerance &&
+                pixels[index + 1] > 255 - tolerance &&
+                pixels[index + 2] > 255 - tolerance
+            ) {
+                pixels[index + 3] = 0;
+            }
+        }
+        context.putImageData(imageData, 0, 0);
+        return canvas;
+    });
+
+    colorKeyedFrameCache.set(cacheKey, frames);
+    return frames;
+}
+
 export class Penguin {
     constructor(assetLoader) {
         this.assetLoader = assetLoader;
@@ -115,6 +163,12 @@ export class Penguin {
                 ]);
                 
                 this.metadata = { xc: xcMeta, yc: ycMeta, zc: zcMeta };
+                this.processedSpriteFrames = Object.fromEntries(
+                    Object.entries(this.metadata).map(([type, metadata]) => [
+                        type,
+                        createColorKeyedFrames(this.spriteSheets[type], metadata)
+                    ])
+                );
                 
                 plog.success('All metadata loaded:', this.metadata);
                 this.realSpritesLoaded = true;
@@ -544,17 +598,13 @@ export class Penguin {
     }
     
     drawRealSprite(ctx) {
-        const spriteSheet = this.spriteSheets[this.currentAnimationType];
         const metadata = this.metadata[this.currentAnimationType];
+        const frame = this.processedSpriteFrames?.[this.currentAnimationType]?.[this.aniFrame];
         
-        if (!spriteSheet || !metadata) {
+        if (!frame || !metadata) {
             this.drawFallbackSprite(ctx);
             return;
         }
-        
-        // Calculate frame position in sprite sheet
-        const frameX = this.aniFrame * metadata.frame_width;
-        const frameY = 0;
         
         // Get registration point for this frame
         const regPoint = metadata.registration_points[this.aniFrame] || metadata.registration_points[0];
@@ -570,42 +620,8 @@ export class Penguin {
         // Scale up the sprite slightly (1.5x for better visibility)
         const scale = RENDER_CONFIG.penguin.spriteScale;
         ctx.scale(scale, scale);
-        
-        // Create a temporary canvas for color keying
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = metadata.frame_width;
-        tempCanvas.height = metadata.frame_height;
-        
-        // Draw the original frame to temp canvas
-        tempCtx.drawImage(
-            spriteSheet,
-            frameX, frameY, metadata.frame_width, metadata.frame_height,
-            0, 0, metadata.frame_width, metadata.frame_height
-        );
-        
-        // Get image data for color keying
-        const imageData = tempCtx.getImageData(0, 0, metadata.frame_width, metadata.frame_height);
-        const data = imageData.data;
-        
-        // Color key: replace white (RGB:255) with transparent
-        // Use a tolerance for slight color variations
-        const tolerance = RENDER_CONFIG.penguin.colorKeyTolerance;
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            // Check if pixel is close to white
-            if (r > (255 - tolerance) && g > (255 - tolerance) && b > (255 - tolerance)) {
-                data[i + 3] = 0; // Set alpha to 0 (transparent)
-            }
-        }
-        
-        // Put the processed image data back
-        tempCtx.putImageData(imageData, 0, 0);
-        
-        // Draw the processed sprite with transparency
-        ctx.drawImage(tempCanvas, 0, 0);
+
+        ctx.drawImage(frame, 0, 0);
         
         ctx.restore();
     }

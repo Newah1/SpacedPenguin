@@ -97,13 +97,14 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             color: var(--hud-color);
             font-size: 16px;
             z-index: 10;
-            justify-content: space-between;
             width: calc(100% - 20px);
-            flex-wrap: wrap;
+            contain: layout paint style;
+            font-variant-numeric: tabular-nums;
         }
 
         body.is-menu #ui {
@@ -142,6 +143,7 @@
             
             #ui {
                 font-size: 12px;
+                display: flex;
                 flex-direction: column;
                 gap: 5px;
             }

@@ -1425,9 +1425,9 @@ class Slingshot extends GameObject {
         const dx = x - this.anchor.x;
         const dy = y - this.anchor.y;
         let distance = Math.sqrt(dx * dx + dy * dy);
-        // Clamp distance between min and max
+        // Clamp only the maximum. Near-zero pulls must remain near zero so the
+        // launch curve can provide precise, gentle shots.
         if (distance > this.maxPullback) distance = this.maxPullback;
-        if (distance < this.minPullback) distance = this.minPullback;
         // Use original rotationAngle logic
         const angle = Utils.rotationAngle({ x: dx, y: dy });
         // Find the new penguin position using findPoint

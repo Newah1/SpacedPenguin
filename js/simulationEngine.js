@@ -1,5 +1,5 @@
 import { integratePlanetGravity, LEGACY_PHYSICS_FPS, MAX_PHYSICS_STEP } from './simulation.js';
-import { advanceOrbitGraph } from './orbitSimulation.js';
+import { advanceOrbitGraphMutable, compileOrbitGraph } from './orbitSimulation.js';
 import { cloneSimulationState } from './simulationState.js';
 import { circlesOverlap, clonePoint, distance, pointInRect } from './simulationGeometry.js';
 import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from './config/gameConfig.js';
@@ -15,6 +15,8 @@ export const SimulationEventType = Object.freeze({
     ATTEMPT_RESET_REQUIRED: 'attempt_reset_required',
     RULE_FAILURE: 'rule_failure'
 });
+
+const compiledOrbitGraphs = new WeakMap();
 
 export function calculateLaunchScale(normalizedDistance) {
     const curve = SIMULATION_CONFIG.launchCurve;
@@ -37,13 +39,21 @@ export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot =
     const velocityMultiplier = slingshot.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier;
     const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
     const minPullback = slingshot.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
-    const pullback = Math.min(Math.max(pullbackPower, minPullback), maxPullback);
-    const pullbackRange = Math.max(1, maxPullback - minPullback);
-    const normalizedPull = Math.max(0, Math.min(1, (pullback - minPullback) / pullbackRange));
+    const pullback = Math.min(Math.max(pullbackPower, 0), maxPullback);
+    const curveKnee = Math.min(Math.max(minPullback, 0), maxPullback);
     const curve = SIMULATION_CONFIG.launchCurve;
-    const response = Math.pow(normalizedPull, curve.responseExponent);
-    const speedFactor = curve.minimumSpeedFactor +
-        (curve.maximumSpeedFactor - curve.minimumSpeedFactor) * response;
+    let speedFactor;
+    if (curveKnee > 0 && pullback <= curveKnee) {
+        speedFactor = curve.minimumSpeedFactor * (pullback / curveKnee);
+    } else {
+        const pullbackRange = Math.max(1, maxPullback - curveKnee);
+        const normalizedPull = Math.max(0, Math.min(1, (pullback - curveKnee) / pullbackRange));
+        const response = Math.pow(normalizedPull, curve.responseExponent);
+        speedFactor = curveKnee > 0
+            ? curve.minimumSpeedFactor +
+                (curve.maximumSpeedFactor - curve.minimumSpeedFactor) * response
+            : curve.maximumSpeedFactor * response;
+    }
     const speed = speedFactor * velocityMultiplier;
     const radians = angleDegrees * Math.PI / 180;
     return { x: Math.cos(radians) * speed, y: Math.sin(radians) * speed };
@@ -107,22 +117,13 @@ function appendFailureEvent(state, events) {
 }
 
 function advanceWorldOrbits(state, deltaTime) {
-    const entities = [
-        ...state.planets.map((entity, index) => ({ ...entity, simulationKind: 'planet', simulationIndex: index })),
-        ...state.bonuses.map((entity, index) => ({ ...entity, simulationKind: 'bonus', simulationIndex: index })),
-        { ...state.target, simulationKind: 'target', simulationIndex: 0 }
-    ];
-    const advanced = advanceOrbitGraph(entities, deltaTime);
-    for (const entity of advanced) {
-        if (entity.simulationKind === 'planet') state.planets[entity.simulationIndex] = stripSimulationMetadata(entity);
-        else if (entity.simulationKind === 'bonus') state.bonuses[entity.simulationIndex] = stripSimulationMetadata(entity);
-        else state.target = stripSimulationMetadata(entity);
+    let cached = compiledOrbitGraphs.get(state);
+    if (!cached) {
+        const entities = [...state.planets, ...state.bonuses, state.target];
+        cached = { entities, graph: compileOrbitGraph(entities) };
+        compiledOrbitGraphs.set(state, cached);
     }
-}
-
-function stripSimulationMetadata(entity) {
-    const { simulationKind, simulationIndex, ...clean } = entity;
-    return clean;
+    advanceOrbitGraphMutable(cached.entities, deltaTime, cached.graph);
 }
 
 function stepSoaringPenguin(state, deltaTime, events, options) {
