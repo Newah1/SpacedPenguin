@@ -21,6 +21,11 @@ export class CommandHistory {
     }
 
     recordCommand(command) {
+        const previous = this.undoStack.at(-1);
+        if (previous?.mergeWith?.(command)) {
+            this.redoStack = [];
+            return;
+        }
         this.undoStack.push(command);
         if (this.undoStack.length > this.limit) this.undoStack.shift();
         this.redoStack = [];

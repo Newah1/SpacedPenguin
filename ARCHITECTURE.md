@@ -143,7 +143,7 @@ flowchart TB
 | `OrbitSystem` | Runtime/editor orbit configuration facade | Shared `OrbitSimulation` | Direct calls delegate to the same pure orbit step used by browser and headless simulation. |
 | `UIManager` | Stack of Canvas UI screens and input dispatch | `LevelEndScreen`, audio | Rendered above game entities and below the editor overlay. |
 | `LevelEndScreen` | Animated score breakdown and continue/retry actions | `Game`, `UIManager` | Drives transitions out of `SCORING`. |
-| `LevelEditor` | In-browser object creation, selection, property editing, play/edit mode, export | `Game`, entity classes | Mutates the live runtime graph directly; it is not a separate model. |
+| `LevelEditor` | Coordinates in-browser object creation, selection, property editing, play/edit mode, and export | Editor views/controllers, command history, `Game` | Mutates the live runtime graph directly; it is not a separate model. |
 | `FullscreenManager` | Fullscreen DOM and scaling behavior | Canvas/container | Uses vendor-prefixed fallbacks in addition to the standard API. |
 | `PenguinLogger` / `Console` | Themed logs and debug commands | DOM and global runtime handles | Operational diagnostics, not durable telemetry. |
 | `PerformanceUtils` | Frame-time tracking and browser timing helpers | `GameManager` | The main loop records capped frame durations. |
@@ -474,12 +474,13 @@ UI is hybrid:
 
 ## 11. Level editor architecture
 
-The editor is an embedded mode over the live `Game` aggregate, not an offline document editor. `LiveLevelMutator` keeps runtime, typed, singleton, and physics collections synchronized. Reversible changes implement the typed `LiveEditCommand` contract from `js/editorCommands/`; `CommandRegistry` resolves strategies by type and `CommandHistory` invokes their `do()` and `undo()` methods against the same live objects.
+The editor is an embedded mode over the live `Game` aggregate, not an offline document editor. `LevelEditor` coordinates focused views/controllers from `js/levelEditor/` for the inspector, object list, toolbar, pointer input, and Canvas overlay. `LiveLevelMutator` keeps runtime, typed, singleton, and physics collections synchronized. Reversible changes implement the typed `LiveEditCommand` contract from `js/editorCommands/`; `CommandRegistry` resolves strategies by type and `CommandHistory` invokes their `do()` and `undo()` methods against the same live objects. Repeated input events from one focused property-edit session coalesce into a single history entry.
 
 ```mermaid
 flowchart LR
-    Toolbar[Editor DOM controls] --> Editor[LevelEditor]
-    Canvas[Pointer on Canvas] --> Editor
+    Views[Inspector / object list / toolbar] --> Editor[LevelEditor coordinator]
+    Canvas[Canvas input controller] --> Editor
+    Editor --> Overlay[Canvas overlay renderer]
     Editor --> Commands[Typed do/undo commands]
     Commands --> Live[Live Game object graph]
     Live --> Physics[Physics registries]
@@ -494,7 +495,7 @@ Architectural consequences:
 - Object membership is denormalized across `gameObjects`, typed arrays, singleton references, and physics registries. Add/remove operations must update all applicable stores.
 - Stable IDs are part of the data model because orbit relationships serialize by ID.
 - The editor exposes both comprehensive game export and its own serialization helpers; format changes must be reconciled across `Game`, `LevelEditor`, and `LevelLoader`.
-- Export and Ctrl+S download canonical level JSON. In-session undo/redo covers structural edits and canvas moves; property-field history and server persistence are not implemented.
+- Export and Ctrl+S download canonical level JSON. In-session undo/redo covers structural edits, canvas moves, orbit-center moves, object properties, and level settings; server persistence is not implemented.
 
 ## 12. Persistence and network behavior
 

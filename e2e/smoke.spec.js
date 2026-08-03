@@ -136,6 +136,13 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => window.game.planets.length)).toBe(0);
     await page.keyboard.press('Control+Shift+KeyZ');
     await expect.poll(() => page.evaluate(() => window.game.planets.length)).toBe(1);
+    const massInput = page.locator('input[data-property="mass"]');
+    await massInput.fill('1234');
+    await expect.poll(() => page.evaluate(() => window.game.planets[0].mass)).toBe(1234);
+    await page.keyboard.press('Control+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets[0].mass)).toBe(1000);
+    await page.keyboard.press('Control+Shift+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets[0].mass)).toBe(1234);
 
     const levelSettings = page.locator('.level-settings-item');
     await expect(levelSettings).toBeVisible();
@@ -147,6 +154,10 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     await page.locator('input[data-property="levelName"]').fill('Edited Browser Level');
     await page.locator('input[data-property="startX"]').fill('125');
     await page.locator('input[data-property="gravitationalConstant"]').fill('2.5');
+    await page.keyboard.press('Control+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.physics.gravitationalConstant)).toBe(3);
+    await page.keyboard.press('Control+Shift+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.physics.gravitationalConstant)).toBe(2.5);
 
     const exportButton = page.getByRole('button', { name: 'Export Level', exact: true });
     await expect(exportButton).toBeVisible();

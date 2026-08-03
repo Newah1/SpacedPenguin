@@ -31,6 +31,14 @@ export class Physics {
     removePlanet(planet) {
         this.planets = this.planets.filter(p => p.sprite !== planet);
     }
+
+    refreshPlanet(planet) {
+        const entry = this.planets.find(candidate => candidate.sprite === planet);
+        if (!entry) return;
+        entry.mass = planet.mass;
+        entry.collisionRadius = planet.collisionRadius;
+        entry.gravitationalReach = effectiveGravitationalReach(planet.gravitationalReach);
+    }
     
     // Add a bonus item to the physics system
     addBonus(bonus) {

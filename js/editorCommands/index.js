@@ -4,19 +4,25 @@ import CommandRegistry from './commandRegistry.js';
 import MoveObjectCommand from './moveObjectCommand.js';
 import MoveOrbitCenterCommand from './moveOrbitCenterCommand.js';
 import RemoveObjectCommand from './removeObjectCommand.js';
+import SetLevelSettingCommand from './setLevelSettingCommand.js';
+import SetObjectPropertyCommand from './setObjectPropertyCommand.js';
 
 export const LiveEditCommandType = Object.freeze({
     ADD_OBJECT: AddObjectCommand.type,
     REMOVE_OBJECT: RemoveObjectCommand.type,
     MOVE_OBJECT: MoveObjectCommand.type,
-    MOVE_ORBIT_CENTER: MoveOrbitCenterCommand.type
+    MOVE_ORBIT_CENTER: MoveOrbitCenterCommand.type,
+    SET_OBJECT_PROPERTY: SetObjectPropertyCommand.type,
+    SET_LEVEL_SETTING: SetLevelSettingCommand.type
 });
 
 export const liveEditCommandRegistry = new CommandRegistry([
     AddObjectCommand,
     RemoveObjectCommand,
     MoveObjectCommand,
-    MoveOrbitCenterCommand
+    MoveOrbitCenterCommand,
+    SetObjectPropertyCommand,
+    SetLevelSettingCommand
 ]);
 
 export function createLiveEditHistory(context, limit) {
@@ -29,5 +35,7 @@ export {
     CommandRegistry,
     MoveObjectCommand,
     MoveOrbitCenterCommand,
-    RemoveObjectCommand
+    RemoveObjectCommand,
+    SetLevelSettingCommand,
+    SetObjectPropertyCommand
 };

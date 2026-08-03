@@ -15,13 +15,13 @@
 
 ## Overview
 
-The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, and exporting levels in the browser. It edits the live game object graph rather than a separate document model. It provides in-session undo/redo for structural edits and canvas moves, while import and server-side persistence are not implemented.
+The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, and exporting levels in the browser. It edits the live game object graph rather than a separate document model. It provides in-session undo/redo for structural edits, canvas moves, object properties, and level settings, while import and server-side persistence are not implemented.
 
 ### Key Features
 - **Desktop Editing**: Mouse and keyboard editing through the centralized input router
 - **Visual Object Placement**: Toolbar creation and drag-to-position
 - **Real-time Property Editing**: Modify object properties with instant visual feedback
-- **Mobile Toolbar**: Responsive add/select controls; canvas long-press/touch editing is currently not connected by `InputActionManager`
+- **Mobile Toolbar**: Responsive add/select controls with Pointer Events for touch dragging and long-press actions
 - **Property Discovery**: Discovers many editable properties, with explicit per-class handling for important fields
 - **JSON Export**: Downloads a level definition for review and manual promotion into `levels/`
 - **Robust Object Management**: Advanced deletion system with automatic cleanup from all game systems
@@ -370,7 +370,7 @@ The export system gathers current live objects and writes the primary level enve
 
 ### Import and Save Status
 
-There is no file picker, arbitrary-path loader, server save, autosave, or local-storage save. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. Ctrl+S downloads the same canonical JSON as Export. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, and centering during the current editor session; direct property-field history is not yet implemented.
+There is no file picker, arbitrary-path loader, server save, autosave, or local-storage save. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. Ctrl+S downloads the same canonical JSON as Export. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, centering, object-property edits, and level-setting edits during the current editor session. Continuous input events from one focused field are coalesced into one undo step.
 
 ## Advanced Features
 
@@ -486,10 +486,12 @@ The level editor is built using a modular architecture:
 ```
 js/
 ├── console.js          # Console interface and command handling
-├── levelEditor.js      # Main editor logic and UI
+├── levelEditor.js      # Editor coordinator and live-edit domain logic
+├── levelEditor/        # Inspector, object list, toolbar, input, and overlay components
+├── editorCommands/     # Typed do/undo strategies and command history
 ├── gameObjects.js      # Game object classes and properties
 ├── levelLoader.js      # Level loading and object factory
-└── game.js            # Game engine integration
+└── game.js             # Game engine integration
 ```
 
 ### Key Components
@@ -501,9 +503,14 @@ js/
 
 **Level Editor (`levelEditor.js`):**
 - Object selection and manipulation with robust deletion system
-- Dynamic property panel generation with sprite selection
-- Visual indicator rendering (orbits, arrows, selection)
+- Coordinates focused inspector, object-list, toolbar, canvas-input, and overlay components
+- Applies live edits and records typed reversible commands
 - JSON download/export with manual review and promotion workflow
+
+**Editor Commands (`editorCommands/`):**
+- A `LiveEditCommand` contract with `do()` and `undo()` methods
+- Type-keyed strategies for structural, movement, object-property, and level-setting changes
+- Per-focus coalescing for continuous inspector input
 
 **Game Object Integration:**
 - Reflection-based property discovery with special handling for nested properties

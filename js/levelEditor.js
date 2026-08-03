@@ -1,18 +1,41 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
 import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
-import { STAGE_WIDTH, STAGE_HEIGHT, screenToStage, stageToScreen } from './viewport.js';
+import { STAGE_WIDTH, STAGE_HEIGHT, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
 import { OrbitSystem } from './gameObjects.js';
 import { getEditableClassNames } from './editorObjectRegistry.js';
 import LiveLevelMutator from './liveLevelMutator.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
+import LevelEditorOverlayRenderer from './levelEditor/overlayRenderer.js';
+import LevelEditorObjectListView from './levelEditor/objectListView.js';
+import LevelEditorInspectorView from './levelEditor/inspectorView.js';
+import LevelEditorToolbarView from './levelEditor/toolbarView.js';
+import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
 import {
     INPUT_CONFIG,
     isCompactEditorViewport,
     isTouchViewport
 } from './config/inputConfig.js';
+
+const EDITABLE_STATE_PROPERTIES = Object.freeze([
+    'name', 'rotation', 'alpha', 'visible', 'radius', 'width', 'height', 'mass',
+    'collisionRadius', 'gravitationalReach', 'color', 'planetType', 'value',
+    'rotationSpeed', 'state', 'spriteType', 'maxPullback', 'stretchLimit',
+    'velocityMultiplier', 'content', 'fontSize', 'fontFamily', 'textAlign',
+    'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth',
+    'glowColor', 'scaleWithDistance'
+]);
+const ORBIT_EDITOR_PROPERTIES = new Set([
+    'orbitTargetType', 'orbitTargetId', 'orbitCenterX', 'orbitCenterY',
+    'orbitRadius', 'orbitSpeed', 'orbitType', 'gravityStrength',
+    'velocityX', 'velocityY', 'validateObject'
+]);
+
+function cloneEditValue(value) {
+    return value === undefined ? undefined : structuredClone(value);
+}
 
 class LevelEditor {
     constructor(game) {
@@ -21,8 +44,16 @@ class LevelEditor {
         this.history = createLiveEditHistory({
             mutator: this.mutator,
             refresh: selection => this.refreshAfterHistory(selection),
-            updateOrbitSystem: object => this.updateOrbitSystem(object)
+            updateOrbitSystem: object => this.updateOrbitSystem(object),
+            restoreObjectPropertyState: (object, state) => this.restoreObjectPropertyState(object, state),
+            restoreLevelSettingsState: state => this.restoreLevelSettingsState(state)
         });
+        this.propertyEditSession = 0;
+        this.overlayRenderer = new LevelEditorOverlayRenderer(this);
+        this.objectListView = new LevelEditorObjectListView(this);
+        this.inspectorView = new LevelEditorInspectorView(this);
+        this.toolbarView = new LevelEditorToolbarView(this);
+        this.canvasInput = new LevelEditorCanvasInputController(this);
         this.active = false;
         this.previousGameState = null;
         this.mode = 'edit'; // 'edit' or 'play'
@@ -37,389 +68,28 @@ class LevelEditor {
         this.draggingOrbitCenter = false;
         this.orbitCenterObject = null; // The object whose orbit center we're dragging
         this.orbitCenterDragStart = null;
-        this.touchStartPos = null;
-        this.longPressTimer = null;
-        
         this.createUI();
         // Note: Event listeners now managed by InputActionManager
     }
     
     createUI() {
-        // Create editor UI container
         this.container = document.createElement('div');
         this.container.id = 'level-editor';
-        this.container.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 100;
-            display: none;
-        `;
-        
-        // Create toolbar with mobile-friendly styling and flexible layout
-        this.toolbar = document.createElement('div');
-        this.toolbar.style.cssText = `
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 330px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: auto;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            align-items: center;
-            min-height: 44px;
-        `;
-        
-        // Create wrapper for relative positioning of collapsible content
-        this.toolbarWrapper = document.createElement('div');
-        this.toolbarWrapper.style.cssText = `
-            position: relative;
-            width: 100%;
-        `;
-        this.toolbarWrapper.appendChild(this.toolbar);
-        
-        // Common button style for all toolbar buttons
-        const buttonStyle = `
-            padding: 8px 12px;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            min-height: 44px;
-            font-size: 14px;
-            touch-action: manipulation;
-            white-space: nowrap;
-            flex-shrink: 0;
-        `;
-        
-        // Mode toggle button with mobile-friendly styling
-        this.modeButton = document.createElement('button');
-        this.modeButton.textContent = 'Switch to Play Mode';
-        this.modeButton.style.cssText = buttonStyle + `
-            background: #4CAF50;
-        `;
-        this.modeButton.onclick = () => this.toggleMode();
-        
-        // Add object buttons - will be populated dynamically
-        this.addButtons = {};
-        this.addButtonContainer = document.createElement('div');
-        this.addButtonContainer.style.cssText = `
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: flex-start;
-            justify-content: flex-start;
-            width: 100%;
-        `;
-        
-        // Delete button with mobile-friendly styling
-        this.deleteButton = document.createElement('button');
-        this.deleteButton.textContent = 'Delete Selected';
-        this.deleteButton.style.cssText = buttonStyle + `
-            background: #f44336;
-        `;
-        this.deleteButton.onclick = () => this.deleteSelectedObject();
-        
-        // Clone button with mobile-friendly styling
-        this.cloneButton = document.createElement('button');
-        this.cloneButton.textContent = 'Clone Selected';
-        this.cloneButton.style.cssText = buttonStyle + `
-            background: #9C27B0;
-        `;
-        this.cloneButton.onclick = () => this.cloneSelected();
-        
-        // Export button with mobile-friendly styling
-        this.exportButton = document.createElement('button');
-        this.exportButton.textContent = 'Export Level';
-        this.exportButton.style.cssText = buttonStyle + `
-            background: #FF9800;
-        `;
-        this.exportButton.onclick = () => this.exportLevel();
-        
-        // Create collapsible section for object creation buttons
-        this.createCollapsibleSection();
-        
-        this.toolbar.appendChild(this.modeButton);
-        this.toolbar.appendChild(this.collapsibleToggle);
-        this.toolbar.appendChild(this.deleteButton);
-        this.toolbar.appendChild(this.cloneButton);
-        this.toolbar.appendChild(this.exportButton);
-        this.toolbarWrapper.appendChild(this.collapsibleSection);
-        
-        // Create mobile toolbar for touch-friendly controls
-        this.createMobileToolbar();
-        
-        // Create properties panel with mobile-responsive styling
-        this.propertiesPanel = document.createElement('div');
-        this.propertiesPanel.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 300px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 5px;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: auto;
-            max-height: 80vh;
-            overflow-y: auto;
-            touch-action: auto;
-        `;
-        
-        // Add mobile responsive behavior
-        if (isCompactEditorViewport()) {
-            this.propertiesPanel.style.cssText += `
-                width: calc(100vw - 40px);
-                max-width: 350px;
-                right: 20px;
-                top: 80px;
-                max-height: 60vh;
-            `;
-        }
-        this.propertiesPanel.innerHTML = '<h3>Properties</h3><p>Select an object to edit its properties</p>';
-        
-        // Create object list panel
+        this.container.style.cssText = 'position: fixed; inset: 0; pointer-events: none; z-index: 100; display: none;';
+        Object.assign(this, this.toolbarView.createElements());
+        this.propertiesPanel = this.inspectorView.createElement();
         this.createObjectListPanel();
-        
-        this.container.appendChild(this.toolbarWrapper);
-        this.container.appendChild(this.propertiesPanel);
-        this.container.appendChild(this.objectListPanel);
+        this.container.append(this.toolbarWrapper, this.propertiesPanel, this.objectListPanel, this.mobileToolbar);
         document.body.appendChild(this.container);
     }
-    
+
     createObjectListPanel() {
-        // Create object list panel with mobile-responsive styling
-        this.objectListPanel = document.createElement('div');
-        this.objectListPanel.style.cssText = `
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            width: 300px;
-            max-height: 400px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 5px;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: auto;
-            overflow-y: auto;
-            touch-action: auto;
-        `;
-        
-        // Add mobile responsive behavior
-        if (isCompactEditorViewport()) {
-            this.objectListPanel.style.cssText += `
-                width: calc(100vw - 40px);
-                max-width: 350px;
-                left: 20px;
-                bottom: 80px;
-                max-height: 300px;
-            `;
-        }
-        
-        this.objectListPanel.innerHTML = '<h3>Objects</h3><div id="object-list-content">Loading...</div>';
+        this.objectListPanel = this.objectListView.createElement();
     }
     
-    createCollapsibleSection() {
-        // Create toggle button for collapsible section
-        this.collapsibleToggle = document.createElement('button');
-        this.collapsibleToggle.textContent = 'Add Objects ▼';
-        this.collapsibleToggle.style.cssText = `
-            padding: 8px 12px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            min-height: 44px;
-            font-size: 14px;
-            touch-action: manipulation;
-            white-space: nowrap;
-            flex-shrink: 0;
-        `;
-        
-        // Create collapsible section
-        this.collapsibleSection = document.createElement('div');
-        this.collapsibleSection.style.cssText = `
-            position: absolute;
-            top: calc(100% + 5px);
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.95);
-            padding: 15px;
-            border-radius: 8px;
-            display: none;
-            flex-wrap: wrap;
-            gap: 8px;
-            z-index: 1002;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            max-height: 300px;
-            overflow-y: auto;
-            pointer-events: auto;
-        `;
-        
-        // Add close button to the collapsible section
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '✕';
-        closeButton.title = 'Close';
-        closeButton.style.cssText = `
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 30px;
-            height: 30px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1004;
-        `;
-        
-        closeButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.closeCollapsibleSection();
-        });
-        
-        // Prevent clicks from bubbling to elements underneath
-        this.collapsibleSection.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-        
-        this.collapsibleSection.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-        });
-        
-        this.collapsibleSection.addEventListener('mouseup', (e) => {
-            e.stopPropagation();
-        });
-        
-        // Move add button container to collapsible section
-        this.collapsibleSection.appendChild(this.addButtonContainer);
-        this.collapsibleSection.appendChild(closeButton);
-        
-        // Toggle functionality
-        this.collapsibleExpanded = false;
-        this.collapsibleToggle.onclick = () => {
-            if (this.collapsibleExpanded) {
-                this.closeCollapsibleSection();
-            } else {
-                this.openCollapsibleSection();
-            }
-        };
-        
-        // Close when clicking outside
-        document.addEventListener('click', (e) => {
-            if (this.collapsibleExpanded && 
-                !this.collapsibleSection.contains(e.target) && 
-                !this.collapsibleToggle.contains(e.target)) {
-                this.closeCollapsibleSection();
-            }
-        });
-    }
-    
-    openCollapsibleSection() {
-        this.collapsibleExpanded = true;
-        this.collapsibleSection.style.display = 'flex';
-        this.collapsibleToggle.textContent = 'Add Objects ▲';
-    }
-    
-    closeCollapsibleSection() {
-        this.collapsibleExpanded = false;
-        this.collapsibleSection.style.display = 'none';
-        this.collapsibleToggle.textContent = 'Add Objects ▼';
-    }
-    
-    createMobileToolbar() {
-        // Create mobile-specific toolbar for touch controls
-        this.mobileToolbar = document.createElement('div');
-        this.mobileToolbar.style.cssText = `
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 25px;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: auto;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        `;
-        
-        // Add instructions for mobile users
-        const instructionText = document.createElement('span');
-        instructionText.textContent = 'Long press to add objects';
-        instructionText.style.cssText = `
-            font-size: 12px;
-            color: #ccc;
-            margin-right: 10px;
-        `;
-        
-        // Clear selection button (useful on mobile)
-        const clearButton = document.createElement('button');
-        clearButton.textContent = '✕';
-        clearButton.title = 'Clear selection';
-        clearButton.style.cssText = `
-            width: 44px;
-            height: 44px;
-            border-radius: 22px;
-            background: #666;
-            color: white;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            touch-action: manipulation;
-        `;
-        clearButton.onclick = () => this.selectObject(null);
-        
-        // Add object button (alternative to long press)
-        const addButton = document.createElement('button');
-        addButton.textContent = '+';
-        addButton.title = 'Add object';
-        addButton.style.cssText = `
-            width: 44px;
-            height: 44px;
-            border-radius: 22px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            touch-action: manipulation;
-        `;
-        addButton.onclick = () => this.showMobileAddMenu();
-        
-        this.mobileToolbar.appendChild(instructionText);
-        this.mobileToolbar.appendChild(clearButton);
-        this.mobileToolbar.appendChild(addButton);
-        
-        this.container.appendChild(this.mobileToolbar);
-        
-        // Hide mobile toolbar on desktop
-        if (!isCompactEditorViewport()) {
-            this.mobileToolbar.style.display = 'none';
-        }
-    }
-    
+    openCollapsibleSection() { this.toolbarView.open(); }
+    closeCollapsibleSection() { this.toolbarView.close(); }
+
     showMobileAddMenu() {
         if (this.mode !== 'edit') return;
         
@@ -460,256 +130,21 @@ class LevelEditor {
     
     handleResize() {
         if (!this.active) return;
-        
-        // Update mobile toolbar visibility
-        if (this.mobileToolbar) {
-            if (isCompactEditorViewport()) {
-                this.mobileToolbar.style.display = 'flex';
-            } else {
-                this.mobileToolbar.style.display = 'none';
-            }
-        }
-        
-        // Update toolbar and properties panel positioning for mobile
-        if (isCompactEditorViewport()) {
-            // Mobile layout: stack vertically
-            if (this.toolbar) {
-                this.toolbar.style.cssText = `
-                    position: absolute;
-                    top: 10px;
-                    left: 10px;
-                    right: 10px;
-                    background: rgba(0, 0, 0, 0.8);
-                    padding: 10px;
-                    border-radius: 5px;
-                    color: white;
-                    font-family: Arial, sans-serif;
-                    pointer-events: auto;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 5px;
-                    align-items: center;
-                    min-height: 44px;
-                `;
-            }
-            
-            if (this.propertiesPanel) {
-                Object.assign(this.propertiesPanel.style, {
-                    width: 'calc(100vw - 40px)',
-                    maxWidth: '350px',
-                    right: '20px',
-                    top: '120px',
-                    maxHeight: '50vh'
-                });
-            }
-        } else {
-            // Desktop layout: side by side
-            if (this.toolbar) {
-                this.toolbar.style.cssText = `
-                    position: absolute;
-                    top: 10px;
-                    left: 10px;
-                    right: 330px;
-                    background: rgba(0, 0, 0, 0.8);
-                    padding: 10px;
-                    border-radius: 5px;
-                    color: white;
-                    font-family: Arial, sans-serif;
-                    pointer-events: auto;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 5px;
-                    align-items: center;
-                    min-height: 44px;
-                `;
-            }
-            
-            if (this.propertiesPanel) {
-                // Reset to desktop styling
-                this.propertiesPanel.style.width = '300px';
-                this.propertiesPanel.style.right = '10px';
-                this.propertiesPanel.style.top = '10px';
-                this.propertiesPanel.style.maxHeight = '80vh';
-            }
-        }
-        
-        // Update object list panel positioning for mobile
-        if (this.objectListPanel && isCompactEditorViewport()) {
-            Object.assign(this.objectListPanel.style, {
-                width: 'calc(100vw - 40px)',
-                maxWidth: '350px',
-                left: '20px',
-                bottom: '80px',
-                maxHeight: '300px'
-            });
-        } else if (this.objectListPanel) {
-            // Reset to desktop styling
-            this.objectListPanel.style.width = '300px';
-            this.objectListPanel.style.left = '10px';
-            this.objectListPanel.style.bottom = '10px';
-            this.objectListPanel.style.maxHeight = '400px';
-        }
+        this.toolbarView.resize();
+        this.inspectorView.resize();
+        this.objectListView.resize();
     }
     
     // Unified pointer event handlers (mouse + touch)
-    handlePointerDown(e) {
-        if (!this.active || this.mode !== 'edit') return;
-        e.preventDefault();
-        if (Number.isInteger(e.pointerId)) {
-            e.currentTarget?.setPointerCapture?.(e.pointerId);
-        }
-        
-        const coords = this.getEventCoordinates(e);
-        if (e.pointerType === 'touch') this.startLongPress(coords);
-        const clickedObject = this.getObjectAtPosition(coords.x, coords.y);
-        
-        plog.debug('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
-        
-        if (clickedObject) {
-            if (clickedObject.type === 'orbitCenter') {
-                // Handle orbit center selection and dragging
-                this.selectObject(clickedObject.object);
-                this.startOrbitCenterDragging(coords.x, coords.y, clickedObject.object);
-            } else {
-                // Handle normal object selection and dragging
-                this.selectObject(clickedObject);
-                this.startDragging(coords.x, coords.y);
-            }
-        } else {
-            this.selectObject(null);
-        }
-    }
-    
-    handlePointerMove(e) {
-        if (!this.active || this.mode !== 'edit') return;
-        if (e.pointerType === 'touch' && this.touchStartPos) {
-            const coords = this.getEventCoordinates(e);
-            const distance = Math.hypot(coords.x - this.touchStartPos.x, coords.y - this.touchStartPos.y);
-            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) {
-                this.cancelLongPress();
-            }
-        }
-        if (!this.dragging && !this.draggingOrbitCenter) return;
-        e.preventDefault();
-        
-        const coords = this.getEventCoordinates(e);
-        
-        if (this.draggingOrbitCenter) {
-            this.updateOrbitCenterDragging(coords.x, coords.y);
-        } else {
-            this.updateDragging(coords.x, coords.y);
-        }
-    }
-    
-    handlePointerUp(e) {
-        if (!this.active || this.mode !== 'edit') return;
-        e.preventDefault();
-        this.cancelLongPress();
-        if (Number.isInteger(e.pointerId) && e.currentTarget?.hasPointerCapture?.(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        }
-        
-        this.stopDragging();
-        this.stopOrbitCenterDragging();
-    }
+    handlePointerDown(event) { this.canvasInput.handlePointerDown(event); }
+    handlePointerMove(event) { this.canvasInput.handlePointerMove(event); }
+    handlePointerUp(event) { this.canvasInput.handlePointerUp(event); }
+    handleMouseDown(event) { this.canvasInput.handlePointerDown(event); }
+    handleMouseMove(event) { this.canvasInput.handlePointerMove(event); }
+    handleMouseUp(event) { this.canvasInput.handlePointerUp(event); }
+    handleRightClick(event) { this.canvasInput.handleContextMenu(event); }
+    cancelLongPress() { this.canvasInput.cancelLongPress(); }
 
-    // Compatibility for callers that still route through Game's mouse methods.
-    handleMouseDown(e) { this.handlePointerDown(e); }
-    handleMouseMove(e) { this.handlePointerMove(e); }
-    handleMouseUp(e) { this.handlePointerUp(e); }
-
-    startLongPress(coords) {
-        this.cancelLongPress();
-        this.touchStartPos = coords;
-        this.showLongPressIndicator(coords.x, coords.y);
-        this.longPressTimer = setTimeout(() => {
-            if (!this.touchStartPos || this.mode !== 'edit') return;
-            navigator.vibrate?.(INPUT_CONFIG.hapticsMs.contextMenu);
-            this.showContextMenu(this.touchStartPos.x, this.touchStartPos.y);
-            this.cancelLongPress();
-        }, EDITOR_CONFIG.interaction.longPressMs);
-    }
-
-    cancelLongPress() {
-        if (this.longPressTimer) clearTimeout(this.longPressTimer);
-        this.longPressTimer = null;
-        this.touchStartPos = null;
-        this.hideLongPressIndicator();
-    }
-    
-    showLongPressIndicator(x, y) {
-        // Remove existing indicator
-        this.hideLongPressIndicator();
-        
-        // Create visual indicator for long press
-        this.longPressIndicator = document.createElement('div');
-        this.longPressIndicator.style.cssText = `
-            position: fixed;
-            width: 60px;
-            height: 60px;
-            border: 3px solid #00ff00;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1001;
-            animation: longPressAnimation 0.5s ease-out;
-            transform: translate(-50%, -50%);
-        `;
-        
-        // Convert canvas coordinates to screen coordinates
-        const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y);
-        const screenX = screenPoint.x;
-        const screenY = screenPoint.y;
-        
-        this.longPressIndicator.style.left = screenX + 'px';
-        this.longPressIndicator.style.top = screenY + 'px';
-        
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes longPressAnimation {
-                0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-                50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
-                100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        document.body.appendChild(this.longPressIndicator);
-    }
-    
-    hideLongPressIndicator() {
-        if (this.longPressIndicator) {
-            this.longPressIndicator.remove();
-            this.longPressIndicator = null;
-        }
-    }
-    
-    handleRightClick(e) {
-        if (!this.active || this.mode !== 'edit') return;
-        e.preventDefault();
-        
-        const coords = this.getEventCoordinates(e);
-        this.showContextMenu(coords.x, coords.y);
-    }
-    
-    getEventCoordinates(e) {
-        // Handle both mouse and touch events
-        let pointer;
-        if (e.touches && e.touches.length > 0) {
-            pointer = e.touches[0];
-        } else if (e.changedTouches && e.changedTouches.length > 0) {
-            pointer = e.changedTouches[0];
-        } else {
-            pointer = e;
-        }
-        return screenToStage(
-            this.game.canvas,
-            this.game.viewport,
-            pointer.clientX,
-            pointer.clientY
-        );
-    }
-    
     enter() {
         if (this.active) return;
         this.previousGameState = this.game.state;
@@ -790,80 +225,13 @@ class LevelEditor {
     }
     
     updateModeButton() {
-        if (this.mode === 'edit') {
-            this.modeButton.textContent = 'Switch to Play Mode';
-            this.modeButton.style.background = '#4CAF50';
-        } else {
-            this.modeButton.textContent = 'Switch to Edit Mode';
-            this.modeButton.style.background = '#FF9800';
-        }
+        this.toolbarView.updateMode(this.mode);
     }
     
     populateObjectButtons() {
-        // Clear existing buttons
-        this.addButtonContainer.innerHTML = '';
-        this.addButtons = {};
-        
-        if (!this.gameObjectClasses) return;
-        
-        // Get editable classes (exclude utility classes like BonusPopup, Arrow)
-        const editableClasses = this.getEditableObjectClasses();
-        
-        editableClasses.forEach(className => {
-            const btn = document.createElement('button');
-            btn.textContent = `Add ${className}`;
-            btn.style.cssText = `
-                padding: 10px 15px;
-                background: #2196F3;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                min-height: 44px;
-                font-size: 13px;
-                font-weight: 500;
-                touch-action: manipulation;
-                white-space: nowrap;
-                flex-shrink: 0;
-                transition: background-color 0.2s ease;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-                position: relative;
-                z-index: 1003;
-            `;
-            
-            // Add hover effects
-            btn.addEventListener('mouseenter', () => {
-                btn.style.background = '#1976D2';
-                btn.style.transform = 'translateY(-1px)';
-                btn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
-            });
-            
-            btn.addEventListener('mouseleave', () => {
-                btn.style.background = '#2196F3';
-                btn.style.transform = 'translateY(0)';
-                btn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
-            });
-            
-            // Ensure click events are properly handled
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                this.addObject(className);
-            });
-            
-            btn.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-            });
-            
-            btn.addEventListener('mouseup', (e) => {
-                e.stopPropagation();
-            });
-            
-            this.addButtons[className] = btn;
-            this.addButtonContainer.appendChild(btn);
-        });
+        this.toolbarView.populate(this.getEditableObjectClasses());
     }
-    
+
     getEditableObjectClasses() {
         return getEditableClassNames(this.gameObjectClasses);
     }
@@ -994,112 +362,9 @@ class LevelEditor {
     }
     
     updatePropertiesPanel() {
-        if (!this.selectedObject) {
-            this.propertiesPanel.innerHTML = '<h3>Properties</h3><p>Select an object to edit its properties</p>';
-            return;
-        }
-        
-        const obj = this.selectedObject;
-        if (obj.isLevelSettings) {
-            let html = '<h3>Level Settings</h3>';
-            this.getLevelSettingsProperties().forEach(prop => {
-                html += this.createPropertyInput(prop.label, prop.key, prop.value, prop.type, prop);
-            });
-            this.propertiesPanel.innerHTML = html;
-            this.setupPropertyInputs();
-            return;
-        }
-
-        let html = `<h3>Properties - ${obj.constructor.name}</h3>`;
-        
-        // Get all editable properties using reflection
-        const properties = this.getEditableProperties(obj);
-        
-        properties.forEach(prop => {
-            html += this.createPropertyInput(prop.label, prop.key, prop.value, prop.type, prop);
-        });
-
-        // Quick actions
-        let quickActionsHtml = `
-            <div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
-                <div style="font-weight: bold; margin-bottom: 6px;">Quick Actions</div>
-                <button id="center-object-btn" 
-                        style="width: 100%; padding: 10px; background: #4a90e2; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation; margin-bottom: 8px;">
-                    Center on Canvas
-                </button>`;
-        
-        // Add reset button for gravity orbits
-        if (obj.orbitSystem && obj.orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
-            plog.debug('Adding reset button to quick actions');
-            quickActionsHtml += `
-                <button id="reset-gravity-orbit-btn" 
-                        style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation; margin-bottom: 8px;">
-                    Reset Position (Keep Current Velocity)
-                </button>
-                <button id="test-velocity-btn" 
-                        style="width: 100%; padding: 10px; background: #f39c12; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; touch-action: manipulation;">
-                    TEST: Set Velocity (5, 0)
-                </button>`;
-        }
-        
-        quickActionsHtml += `</div>`;
-        html += quickActionsHtml;
-        
-        this.propertiesPanel.innerHTML = html;
-        
-        // Add event listeners to property inputs
-        this.setupPropertyInputs();
-
-        // Wire up quick action buttons
-        const centerBtn = this.propertiesPanel.querySelector('#center-object-btn');
-        if (centerBtn) {
-            centerBtn.addEventListener('click', () => this.centerSelectedObjectOnCanvas());
-        }
-        
-        const resetBtn = this.propertiesPanel.querySelector('#reset-gravity-orbit-btn');
-        if (resetBtn) {
-            plog.debug('Found reset button, adding event listener');
-            resetBtn.addEventListener('click', () => {
-                plog.info('Reset button clicked in quick actions!');
-                this.resetGravityOrbit(obj);
-            });
-        } else {
-            plog.warn('No reset button found in DOM');
-        }
-        
-        const testBtn = this.propertiesPanel.querySelector('#test-velocity-btn');
-        if (testBtn) {
-            plog.debug('Found test velocity button, adding event listener');
-            testBtn.addEventListener('click', () => {
-                plog.info('🚀 TEST: Setting velocity to (5, 0)');
-                plog.debug('Before set - velocity:', obj.orbitSystem.velocity);
-                
-                obj.orbitSystem.velocity = { x: 5, y: 0 };
-                
-                plog.debug('After set - velocity:', obj.orbitSystem.velocity);
-                plog.debug('Object position:', obj.position || {x: obj.x, y: obj.y});
-                plog.debug('Orbit center:', obj.orbitSystem.getResolvedCenter());
-                plog.info('TEST: Velocity set to (5,0) - object should move RIGHT while being pulled by gravity');
-                
-                // Clear any accumulated state
-                if (obj.orbitSystem._lastAccel) {
-                    obj.orbitSystem._lastAccel = { x: 0, y: 0 };
-                }
-                if (obj.orbitSystem._debugCounter) {
-                    obj.orbitSystem._debugCounter = 0; // Reset to see immediate debug output
-                }
-                
-                // Update UI to show new velocity
-                const velocityXInput = this.propertiesPanel.querySelector('input[data-property="velocityX"]');
-                const velocityYInput = this.propertiesPanel.querySelector('input[data-property="velocityY"]');
-                if (velocityXInput) velocityXInput.value = '5';
-                if (velocityYInput) velocityYInput.value = '0';
-                
-                plog.success('✓ Test setup complete - watch for gravity debug output');
-            });
-        }
+        this.inspectorView.render();
     }
-    
+
     getEditableProperties(obj) {
         const properties = [];
         const className = obj.constructor.name;
@@ -1406,125 +671,6 @@ class LevelEditor {
         return properties;
     }
     
-    createPropertyInput(label, property, value, type, options = {}) {
-        let inputHtml = '';
-        const baseStyle = "width: 100%; padding: 8px; border: 1px solid #555; background: #333; color: white; border-radius: 5px; font-size: 16px; min-height: 44px; touch-action: manipulation;";
-        
-        switch (type) {
-            case 'checkbox':
-                inputHtml = `<input type="checkbox" 
-                                   data-property="${property}" 
-                                   ${value ? 'checked' : ''}
-                                   style="width: auto;">`;
-                break;
-                
-            case 'select':
-                inputHtml = `<select data-property="${property}" style="${baseStyle}">`;
-                if (options.options) {
-                    options.options.forEach(opt => {
-                        const selected = opt === value ? 'selected' : '';
-                        const safeOption = this.escapeHtmlAttribute(opt);
-                        inputHtml += `<option value="${safeOption}" ${selected}>${safeOption}</option>`;
-                    });
-                }
-                inputHtml += `</select>`;
-                break;
-                
-            case 'color':
-                inputHtml = `<input type="color" 
-                                   data-property="${property}" 
-                                   value="${value || '#ffffff'}" 
-                                   style="${baseStyle}">`;
-                break;
-                
-            case 'button':
-                const buttonText = options.buttonText || 'Click';
-                inputHtml = `<button data-property="${property}" 
-                                   style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; touch-action: manipulation;">
-                               ${buttonText}
-                             </button>`;
-                break;
-                
-            case 'text':
-                inputHtml = `<input type="text" 
-                                   data-property="${property}" 
-                                   value="${this.escapeHtmlAttribute(value ?? '')}"
-                                   style="${baseStyle}">`;
-                break;
-
-            case 'nullableNumber':
-                const nullableMin = options.min !== undefined ? `min="${options.min}"` : '';
-                const nullableMax = options.max !== undefined ? `max="${options.max}"` : '';
-                const nullableStep = options.step !== undefined ? `step="${options.step}"` : 'step="any"';
-                inputHtml = `<input type="number"
-                                   data-property="${property}"
-                                   data-nullable="true"
-                                   value="${value ?? ''}"
-                                   ${nullableMin} ${nullableMax} ${nullableStep}
-                                   style="${baseStyle}">`;
-                break;
-                
-            case 'number':
-            default:
-                const min = options.min !== undefined ? `min="${options.min}"` : '';
-                const max = options.max !== undefined ? `max="${options.max}"` : '';
-                const step = options.step !== undefined ? `step="${options.step}"` : 'step="any"';
-                
-                inputHtml = `<input type="number" 
-                                   data-property="${property}" 
-                                   value="${value}" 
-                                   ${min} ${max} ${step}
-                                   oninput="this.setCustomValidity('')" 
-                                   oninvalid="this.setCustomValidity('Please enter a valid number')"
-                                   style="${baseStyle}">`;
-                break;
-        }
-        
-        return `
-            <div style="margin-bottom: 10px;">
-                <label style="display: block; margin-bottom: 5px;">${label}:</label>
-                ${inputHtml}
-            </div>
-        `;
-    }
-
-    escapeHtmlAttribute(value) {
-        return String(value)
-            .replaceAll('&', '&amp;')
-            .replaceAll('"', '&quot;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;');
-    }
-    
-    setupPropertyInputs() {
-        const inputs = this.propertiesPanel.querySelectorAll('input[data-property], select[data-property], button[data-property]');
-        plog.debug('Setting up property inputs, found:', inputs.length, 'elements');
-        
-        inputs.forEach(input => {
-            plog.debug('Setting up input:', input.tagName, input.dataset.property);
-            if (input.tagName === 'BUTTON') {
-                plog.debug('Setting up button click handler for:', input.dataset.property);
-                // Handle button clicks
-                input.addEventListener('click', (e) => {
-                    plog.debug('Button clicked:', input.dataset.property);
-                    this.handlePropertyChange(e);
-                });
-            } else {
-                // Handle input/select changes
-                input.addEventListener('input', (e) => {
-                    this.handlePropertyChange(e);
-                });
-                
-                // Handle checkbox change events
-                if (input.type === 'checkbox') {
-                    input.addEventListener('change', (e) => {
-                        this.handlePropertyChange(e);
-                    });
-                }
-            }
-        });
-    }
-
     centerSelectedObjectOnCanvas() {
         if (!this.selectedObject || !this.game || !this.game.canvas) return;
         const centerX = STAGE_WIDTH / 2;
@@ -1575,59 +721,77 @@ class LevelEditor {
                 break;
         }
         
-        if (this.selectedObject?.isLevelSettings) {
+        const target = this.selectedObject;
+        if (!target) return;
+        const sessionId = Number(e.target.dataset.editSession) || ++this.propertyEditSession;
+
+        if (target.isLevelSettings) {
+            const before = this.captureLevelSettingsState();
             this.updateLevelSetting(property, value);
-        } else if (this.selectedObject) {
-            // Handle name property specially
-            if (property === 'name') {
-                this.selectedObject.name = value;
-                this.updateObjectList(); // Update list to reflect name change
-                plog.debug(`Updated object name to: ${value}`);
-            } else if (property === 'x' || property === 'y') {
-                if (typeof this.selectedObject.x === 'number') {
-                    // Penguin class uses direct x/y properties
-                    this.selectedObject[property] = value;
-                } else if (this.selectedObject.position) {
-                    // GameObject classes use position.x/y
-                    this.selectedObject.position[property] = value;
-                }
-            } else if (property.startsWith('orbit')) {
-                // Handle orbit properties
-                this.updateOrbitProperty(property, value);
-            } else if (property === 'planetType' || property === 'spriteType') {
-                // Handle sprite changes
-                this.updateSpriteProperty(property, value);
-            } else if (property === 'pointingAtX' || property === 'pointingAtY') {
-                // Handle PointingArrow target properties
-                this.updatePointingAtProperty(property, value);
-            } else if (property === 'content' && this.selectedObject.constructor.name === 'TextObject') {
-                // Handle TextObject content changes with re-parsing
-                this.selectedObject.content = value;
-                this.selectedObject.parsedContent = this.selectedObject.parseHTMLContent(value);
-                plog.debug(`Updated text content to: ${value}`);
-            } else if (property === 'width' && this.selectedObject.constructor.name === 'TextObject') {
-                // Text wrapping uses maxWidth, not the auto-sized rendered width.
-                this.selectedObject.width = value;
-                this.selectedObject.maxWidth = Math.max(
-                    1,
-                    value - (this.selectedObject.padding * 2)
-                );
-                plog.debug(`Updated text wrap width to ${this.selectedObject.maxWidth}`);
-            } else if ((property === 'width' || property === 'height') && this.selectedObject.constructor.name === 'Planet') {
-                // Handle Planet width/height changes - update radius to maintain consistency
-                this.selectedObject[property] = value;
-                if (property === 'width' || property === 'height') {
-                    // Keep radius in sync with the smaller dimension
-                    const newRadius = Math.min(this.selectedObject.width, this.selectedObject.height) / 2;
-                    this.selectedObject.radius = newRadius;
-                    plog.debug(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
-                }
-            } else if (property in this.selectedObject) {
-                // Other properties
-                this.selectedObject[property] = value;
-                plog.debug(`Updated ${property} to ${value}`);
+            const after = this.captureLevelSettingsState();
+            if (this.history && !this.editStatesEqual(before, after)) {
+                this.history.recordExecuted(LiveEditCommandType.SET_LEVEL_SETTING, {
+                    target,
+                    property,
+                    before,
+                    after,
+                    sessionId
+                });
+            }
+        } else {
+            const before = this.captureObjectPropertyState(target);
+            this.applyObjectProperty(target, property, value);
+            const after = this.captureObjectPropertyState(target);
+            if (this.history && !this.editStatesEqual(before, after)) {
+                this.history.recordExecuted(LiveEditCommandType.SET_OBJECT_PROPERTY, {
+                    object: target,
+                    property,
+                    before,
+                    after,
+                    sessionId
+                });
             }
         }
+    }
+
+    applyObjectProperty(object, property, value) {
+        if (property === 'name') {
+            object.name = value;
+            this.updateObjectList();
+            plog.debug(`Updated object name to: ${value}`);
+        } else if (property === 'x' || property === 'y') {
+            if (typeof object.x === 'number') {
+                object[property] = value;
+            } else if (object.position) {
+                object.position[property] = value;
+            }
+        } else if (ORBIT_EDITOR_PROPERTIES.has(property)) {
+            this.updateOrbitProperty(property, value, object);
+        } else if (property === 'planetType' || property === 'spriteType') {
+            this.updateSpriteProperty(property, value, object);
+        } else if (property === 'pointingAtX' || property === 'pointingAtY') {
+            this.updatePointingAtProperty(property, value, object);
+        } else if (property === 'content' && object.constructor.name === 'TextObject') {
+            object.content = value;
+            object.parsedContent = object.parseHTMLContent(value);
+            plog.debug(`Updated text content to: ${value}`);
+        } else if (property === 'width' && object.constructor.name === 'TextObject') {
+            object.width = value;
+            object.maxWidth = Math.max(
+                1,
+                value - (object.padding * 2)
+            );
+            plog.debug(`Updated text wrap width to ${object.maxWidth}`);
+        } else if ((property === 'width' || property === 'height') && object.constructor.name === 'Planet') {
+            object[property] = value;
+            const newRadius = Math.min(object.width, object.height) / 2;
+            object.radius = newRadius;
+            plog.debug(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
+        } else if (property in object) {
+            object[property] = value;
+            plog.debug(`Updated ${property} to ${value}`);
+        }
+        this.synchronizeEditedObject(object);
     }
 
     updateLevelSetting(property, value) {
@@ -1651,9 +815,97 @@ class LevelEditor {
             }
         }
     }
+
+    captureObjectPropertyState(object) {
+        const direct = {};
+        for (const property of EDITABLE_STATE_PROPERTIES) {
+            if (property in object) direct[property] = cloneEditValue(object[property]);
+        }
+        const orbit = object.orbitSystem ? {
+            orbitCenter: cloneEditValue(object.orbitSystem.orbitCenter),
+            orbitTargetId: object.orbitSystem.orbitTargetId ?? null,
+            orbitRadius: object.orbitSystem.orbitRadius,
+            orbitSpeed: object.orbitSystem.orbitSpeed,
+            orbitAngle: object.orbitSystem.orbitAngle,
+            orbitType: object.orbitSystem.orbitType,
+            orbitParams: cloneEditValue(object.orbitSystem.orbitParams),
+            velocity: cloneEditValue(object.orbitSystem.velocity),
+            gravityStrength: object.orbitSystem.gravityStrength,
+            maxGravityAccel: object.orbitSystem.maxGravityAccel
+        } : null;
+        return {
+            direct,
+            position: this.getObjectPosition(object),
+            pointingAt: cloneEditValue(object.pointingAt),
+            orbit
+        };
+    }
+
+    restoreObjectPropertyState(object, state) {
+        Object.assign(object, cloneEditValue(state.direct));
+        if (state.position) {
+            if (typeof object.x === 'number') {
+                object.x = state.position.x;
+                object.y = state.position.y;
+            } else if (object.position) {
+                object.position.x = state.position.x;
+                object.position.y = state.position.y;
+            }
+        }
+        if ('pointingAt' in state) object.pointingAt = cloneEditValue(state.pointingAt);
+        if (state.orbit && object.orbitSystem) {
+            Object.assign(object.orbitSystem, cloneEditValue(state.orbit));
+        }
+        if (object.constructor.name === 'TextObject' && typeof object.parseHTMLContent === 'function') {
+            object.parsedContent = object.parseHTMLContent(object.content);
+        }
+        this.synchronizeEditedObject(object);
+    }
+
+    captureLevelSettingsState() {
+        return {
+            metadata: cloneEditValue(this.game.levelMetadata ?? {}),
+            rules: cloneEditValue({ ...(this.game.levelRules ?? {}) }),
+            slingshotPosition: cloneEditValue(this.game.slingshot?.position),
+            penguinPosition: this.game.penguin
+                ? { x: this.game.penguin.x, y: this.game.penguin.y }
+                : null,
+            targetPosition: cloneEditValue(this.game.target?.position),
+            gravitationalConstant: this.game.physics?.gravitationalConstant
+        };
+    }
+
+    restoreLevelSettingsState(state) {
+        this.game.levelMetadata = cloneEditValue(state.metadata);
+        if (this.game.levelRules) Object.assign(this.game.levelRules, cloneEditValue(state.rules));
+        if (this.game.slingshot?.position && state.slingshotPosition) {
+            Object.assign(this.game.slingshot.position, state.slingshotPosition);
+        }
+        if (this.game.penguin && state.penguinPosition) {
+            Object.assign(this.game.penguin, state.penguinPosition);
+        }
+        if (this.game.target?.position && state.targetPosition) {
+            Object.assign(this.game.target.position, state.targetPosition);
+        }
+        if (this.game.physics && state.gravitationalConstant !== undefined) {
+            this.game.physics.gravitationalConstant = state.gravitationalConstant;
+        }
+    }
+
+    editStatesEqual(left, right) {
+        return JSON.stringify(left) === JSON.stringify(right);
+    }
+
+    synchronizeEditedObject(object) {
+        if (object.constructor.name === 'Planet') {
+            this.game.physics?.refreshPlanet?.(object);
+            this.refreshPlanetSprite(object);
+        } else if (object.constructor.name === 'Target') {
+            this.refreshTargetSprite(object);
+        }
+    }
     
-    updateOrbitProperty(property, value) {
-        const obj = this.selectedObject;
+    updateOrbitProperty(property, value, obj = this.selectedObject) {
         if (!obj.orbitSystem) return;
         
         switch (property) {
@@ -2092,8 +1344,7 @@ class LevelEditor {
         return defaults[property] !== undefined ? defaults[property] : 0;
     }
     
-    updateSpriteProperty(property, value) {
-        const obj = this.selectedObject;
+    updateSpriteProperty(property, value, obj = this.selectedObject) {
         
         if (property === 'planetType' && obj.constructor.name === 'Planet') {
             obj.planetType = value;
@@ -2106,8 +1357,7 @@ class LevelEditor {
         }
     }
     
-    updatePointingAtProperty(property, value) {
-        const obj = this.selectedObject;
+    updatePointingAtProperty(property, value, obj = this.selectedObject) {
         
         if (obj.constructor.name === 'PointingArrow') {
             // Initialize pointingAt object if it doesn't exist
@@ -2816,127 +2066,9 @@ class LevelEditor {
     }
     
     updateObjectList() {
-        if (!this.objectListPanel) return;
-        
-        const listContent = this.objectListPanel.querySelector('#object-list-content');
-        if (!listContent) return;
-        
-        // Save current scroll position
-        const currentScrollTop = listContent.scrollTop;
-        
-        // Get all objects
-        const allObjects = this.getAllGameObjects();
-        
-        // Create object list HTML. Level Settings is a synthetic root node and is
-        // deliberately separated from the game objects below it.
-        let html = '<div style="max-height: 300px; overflow-y: auto;">';
-
-        const levelSettingsSelected = this.selectedObject === this.levelSettingsNode;
-        const levelSettingsBackground = levelSettingsSelected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)';
-        html += `
-            <div class="object-list-item level-settings-item"
-                 data-level-settings="true"
-                 style="padding: 10px; margin: 2px 0 16px; background: ${levelSettingsBackground}; border: 1px solid ${levelSettingsSelected ? '#00ffff' : 'rgba(255, 255, 255, 0.35)'}; border-radius: 3px; cursor: pointer; color: ${levelSettingsSelected ? '#00ffff' : '#ffffff'}; font-size: 12px; user-select: none; touch-action: manipulation;">
-                <div style="font-weight: bold;">Level Settings</div>
-                <div style="color: #ccc; font-size: 10px;">Level metadata, positions, and rules</div>
-            </div>
-        `;
-        
-        allObjects.forEach((obj, index) => {
-            const className = obj.constructor.name;
-            const isSelected = obj === this.selectedObject;
-            
-            // Get object position for display
-            let objX, objY;
-            if (typeof obj.x === 'number') {
-                objX = Math.round(obj.x);
-                objY = Math.round(obj.y);
-            } else if (obj.position) {
-                objX = Math.round(obj.position.x);
-                objY = Math.round(obj.position.y);
-            } else {
-                objX = '?';
-                objY = '?';
-            }
-            
-            // Create object identifier - use custom name if available, otherwise generate default
-            let identifier;
-            if (obj.name) {
-                identifier = obj.name;
-            } else {
-                identifier = `${className}`;
-                if (className === 'Planet' && obj.planetType) {
-                    identifier += ` (${obj.planetType})`;
-                } else if (className === 'Bonus' && obj.value) {
-                    identifier += ` (${obj.value})`;
-                } else if (className === 'TextObject' && obj.content) {
-                    const preview = obj.content.length > 20 ? obj.content.substring(0, 20) + '...' : obj.content;
-                    identifier += ` ("${preview}")`;
-                } else if (className === 'Target' && obj.spriteType) {
-                    identifier += ` (${obj.spriteType})`;
-                }
-            }
-            
-            // Add orbit indicator
-            if (obj.orbitSystem && obj.orbitSystem.orbitRadius > 0) {
-                identifier += ' 🔄'; // orbit emoji
-            }
-            
-            const backgroundColor = isSelected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)';
-            const textColor = isSelected ? '#00ffff' : '#ffffff';
-            
-            html += `
-                <div class="object-list-item" 
-                     data-object-index="${index}"
-                     style="
-                         padding: 8px;
-                         margin: 2px 0;
-                         background: ${backgroundColor};
-                         border: 1px solid ${isSelected ? '#00ffff' : 'rgba(255, 255, 255, 0.2)'};
-                         border-radius: 3px;
-                         cursor: pointer;
-                         color: ${textColor};
-                         font-size: 12px;
-                         user-select: none;
-                         touch-action: manipulation;
-                     ">
-                    <div style="font-weight: bold;">${this.escapeHtmlAttribute(identifier)}</div>
-                    <div style="color: #ccc; font-size: 10px;">Position: (${objX}, ${objY})</div>
-                </div>
-            `;
-        });
-
-        if (allObjects.length === 0) {
-            html += '<p style="color: #999; margin-top: 0;">No objects in level</p>';
-        }
-        
-        html += '</div>';
-        listContent.innerHTML = html;
-
-        listContent.querySelector('[data-level-settings]')?.addEventListener('click', () => {
-            this.selectLevelSettings();
-        });
-        listContent.querySelectorAll('[data-object-index]').forEach(item => {
-            const index = Number(item.dataset.objectIndex);
-            const backgroundColor = allObjects[index] === this.selectedObject
-                ? 'rgba(0, 255, 255, 0.3)'
-                : 'rgba(255, 255, 255, 0.1)';
-            item.addEventListener('mouseenter', () => {
-                item.style.background = 'rgba(255, 255, 255, 0.2)';
-            });
-            item.addEventListener('mouseleave', () => {
-                item.style.background = backgroundColor;
-            });
-            item.addEventListener('click', () => this.selectObjectFromList(index));
-        });
-        
-        // Restore scroll position
-        listContent.scrollTop = currentScrollTop;
-        
-        // Store reference to all objects for selection
-        this.allObjectsCache = allObjects;
+        this.objectListView.render();
     }
-    
+
     getAllGameObjects() {
         const allObjects = [];
         
@@ -2961,17 +2093,7 @@ class LevelEditor {
     }
     
     selectObjectFromList(index) {
-        if (this.allObjectsCache && this.allObjectsCache[index]) {
-            const obj = this.allObjectsCache[index];
-            this.selectObject(obj);
-            
-            // Provide visual feedback
-            if ('vibrate' in navigator) {
-                navigator.vibrate(INPUT_CONFIG.hapticsMs.objectListSelection);
-            }
-            
-            plog.debug('Selected from list:', obj.constructor.name);
-        }
+        this.objectListView.selectIndex(index);
     }
 
     selectLevelSettings() {
@@ -2979,281 +2101,9 @@ class LevelEditor {
     }
     
     render(ctx) {
-        if (!this.active) return;
-        
-        // Draw grid only in edit mode
-        if (this.mode === 'edit') {
-            this.drawGrid(ctx);
-        }
-        
-        // Draw orbit centers for ALL objects with orbit systems (not just selected)
-        if (this.mode === 'edit') {
-            this.drawAllOrbitCenters(ctx);
-        }
-        
-        // Draw selection highlight
-        if (this.selectedObject && this.mode === 'edit') {
-            this.drawSelectionHighlight(ctx, this.selectedObject);
-            this.drawArrowTarget(ctx, this.selectedObject);
-        }
+        this.overlayRenderer.render(ctx);
     }
-    
-    drawSelectionHighlight(ctx, obj) {
-        const radius = obj.radius || obj.collisionRadius || 20;
-        
-        // Get object coordinates
-        let objX, objY;
-        if (typeof obj.x === 'number') {
-            objX = obj.x;
-            objY = obj.y;
-        } else if (obj.position) {
-            objX = obj.position.x;
-            objY = obj.position.y;
-        } else {
-            return; // Can't highlight objects without valid coordinates
-        }
-        
-        ctx.save();
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-        
-        ctx.beginPath();
-        ctx.arc(objX, objY, radius + 10, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.restore();
-    }
-    
-    drawAllOrbitCenters(ctx) {
-        // Draw orbit centers for all objects with orbit systems
-        const allObjects = [];
-        
-        // Add planets
-        for (let planet of this.game.planets) {
-            allObjects.push(planet);
-        }
-        
-        // Add bonuses
-        for (let bonus of this.game.bonuses) {
-            allObjects.push(bonus);
-        }
-        
-        // Add ALL game objects
-        for (let obj of this.game.gameObjects) {
-            if (!allObjects.includes(obj)) {
-                allObjects.push(obj);
-            }
-        }
-        
-        // Draw orbit centers for all objects that have them
-        for (let obj of allObjects) {
-            if (obj.orbitSystem && obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
-                this.drawOrbitCenter(ctx, obj);
-            }
-        }
-    }
-    
-    drawOrbitCenter(ctx, obj) {
-        // Draw orbit center for objects with orbit systems
-        if (obj.orbitSystem && obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
-            const center = obj.orbitSystem.orbitCenter;
-            
-            ctx.save();
-            
-            // Use different colors/styles if this orbit center is being dragged
-            const isDragging = this.draggingOrbitCenter && this.orbitCenterObject === obj;
-            const baseColor = isDragging ? '#ff6600' : '#ff9900';
-            const highlightColor = isDragging ? '#ffaa33' : '#ffbb33';
-            
-            ctx.strokeStyle = baseColor;
-            ctx.fillStyle = baseColor;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            
-            // Draw larger, more prominent center point with visual indicators
-            const centerRadius = isDragging ? 8 : 6;
-            const outerRadius = isDragging ? 12 : 10;
-            
-            // Draw outer ring for better visibility and easier clicking
-            ctx.strokeStyle = highlightColor;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, outerRadius, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Draw center point
-            ctx.fillStyle = baseColor;
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, centerRadius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw crosshair in center for precise positioning
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(center.x - 3, center.y);
-            ctx.lineTo(center.x + 3, center.y);
-            ctx.moveTo(center.x, center.y - 3);
-            ctx.lineTo(center.x, center.y + 3);
-            ctx.stroke();
-            
-            // Draw orbit path
-            ctx.strokeStyle = baseColor;
-            ctx.lineWidth = isDragging ? 3 : 2;
-            ctx.setLineDash(isDragging ? [10, 5] : []);
-            ctx.beginPath();
-            
-            // Draw different orbit shapes based on orbit type
-            switch (obj.orbitSystem.orbitType) {
-                case LevelOrbitType.CIRCULAR:
-                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
-                    break;
-                case LevelOrbitType.ELLIPTICAL:
-                    if (obj.orbitSystem.orbitParams) {
-                        const { semiMajorAxis, semiMinorAxis, rotation } = obj.orbitSystem.orbitParams;
-                        ctx.save();
-                        ctx.translate(center.x, center.y);
-                        ctx.rotate(rotation || 0);
-                        ctx.scale(semiMajorAxis / obj.orbitSystem.orbitRadius, semiMinorAxis / obj.orbitSystem.orbitRadius);
-                        ctx.arc(0, 0, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
-                        ctx.restore();
-                    } else {
-                        ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
-                    }
-                    break;
-                case LevelOrbitType.FIGURE_8:
-                    // Draw figure-8 approximation
-                    const size = obj.orbitSystem.orbitRadius;
-                    for (let t = 0; t <= Math.PI * 2; t += EDITOR_CONFIG.overlay.figure8StepRadians) {
-                        const denominator = 1 + Math.sin(t) * Math.sin(t);
-                        const x = center.x + size * Math.cos(t) / denominator;
-                        const y = center.y + size * Math.sin(t) * Math.cos(t) / denominator;
-                        if (t === 0) ctx.moveTo(x, y);
-                        else ctx.lineTo(x, y);
-                    }
-                    break;
-                case LevelOrbitType.GRAVITY:
-                    // Draw dashed circle to indicate gravitational influence zone
-                    ctx.setLineDash([10, 10]);
-                    ctx.arc(
-                        center.x,
-                        center.y,
-                        obj.orbitSystem.orbitRadius || EDITOR_CONFIG.overlay.gravityPreviewRadius,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.setLineDash([]);
-                    // Draw velocity vector
-                    const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
-                    const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
-                    if (obj.orbitSystem.velocity) {
-                        const velScale = EDITOR_CONFIG.overlay.velocityVectorScale;
-                        ctx.strokeStyle = '#FF6600'; // Orange for velocity vector
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(objX, objY);
-                        ctx.lineTo(objX + obj.orbitSystem.velocity.x * velScale, objY + obj.orbitSystem.velocity.y * velScale);
-                        ctx.stroke();
-                        // Draw arrowhead
-                        const endX = objX + obj.orbitSystem.velocity.x * velScale;
-                        const endY = objY + obj.orbitSystem.velocity.y * velScale;
-                        const angle = Math.atan2(obj.orbitSystem.velocity.y, obj.orbitSystem.velocity.x);
-                        ctx.beginPath();
-                        ctx.moveTo(endX, endY);
-                        ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6));
-                        ctx.moveTo(endX, endY);
-                        ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6));
-                        ctx.stroke();
-                        ctx.strokeStyle = baseColor; // Reset color
-                        ctx.lineWidth = 2; // Reset line width
-                    }
-                    break;
-                default:
-                    ctx.arc(center.x, center.y, obj.orbitSystem.orbitRadius, 0, Math.PI * 2);
-            }
-            ctx.stroke();
-            
-            // Draw line from object to center
-            const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
-            const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
-            
-            ctx.strokeStyle = baseColor;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(objX, objY);
-            ctx.lineTo(center.x, center.y);
-            ctx.stroke();
-            
-            ctx.restore();
-        }
-    }
-    
-    drawArrowTarget(ctx, obj) {
-        // Draw target point for pointing arrows
-        if (obj.constructor.name === 'PointingArrow' && obj.targetX !== undefined && obj.targetY !== undefined) {
-            ctx.save();
-            ctx.strokeStyle = '#00ff99';
-            ctx.fillStyle = '#00ff99';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            
-            // Draw target point
-            ctx.beginPath();
-            ctx.arc(obj.targetX, obj.targetY, 8, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Draw crosshair
-            ctx.beginPath();
-            ctx.moveTo(obj.targetX - 10, obj.targetY);
-            ctx.lineTo(obj.targetX + 10, obj.targetY);
-            ctx.moveTo(obj.targetX, obj.targetY - 10);
-            ctx.lineTo(obj.targetX, obj.targetY + 10);
-            ctx.stroke();
-            
-            // Draw line from arrow to target
-            const objX = typeof obj.x === 'number' ? obj.x : obj.position.x;
-            const objY = typeof obj.y === 'number' ? obj.y : obj.position.y;
-            
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(objX, objY);
-            ctx.lineTo(obj.targetX, obj.targetY);
-            ctx.stroke();
-            
-            ctx.restore();
-        }
-    }
-    
-    drawGrid(ctx) {
-        const gridSize = EDITOR_CONFIG.overlay.gridSize;
-        const width = STAGE_WIDTH;
-        const height = STAGE_HEIGHT;
-        
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 1;
-        
-        // Vertical lines
-        for (let x = 0; x <= width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-            ctx.stroke();
-        }
-        
-        // Horizontal lines
-        for (let y = 0; y <= height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-            ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-    
+
     // Sprite option methods
     getPlanetSpriteOptions() {
         // Get available planet sprites from the game's asset loader
