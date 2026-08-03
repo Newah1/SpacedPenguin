@@ -12,7 +12,7 @@ A browser-native rewrite of the classic Shockwave gravity-slingshot game, implem
 - Embedded live level editor with JSON download/export
 - Local browser high-score persistence
 
-The current runtime does not implement obstacle entities, online leaderboards, editor import/save/history, time-limit enforcement, or custom rule dispatch.
+The current runtime does not implement obstacle entities, online leaderboards, editor file import/server persistence, time-limit enforcement, or custom rule dispatch. Editor add/delete/clone and canvas moves have in-session undo/redo; Ctrl+S downloads the canonical level JSON.
 
 ## Run locally
 
@@ -58,8 +58,8 @@ index.html                 Browser shell, HUD, canvas, responsive styling
 js/                        Production ES modules
 assets/                    Manifest, images, SVGs, audio, animation metadata
 levels/                    Nineteen current JSON levels and authoring guide
-testing/                   Deterministic simulation tests and trajectory CLI
-test_*.html                Manual browser component and integration harnesses
+testing/                   Node tests, trajectory CLI, and organized manual harnesses
+e2e/                       Automated Playwright browser smoke tests
 OldSource/                 Decompiled Shockwave source and extracted references
 ARCHITECTURE.md             Current architect-oriented reference
 LEVEL_EDITOR_DOCUMENTATION.md  Detailed editor guide
@@ -87,7 +87,7 @@ Set `pointAfterDelay` to a positive number of seconds to hide the arrow until it
 
 ## Testing status
 
-The root `test_*.html` files remain useful manual diagnostics. Automated coverage includes Node regression tests, validation of every shipped level, JavaScript syntax checks, configuration-policy checks, and Playwright browser smoke tests. The browser suite covers bootstrap, rendering, a real canvas launch, pause/resume, level completion, failed-audio degradation, mobile coordinate mapping, and editor JSON export.
+The pages under `testing/manual/` remain useful manual diagnostics and are indexed at `/testing/manual/` when the repository server is running. Automated coverage includes Node regression tests, validation of every shipped level, JavaScript syntax checks, configuration-policy checks, and Playwright browser smoke tests. The browser suite covers bootstrap, rendering, a real canvas launch, pause/resume, level completion, failed-audio degradation, mobile coordinate mapping, and editor JSON export.
 
 Install the pinned development dependency and Chromium once, then run every local gate from the repository root:
 

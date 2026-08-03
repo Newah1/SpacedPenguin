@@ -524,6 +524,11 @@ export class LevelLoader {
         this.assertLevelValid(levelNumber);
         
         plog.level(`Loading level ${levelNumber}: ${levelDefinition.name}`);
+
+        game.levelMetadata = {
+            name: levelDefinition.name || `Custom Level ${levelNumber}`,
+            description: levelDefinition.description ?? ''
+        };
         
         // Clear existing game state
         game.gameObjects = [];

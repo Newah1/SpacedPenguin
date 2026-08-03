@@ -77,6 +77,49 @@ test('level editor text width updates the renderer wrap limit', () => {
     assert.equal(editor.selectedObject.maxWidth, 340);
 });
 
+test('level editor root settings update metadata, positions, and live gravity', () => {
+    const editor = Object.create(LevelEditor.prototype);
+    editor.game = {
+        levelMetadata: { name: 'Old name', description: '' },
+        levelRules: { gravitationalConstant: 3, maxTries: null },
+        physics: { gravitationalConstant: 3 },
+        slingshot: { position: { x: 100, y: 200 } },
+        penguin: { x: 100, y: 200 },
+        target: { position: { x: 700, y: 300 } }
+    };
+
+    editor.updateLevelSetting('levelName', 'Editor-authored level');
+    editor.updateLevelSetting('startX', 125);
+    editor.updateLevelSetting('targetY', 350);
+    editor.updateLevelSetting('maxTries', 4);
+    editor.updateLevelSetting('gravitationalConstant', 2.5);
+
+    assert.equal(editor.game.levelMetadata.name, 'Editor-authored level');
+    assert.equal(editor.game.slingshot.position.x, 125);
+    assert.equal(editor.game.penguin.x, 125);
+    assert.equal(editor.game.target.position.y, 350);
+    assert.equal(editor.game.levelRules.maxTries, 4);
+    assert.equal(editor.game.levelRules.gravitationalConstant, 2.5);
+    assert.equal(editor.game.physics.gravitationalConstant, 2.5);
+});
+
+test('level export uses editor-authored root metadata', () => {
+    const game = {
+        level: 1,
+        levelMetadata: { name: 'Root settings test', description: 'Saved from the editor' },
+        levelRules: null,
+        slingshot: { position: { x: 100, y: 200 } },
+        penguin: null,
+        target: { position: { x: 700, y: 300 } },
+        getAllObjectsForExport: () => []
+    };
+
+    const exported = Game.prototype.exportCurrentLevel.call(game);
+
+    assert.equal(exported.name, 'Root settings test');
+    assert.equal(exported.description, 'Saved from the editor');
+});
+
 test('text factory restores an explicitly exported wrap limit', () => {
     const textObject = GameObjectFactory.createTextObject({ x: 10, y: 20 }, {
         content: 'Tutorial text',

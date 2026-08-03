@@ -51,8 +51,8 @@ flowchart LR
 | Game and editor graphics | Canvas 2D plus DOM overlays | The stage remains 800 x 600 while the backing buffer follows the display resolution. |
 | Sound | Web Audio API destination | Decoded WAV buffers are played through per-sound gain nodes. |
 | High score | Browser `localStorage` | No online leaderboard or remote score submission exists in the rewrite. |
-| Exported level | Downloaded JSON | Export is client-side; editor save/undo/redo are not implemented. |
-| Diagnostics | Browser console and in-game console/logger | `window.game`, `window.gameManager`, and `window.levelEditor` expose debugging entry points. |
+| Exported level | Downloaded JSON | Export and Ctrl+S are client-side JSON downloads; there is no server persistence. |
+| Diagnostics | Browser console and in-game console/logger | `window.game` and `window.gameManager` expose debugging entry points. |
 
 ## 3. Deployment and execution model
 
@@ -474,13 +474,14 @@ UI is hybrid:
 
 ## 11. Level editor architecture
 
-The editor is an embedded mode over the live `Game` aggregate, not an offline document editor. It receives constructor references from `Game`, enumerates live entity arrays, creates/removes objects, registers/deregisters physics bodies, edits orbit systems, and serializes the resulting graph.
+The editor is an embedded mode over the live `Game` aggregate, not an offline document editor. `LiveLevelMutator` keeps runtime, typed, singleton, and physics collections synchronized. Reversible changes implement the typed `LiveEditCommand` contract from `js/editorCommands/`; `CommandRegistry` resolves strategies by type and `CommandHistory` invokes their `do()` and `undo()` methods against the same live objects.
 
 ```mermaid
 flowchart LR
     Toolbar[Editor DOM controls] --> Editor[LevelEditor]
     Canvas[Pointer on Canvas] --> Editor
-    Editor --> Live[Live Game object graph]
+    Editor --> Commands[Typed do/undo commands]
+    Commands --> Live[Live Game object graph]
     Live --> Physics[Physics registries]
     Live --> Preview[Edit guides or play preview]
     Live --> Serialize[Serialization/export]
@@ -493,7 +494,7 @@ Architectural consequences:
 - Object membership is denormalized across `gameObjects`, typed arrays, singleton references, and physics registries. Add/remove operations must update all applicable stores.
 - Stable IDs are part of the data model because orbit relationships serialize by ID.
 - The editor exposes both comprehensive game export and its own serialization helpers; format changes must be reconciled across `Game`, `LevelEditor`, and `LevelLoader`.
-- Export works. The editor's `saveLevel`, `undo`, and `redo` methods are placeholders and must not be presented as available persistence/history features.
+- Export and Ctrl+S download canonical level JSON. In-session undo/redo covers structural edits and canvas moves; property-field history and server persistence are not implemented.
 
 ## 12. Persistence and network behavior
 
@@ -610,7 +611,7 @@ Maintain these constraints when changing the system:
 
 There are three current test surfaces:
 
-1. Root `test_*.html` pages are manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
+1. `testing/manual/` contains indexed manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
 2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
 3. `e2e/` contains Playwright smoke tests against a dependency-free local static server. They exercise production bootstrap, canvas input and rendering, pause/resume, scoring transition, failed-audio degradation, responsive coordinate mapping, and editor download/export. Network substitution supplies a deterministic level while leaving the production runtime path intact.
 

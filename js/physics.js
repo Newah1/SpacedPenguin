@@ -18,6 +18,7 @@ export class Physics {
     
     // Add a planet to the physics system
     addPlanet(planet) {
+        if (this.planets.some(entry => entry.sprite === planet)) return;
         this.planets.push({
             sprite: planet,
             mass: planet.mass,
@@ -33,10 +34,15 @@ export class Physics {
     
     // Add a bonus item to the physics system
     addBonus(bonus) {
+        if (this.bonuses.some(entry => entry.sprite === bonus)) return;
         this.bonuses.push({
             sprite: bonus,
             collected: false
         });
+    }
+
+    removeBonus(bonus) {
+        this.bonuses = this.bonuses.filter(entry => entry.sprite !== bonus);
     }
     
     // Clear all planets and bonuses

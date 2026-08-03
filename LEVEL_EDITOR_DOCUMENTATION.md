@@ -15,7 +15,7 @@
 
 ## Overview
 
-The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, and exporting levels in the browser. It edits the live game object graph; it is not a separate document model and does not currently provide import, save, undo, or redo persistence.
+The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, and exporting levels in the browser. It edits the live game object graph rather than a separate document model. It provides in-session undo/redo for structural edits and canvas moves, while import and server-side persistence are not implemented.
 
 ### Key Features
 - **Desktop Editing**: Mouse and keyboard editing through the centralized input router
@@ -54,7 +54,7 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 
 #### Mobile (Touch)
 1. **Create Objects**: Use the **+** button in the mobile toolbar
-2. **Select Objects**: Use the object list/toolbar. Canvas long-press and touch-drag methods exist in `LevelEditor`, but the current centralized editor action does not register touch listeners.
+2. **Select Objects**: Use the object list/toolbar or the canvas. A single Pointer Events input stream supports mouse, pen, touch-drag, right-click, and touch long-press.
 3. **Edit Properties**: Use the properties panel (automatically repositioned for mobile screens)
 4. **Move Objects**: Edit coordinates through the properties panel. Canvas touch-drag is not currently connected by the centralized input router.
 5. **Delete Objects**: Select object and use the Delete button in the toolbar
@@ -370,7 +370,7 @@ The export system gathers current live objects and writes the primary level enve
 
 ### Import and Save Status
 
-There is no file picker, arbitrary-path loader, server save, autosave, local-storage save, undo, or redo implementation. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. The editor's save/undo/redo methods are placeholders even though keyboard bindings call them.
+There is no file picker, arbitrary-path loader, server save, autosave, or local-storage save. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. Ctrl+S downloads the same canonical JSON as Export. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, and centering during the current editor session; direct property-field history is not yet implemented.
 
 ## Advanced Features
 

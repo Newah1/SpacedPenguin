@@ -4,6 +4,10 @@ import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, screenToStage, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
+import { OrbitSystem } from './gameObjects.js';
+import { getEditableClassNames } from './editorObjectRegistry.js';
+import LiveLevelMutator from './liveLevelMutator.js';
+import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
 import {
     INPUT_CONFIG,
     isCompactEditorViewport,
@@ -13,16 +17,28 @@ import {
 class LevelEditor {
     constructor(game) {
         this.game = game;
+        this.mutator = new LiveLevelMutator(game);
+        this.history = createLiveEditHistory({
+            mutator: this.mutator,
+            refresh: selection => this.refreshAfterHistory(selection),
+            updateOrbitSystem: object => this.updateOrbitSystem(object)
+        });
         this.active = false;
+        this.previousGameState = null;
         this.mode = 'edit'; // 'edit' or 'play'
         this.selectedObject = null;
+        this.levelSettingsNode = { isLevelSettings: true };
         this.dragging = false;
         this.dragOffset = { x: 0, y: 0 };
+        this.dragStartPosition = null;
         this.propertiesPanel = null;
         
         // Orbit center drag support
         this.draggingOrbitCenter = false;
         this.orbitCenterObject = null; // The object whose orbit center we're dragging
+        this.orbitCenterDragStart = null;
+        this.touchStartPos = null;
+        this.longPressTimer = null;
         
         this.createUI();
         // Note: Event listeners now managed by InputActionManager
@@ -413,71 +429,33 @@ class LevelEditor {
         this.showContextMenu(centerX, centerY);
     }
     
-    setupEventListeners() {
-        // This method is now deprecated - input handling managed by InputActionManager
-        console.warn('LevelEditor.setupEventListeners() is deprecated - input now managed by InputActionManager');
-        
-        // Still set touch action for mobile compatibility
-        this.game.canvas.style.touchAction = 'none';
-        
-        // Initialize touch tracking variables
-        this.touchStartTime = null;
-        this.touchStartPos = null;
-        this.longPressTimer = null;
-    }
-    
-    // Methods called by InputActionManager
-    handleMouseDown(e) {
-        if (!this.active) return;
-        this.handlePointerDown(e);
-    }
-    
-    handleMouseMove(e) {
-        if (!this.active) return;
-        this.handlePointerMove(e);
-    }
-    
-    handleMouseUp(e) {
-        if (!this.active) return;
-        this.handlePointerUp(e);
-    }
-    
-    handleClick(e) {
-        if (!this.active) return;
-        // Convert to pointer event
-        this.handlePointerDown(e);
-        this.handlePointerUp(e);
-    }
-    
     deleteSelectedObject() {
         if (!this.selectedObject) return;
+        if (this.selectedObject.isLevelSettings) {
+            plog.warn('Level Settings cannot be deleted');
+            return;
+        }
         
         const obj = this.selectedObject;
         const className = obj.constructor.name;
         
         plog.debug(`Deleting ${className}...`);
         
-        // Use the game's centralized removal method
-        this.removeObjectFromGame(obj);
+        this.history.execute(LiveEditCommandType.REMOVE_OBJECT, { object: obj, className });
         
         plog.success(`Successfully deleted ${className}`);
-        this.selectObject(null);
-        this.updateObjectList();
     }
     
     saveLevel() {
-        // Implement save functionality
-        plog.info('Save level functionality not yet implemented');
+        this.exportLevel();
     }
     
     undo() {
-        // Implement undo functionality
-        plog.info('Undo functionality not yet implemented');
+        if (!this.history.undo()) plog.info('Nothing to undo');
     }
     
     redo() {
-        // Implement redo functionality
-        plog.info('Redo functionality not yet implemented');
+        if (!this.history.redo()) plog.info('Nothing to redo');
     }
     
     handleResize() {
@@ -516,13 +494,13 @@ class LevelEditor {
             }
             
             if (this.propertiesPanel) {
-                this.propertiesPanel.style.cssText += `
-                    width: calc(100vw - 40px);
-                    max-width: 350px;
-                    right: 20px;
-                    top: 120px;
-                    max-height: 50vh;
-                `;
+                Object.assign(this.propertiesPanel.style, {
+                    width: 'calc(100vw - 40px)',
+                    maxWidth: '350px',
+                    right: '20px',
+                    top: '120px',
+                    maxHeight: '50vh'
+                });
             }
         } else {
             // Desktop layout: side by side
@@ -557,13 +535,13 @@ class LevelEditor {
         
         // Update object list panel positioning for mobile
         if (this.objectListPanel && isCompactEditorViewport()) {
-            this.objectListPanel.style.cssText += `
-                width: calc(100vw - 40px);
-                max-width: 350px;
-                left: 20px;
-                bottom: 80px;
-                max-height: 300px;
-            `;
+            Object.assign(this.objectListPanel.style, {
+                width: 'calc(100vw - 40px)',
+                maxWidth: '350px',
+                left: '20px',
+                bottom: '80px',
+                maxHeight: '300px'
+            });
         } else if (this.objectListPanel) {
             // Reset to desktop styling
             this.objectListPanel.style.width = '300px';
@@ -577,8 +555,12 @@ class LevelEditor {
     handlePointerDown(e) {
         if (!this.active || this.mode !== 'edit') return;
         e.preventDefault();
+        if (Number.isInteger(e.pointerId)) {
+            e.currentTarget?.setPointerCapture?.(e.pointerId);
+        }
         
         const coords = this.getEventCoordinates(e);
+        if (e.pointerType === 'touch') this.startLongPress(coords);
         const clickedObject = this.getObjectAtPosition(coords.x, coords.y);
         
         plog.debug('Level Editor PointerDown:', coords.x, coords.y, 'Found object:', clickedObject);
@@ -599,7 +581,15 @@ class LevelEditor {
     }
     
     handlePointerMove(e) {
-        if (!this.active || this.mode !== 'edit' || (!this.dragging && !this.draggingOrbitCenter)) return;
+        if (!this.active || this.mode !== 'edit') return;
+        if (e.pointerType === 'touch' && this.touchStartPos) {
+            const coords = this.getEventCoordinates(e);
+            const distance = Math.hypot(coords.x - this.touchStartPos.x, coords.y - this.touchStartPos.y);
+            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) {
+                this.cancelLongPress();
+            }
+        }
+        if (!this.dragging && !this.draggingOrbitCenter) return;
         e.preventDefault();
         
         const coords = this.getEventCoordinates(e);
@@ -614,67 +604,36 @@ class LevelEditor {
     handlePointerUp(e) {
         if (!this.active || this.mode !== 'edit') return;
         e.preventDefault();
+        this.cancelLongPress();
+        if (Number.isInteger(e.pointerId) && e.currentTarget?.hasPointerCapture?.(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
         
         this.stopDragging();
         this.stopOrbitCenterDragging();
     }
-    
-    // Legacy mouse event handlers (delegate to pointer handlers)
-    handleMouseDown(e) {
-        this.handlePointerDown(e);
+
+    // Compatibility for callers that still route through Game's mouse methods.
+    handleMouseDown(e) { this.handlePointerDown(e); }
+    handleMouseMove(e) { this.handlePointerMove(e); }
+    handleMouseUp(e) { this.handlePointerUp(e); }
+
+    startLongPress(coords) {
+        this.cancelLongPress();
+        this.touchStartPos = coords;
+        this.showLongPressIndicator(coords.x, coords.y);
+        this.longPressTimer = setTimeout(() => {
+            if (!this.touchStartPos || this.mode !== 'edit') return;
+            navigator.vibrate?.(INPUT_CONFIG.hapticsMs.contextMenu);
+            this.showContextMenu(this.touchStartPos.x, this.touchStartPos.y);
+            this.cancelLongPress();
+        }, EDITOR_CONFIG.interaction.longPressMs);
     }
-    
-    handleMouseMove(e) {
-        this.handlePointerMove(e);
-    }
-    
-    handleMouseUp(e) {
-        this.handlePointerUp(e);
-    }
-    
-    // Touch-specific event handlers
-    handleTouchStart(e) {
-        if (!this.active) return;
-        e.preventDefault();
-        
-        // Handle long press for context menu on mobile
-        if (e.touches.length === 1) {
-            this.touchStartTime = Date.now();
-            this.touchStartPos = this.getEventCoordinates(e.touches[0]);
-            
-            // Show visual feedback for long press
-            this.showLongPressIndicator(this.touchStartPos.x, this.touchStartPos.y);
-            
-            // Set up long press detection
-            this.longPressTimer = setTimeout(() => {
-                if (this.touchStartPos && this.mode === 'edit') {
-                    // Haptic feedback for long press
-                    if ('vibrate' in navigator) {
-                        navigator.vibrate(INPUT_CONFIG.hapticsMs.contextMenu);
-                    }
-                    this.showContextMenu(this.touchStartPos.x, this.touchStartPos.y);
-                    this.touchStartPos = null;
-                    this.hideLongPressIndicator();
-                }
-            }, EDITOR_CONFIG.interaction.longPressMs);
-        }
-    }
-    
-    handleTouchEnd(e) {
-        if (!this.active) return;
-        e.preventDefault();
-        
-        // Clear long press timer
-        if (this.longPressTimer) {
-            clearTimeout(this.longPressTimer);
-            this.longPressTimer = null;
-        }
-        
-        // Reset touch tracking
-        this.touchStartTime = null;
+
+    cancelLongPress() {
+        if (this.longPressTimer) clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
         this.touchStartPos = null;
-        
-        // Hide long press indicator
         this.hideLongPressIndicator();
     }
     
@@ -752,9 +711,13 @@ class LevelEditor {
     }
     
     enter() {
+        if (this.active) return;
+        this.previousGameState = this.game.state;
+        this.history.clear();
         this.active = true;
         this.container.style.display = 'block';
-        this.game.state = GameState.LEVEL_EDITOR;
+        if (typeof this.game.setState === 'function') this.game.setState(GameState.LEVEL_EDITOR);
+        else this.game.state = GameState.LEVEL_EDITOR;
         this.mode = 'edit';
         this.updateModeButton();
         this.populateObjectButtons();
@@ -763,9 +726,6 @@ class LevelEditor {
         this.assignNamesToExistingObjects();
         
         this.updateObjectList();
-        
-        // Make this instance globally available for object list callbacks
-        window.levelEditor = this;
         
         // Notify fullscreen manager about level editor state change
         if (this.game.fullscreenManager) {
@@ -793,10 +753,15 @@ class LevelEditor {
     }
     
     exit() {
+        if (!this.active) return;
         this.active = false;
         this.container.style.display = 'none';
+        this.cancelLongPress();
         this.selectObject(null);
-        this.game.state = GameState.PLAYING;
+        const nextState = this.previousGameState ?? GameState.PLAYING;
+        this.previousGameState = null;
+        if (typeof this.game.setState === 'function') this.game.setState(nextState);
+        else this.game.state = nextState;
         
         // Notify fullscreen manager about level editor state change
         if (this.game.fullscreenManager) {
@@ -900,18 +865,7 @@ class LevelEditor {
     }
     
     getEditableObjectClasses() {
-        const editableClasses = [];
-        const excludeClasses = ['BonusPopup', 'Arrow']; // Classes that shouldn't be manually added
-        
-        if (this.gameObjectClasses) {
-            Object.keys(this.gameObjectClasses).forEach(className => {
-                if (!excludeClasses.includes(className)) {
-                    editableClasses.push(className);
-                }
-            });
-        }
-        
-        return editableClasses.sort();
+        return getEditableClassNames(this.gameObjectClasses);
     }
     
     getObjectAtPosition(x, y) {
@@ -1027,13 +981,8 @@ class LevelEditor {
     }
     
     selectObject(obj) {
-        // Validate and fix the object before selection
-        if (obj) {
-            this.validateAndFixObjectValues(obj);
-        }
-        
         this.selectedObject = obj;
-        plog.debug('Selected object:', obj ? obj.constructor.name : 'null');
+        plog.debug('Selected object:', obj?.isLevelSettings ? 'Level Settings' : (obj ? obj.constructor.name : 'null'));
         
         // Provide haptic feedback on mobile devices
         if (obj && 'vibrate' in navigator) {
@@ -1051,6 +1000,16 @@ class LevelEditor {
         }
         
         const obj = this.selectedObject;
+        if (obj.isLevelSettings) {
+            let html = '<h3>Level Settings</h3>';
+            this.getLevelSettingsProperties().forEach(prop => {
+                html += this.createPropertyInput(prop.label, prop.key, prop.value, prop.type, prop);
+            });
+            this.propertiesPanel.innerHTML = html;
+            this.setupPropertyInputs();
+            return;
+        }
+
         let html = `<h3>Properties - ${obj.constructor.name}</h3>`;
         
         // Get all editable properties using reflection
@@ -1190,6 +1149,28 @@ class LevelEditor {
         }
         
         return properties;
+    }
+
+    getLevelSettingsProperties() {
+        const metadata = this.game.levelMetadata || {};
+        const rules = this.game.levelRules || {};
+        const start = this.game.slingshot?.position || this.game.penguin || { x: 0, y: 0 };
+        const target = this.game.target?.position || { x: 0, y: 0 };
+
+        return [
+            { label: 'Level Name', key: 'levelName', value: metadata.name || '', type: 'text' },
+            { label: 'Description', key: 'levelDescription', value: metadata.description || '', type: 'text' },
+            { label: 'Start X', key: 'startX', value: start.x, type: 'number' },
+            { label: 'Start Y', key: 'startY', value: start.y, type: 'number' },
+            { label: 'Target X', key: 'targetX', value: target.x, type: 'number' },
+            { label: 'Target Y', key: 'targetY', value: target.y, type: 'number' },
+            { label: 'Max Tries', key: 'maxTries', value: rules.maxTries, type: 'nullableNumber', min: 1, step: 1 },
+            { label: 'Time Limit', key: 'timeLimit', value: rules.timeLimit, type: 'nullableNumber', min: 0.01 },
+            { label: 'Score Multiplier', key: 'scoreMultiplier', value: rules.scoreMultiplier ?? 1, type: 'number', min: 0.01 },
+            { label: 'Required Bonuses', key: 'requiredBonuses', value: rules.requiredBonuses, type: 'nullableNumber', min: 0, max: this.game.bonuses?.length ?? 0, step: 1 },
+            { label: 'Allowed Misses', key: 'allowedMisses', value: rules.allowedMisses, type: 'nullableNumber', min: 0, step: 1 },
+            { label: 'Gravitational Constant', key: 'gravitationalConstant', value: rules.gravitationalConstant ?? 3, type: 'number', min: 0 }
+        ];
     }
     
     getAvailableObjectIds() {
@@ -1442,7 +1423,8 @@ class LevelEditor {
                 if (options.options) {
                     options.options.forEach(opt => {
                         const selected = opt === value ? 'selected' : '';
-                        inputHtml += `<option value="${opt}" ${selected}>${opt}</option>`;
+                        const safeOption = this.escapeHtmlAttribute(opt);
+                        inputHtml += `<option value="${safeOption}" ${selected}>${safeOption}</option>`;
                     });
                 }
                 inputHtml += `</select>`;
@@ -1466,7 +1448,19 @@ class LevelEditor {
             case 'text':
                 inputHtml = `<input type="text" 
                                    data-property="${property}" 
-                                   value="${value || ''}" 
+                                   value="${this.escapeHtmlAttribute(value ?? '')}"
+                                   style="${baseStyle}">`;
+                break;
+
+            case 'nullableNumber':
+                const nullableMin = options.min !== undefined ? `min="${options.min}"` : '';
+                const nullableMax = options.max !== undefined ? `max="${options.max}"` : '';
+                const nullableStep = options.step !== undefined ? `step="${options.step}"` : 'step="any"';
+                inputHtml = `<input type="number"
+                                   data-property="${property}"
+                                   data-nullable="true"
+                                   value="${value ?? ''}"
+                                   ${nullableMin} ${nullableMax} ${nullableStep}
                                    style="${baseStyle}">`;
                 break;
                 
@@ -1492,6 +1486,14 @@ class LevelEditor {
                 ${inputHtml}
             </div>
         `;
+    }
+
+    escapeHtmlAttribute(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('"', '&quot;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;');
     }
     
     setupPropertyInputs() {
@@ -1527,6 +1529,8 @@ class LevelEditor {
         if (!this.selectedObject || !this.game || !this.game.canvas) return;
         const centerX = STAGE_WIDTH / 2;
         const centerY = STAGE_HEIGHT / 2;
+        const object = this.selectedObject;
+        const before = this.getObjectPosition(object);
 
         if (typeof this.selectedObject.x === 'number' && typeof this.selectedObject.y === 'number') {
             this.selectedObject.x = centerX;
@@ -1537,6 +1541,8 @@ class LevelEditor {
         }
 
         plog.debug('Centered object on canvas at', centerX, centerY);
+        const after = this.getObjectPosition(object);
+        this.recordPositionChange(object, before, after, 'Center object');
         this.updatePropertiesPanel();
     }
     
@@ -1550,6 +1556,10 @@ class LevelEditor {
                 value = e.target.checked;
                 break;
             case 'number':
+                if (e.target.dataset.nullable === 'true' && e.target.value === '') {
+                    value = null;
+                    break;
+                }
                 value = parseFloat(e.target.value);
                 // Validate numeric values
                 if (isNaN(value) || !isFinite(value)) {
@@ -1565,7 +1575,9 @@ class LevelEditor {
                 break;
         }
         
-        if (this.selectedObject) {
+        if (this.selectedObject?.isLevelSettings) {
+            this.updateLevelSetting(property, value);
+        } else if (this.selectedObject) {
             // Handle name property specially
             if (property === 'name') {
                 this.selectedObject.name = value;
@@ -1614,6 +1626,28 @@ class LevelEditor {
                 // Other properties
                 this.selectedObject[property] = value;
                 plog.debug(`Updated ${property} to ${value}`);
+            }
+        }
+    }
+
+    updateLevelSetting(property, value) {
+        this.game.levelMetadata ||= { name: '', description: '' };
+
+        if (property === 'levelName') {
+            this.game.levelMetadata.name = value;
+        } else if (property === 'levelDescription') {
+            this.game.levelMetadata.description = value;
+        } else if (property === 'startX' || property === 'startY') {
+            const axis = property === 'startX' ? 'x' : 'y';
+            if (this.game.slingshot?.position) this.game.slingshot.position[axis] = value;
+            if (this.game.penguin) this.game.penguin[axis] = value;
+        } else if (property === 'targetX' || property === 'targetY') {
+            const axis = property === 'targetX' ? 'x' : 'y';
+            if (this.game.target?.position) this.game.target.position[axis] = value;
+        } else if (this.game.levelRules && property in this.game.levelRules) {
+            this.game.levelRules[property] = value;
+            if (property === 'gravitationalConstant' && this.game.physics) {
+                this.game.physics.gravitationalConstant = value;
             }
         }
     }
@@ -2118,6 +2152,7 @@ class LevelEditor {
         if (!this.selectedObject) return;
         
         this.dragging = true;
+        this.dragStartPosition = this.getObjectPosition(this.selectedObject);
         
         // Handle both coordinate systems
         let objX, objY;
@@ -2153,14 +2188,24 @@ class LevelEditor {
         
         plog.debug('Dragging to:', x, y, 'Object now at:', newX, newY);
         
-        this.updatePropertiesPanel();
+        this.setDisplayedPropertyValue('x', newX);
+        this.setDisplayedPropertyValue('y', newY);
     }
     
     stopDragging() {
         if (this.dragging) {
             plog.debug('Stopped dragging');
+            const object = this.selectedObject;
+            this.recordPositionChange(
+                object,
+                this.dragStartPosition,
+                this.getObjectPosition(object),
+                `Move ${object?.constructor?.name ?? 'object'}`
+            );
+            this.updateObjectList();
         }
         this.dragging = false;
+        this.dragStartPosition = null;
     }
     
     startOrbitCenterDragging(x, y, obj) {
@@ -2168,6 +2213,7 @@ class LevelEditor {
         
         this.draggingOrbitCenter = true;
         this.orbitCenterObject = obj;
+        this.orbitCenterDragStart = { ...obj.orbitSystem.orbitCenter };
         
         // Calculate offset from click to orbit center
         const center = obj.orbitSystem.orbitCenter;
@@ -2192,16 +2238,54 @@ class LevelEditor {
         
         plog.debug('Dragging orbit center to:', x, y, 'Center now at:', newX, newY);
         
-        // Update properties panel to reflect the change
-        this.updatePropertiesPanel();
+        this.setDisplayedPropertyValue('orbitCenterX', newX);
+        this.setDisplayedPropertyValue('orbitCenterY', newY);
     }
     
     stopOrbitCenterDragging() {
         if (this.draggingOrbitCenter) {
             plog.debug('Stopped dragging orbit center');
+            const object = this.orbitCenterObject;
+            const before = this.orbitCenterDragStart;
+            const after = { ...object.orbitSystem.orbitCenter };
+            if (before && (before.x !== after.x || before.y !== after.y)) {
+                this.history.recordExecuted(LiveEditCommandType.MOVE_ORBIT_CENTER, {
+                    object,
+                    before,
+                    after
+                });
+            }
+            this.updateObjectList();
         }
         this.draggingOrbitCenter = false;
         this.orbitCenterObject = null;
+        this.orbitCenterDragStart = null;
+    }
+
+    setDisplayedPropertyValue(property, value) {
+        const input = this.propertiesPanel?.querySelector(`[data-property="${property}"]`);
+        if (input) input.value = String(value);
+    }
+
+    getObjectPosition(object) {
+        if (!object) return null;
+        if (typeof object.x === 'number' && typeof object.y === 'number') {
+            return { x: object.x, y: object.y };
+        }
+        if (object.position && typeof object.position.x === 'number' && typeof object.position.y === 'number') {
+            return { x: object.position.x, y: object.position.y };
+        }
+        return null;
+    }
+
+    recordPositionChange(object, before, after, label) {
+        if (!object || !before || !after || (before.x === after.x && before.y === after.y)) return;
+        this.history.recordExecuted(LiveEditCommandType.MOVE_OBJECT, {
+            object,
+            before,
+            after,
+            label
+        });
     }
     
     addObject(className) {
@@ -2214,6 +2298,12 @@ class LevelEditor {
         }
         
         const ClassConstructor = this.gameObjectClasses[className];
+        const existingSingleton = this.mutator.getSingleton(className);
+        if (existingSingleton) {
+            plog.warn(`${className} is unique in a level; selecting the existing object`);
+            this.selectObject(existingSingleton);
+            return;
+        }
         let newObject;
         
         try {
@@ -2221,8 +2311,7 @@ class LevelEditor {
             newObject = this.createObjectWithDefaults(ClassConstructor, className, centerX, centerY);
             
             if (newObject) {
-                // Add to appropriate arrays
-                this.addObjectToGame(newObject, className);
+                if (!this.addObjectToGame(newObject, className)) return;
                 this.selectObject(newObject);
                 this.updateObjectList();
                 plog.debug('Created new', className, 'at', centerX, centerY);
@@ -2293,7 +2382,7 @@ class LevelEditor {
         }
     }
     
-    addObjectToGame(obj, className) {
+    addObjectToGame(obj, className, { recordHistory = true } = {}) {
         // Add name if it doesn't exist
         if (!obj.name) {
             obj.name = this.generateObjectName(obj, className);
@@ -2304,156 +2393,41 @@ class LevelEditor {
             obj.id = this.generateObjectId(obj, className);
         }
         
-        // Add to gameObjects (all objects go here) - use addGameObject to invalidate render cache
-        this.game.addGameObject(obj);
-        
-        // Add to specific arrays based on type
-        switch (className) {
-            case 'Planet':
-                this.game.planets.push(obj);
-                this.game.physics.addPlanet(obj);
-                break;
-            case 'Bonus':
-                this.game.bonuses.push(obj);
-                break;
-            case 'TextObject':
-                this.game.textObjects.push(obj);
-                break;
-            case 'PointingArrow':
-                this.game.pointingArrows.push(obj);
-                break;
-            // Other types just go in gameObjects
+        const added = recordHistory
+            ? this.history.execute(LiveEditCommandType.ADD_OBJECT, { object: obj, className })
+            : this.mutator.addObject(obj, className);
+        if (!added) {
+            plog.warn(`Could not add ${className} to the live level`);
+            return false;
         }
+        return true;
+    }
+
+    refreshAfterHistory(selection) {
+        this.selectObject(selection);
     }
     
     generateObjectName(obj, className) {
-        // Count existing objects of the same type
-        const allObjects = this.getAllGameObjects();
-        const sameTypeObjects = allObjects.filter(existingObj => 
-            existingObj.constructor.name === className
+        const usedNames = new Set(
+            this.getAllGameObjects()
+                .filter(existingObj => existingObj !== obj && typeof existingObj.name === 'string')
+                .map(existingObj => existingObj.name)
         );
-        
-        // Generate name with number
-        const number = sameTypeObjects.length + 1;
+        let number = 1;
+        while (usedNames.has(`${className} ${number}`)) number++;
         return `${className} ${number}`;
     }
     
     generateObjectId(obj, className) {
-        // Count existing objects of the same type for consistent ID generation
-        const allObjects = this.getAllGameObjects();
-        const sameTypeObjects = allObjects.filter(existingObj => 
-            existingObj.constructor.name === className
+        const prefix = className.toLowerCase();
+        const usedIds = new Set(
+            this.getAllGameObjects()
+                .filter(existingObj => existingObj !== obj && typeof existingObj.id === 'string')
+                .map(existingObj => existingObj.id)
         );
-        
-        // Generate ID with lowercase type and number (matching levelLoader format)
-        const number = sameTypeObjects.length + 1;
-        return `${className.toLowerCase()}_${number}`;
-    }
-    
-    removeObjectFromGame(obj) {
-        // Robust removal system that automatically finds and removes object from all collections
-        const className = obj.constructor.name;
-        
-        // 1. Remove from main gameObjects array (always) - use proper game method to invalidate render cache
-        this.game.removeGameObject(obj);
-        
-        // 2. Use reflection to find all array properties and remove from matching ones
-        this.removeFromAllGameArrays(obj);
-        
-        // 3. Handle special physics integrations
-        this.removeFromPhysics(obj);
-        
-        // 4. Handle special singleton references
-        this.removeSpecialReferences(obj);
-    }
-    
-    removeFromArray(array, obj, arrayName) {
-        if (!array) return false;
-        
-        const initialLength = array.length;
-        const index = array.indexOf(obj);
-        
-        if (index !== -1) {
-            array.splice(index, 1);
-            plog.debug(`  - Removed from ${arrayName} (was at index ${index})`);
-            return true;
-        }
-        
-        return false;
-    }
-    
-    removeFromAllGameArrays(obj) {
-        // Dynamically find all arrays in the game object and try to remove from them
-        // This automatically handles new arrays without code changes
-        
-        const arrayNames = [
-            'planets', 'bonuses', 'textObjects', 'pointingArrows',
-            // gameObjects excluded since it's handled by game.removeGameObject() above
-            // Add more as needed, but the system will work even if we forget some
-        ];
-        
-        arrayNames.forEach(arrayName => {
-            if (this.game[arrayName] && Array.isArray(this.game[arrayName])) {
-                this.removeFromArray(this.game[arrayName], obj, arrayName);
-            }
-        });
-        
-        // Also scan for any other arrays that might contain our object
-        // This is a safety net for arrays we might have missed
-        this.scanAndRemoveFromUnknownArrays(obj);
-    }
-    
-    scanAndRemoveFromUnknownArrays(obj) {
-        // Defensive programming: scan all game properties for arrays containing our object
-        for (const [key, value] of Object.entries(this.game)) {
-            if (Array.isArray(value) && value.includes(obj)) {
-                plog.debug(`  - Found object in unexpected array: ${key}`);
-                this.removeFromArray(value, obj, key);
-            }
-        }
-    }
-    
-    removeFromPhysics(obj) {
-        // Handle physics integrations based on object type
-        const className = obj.constructor.name;
-        
-        switch (className) {
-            case 'Planet':
-                if (this.game.physics && typeof this.game.physics.removePlanet === 'function') {
-                    this.game.physics.removePlanet(obj);
-                    plog.debug('  - Removed from physics system');
-                }
-                break;
-            
-            case 'Bonus':
-                // Future: if bonuses need physics removal
-                break;
-                
-            // Add other physics-integrated objects as needed
-        }
-    }
-    
-    removeSpecialReferences(obj) {
-        // Handle singleton/special object references
-        const className = obj.constructor.name;
-        
-        // Check all game properties for direct references to this object
-        const specialProps = ['target', 'slingshot', 'penguin', 'arrow'];
-        
-        specialProps.forEach(prop => {
-            if (this.game[prop] === obj) {
-                this.game[prop] = null;
-                plog.debug(`  - Cleared special reference: ${prop}`);
-            }
-        });
-        
-        // Also scan for any other direct references
-        for (const [key, value] of Object.entries(this.game)) {
-            if (value === obj && !specialProps.includes(key)) {
-                this.game[key] = null;
-                plog.debug(`  - Cleared unexpected reference: ${key}`);
-            }
-        }
+        let number = 1;
+        while (usedIds.has(`${prefix}_${number}`)) number++;
+        return `${prefix}_${number}`;
     }
     
     showContextMenu(x, y) {
@@ -2546,6 +2520,12 @@ class LevelEditor {
         }
         
         const ClassConstructor = this.gameObjectClasses[className];
+        const existingSingleton = this.mutator.getSingleton(className);
+        if (existingSingleton) {
+            plog.warn(`${className} is unique in a level; selecting the existing object`);
+            this.selectObject(existingSingleton);
+            return;
+        }
         let newObject;
         
         try {
@@ -2553,8 +2533,7 @@ class LevelEditor {
             newObject = this.createObjectWithDefaults(ClassConstructor, className, x, y);
             
             if (newObject) {
-                // Add to appropriate arrays
-                this.addObjectToGame(newObject, className);
+                if (!this.addObjectToGame(newObject, className)) return;
                 this.selectObject(newObject);
                 this.updateObjectList();
                 plog.debug('Created new', className, 'at', x, y);
@@ -2584,6 +2563,15 @@ class LevelEditor {
             plog.warn('No object selected to clone');
             return;
         }
+        if (this.selectedObject.isLevelSettings) {
+            plog.warn('Level Settings cannot be cloned');
+            return;
+        }
+        const selectedClassName = this.selectedObject.constructor.name;
+        if (this.mutator.getSingleton(selectedClassName)) {
+            plog.warn(`${selectedClassName} is unique in a level and cannot be cloned`);
+            return;
+        }
         
         const clonedObject = this.cloneObject(this.selectedObject);
         if (clonedObject) {
@@ -2607,7 +2595,7 @@ class LevelEditor {
             
             // Add to game
             const className = clonedObject.constructor.name;
-            this.addObjectToGame(clonedObject, className);
+            if (!this.addObjectToGame(clonedObject, className)) return;
             
             // Select the new clone
             this.selectObject(clonedObject);
@@ -2814,18 +2802,14 @@ class LevelEditor {
         
         // Restore orbit system
         if (props.orbitSystem) {
-            // Import OrbitSystem class dynamically
-            import('./gameObjects.js').then(module => {
-                clonedObject.orbitSystem = new module.OrbitSystem();
-                const orbit = props.orbitSystem;
-                
-                clonedObject.orbitSystem.orbitCenter = orbit.orbitCenter;
-                clonedObject.orbitSystem.orbitRadius = orbit.orbitRadius;
-                clonedObject.orbitSystem.orbitSpeed = orbit.orbitSpeed;
-                clonedObject.orbitSystem.orbitAngle = orbit.orbitAngle;
-                clonedObject.orbitSystem.orbitType = orbit.orbitType;
-                clonedObject.orbitSystem.orbitParams = orbit.orbitParams;
-            });
+            clonedObject.orbitSystem = new OrbitSystem();
+            const orbit = props.orbitSystem;
+            clonedObject.orbitSystem.orbitCenter = orbit.orbitCenter;
+            clonedObject.orbitSystem.orbitRadius = orbit.orbitRadius;
+            clonedObject.orbitSystem.orbitSpeed = orbit.orbitSpeed;
+            clonedObject.orbitSystem.orbitAngle = orbit.orbitAngle;
+            clonedObject.orbitSystem.orbitType = orbit.orbitType;
+            clonedObject.orbitSystem.orbitParams = orbit.orbitParams;
         }
         
         return clonedObject;
@@ -2843,13 +2827,20 @@ class LevelEditor {
         // Get all objects
         const allObjects = this.getAllGameObjects();
         
-        if (allObjects.length === 0) {
-            listContent.innerHTML = '<p style="color: #999;">No objects in level</p>';
-            return;
-        }
-        
-        // Create object list HTML
+        // Create object list HTML. Level Settings is a synthetic root node and is
+        // deliberately separated from the game objects below it.
         let html = '<div style="max-height: 300px; overflow-y: auto;">';
+
+        const levelSettingsSelected = this.selectedObject === this.levelSettingsNode;
+        const levelSettingsBackground = levelSettingsSelected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)';
+        html += `
+            <div class="object-list-item level-settings-item"
+                 data-level-settings="true"
+                 style="padding: 10px; margin: 2px 0 16px; background: ${levelSettingsBackground}; border: 1px solid ${levelSettingsSelected ? '#00ffff' : 'rgba(255, 255, 255, 0.35)'}; border-radius: 3px; cursor: pointer; color: ${levelSettingsSelected ? '#00ffff' : '#ffffff'}; font-size: 12px; user-select: none; touch-action: manipulation;">
+                <div style="font-weight: bold;">Level Settings</div>
+                <div style="color: #ccc; font-size: 10px;">Level metadata, positions, and rules</div>
+            </div>
+        `;
         
         allObjects.forEach((obj, index) => {
             const className = obj.constructor.name;
@@ -2908,18 +2899,36 @@ class LevelEditor {
                          font-size: 12px;
                          user-select: none;
                          touch-action: manipulation;
-                     "
-                     onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
-                     onmouseout="this.style.background='${backgroundColor}'"
-                     onclick="window.levelEditor.selectObjectFromList(${index})">
-                    <div style="font-weight: bold;">${identifier}</div>
+                     ">
+                    <div style="font-weight: bold;">${this.escapeHtmlAttribute(identifier)}</div>
                     <div style="color: #ccc; font-size: 10px;">Position: (${objX}, ${objY})</div>
                 </div>
             `;
         });
+
+        if (allObjects.length === 0) {
+            html += '<p style="color: #999; margin-top: 0;">No objects in level</p>';
+        }
         
         html += '</div>';
         listContent.innerHTML = html;
+
+        listContent.querySelector('[data-level-settings]')?.addEventListener('click', () => {
+            this.selectLevelSettings();
+        });
+        listContent.querySelectorAll('[data-object-index]').forEach(item => {
+            const index = Number(item.dataset.objectIndex);
+            const backgroundColor = allObjects[index] === this.selectedObject
+                ? 'rgba(0, 255, 255, 0.3)'
+                : 'rgba(255, 255, 255, 0.1)';
+            item.addEventListener('mouseenter', () => {
+                item.style.background = 'rgba(255, 255, 255, 0.2)';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.background = backgroundColor;
+            });
+            item.addEventListener('click', () => this.selectObjectFromList(index));
+        });
         
         // Restore scroll position
         listContent.scrollTop = currentScrollTop;
@@ -2963,6 +2972,10 @@ class LevelEditor {
             
             plog.debug('Selected from list:', obj.constructor.name);
         }
+    }
+
+    selectLevelSettings() {
+        this.selectObject(this.levelSettingsNode);
     }
     
     render(ctx) {

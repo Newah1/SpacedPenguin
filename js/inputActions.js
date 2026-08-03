@@ -293,14 +293,15 @@ export class LevelEditorInputAction extends InputAction {
         const canvas = this.getCanvas();
         if (!canvas) return;
         
-        this.addListener(canvas, 'mousedown', this.handleMouseDown);
-        this.addListener(canvas, 'mousemove', this.handleMouseMove);
-        this.addListener(canvas, 'mouseup', this.handleMouseUp);
-        this.addListener(canvas, 'click', this.handleClick);
+        this.addListener(canvas, 'pointerdown', this.handlePointerDown);
+        this.addListener(canvas, 'pointermove', this.handlePointerMove);
+        this.addListener(canvas, 'pointerup', this.handlePointerUp);
+        this.addListener(canvas, 'pointercancel', this.handlePointerUp);
+        this.addListener(canvas, 'contextmenu', this.handleContextMenu);
         this.addListener(document, 'keydown', this.handleKeyDown);
     }
     
-    handleMouseDown(e) {
+    handlePointerDown(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
@@ -309,12 +310,11 @@ export class LevelEditorInputAction extends InputAction {
             // Delegate to game's handlers in play mode
             game.handleMouseDown(e);
         } else {
-            // Use level editor handlers in edit mode
-            game.levelEditor.handleMouseDown(e);
+            game.levelEditor.handlePointerDown(e);
         }
     }
     
-    handleMouseMove(e) {
+    handlePointerMove(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
@@ -323,12 +323,11 @@ export class LevelEditorInputAction extends InputAction {
             // Delegate to game's handlers in play mode
             game.handleMouseMove(e);
         } else {
-            // Use level editor handlers in edit mode
-            game.levelEditor.handleMouseMove(e);
+            game.levelEditor.handlePointerMove(e);
         }
     }
     
-    handleMouseUp(e) {
+    handlePointerUp(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
         
@@ -337,23 +336,14 @@ export class LevelEditorInputAction extends InputAction {
             // Delegate to game's handlers in play mode
             game.handleMouseUp(e);
         } else {
-            // Use level editor handlers in edit mode
-            game.levelEditor.handleMouseUp(e);
+            game.levelEditor.handlePointerUp(e);
         }
     }
     
-    handleClick(e) {
+    handleContextMenu(e) {
         const game = this.getGame();
         if (!game || !this.isLevelEditorActive()) return;
-        
-        // Check level editor mode
-        if (game.levelEditor.mode === 'play') {
-            // Delegate to game's handlers in play mode
-            // Note: game doesn't have handleClick, so we'll skip this in play mode
-        } else {
-            // Use level editor handlers in edit mode
-            game.levelEditor.handleClick(e);
-        }
+        if (game.levelEditor.mode === 'edit') game.levelEditor.handleRightClick(e);
     }
     
     handleKeyDown(e) {

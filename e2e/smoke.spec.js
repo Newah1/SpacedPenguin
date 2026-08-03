@@ -109,6 +109,16 @@ test('audio request failures degrade without blocking bootstrap', async ({ page 
     await expect.poll(() => page.evaluate(() => Boolean(window.game?.assetLoader))).toBe(true);
 });
 
+test('manual harness index and repository-relative modules remain available', async ({ page }) => {
+    await page.goto('/testing/manual/');
+    await expect(page.getByRole('heading', { name: 'Manual test harnesses' })).toBeVisible();
+    await expect(page.locator('main, body').getByRole('link')).toHaveCount(15);
+
+    await page.goto('/testing/manual/test_orbits.html');
+    await expect(page.getByRole('heading', { name: 'Spaced Penguin - Orbit System Test' })).toBeVisible();
+    await expect(page.locator('#orbitCanvas')).toBeVisible();
+});
+
 test('editor exports a valid normalized level document', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');
@@ -116,6 +126,27 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     await page.keyboard.press('Space');
     await waitForGame(page, 'playing');
     await page.keyboard.press('F1');
+
+    await page.evaluate(() => window.game.levelEditor.addObject('Planet'));
+    await expect.poll(() => page.evaluate(() => ({
+        planets: window.game.planets.length,
+        physicsPlanets: window.game.physics.planets.length
+    }))).toEqual({ planets: 1, physicsPlanets: 1 });
+    await page.keyboard.press('Control+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets.length)).toBe(0);
+    await page.keyboard.press('Control+Shift+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets.length)).toBe(1);
+
+    const levelSettings = page.locator('.level-settings-item');
+    await expect(levelSettings).toBeVisible();
+    await expect(levelSettings).toContainText('Level Settings');
+    expect(await levelSettings.evaluate(element => getComputedStyle(element).marginBottom)).toBe('16px');
+    await levelSettings.click();
+
+    await expect(page.locator('input[data-property="levelName"]')).toHaveValue('Browser Smoke Level');
+    await page.locator('input[data-property="levelName"]').fill('Edited Browser Level');
+    await page.locator('input[data-property="startX"]').fill('125');
+    await page.locator('input[data-property="gravitationalConstant"]').fill('2.5');
 
     const exportButton = page.getByRole('button', { name: 'Export Level', exact: true });
     await expect(exportButton).toBeVisible();
@@ -126,7 +157,9 @@ test('editor exports a valid normalized level document', async ({ page }) => {
 
     expect(download.suggestedFilename()).toMatch(/^custom_level_\d+\.json$/);
     expect(validateLevelDefinition(exportedLevel).valid).toBe(true);
-    expect(exportedLevel.startPosition).toEqual(deterministicLevel.startPosition);
+    expect(exportedLevel.name).toBe('Edited Browser Level');
+    expect(exportedLevel.startPosition).toEqual({ x: 125, y: 300 });
+    expect(exportedLevel.rules.gravitationalConstant).toBe(2.5);
     expect(Array.isArray(exportedLevel.objects)).toBe(true);
 });
 
