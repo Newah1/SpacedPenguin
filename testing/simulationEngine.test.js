@@ -302,7 +302,22 @@ test('launch and scoring calculations are shared deterministic functions', () =>
         velocityMultiplier: 8,
         maxPullback: 100,
         minPullback: 10
-    }), { x: 1280, y: 0 });
+    }), { x: 640, y: 0 });
+
+    const launchSpeed = power => calculateLaunchVelocity(0, power, {
+        velocityMultiplier: 15,
+        maxPullback: 100,
+        minPullback: 10
+    }).x;
+    const minimum = launchSpeed(10);
+    const low = launchSpeed(20);
+    const middle = launchSpeed(50);
+    const maximum = launchSpeed(100);
+    assert.equal(minimum, 120);
+    assert.ok(low > minimum);
+    assert.ok(middle > low);
+    assert.equal(maximum, 1200);
+    assert.ok(maximum / minimum <= 10);
     assert.deepEqual(calculateLevelScore({
         distance: 100,
         level: 2,

@@ -118,15 +118,37 @@ export class MenuInputAction extends InputAction {
     setupListeners() {
         const canvas = this.getCanvas();
         if (!canvas) return;
-        
+
+        this.addListener(canvas, 'pointerdown', this.handlePointerDown);
+        this.addListener(canvas, 'pointermove', this.handlePointerMove);
+        this.addListener(canvas, 'pointerup', this.handlePointerUp);
+        this.addListener(canvas, 'pointercancel', this.handlePointerUp);
         this.addListener(canvas, 'click', this.handleClick);
-        this.addListener(canvas, 'touchstart', this.handleTouchStart, { passive: false });
-        this.addListener(canvas, 'touchend', this.handleTouchEnd, { passive: false });
+    }
+
+    handlePointerDown(e) {
+        if (this.getGameState() !== GameState.MENU) return;
+        if (this.rootContext.handleMenuPointerDown?.(e)) {
+            e.preventDefault();
+            e.target.setPointerCapture?.(e.pointerId);
+        }
+    }
+
+    handlePointerMove(e) {
+        if (this.getGameState() !== GameState.MENU) return;
+        if (this.rootContext.handleMenuPointerMove?.(e)) e.preventDefault();
+    }
+
+    handlePointerUp(e) {
+        if (this.getGameState() !== GameState.MENU) return;
+        if (this.rootContext.handleMenuPointerUp?.(e)) e.preventDefault();
     }
     
     handleClick(e) {
         const game = this.getGame();
         if (!game || this.getGameState() !== GameState.MENU) return;
+        if (this.rootContext.consumeMenuInteraction?.()) return;
+        if (this.rootContext.shouldStartGameFromMenu && !this.rootContext.shouldStartGameFromMenu(e)) return;
 
         if (game.state === GameState.MENU) {
             game.startGame();
@@ -137,34 +159,6 @@ export class MenuInputAction extends InputAction {
         game.uiManager?.handleClick(e);
     }
     
-    handleTouchStart(e) {
-        this.touchStartTime = Date.now();
-        this.touchStartPos = this.getEventCoordinates(e);
-    }
-    
-    handleTouchEnd(e) {
-        const game = this.getGame();
-        if (!game || this.getGameState() !== GameState.MENU) return;
-        
-        // Convert touch to click for menu interaction
-        const touchEndTime = Date.now();
-        const touchDuration = touchEndTime - this.touchStartTime;
-        
-        if (touchDuration < INPUT_CONFIG.tapMaxDurationMs.menu) {
-            const syntheticClick = new MouseEvent('click', {
-                clientX: e.changedTouches[0].clientX,
-                clientY: e.changedTouches[0].clientY,
-                bubbles: true
-            });
-            e.target.dispatchEvent(syntheticClick);
-        }
-    }
-    
-    getEventCoordinates(event) {
-        const canvas = this.getCanvas();
-        const touch = event.touches[0] || event.changedTouches[0];
-        return screenToStage(canvas, canvas.viewport, touch.clientX, touch.clientY);
-    }
 }
 
 export class KeyboardInputAction extends InputAction {

@@ -53,7 +53,10 @@ export const SIMULATION_CONFIG = deepFreeze({
         highBaseScale: 1.5,
         bandScaleGain: 0.5,
         highExponent: 1.5,
-        speedDivisor: 250
+        speedDivisor: 250,
+        minimumSpeedFactor: 8,
+        maximumSpeedFactor: 80,
+        responseExponent: 0.9
     },
     collision: {
         planetCrashFrames: 150,

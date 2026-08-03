@@ -38,10 +38,13 @@ export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot =
     const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
     const minPullback = slingshot.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
     const pullback = Math.min(Math.max(pullbackPower, minPullback), maxPullback);
-    const normalizedDistance = pullback / maxPullback;
-    const scale = calculateLaunchScale(normalizedDistance);
-    const scaledPullback = pullback * scale;
-    const speed = (scaledPullback * scaledPullback / SIMULATION_CONFIG.launchCurve.speedDivisor) * velocityMultiplier;
+    const pullbackRange = Math.max(1, maxPullback - minPullback);
+    const normalizedPull = Math.max(0, Math.min(1, (pullback - minPullback) / pullbackRange));
+    const curve = SIMULATION_CONFIG.launchCurve;
+    const response = Math.pow(normalizedPull, curve.responseExponent);
+    const speedFactor = curve.minimumSpeedFactor +
+        (curve.maximumSpeedFactor - curve.minimumSpeedFactor) * response;
+    const speed = speedFactor * velocityMultiplier;
     const radians = angleDegrees * Math.PI / 180;
     return { x: Math.cos(radians) * speed, y: Math.sin(radians) * speed };
 }

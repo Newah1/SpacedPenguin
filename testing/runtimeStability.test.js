@@ -710,7 +710,7 @@ test('headless launch power follows the production nonlinear pullback curve', ()
     const penguin = new HeadlessPenguin(0, 0);
     penguin.launch(0, 100, { velocityMultiplier: 8, maxPullback: 100 });
 
-    assert.equal(penguin.velocity.x, 1280);
+    assert.equal(penguin.velocity.x, 640);
     assert.equal(penguin.velocity.y, 0);
 });
 

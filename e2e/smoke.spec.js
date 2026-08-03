@@ -109,6 +109,69 @@ test('audio request failures degrade without blocking bootstrap', async ({ page 
     await expect.poll(() => page.evaluate(() => Boolean(window.game?.assetLoader))).toBe(true);
 });
 
+test('menu uses the original black and orange title-card composition', async ({ page }, testInfo) => {
+    await page.goto('/');
+    await waitForGame(page);
+
+    const colors = await page.locator('#gameCanvas').evaluate(canvas => {
+        const ctx = canvas.getContext('2d');
+        const viewport = canvas.viewport;
+        const sample = (stageX, stageY) => {
+            const x = Math.round(viewport.offsetX + stageX * viewport.scale);
+            const y = Math.round(viewport.offsetY + stageY * viewport.scale);
+            return Array.from(ctx.getImageData(x, y, 1, 1).data);
+        };
+        return {
+            backdrop: sample(5, 5),
+            howToCard: sample(400, 60),
+            startButton: sample(655, 512)
+        };
+    });
+
+    expect(colors.backdrop.slice(0, 3)).toEqual([0, 0, 0]);
+    expect(colors.howToCard[0]).toBeGreaterThan(220);
+    expect(colors.howToCard[1]).toBeGreaterThan(100);
+    expect(colors.startButton[0]).toBeGreaterThan(220);
+
+    const background = await stageToClient(page, 350, 500);
+    await page.mouse.click(background.x, background.y);
+    expect(await page.evaluate(() => window.game.state)).toBe('menu');
+
+    const gravityResult = await page.evaluate(() => {
+        const manager = window.gameManager;
+        manager.menuSlingshot.position = { x: 500, y: 512 };
+        manager.menuSlingshot.velocity = { x: 0, y: 0 };
+        manager.menuSlingshot.launched = true;
+        manager.menuSlingshot.age = 3;
+        manager.menuSlingshot.lastFrameTime = 1;
+        manager.updateMenuSlingshot(1.05);
+        const result = {
+            attractedTowardPlanets: manager.menuSlingshot.velocity.x > 0,
+            stillFlyingOutsideVignette: manager.menuSlingshot.launched
+        };
+        manager.resetMenuSlingshot();
+        return result;
+    });
+    expect(gravityResult).toEqual({
+        attractedTowardPlanets: true,
+        stillFlyingOutsideVignette: true
+    });
+
+    const kevin = await stageToClient(page, 124, 440);
+    const pullback = await stageToClient(page, 76, 461);
+    await page.mouse.move(kevin.x, kevin.y);
+    await page.mouse.down();
+    await page.mouse.move(pullback.x, pullback.y, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => page.evaluate(() => window.gameManager.menuSlingshot.launched)).toBe(true);
+    expect(await page.evaluate(() => window.game.state)).toBe('menu');
+    await page.locator('#gameCanvas').screenshot({ path: testInfo.outputPath('menu.png') });
+
+    const start = await stageToClient(page, 655, 512);
+    await page.mouse.click(start.x, start.y);
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
+});
+
 test('manual harness index and repository-relative modules remain available', async ({ page }) => {
     await page.goto('/testing/manual/');
     await expect(page.getByRole('heading', { name: 'Manual test harnesses' })).toBeVisible();

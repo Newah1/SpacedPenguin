@@ -6,10 +6,11 @@ import { GameState } from './game.js';
 import { AssetLoader } from './assetLoader.js';
 import { AudioManager } from './audioManager.js';
 import { InputActionManager } from './inputActions.js';
+import { Penguin } from './penguin.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import PerformanceUtils from './performanceUtils.js';
-import { STAGE_HEIGHT, STAGE_WIDTH, createViewport } from './viewport.js';
+import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './viewport.js';
 import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
@@ -35,6 +36,8 @@ class GameManager {
         this.handlePageVisibilityChange = null;
         this.viewport = null;
         this.lastInputContextKey = null;
+        this.menuKevin = null;
+        this.menuSlingshot = this.createMenuSlingshotState();
         
         this.init();
         this.setupPageVisibilityHandling();
@@ -103,6 +106,7 @@ class GameManager {
         // Initialize game with loaded assets and audio manager
         const audioManager = assetLoader.getAudioManager();
         this.game = new Game(this.canvas, assetLoader, audioManager);
+        this.menuKevin = new Penguin(assetLoader);
         
         // Initialize input action manager with root context
         this.inputActionManager = new InputActionManager({
@@ -110,7 +114,12 @@ class GameManager {
             game: this.game,
             setupResponsiveCanvas: this.setupResponsiveCanvas.bind(this),
             pause: this.pause.bind(this),
-            resume: this.resume.bind(this)
+            resume: this.resume.bind(this),
+            handleMenuPointerDown: this.handleMenuPointerDown.bind(this),
+            handleMenuPointerMove: this.handleMenuPointerMove.bind(this),
+            handleMenuPointerUp: this.handleMenuPointerUp.bind(this),
+            consumeMenuInteraction: this.consumeMenuInteraction.bind(this),
+            shouldStartGameFromMenu: this.shouldStartGameFromMenu.bind(this)
         });
         
         // Initialize input actions for the current game state
@@ -263,29 +272,153 @@ class GameManager {
         this.game.beginFrame();
         const width = STAGE_WIDTH;
         const height = STAGE_HEIGHT;
-        const time = this.game.starfieldTime || 0;
+        const time = performance.now() * 0.001;
+        this.updateMenuSlingshot(time);
 
-        // Deep cobalt space, sampled from the original show's packaging and
-        // warmed with the orange used by the penguins' flight suits.
-        const space = ctx.createRadialGradient(width * 0.52, height * 0.36, 30, width * 0.5, height * 0.45, 520);
-        space.addColorStop(0, '#153f8a');
-        space.addColorStop(0.42, '#0a2257');
-        space.addColorStop(0.78, '#040d28');
-        space.addColorStop(1, '#01040d');
-        ctx.fillStyle = space;
+        // Match the original game's spare title-card presentation.
+        ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
-        
-        this.game.drawStars();
-
-        // Keep the full rotated ring inside the 800px stage while allowing the
-        // planet itself to dip below the bottom edge.
-        this.drawMenuPlanet(ctx, 670, 533, 88);
         this.drawMenuTitle(ctx);
         this.drawMenuConsole(ctx, time);
         
         // Add mobile start button if on mobile
         if (this.isMobile) {
             this.createMobileStartButton();
+        }
+    }
+
+    createMenuSlingshotState() {
+        return {
+            anchor: { x: 163, y: 439 },
+            restingPosition: { x: 124, y: 440 },
+            position: { x: 124, y: 440 },
+            velocity: { x: 0, y: 0 },
+            dragging: false,
+            launched: false,
+            age: 0,
+            lastFrameTime: null,
+            suppressClick: false
+        };
+    }
+
+    resetMenuSlingshot() {
+        const previousTime = this.menuSlingshot?.lastFrameTime ?? null;
+        this.menuSlingshot = this.createMenuSlingshotState();
+        this.menuSlingshot.lastFrameTime = previousTime;
+        if (this.menuKevin) this.menuKevin.trail = [];
+    }
+
+    getMenuStagePoint(event) {
+        return screenToStage(
+            this.canvas,
+            this.canvas.viewport,
+            event.clientX,
+            event.clientY
+        );
+    }
+
+    handleMenuPointerDown(event) {
+        const point = this.getMenuStagePoint(event);
+        const state = this.menuSlingshot;
+        const distance = Math.hypot(point.x - state.position.x, point.y - state.position.y);
+        if (distance > 32) return false;
+
+        state.dragging = true;
+        state.launched = false;
+        state.velocity = { x: 0, y: 0 };
+        state.suppressClick = true;
+        this.updateMenuDragPosition(point);
+        return true;
+    }
+
+    handleMenuPointerMove(event) {
+        if (!this.menuSlingshot.dragging) return false;
+        this.updateMenuDragPosition(this.getMenuStagePoint(event));
+        return true;
+    }
+
+    handleMenuPointerUp(event) {
+        const state = this.menuSlingshot;
+        if (!state.dragging) return false;
+
+        this.updateMenuDragPosition(this.getMenuStagePoint(event));
+        state.dragging = false;
+        const pullX = state.anchor.x - state.position.x;
+        const pullY = state.anchor.y - state.position.y;
+        if (Math.hypot(pullX, pullY) < 4) {
+            this.resetMenuSlingshot();
+            this.menuSlingshot.suppressClick = true;
+        } else {
+            state.velocity = { x: pullX * 5.5, y: pullY * 5.5 };
+            state.launched = true;
+            state.age = 0;
+            state.suppressClick = true;
+        }
+        return true;
+    }
+
+    updateMenuDragPosition(point) {
+        const state = this.menuSlingshot;
+        const dx = point.x - state.anchor.x;
+        const dy = point.y - state.anchor.y;
+        const distance = Math.hypot(dx, dy);
+        const scale = distance > 72 ? 72 / distance : 1;
+        state.position.x = state.anchor.x + dx * scale;
+        state.position.y = state.anchor.y + dy * scale;
+    }
+
+    consumeMenuInteraction() {
+        if (!this.menuSlingshot.suppressClick) return false;
+        this.menuSlingshot.suppressClick = false;
+        return true;
+    }
+
+    shouldStartGameFromMenu(event) {
+        const point = this.getMenuStagePoint(event);
+        const normalizedX = (point.x - 655) / 92;
+        const normalizedY = (point.y - 512) / 48;
+        return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+    }
+
+    getMenuStartPlanets(time) {
+        const orbit = time * 2.2;
+        return [0, Math.PI].map(offset => ({
+            x: 655 + Math.cos(orbit + offset) * 74,
+            y: 512 + Math.sin(orbit + offset) * 58,
+            radius: 18
+        }));
+    }
+
+    updateMenuSlingshot(time) {
+        const state = this.menuSlingshot;
+        const previous = state.lastFrameTime ?? time;
+        const deltaTime = Math.min(0.05, Math.max(0, time - previous));
+        state.lastFrameTime = time;
+        if (!state.launched || state.dragging) return;
+
+        for (const planet of this.getMenuStartPlanets(time)) {
+            const dx = planet.x - state.position.x;
+            const dy = planet.y - state.position.y;
+            const distanceSquared = Math.max(625, dx * dx + dy * dy);
+            const distance = Math.sqrt(distanceSquared);
+            const acceleration = Math.min(350, 900000 / distanceSquared);
+            state.velocity.x += (dx / distance) * acceleration * deltaTime;
+            state.velocity.y += (dy / distance) * acceleration * deltaTime;
+        }
+        state.position.x += state.velocity.x * deltaTime;
+        state.position.y += state.velocity.y * deltaTime;
+        state.age += deltaTime;
+
+        if (this.menuKevin) {
+            this.menuKevin.trail.push({ ...state.position });
+            if (this.menuKevin.trail.length > this.menuKevin.maxTrailLength) {
+                this.menuKevin.trail.shift();
+            }
+        }
+
+        if (state.age > 12 || state.position.x < -100 || state.position.x > 900 ||
+            state.position.y < -100 || state.position.y > 700) {
+            this.resetMenuSlingshot();
         }
     }
     
@@ -302,22 +435,22 @@ class GameManager {
         startButton.textContent = 'TAP TO LAUNCH';
         startButton.style.cssText = `
             position: absolute;
-            top: 68.5%;
-            left: 50%;
+            top: 82%;
+            left: 81%;
             transform: translate(-50%, -50%);
-            background: linear-gradient(#ffd85a, #f28a19 54%, #ca4b0b);
-            color: #07183c;
-            border: 3px solid #ffe991;
-            padding: 11px 28px;
-            font-family: "Trebuchet MS", Arial, sans-serif;
-            font-size: 16px;
+            background: #fff3bb;
+            color: #f47b20;
+            border: 4px solid #f79433;
+            padding: 14px 24px;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
             font-weight: 900;
-            letter-spacing: 1.5px;
-            border-radius: 10px;
+            letter-spacing: .5px;
+            border-radius: 50%;
             cursor: pointer;
-            box-shadow: 0 4px 0 #762606, 0 0 18px rgba(255, 166, 31, .45);
+            box-shadow: 0 0 0 2px #ffca69;
             z-index: 100;
-            min-width: 220px;
+            min-width: 170px;
             touch-action: manipulation;
         `;
         
@@ -355,6 +488,7 @@ class GameManager {
             startButton.remove();
         }
         document.body.classList.remove('is-menu');
+        this.resetMenuSlingshot();
         
         // Start the game
         if (this.game && this.game.state === GameState.MENU) {
@@ -442,139 +576,194 @@ class GameManager {
         const title = this.assetLoader.createTitle();
         const spaced = title.spacedText;
         const penguin = title.penguinText;
+        const kevinShip = this.assetLoader.getGameSprite('ship_closed');
 
         ctx.save();
-        ctx.shadowColor = 'rgba(255, 133, 12, 0.68)';
-        ctx.shadowBlur = 18;
+        if (kevinShip) {
+            ctx.drawImage(kevinShip, 22, 51, 92, 64);
+        }
         if (spaced && penguin) {
-            const spacedWidth = 276;
+            const spacedWidth = 242;
             const spacedHeight = spacedWidth * (spaced.height / spaced.width);
-            const penguinWidth = 340;
+            const penguinWidth = 310;
             const penguinHeight = penguinWidth * (penguin.height / penguin.width);
-            const spacedY = 34;
-            const penguinY = spacedY + spacedHeight + 9;
-            ctx.drawImage(spaced, 400 - spacedWidth / 2, spacedY, spacedWidth, spacedHeight);
-            ctx.drawImage(penguin, 400 - penguinWidth / 2, penguinY, penguinWidth, penguinHeight);
+            const spacedY = 68;
+            const penguinY = spacedY + spacedHeight + 3;
+            ctx.drawImage(spaced, 105, spacedY, spacedWidth, spacedHeight);
+            ctx.drawImage(penguin, 34, penguinY, penguinWidth, penguinHeight);
         } else {
             ctx.fillStyle = '#ff9c23';
-            ctx.font = 'italic 900 54px Georgia, serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('SPACED PENGUIN!', 400, 125);
+            ctx.font = 'italic 900 46px Georgia, serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('SPACED', 105, 105);
+            ctx.fillText('PENGUIN!', 34, 158);
         }
         ctx.restore();
-
-        ctx.fillStyle = '#91eaff';
-        ctx.font = '700 12px "Trebuchet MS", Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.letterSpacing = '2px';
-        // ctx.fillText('A GRAVITY SLINGSHOT ADVENTURE', 400, 182);
     }
 
     drawMenuConsole(ctx, time) {
-        const x = 125;
-        const y = 205;
-        const width = 550;
-        const height = 292;
+        this.drawHowToPlayCard(ctx);
+        this.drawTryItVignette(ctx, time);
+        this.drawOriginalMenuButton(ctx, 40, 517, 166, 54, 'High Scores', 20);
+        this.drawStartButton(ctx, time);
 
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 10;
-        this.roundedRectPath(ctx, x, y, width, height, 22);
-        const frame = ctx.createLinearGradient(x, y, x, y + height);
-        frame.addColorStop(0, '#ffba35');
-        frame.addColorStop(0.15, '#de6c16');
-        frame.addColorStop(1, '#833009');
-        ctx.fillStyle = frame;
-        ctx.fill();
-        ctx.restore();
-
-        this.roundedRectPath(ctx, x + 9, y + 9, width - 18, height - 18, 15);
-        const panel = ctx.createLinearGradient(0, y, 0, y + height);
-        panel.addColorStop(0, '#163e7c');
-        panel.addColorStop(0.48, '#0b2757');
-        panel.addColorStop(1, '#071838');
-        ctx.fillStyle = panel;
-        ctx.fill();
-        ctx.strokeStyle = '#58bfea';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Header rail and blinking console lamps.
-        ctx.fillStyle = '#05132e';
-        ctx.fillRect(x + 26, y + 27, width - 52, 34);
-        ctx.strokeStyle = '#2f7ab2';
-        ctx.strokeRect(x + 26.5, y + 27.5, width - 53, 33);
-        ctx.fillStyle = '#c7f5ff';
-        ctx.font = '900 15px "Trebuchet MS", Arial, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('CADET LAUNCH CONSOLE', x + 47, y + 49);
-        ['#55f1ff', '#ffd14d', Math.sin(time * 4) > 0 ? '#ff7b2c' : '#6d2c20'].forEach((color, index) => {
-            ctx.fillStyle = color;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(x + width - 105 + index * 25, y + 44, 5, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.shadowBlur = 0;
-
-        const steps = [
-            ['3', 'PULL', 'Drag Kevin back in the slingshot'],
-            ['2', 'LAUNCH', 'Release and ride the gravity curve'],
-            ['1', 'LAND', 'Collect bonuses, then reach the ship']
-        ];
-        steps.forEach((step, index) => {
-            const rowY = y + 87 + index * 43;
-            ctx.fillStyle = index === 1 ? 'rgba(37, 100, 166, .38)' : 'rgba(2, 13, 37, .28)';
-            this.roundedRectPath(ctx, x + 30, rowY - 19, width - 60, 35, 8);
-            ctx.fill();
-            ctx.fillStyle = '#ff9e20';
-            ctx.font = '900 22px "Arial Black", Arial, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(step[0], x + 55, rowY + 7);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '900 14px "Trebuchet MS", Arial, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText(step[1], x + 84, rowY + 4);
-            ctx.fillStyle = '#9ed8ef';
-            ctx.font = '13px "Trebuchet MS", Arial, sans-serif';
-            ctx.fillText(step[2], x + 158, rowY + 4);
-        });
-
-        const buttonX = x + 143;
-        const buttonY = y + 210;
-        const buttonWidth = 264;
-        const buttonHeight = 47;
-        this.roundedRectPath(ctx, buttonX, buttonY + 4, buttonWidth, buttonHeight, 10);
-        ctx.fillStyle = '#722608';
-        ctx.fill();
-        this.roundedRectPath(ctx, buttonX, buttonY, buttonWidth, buttonHeight, 10);
-        const launch = ctx.createLinearGradient(0, buttonY, 0, buttonY + buttonHeight);
-        launch.addColorStop(0, '#ffe36b');
-        launch.addColorStop(0.52, '#f49a1e');
-        launch.addColorStop(1, '#cf540d');
-        ctx.fillStyle = launch;
-        ctx.fill();
-        ctx.strokeStyle = '#fff0a3';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = '#07183c';
-        ctx.font = '900 17px "Trebuchet MS", Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.isMobile ? 'TAP TO LAUNCH' : 'PRESS SPACE TO LAUNCH', 400, buttonY + 30);
-
-        ctx.restore();
-
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#78bddd';
-        ctx.font = '12px "Trebuchet MS", Arial, sans-serif';
-        const controls = this.isMobile ? 'TAP ANYWHERE TO BEGIN' : 'ENTER ALSO STARTS  •  R RESETS  •  Q RETURNS TO BASE';
-        ctx.fillText(controls, 400, 520);
         if (this.game.highScore > 0) {
-            ctx.fillStyle = '#ffd35a';
-            ctx.font = '700 13px "Trebuchet MS", Arial, sans-serif';
-            ctx.fillText(`MISSION RECORD  ${Utils.formatScore(this.game.highScore)}`, 400, 546);
+            ctx.fillStyle = '#ffb343';
+            ctx.font = '700 13px Arial, sans-serif';
+            ctx.fillText(`BEST  ${Utils.formatScore(this.game.highScore)}`, 123, 590);
+        }
+    }
+
+    drawHowToPlayCard(ctx) {
+        const x = 385;
+        const y = 50;
+        const width = 365;
+        const height = 337;
+
+        this.roundedRectPath(ctx, x, y, width, height, 30);
+        ctx.fillStyle = '#f99a3e';
+        ctx.fill();
+        ctx.fillStyle = '#151515';
+        ctx.textAlign = 'left';
+        ctx.font = '900 23px Arial, sans-serif';
+        ctx.fillText('How to Play', x + 20, y + 32);
+        ctx.font = '15px Arial, sans-serif';
+        [
+            'Hey there, space cadet! Kevin took a wrong',
+            'turn and ended up lost in space! Use the',
+            'highly advanced GPS (Giant Penguin',
+            'Slingshot) to launch him back to the ship.',
+            "Here's how:"
+        ].forEach((line, index) => ctx.fillText(line, x + 20, y + 57 + index * 17));
+
+        this.roundedRectPath(ctx, x + 20, y + 142, width - 40, 103, 15);
+        ctx.fillStyle = '#fff4bb';
+        ctx.fill();
+        ctx.fillStyle = '#3b3120';
+        ctx.font = '15px Arial, sans-serif';
+        [
+            '1. Click on Kevin and hold down',
+            '   your mouse button',
+            '2. Drag your mouse to pull him back',
+            '3. Release the button to launch Kevin!'
+        ].forEach((line, index) => ctx.fillText(line, x + 38, y + 164 + index * 22));
+
+        ctx.fillStyle = '#2e2419';
+        ctx.fillText('Use the gravity of nearby planets to help send', x + 20, y + 273);
+        ctx.fillText('Kevin in the right direction.', x + 20, y + 291);
+        ctx.font = '900 15px Arial, sans-serif';
+        ctx.fillText('Good luck!', x + 62, y + 322);
+        this.drawOriginalMenuButton(ctx, x + width - 67, y + height - 36, 80, 50, 'Tips!', 19);
+    }
+
+    drawTryItVignette(ctx, time) {
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.font = '900 22px Arial, sans-serif';
+        ctx.fillText('Try it!', 42, 333);
+        ctx.font = '16px Arial, sans-serif';
+        ctx.fillText('Click and pull on', 42, 358);
+        ctx.fillText('Kevin to test the', 42, 377);
+        ctx.fillText('GPS!', 42, 396);
+
+        const hoopX = 163;
+        const hoopY = 439;
+        ctx.save();
+        ctx.translate(hoopX, hoopY);
+        ctx.rotate(-0.08);
+        ctx.strokeStyle = '#16dff3';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 17, 39, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        if (!this.menuSlingshot.launched) {
+            const targetX = this.menuSlingshot.position.x - hoopX;
+            const targetY = this.menuSlingshot.position.y - hoopY;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-2, -22);
+            ctx.lineTo(targetX, targetY);
+            ctx.moveTo(-2, 22);
+            ctx.lineTo(targetX, targetY);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        this.drawMenuKevin(ctx, time);
+    }
+
+    drawMenuKevin(ctx, time) {
+        if (!this.menuKevin) return;
+        const state = this.menuSlingshot;
+        this.menuKevin.x = state.position.x;
+        this.menuKevin.y = state.position.y;
+        this.menuKevin.aniFrame = Math.floor(time * 8) % 12;
+        const rotation = state.launched
+            ? Math.atan2(state.velocity.y, state.velocity.x)
+            : Math.sin(time * 5) * 0.08;
+
+        // Trail points already live in stage coordinates. Draw them before the
+        // sprite transform so Kevin's facing rotation cannot rotate the path a
+        // second time around his current position.
+        this.menuKevin.drawTrailCanvas(ctx);
+        ctx.save();
+        ctx.translate(state.position.x, state.position.y);
+        ctx.rotate(rotation);
+        ctx.translate(-state.position.x, -state.position.y);
+        if (this.menuKevin.realSpritesLoaded &&
+            this.menuKevin.spriteSheets?.[this.menuKevin.currentAnimationType]) {
+            this.menuKevin.drawRealSprite(ctx);
+        } else {
+            this.menuKevin.drawFallbackSprite(ctx);
+        }
+        ctx.restore();
+    }
+
+    drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize) {
+        this.roundedRectPath(ctx, x, y, width, height, 8);
+        ctx.fillStyle = '#f79433';
+        ctx.fill();
+        this.roundedRectPath(ctx, x + 6, y + 6, width - 12, height - 12, 4);
+        ctx.fillStyle = '#fff3bb';
+        ctx.fill();
+        ctx.fillStyle = '#f47b20';
+        ctx.font = `900 ${fontSize}px Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x + width / 2, y + height / 2 + fontSize * 0.34);
+    }
+
+    drawStartButton(ctx, time) {
+        const x = 655;
+        const y = 512;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.08);
+        ctx.fillStyle = '#f79433';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 92, 48, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff3bb';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 84, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f47b20';
+        ctx.font = '900 39px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Start', 0, 13);
+        ctx.restore();
+
+        for (const planet of this.getMenuStartPlanets(time)) {
+            const dotX = planet.x;
+            const dotY = planet.y;
+            const glow = ctx.createRadialGradient(dotX - 4, dotY - 5, 2, dotX, dotY, 18);
+            glow.addColorStop(0, '#56a8ff');
+            glow.addColorStop(0.45, '#174cff');
+            glow.addColorStop(1, '#3113d0');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, 18, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
