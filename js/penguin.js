@@ -18,33 +18,84 @@ function createColorKeyedFrames(spriteSheet, metadata) {
     if (cached) return cached;
 
     const frameCount = metadata.frame_count ?? metadata.registration_points?.length ?? 0;
+    const frameWidth = metadata.frame_width;
+    const frameHeight = metadata.frame_height;
     const frames = Array.from({ length: frameCount }, (_, frameIndex) => {
         const canvas = document.createElement('canvas');
-        canvas.width = metadata.frame_width;
-        canvas.height = metadata.frame_height;
+        canvas.width = frameWidth;
+        canvas.height = frameHeight;
         const context = canvas.getContext('2d');
         context.drawImage(
             spriteSheet,
-            frameIndex * metadata.frame_width,
+            frameIndex * frameWidth,
             0,
-            metadata.frame_width,
-            metadata.frame_height,
+            frameWidth,
+            frameHeight,
             0,
             0,
-            metadata.frame_width,
-            metadata.frame_height
+            frameWidth,
+            frameHeight
         );
 
-        const imageData = context.getImageData(0, 0, metadata.frame_width, metadata.frame_height);
+        const imageData = context.getImageData(0, 0, frameWidth, frameHeight);
         const pixels = imageData.data;
-        for (let index = 0; index < pixels.length; index += 4) {
-            if (
+        const isColorKey = (x, y) => {
+            const index = (y * frameWidth + x) * 4;
+            return pixels[index + 3] > 0 &&
                 pixels[index] > 255 - tolerance &&
                 pixels[index + 1] > 255 - tolerance &&
-                pixels[index + 2] > 255 - tolerance
-            ) {
-                pixels[index + 3] = 0;
+                pixels[index + 2] > 255 - tolerance;
+        };
+        const isTransparent = (x, y) => pixels[(y * frameWidth + x) * 4 + 3] === 0;
+
+        // Existing transparent pixels are known background, including transparent
+        // areas that do not reach the rectangular frame boundary. Expand that
+        // background into adjacent key-colored pixels while colored sprite pixels
+        // continue to protect the enclosed white plumage.
+        const visited = new Uint8Array(frameWidth * frameHeight);
+        const queue = [];
+        const enqueue = (x, y) => {
+            const offset = y * frameWidth + x;
+            if (visited[offset] || (!isTransparent(x, y) && !isColorKey(x, y))) return;
+            visited[offset] = 1;
+            queue.push(offset);
+        };
+
+        for (let y = 0; y < frameHeight; y++) {
+            for (let x = 0; x < frameWidth; x++) {
+                if (isTransparent(x, y)) enqueue(x, y);
             }
+        }
+        for (let x = 0; x < frameWidth; x++) {
+            enqueue(x, 0);
+            enqueue(x, frameHeight - 1);
+        }
+        for (let y = 1; y < frameHeight - 1; y++) {
+            enqueue(0, y);
+            enqueue(frameWidth - 1, y);
+        }
+
+        for (let cursor = 0; cursor < queue.length; cursor++) {
+            const offset = queue[cursor];
+            const x = offset % frameWidth;
+            const y = Math.floor(offset / frameWidth);
+            for (let yOffset = -1; yOffset <= 1; yOffset++) {
+                for (let xOffset = -1; xOffset <= 1; xOffset++) {
+                    if (xOffset === 0 && yOffset === 0) continue;
+                    const neighborX = x + xOffset;
+                    const neighborY = y + yOffset;
+                    if (
+                        neighborX >= 0 && neighborX < frameWidth &&
+                        neighborY >= 0 && neighborY < frameHeight
+                    ) {
+                        enqueue(neighborX, neighborY);
+                    }
+                }
+            }
+        }
+
+        for (let index = 0; index < pixels.length; index += 4) {
+            if (visited[index / 4] && pixels[index + 3] > 0) pixels[index + 3] = 0;
         }
         context.putImageData(imageData, 0, 0);
         return canvas;
