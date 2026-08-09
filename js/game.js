@@ -91,6 +91,7 @@ class Game {
         // Game objects
         this.penguin = null;
         this.slingshot = null;
+        this.launches = [];
         this.target = null;
         this.planets = [];
         this.bonuses = [];
@@ -500,7 +501,7 @@ class Game {
         if (this.isDragging) {
             this.isDragging = false;
             const velocity = this.slingshot.release();
-            this.launchPenguin(velocity);
+            this.launchPenguin(velocity, this.slingshot.lastLaunch);
             
             // Hide visual feedback for mobile
             if (this.isMobileDevice()) {
@@ -617,8 +618,12 @@ class Game {
         }
     }
     
-    launchPenguin(velocity) {
+    launchPenguin(velocity, launch = null) {
         plog.soar('Game launchPenguin called with velocity:', velocity);
+
+        if (launch) {
+            this.launches.push({ angle: launch.angle, power: launch.power });
+        }
         
         // Create alpha mask at current launch position (matching original game's setUpSnapping)
         this.createAlphaMaskAtLaunchPosition();
@@ -657,7 +662,7 @@ class Game {
             maxPullback: this.slingshot.maxPullback,
             minPullback: this.slingshot.minPullback
         });
-        this.launchPenguin(velocity);
+        this.launchPenguin(velocity, { angle, power });
         return velocity;
     }
     
@@ -908,6 +913,7 @@ class Game {
     
     resetLevel() {
         this.tries = 0;
+        this.launches = [];
         this.distance = 0;
         this.currentAttemptScore = 0;
         this.planetCollisions = 0;
@@ -951,6 +957,7 @@ class Game {
         this.physics.clear();
         this.planetCollisions = 0;
         this.tries = 0;
+        this.launches = [];
         this.distance = 0;
         this.currentAttemptScore = 0; // Reset attempt score for new level
         

@@ -1454,6 +1454,7 @@ class Slingshot extends GameObject {
         
         const distance = Math.sqrt(tempPoint.x * tempPoint.x + tempPoint.y * tempPoint.y);
         const tempAngle = Utils.rotationAngle(tempPoint);
+        this.lastLaunch = { angle: tempAngle, power: distance };
         this.pullback = { x: 0, y: 0 };
         return calculateLaunchVelocity(tempAngle, distance, {
             velocityMultiplier: this.velocityMultiplier,

@@ -1128,6 +1128,32 @@ test('ASCII launch commands reload the level and fire the exact sampled angle an
     assert.equal(hidden, true);
 });
 
+test('the /last console command repeats the most recent launch', () => {
+    const launches = [];
+    const consoleFixture = {
+        game: {
+            launches: [{ angle: 12.3456789, power: 67.8901234 }],
+            launchTestTrajectory: (angle, power) => launches.push({ angle, power })
+        },
+        hide: () => {},
+        launchTrajectory: Console.prototype.launchTrajectory
+    };
+
+    Console.prototype.repeatLastLaunch.call(consoleFixture);
+
+    assert.deepEqual(launches, [{ angle: 12.3456789, power: 67.8901234 }]);
+});
+
+test('the /last console command reports when there is no previous launch', () => {
+    const messages = [];
+    Console.prototype.repeatLastLaunch.call({
+        game: { launches: [] },
+        log: message => messages.push(message)
+    });
+
+    assert.deepEqual(messages, ['No launch to repeat. Use /launch [angle] [power] first.']);
+});
+
 test('submitting a console launch cannot bubble Enter into gameplay', () => {
     let keydownHandler = null;
     let submitted = null;

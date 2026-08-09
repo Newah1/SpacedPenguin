@@ -180,6 +180,9 @@ class Console {
             case '/launch':
                 this.launchTrajectory(args);
                 break;
+            case '/last':
+                this.repeatLastLaunch();
+                break;
             default:
                 this.log('Unknown command: ' + cmd);
                 this.log('Type /help for available commands');
@@ -194,6 +197,7 @@ Available Commands:
 /level - Show current level information
 /export [filename] - Export current level as JSON
 /launch [angle] [power] - Replay an ASCII trajectory sample
+/last - Repeat the last launch
 /clear - Clear console output
 
 Level Editor Commands (when in editor mode):
@@ -254,6 +258,19 @@ Level Editor Commands (when in editor mode):
 
         this.game.launchTestTrajectory(angle, power);
         this.hide();
+    }
+
+    repeatLastLaunch() {
+        const lastLaunch = this.game.launches?.at(-1);
+        if (!lastLaunch) {
+            this.log('No launch to repeat. Use /launch [angle] [power] first.');
+            return;
+        }
+
+        this.launchTrajectory([
+            String(lastLaunch.angle),
+            String(lastLaunch.power)
+        ]);
     }
 }
 
