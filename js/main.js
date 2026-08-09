@@ -11,7 +11,7 @@ import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import PerformanceUtils from './performanceUtils.js';
 import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './viewport.js';
-import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
+import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import { AUDIO_CONFIG } from './config/audioConfig.js';
@@ -25,6 +25,7 @@ class GameManager {
         this.assetLoader = null;
         this.isRunning = false;
         this.lastTime = 0;
+        this.simulationAccumulator = 0;
         this.assetsLoaded = false;
         this.isMobile = this.detectMobile();
         this.debugMode = false; // Set to true to enable debug logging
@@ -211,20 +212,21 @@ class GameManager {
 
         this.scheduleNextFrame();
         
-        // Calculate delta time with better precision
-        const deltaTime = this.lastTime === 0 ? 0 : (currentTime - this.lastTime) / 1000;
+        const deltaTime = this.lastTime === 0
+            ? 0
+            : Math.max(0, (currentTime - this.lastTime) / 1000);
         this.lastTime = currentTime;
-        
-        // Cap delta time more intelligently - allow up to 30fps minimum
-        const cappedDeltaTime = Math.min(deltaTime, RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
-        
-        // Skip frame if deltaTime is too small (higher than 120fps)
-        if (cappedDeltaTime < RUNTIME_CONFIG.frameTiming.minDeltaSeconds) {
-            return;
-        }
+
+        // Rendering follows the display, but gameplay advances on the exact
+        // legacy 60 Hz tick used by the headless trajectory tester. Carrying
+        // fractional display time prevents high-refresh monitors from changing
+        // gravity integration and collision outcomes.
+        const frameDelta = Math.min(deltaTime, RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
+        const simulationStep = 1 / SIMULATION_CONFIG.legacyPhysicsFps;
+        this.simulationAccumulator = (this.simulationAccumulator || 0) + frameDelta;
         
         // Track performance
-        this.performanceUtils.recordFrameTime(cappedDeltaTime);
+        if (frameDelta > 0) this.performanceUtils.recordFrameTime(frameDelta);
         
         // Update game with performance optimization
         if (this.game && this.assetsLoaded) {
@@ -241,7 +243,13 @@ class GameManager {
                 }
             }
             
-            this.game.update(cappedDeltaTime);
+            while (this.simulationAccumulator + Number.EPSILON >= simulationStep) {
+                this.game.update(simulationStep);
+                this.simulationAccumulator -= simulationStep;
+            }
+            if (this.simulationAccumulator < Number.EPSILON) {
+                this.simulationAccumulator = 0;
+            }
             
             // Handle start screen animation within main loop
             if (this.game.state === GameState.MENU) {
@@ -813,6 +821,7 @@ class GameManager {
 
         this.isRunning = true;
         this.lastTime = 0;
+        this.simulationAccumulator = 0;
         this.scheduleNextFrame();
     }
     

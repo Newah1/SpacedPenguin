@@ -51,19 +51,26 @@ class LevelTester {
             powerRange,
             samples,
             maxTime,
-            { workers }
+            {
+                workers,
+                nearMissLimit: requireAllBonuses ? TRAJECTORY_CONFIG.ascii.resultLimit : 0
+            }
         );
         results.sort(ascii ? compareAsciiTrajectoryResults : compareTrajectoryDistance);
 
         const duration = (Date.now() - startTime) / 1000;
-        const displayedResults = findAll
-            ? results
-            : ascii
-                ? selectDiverseAsciiResults(results, TRAJECTORY_CONFIG.ascii.resultLimit)
-                : results.slice(0, TRAJECTORY_CONFIG.ascii.resultLimit);
+        const showingClosest = requireAllBonuses && results.length === 0;
+        const displayedResults = showingClosest
+            ? this.engine.lastNearMisses
+            : findAll
+                ? results
+                : ascii
+                    ? selectDiverseAsciiResults(results, TRAJECTORY_CONFIG.ascii.resultLimit)
+                    : results.slice(0, TRAJECTORY_CONFIG.ascii.resultLimit);
         const summary = {
             success: results.length > 0,
             requireAllBonuses,
+            showingClosest,
             totalBonuses: this.engine.initialState.bonuses.length,
             levelPath,
             totalSamples: Math.max(1, Math.floor(samples)),
@@ -383,17 +390,30 @@ function printLevelSummary(summary, showAll, showAscii = false) {
         console.log(`Success requirement: target + all ${summary.totalBonuses} bonuses`);
     }
     console.log(`Successful trajectories: ${summary.successfulTrajectories}/${summary.totalSamples}`);
+    if (summary.showingClosest) {
+        console.log(
+            `No trajectory collected all ${summary.totalBonuses} bonuses and hit the target.`
+        );
+        console.log(`Closest ${summary.allResults.length} trajectories:`);
+    }
     console.log(`Duration: ${summary.duration.toFixed(2)}s`);
 
     const results = showAll
         ? summary.allResults
         : summary.allResults.slice(0, TRAJECTORY_CONFIG.ascii.resultLimit);
     for (const result of results) {
-        console.log(
-            `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} ` +
-            `score=${trajectoryScore(result)} bonuses=${bonusCount(result)} ` +
-            `distance=${trajectoryDistance(result).toFixed(2)}`
-        );
+        const common = `  angle=${result.angle.toFixed(2)} power=${result.power.toFixed(2)} `;
+        if (summary.showingClosest) {
+            console.log(
+                common + `bonuses=${bonusCount(result)}/${summary.totalBonuses} ` +
+                `targetDistance=${result.targetDistance.toFixed(2)} outcome=${result.reason}`
+            );
+        } else {
+            console.log(
+                common + `score=${trajectoryScore(result)} bonuses=${bonusCount(result)} ` +
+                `distance=${trajectoryDistance(result).toFixed(2)}`
+            );
+        }
     }
 
     if (showAscii) {
@@ -427,7 +447,7 @@ Options:
   --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
   --trajectory          Include trajectory points for a single simulation
   --ascii               Draw distinct successful routes ranked by score and distance
-  --all-bonuses         Count success only after collecting every bonus and hitting the target
+  --all-bonuses         Require every bonus and the target; show 5 closest paths if none succeed
   --validate-only       Validate definitions without simulating trajectories
   --all                 Print every successful trajectory
   --verbose, -v         Include the best trajectory points in API results
@@ -533,6 +553,7 @@ export {
     LevelTester,
     compareAsciiTrajectoryResults,
     main,
+    printLevelSummary,
     renderAsciiTrajectory,
     selectDiverseAsciiResults
 };

@@ -61,7 +61,7 @@ test('game configuration is deeply frozen and satisfies core invariants', () => 
     assert.equal(Object.isFrozen(EDITOR_CONFIG.authoringDefaults), true);
     assert.equal(Object.isFrozen(UI_CONFIG.levelEnd), true);
     assert.equal(Object.isFrozen(TRAJECTORY_CONFIG.workers), true);
-    assert.ok(RUNTIME_CONFIG.frameTiming.minDeltaSeconds < RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
+    assert.ok(1 / SIMULATION_CONFIG.legacyPhysicsFps <= RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
 });
 
 test('asset and audio policy resolve semantic resources centrally', () => {

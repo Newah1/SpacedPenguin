@@ -22,7 +22,8 @@ export async function runTrajectoryWorkers({
     candidates,
     maxTime,
     timeStep,
-    workerCount
+    workerCount,
+    nearMissLimit = 0
 }) {
     const groups = Array.from({ length: workerCount }, () => []);
     candidates.forEach((candidate, index) => groups[index % workerCount].push(candidate));
@@ -31,15 +32,26 @@ export async function runTrajectoryWorkers({
         level,
         candidates: group,
         maxTime,
-        timeStep
+        timeStep,
+        nearMissLimit
     })));
-    return batches
-        .flat()
+    const results = batches
+        .flatMap(batch => batch.results)
         .sort((left, right) => left.candidateIndex - right.candidateIndex)
         .map(result => {
             const { candidateIndex, ...publicResult } = result;
             return publicResult;
         });
+    const { compareNearMissResults } = await import('./headlessEngine.js');
+    const nearMisses = batches
+        .flatMap(batch => batch.nearMisses)
+        .sort(compareNearMissResults)
+        .slice(0, nearMissLimit)
+        .map(result => {
+            const { candidateIndex, ...publicResult } = result;
+            return publicResult;
+        });
+    return { results, nearMisses };
 }
 
 function runWorker(workerData) {
@@ -50,7 +62,7 @@ function runWorker(workerData) {
         worker.once('message', message => {
             settled = true;
             if (message.error) reject(new Error(message.error));
-            else resolve(message.results);
+            else resolve(message);
         });
         worker.once('error', error => {
             settled = true;

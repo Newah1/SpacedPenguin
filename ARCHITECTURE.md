@@ -10,7 +10,7 @@
 
 ## 1. Executive summary
 
-Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 stage coordinate system, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 19 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
+Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 stage coordinate system, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 20 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
 The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
 
@@ -175,7 +175,7 @@ sequenceDiagram
     GM->>IA: new InputActionManager(context)
     IA->>IA: activate listeners for MENU
     GM->>LL: loadDefaultLevels()
-    loop levels 1 through 19
+    loop levels 1 through 20
         LL->>LL: fetch levels/levelN.json
     end
     GM->>G: loadHighScore()
@@ -189,7 +189,7 @@ Important bootstrap properties:
 - Level files are loaded serially. A missing or invalid level is absent from the cache and is generated procedurally when requested.
 - `AssetLoader` constructs the actual `AudioManager`. Although `main.js` imports `AudioManager`, it obtains the shared instance from the loader.
 - The recurring frame callback is scheduled before the loop checks `isRunning` and page visibility. Hidden pages skip work; the first frame after visibility resumes resets timing to avoid a large delta.
-- Render delta is capped to 1/30 second and sub-1/120-second frames are skipped. The entire simulation world uses 1/60-second maximum substeps, including moving/hierarchical orbits, gravity, collision, bonuses, bounds, and rules. Thirty- and sixty-Hz callers therefore produce the same state.
+- Display-frame time is capped to 1/30 second and accumulated across renders. `GameManager` advances the entire simulation world only in exact 1/60-second ticks, including moving/hierarchical orbits, gravity, collision, bonuses, bounds, and rules. Rendering remains display-driven, so copied headless trajectories have the same outcome at high or irregular display refresh rates.
 - `GameManager` owns a single cancellable animation-frame request. Visibility pause/resume is idempotent and does not start parallel frame chains.
 
 ## 6. Runtime update and render flow
@@ -207,18 +207,20 @@ sequenceDiagram
     participant C as Canvas
 
     RAF->>GM: frame(timestamp)
-    GM->>GM: calculate and cap delta time
+    GM->>GM: cap and accumulate display-frame time
     GM->>IA: updateActiveActions()
-    GM->>G: update(delta)
-    G->>UI: update(delta)
-    alt paused or scoring
-        G-->>GM: gameplay update returns early
-    else active world
-        G->>A: stepGameSimulation(delta)
-        A->>S: stepSimulation(snapshot, delta)
-        S-->>A: immutable state + domain events
-        A->>G: apply positions/counters and effects
-        G->>E: update visuals with orbit stepping disabled
+    loop each accumulated 1/60-second tick
+        GM->>G: update(1/60)
+        G->>UI: update(1/60)
+        alt paused or scoring
+            G-->>GM: gameplay update returns early
+        else active world
+            G->>A: stepGameSimulation(1/60)
+            A->>S: stepSimulation(snapshot, 1/60)
+            S-->>A: immutable state + domain events
+            A->>G: apply positions/counters and effects
+            G->>E: update visuals with orbit stepping disabled
+        end
     end
     alt menu
         GM->>C: draw throttled start screen
@@ -570,7 +572,7 @@ Maintain these constraints when changing the system:
 9. Asset keys must match loader normalization and consumer lookup names.
 10. A failed optional asset must not prevent bootstrap; an invalid structural level should fail validation rather than silently create a misleading partial level.
 11. Gameplay movement and outcomes must enter through `stepSimulation`; rendering objects and adapters may apply state/effects but must not independently advance orbit or flight physics.
-12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and stable across 30/60 Hz callers. The browser-facing `stepSimulation` contract is immutable; mutable entry points are restricted to isolated sessions that own their state.
+12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and run on exact 1/60-second ticks regardless of display refresh rate. The browser-facing `stepSimulation` contract is immutable; mutable entry points are restricted to isolated sessions that own their state.
 
 ## 15. Extension playbooks
 

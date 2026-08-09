@@ -11,7 +11,7 @@ export const WORLD_CONFIG = deepFreeze({
 
 export const LEVEL_CATALOG_CONFIG = deepFreeze({
     firstLevel: 1,
-    shippedLevelCount: 19,
+    shippedLevelCount: 20,
     // Levels above the shipped catalog use procedural fallback generation.
     maxGeneratedLevel: 25,
     pathPrefix: 'levels/level',

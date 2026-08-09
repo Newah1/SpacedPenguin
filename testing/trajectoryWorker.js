@@ -6,8 +6,13 @@ try {
     engine.logger = { info() {}, warn() {}, error() {} };
     engine.timeStep = workerData.timeStep;
     engine.loadLevel(workerData.level);
-    const results = engine.simulateCandidates(workerData.candidates, workerData.maxTime);
-    parentPort.postMessage({ results });
+    const results = engine.simulateCandidates(
+        workerData.candidates,
+        workerData.maxTime,
+        null,
+        { nearMissLimit: workerData.nearMissLimit, preserveCandidateIndex: true }
+    );
+    parentPort.postMessage({ results, nearMisses: engine.lastNearMisses });
 } catch (error) {
     parentPort.postMessage({ error: error.stack || error.message });
 } finally {

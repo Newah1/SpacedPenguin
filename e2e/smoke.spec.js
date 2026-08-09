@@ -61,7 +61,7 @@ test.afterEach(async ({ page }) => {
 
 const pageErrorsByPage = new WeakMap();
 
-test('start, launch, pause, resume, render, and finish a level', async ({ page }) => {
+test('start, launch, cancel the menu confirmation, render, and finish a level', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');
     await waitForGame(page);
@@ -73,8 +73,10 @@ test('start, launch, pause, resume, render, and finish a level', async ({ page }
     await launchFromSlingshot(page);
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+    await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(1);
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
+    await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(0);
 
     await page.evaluate(() => {
         window.game.target.onHit();
@@ -97,6 +99,22 @@ test('start, launch, pause, resume, render, and finish a level', async ({ page }
         return visibleSamples;
     });
     expect(renderedPixelCount).toBeGreaterThan(0);
+});
+
+test('Escape confirmation can return to the main menu', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+
+    await waitForGame(page, 'menu');
+    await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(0);
 });
 
 test('slingshot pullback remains live-authoritative across animation frames', async ({ page }) => {
@@ -303,5 +321,24 @@ test.describe('mobile viewport', () => {
         }));
         expect(position.x).toBeGreaterThan(20);
         expect(Math.abs(position.y - 300)).toBeLessThan(5);
+    });
+
+    test('confirmation actions remain usable through the scaled touch canvas', async ({ page }) => {
+        await useDeterministicLevel(page);
+        await page.goto('/');
+        await waitForGame(page);
+
+        const startButton = page.getByRole('button', { name: 'TAP TO LAUNCH', exact: true });
+        await expect(startButton).toBeVisible();
+        await startButton.click();
+        await waitForGame(page, 'playing');
+
+        await page.keyboard.press('Escape');
+        await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+        const keepPlaying = await stageToClient(page, 485, 356);
+        await page.touchscreen.tap(keepPlaying.x, keepPlaying.y);
+
+        await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
+        await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(0);
     });
 });

@@ -92,6 +92,7 @@ export class HeadlessGameEngine {
         this.worldTimeline = null;
         this.logger = mockLogger;
         this.requireAllBonuses = options.requireAllBonuses ?? false;
+        this.lastNearMisses = [];
     }
 
     getStartPosition() {
@@ -190,28 +191,28 @@ export class HeadlessGameEngine {
                     result.success = true;
                     result.reason = 'target_hit';
                     result.finalPosition = { ...event.position };
-                    this.synchronizeFacade();
-                    return result;
+                    return this.completeTrajectory(result);
                 } else if (event.type === SimulationEventType.TARGET_BLOCKED) {
                     result.reason = 'target_blocked';
-                    this.synchronizeFacade();
-                    return result;
+                    return this.completeTrajectory(result);
                 } else if (event.type === SimulationEventType.PLANET_COLLISION) {
                     result.reason = 'planet_collision';
-                    this.synchronizeFacade();
-                    return result;
+                    return this.completeTrajectory(result);
                 } else if (event.type === SimulationEventType.OUT_OF_BOUNDS) {
                     result.reason = 'out_of_bounds';
-                    this.synchronizeFacade();
-                    return result;
+                    return this.completeTrajectory(result);
                 } else if (event.type === SimulationEventType.RULE_FAILURE) {
                     result.reason = `rule_failure:${event.rule}`;
-                    this.synchronizeFacade();
-                    return result;
+                    return this.completeTrajectory(result);
                 }
             }
         }
 
+        return this.completeTrajectory(result);
+    }
+
+    completeTrajectory(result) {
+        result.targetDistance = distance(result.finalPosition, this.state.target.position);
         this.synchronizeFacade();
         return result;
     }
@@ -220,7 +221,8 @@ export class HeadlessGameEngine {
         angleRange = TRAJECTORY_CONFIG.sweep.angleRange,
         powerRange = TRAJECTORY_CONFIG.sweep.powerRange,
         samples = TRAJECTORY_CONFIG.sweep.samples,
-        maxTime = null
+        maxTime = null,
+        options = {}
     ) {
         const candidates = buildTrajectoryCandidates(angleRange, powerRange, samples);
         const progressInterval = Math.max(
@@ -232,19 +234,29 @@ export class HeadlessGameEngine {
             if (tested % progressInterval === 0) {
                 this.logger.info(`Tested ${tested} trajectories, found ${successful} successful.`);
             }
-        });
+        }, options);
         this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
         return results.map(withoutCandidateIndex);
     }
 
-    simulateCandidates(candidates, maxTime = null, onProgress = null) {
+    simulateCandidates(candidates, maxTime = null, onProgress = null, options = {}) {
         const results = [];
+        const nearMissLimit = Math.max(0, Math.floor(options.nearMissLimit ?? 0));
+        const nearMisses = [];
         for (let index = 0; index < candidates.length; index++) {
             const candidate = candidates[index];
             const result = this.simulateTrajectory(candidate.angle, candidate.power, maxTime);
             if (result.success) results.push({ ...candidate, ...result });
+            else if (nearMissLimit > 0) {
+                nearMisses.push({ ...candidate, ...result });
+                nearMisses.sort(compareNearMissResults);
+                if (nearMisses.length > nearMissLimit) nearMisses.length = nearMissLimit;
+            }
             onProgress?.(index + 1, results.length);
         }
+        this.lastNearMisses = options.preserveCandidateIndex
+            ? nearMisses
+            : nearMisses.map(withoutCandidateIndex);
         return results;
     }
 
@@ -259,17 +271,19 @@ export class HeadlessGameEngine {
         const { resolveTrajectoryWorkerCount, runTrajectoryWorkers } = await import('./parallelTrajectoryRunner.js');
         const workerCount = resolveTrajectoryWorkerCount(options.workers, candidates.length);
         if (workerCount === 1) {
-            return this.findWorkingTrajectories(angleRange, powerRange, samples, maxTime);
+            return this.findWorkingTrajectories(angleRange, powerRange, samples, maxTime, options);
         }
 
         this.logger.info(`Testing ${candidates.length} trajectory combinations across ${workerCount} workers...`);
-        const results = await runTrajectoryWorkers({
+        const { results, nearMisses } = await runTrajectoryWorkers({
             level: this.level,
             candidates,
             maxTime: maxTime ?? this.maxSimulationTime,
             timeStep: this.timeStep,
-            workerCount
+            workerCount,
+            nearMissLimit: options.nearMissLimit ?? 0
         });
+        this.lastNearMisses = nearMisses;
         this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
         return results;
     }
@@ -310,6 +324,17 @@ export function buildTrajectoryCandidates(angleRange, powerRange, samples) {
 function withoutCandidateIndex(result) {
     const { candidateIndex, ...publicResult } = result;
     return publicResult;
+}
+
+export function compareNearMissResults(left, right) {
+    const leftBonuses = left.collectedBonuses?.length ?? 0;
+    const rightBonuses = right.collectedBonuses?.length ?? 0;
+    return rightBonuses - leftBonuses ||
+        (left.targetDistance ?? Number.POSITIVE_INFINITY) -
+            (right.targetDistance ?? Number.POSITIVE_INFINITY) ||
+        (right.bonusScore ?? 0) - (left.bonusScore ?? 0) ||
+        (right.distance ?? 0) - (left.distance ?? 0) ||
+        (left.candidateIndex ?? 0) - (right.candidateIndex ?? 0);
 }
 
 export { HeadlessPhysics, HeadlessPenguin, NodeUtils };

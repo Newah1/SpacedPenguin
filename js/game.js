@@ -880,9 +880,10 @@ class Game {
     }
     
     showLevelEndScreen() {
+        if (this.state === GameState.SCORING) return null;
         this.setState(GameState.SCORING);
         this.calculateFinalScore();
-        this.uiManager.showScreen(LevelEndScreen, this);
+        return this.uiManager.showScreen(LevelEndScreen, this);
     }
     
     nextLevel() {
@@ -1289,106 +1290,28 @@ class Game {
     }
     
     showQuitDialog() {
-        if (this.isMobileDevice()) {
-            this.showMobileQuitDialog();
-        } else {
-            if (confirm('Are you sure you want to quit?')) {
+        if (this.quitDialog && this.uiManager.activeScreens.includes(this.quitDialog)) return this.quitDialog;
+
+        const previousState = this.state;
+        if (previousState === GameState.PLAYING) this.setState(GameState.PAUSED);
+
+        this.quitDialog = this.uiManager.showConfirmation({
+            title: 'Return to Menu?',
+            message: 'Your progress in the current level will be lost.',
+            confirmLabel: 'RETURN TO MENU',
+            cancelLabel: 'KEEP PLAYING',
+            onConfirm: () => {
+                this.quitDialog = null;
                 this.setState(GameState.MENU);
+            },
+            onCancel: () => {
+                this.quitDialog = null;
+                if (previousState === GameState.PLAYING || previousState === GameState.PAUSED) {
+                    this.setState(GameState.PLAYING);
+                }
             }
-        }
-    }
-    
-    showMobileQuitDialog() {
-        // Remove existing dialog if any
-        const existingDialog = document.getElementById('mobileQuitDialog');
-        if (existingDialog) {
-            existingDialog.remove();
-        }
-        
-        // Create mobile quit dialog
-        const dialog = document.createElement('div');
-        dialog.id = 'mobileQuitDialog';
-        dialog.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        `;
-        
-        const dialogContent = document.createElement('div');
-        dialogContent.style.cssText = `
-            background: #333;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            color: white;
-            font-family: Arial, sans-serif;
-            max-width: 300px;
-            width: 90%;
-        `;
-        
-        const title = document.createElement('h3');
-        title.textContent = 'Quit Game?';
-        title.style.cssText = 'margin: 0 0 20px 0; font-size: 20px;';
-        
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 20px;
-        `;
-        
-        const yesButton = document.createElement('button');
-        yesButton.textContent = 'YES';
-        yesButton.style.cssText = `
-            background: #ff4444;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            touch-action: manipulation;
-        `;
-        
-        const noButton = document.createElement('button');
-        noButton.textContent = 'NO';
-        noButton.style.cssText = `
-            background: #666;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            touch-action: manipulation;
-        `;
-        
-        yesButton.addEventListener('click', () => {
-            dialog.remove();
-            this.setState(GameState.MENU);
         });
-        
-        noButton.addEventListener('click', () => {
-            dialog.remove();
-        });
-        
-        buttonContainer.appendChild(yesButton);
-        buttonContainer.appendChild(noButton);
-        dialogContent.appendChild(title);
-        dialogContent.appendChild(buttonContainer);
-        dialog.appendChild(dialogContent);
-        document.body.appendChild(dialog);
+        return this.quitDialog;
     }
     
     showMessage(message) {

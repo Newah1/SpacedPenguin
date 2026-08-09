@@ -180,6 +180,13 @@ export class KeyboardInputAction extends InputAction {
             return;
         }
 
+        // Blocking UI screens get first refusal so their keys cannot leak into
+        // gameplay, console, or menu shortcuts.
+        if (game.uiManager?.handleKeyPress(e)) {
+            e.preventDefault();
+            return;
+        }
+
         // Use the physical key code so console access works across keyboard
         // layouts where the Backquote key may report a different `key` value.
         if (e.code === 'Backquote') {
@@ -192,16 +199,16 @@ export class KeyboardInputAction extends InputAction {
         if (game.console && game.console.visible) {
             return;
         }
-        
+
         // Global keyboard shortcuts
         switch (e.code) {
             case 'Escape':
                 if (this.isLevelEditorActive()) {
+                    e.preventDefault();
                     game.levelEditor.toggle();
-                } else if (gameState === GameState.PLAYING) {
-                    game.setState(GameState.PAUSED);
-                } else if (gameState === GameState.PAUSED) {
-                    game.setState(GameState.PLAYING);
+                } else if (gameState === GameState.PLAYING || gameState === GameState.PAUSED) {
+                    e.preventDefault();
+                    game.showQuitDialog();
                 }
                 break;
                 
@@ -384,7 +391,6 @@ export class UIInputAction extends InputAction {
         this.addListener(canvas, 'click', this.handleClick);
         this.addListener(canvas, 'touchstart', this.handleTouchStart, { passive: false });
         this.addListener(canvas, 'touchend', this.handleTouchEnd, { passive: false });
-        this.addListener(window, 'keydown', this.handleKeyPress);
     }
     
     handleClick(e) {
@@ -408,12 +414,6 @@ export class UIInputAction extends InputAction {
         game.uiManager.handleTouchEnd(e);
     }
     
-    handleKeyPress(e) {
-        const game = this.getGame();
-        if (!game?.uiManager) return;
-        
-        game.uiManager.handleKeyPress(e);
-    }
 }
 
 export class WindowInputAction extends InputAction {

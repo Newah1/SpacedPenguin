@@ -14,6 +14,34 @@ export const UI_CONFIG = deepFreeze({
         animatedNumberSpeed: 25,
         textColor: '#FFFFCC'
     },
+    modal: {
+        overlayColor: 'rgba(0, 0, 0, 0.78)',
+        panel: {
+            width: 440,
+            minHeight: 220,
+            padding: 32,
+            cornerRadius: 12,
+            backgroundColor: '#211b18',
+            borderColor: '#cb7928',
+            borderWidth: 4
+        },
+        titleColor: '#f5e4aa',
+        messageColor: '#fff6d6',
+        titleSize: 26,
+        messageSize: 16,
+        messageLineHeight: 24,
+        button: {
+            width: 150,
+            height: 44,
+            gap: 20,
+            backgroundColor: '#4b3b32',
+            confirmColor: '#9b3d2f',
+            borderColor: '#e9c27a',
+            focusBorderColor: '#ffffff',
+            textColor: '#fff6d6',
+            fontSize: 15
+        }
+    },
     levelEnd: {
         overlayColor: 'rgba(0, 0, 0, 0.8)',
         accentColor: '#cb7928',

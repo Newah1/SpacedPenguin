@@ -64,6 +64,31 @@ export class UIManager {
         this.activeScreens.push(screen);
         return screen;
     }
+
+    showModal(options = {}) {
+        const screen = new ModalScreen(this, options);
+        this.activeScreens.push(screen);
+        return screen;
+    }
+
+    showConfirmation(options = {}) {
+        return this.showModal({
+            ...options,
+            actions: [
+                {
+                    label: options.confirmLabel || 'CONFIRM',
+                    role: 'confirm',
+                    onSelect: options.onConfirm
+                },
+                {
+                    label: options.cancelLabel || 'CANCEL',
+                    role: 'cancel',
+                    onSelect: options.onCancel
+                }
+            ],
+            defaultAction: options.defaultAction ?? 1
+        });
+    }
     
     closeScreen(screen) {
         const index = this.activeScreens.indexOf(screen);
@@ -92,9 +117,10 @@ export class UIManager {
         for (let i = this.activeScreens.length - 1; i >= 0; i--) {
             const screen = this.activeScreens[i];
             if (screen.handleClick && screen.handleClick(x, y)) {
-                break; // Screen handled the click
+                return true;
             }
         }
+        return false;
     }
     
     handleKeyPress(event) {
@@ -102,9 +128,10 @@ export class UIManager {
         for (let i = this.activeScreens.length - 1; i >= 0; i--) {
             const screen = this.activeScreens[i];
             if (screen.handleKeyPress && screen.handleKeyPress(event)) {
-                break; // Screen handled the key press
+                return true;
             }
         }
+        return false;
     }
     
     update(deltaTime) {
@@ -186,6 +213,134 @@ export class UIScreen {
             if (element.render) {
                 element.render(ctx);
             }
+        }
+    }
+}
+
+// Reusable modal language for confirmations and future blocking menus.
+export class ModalScreen extends UIScreen {
+    constructor(uiManager, options = {}) {
+        super(uiManager);
+        this.title = options.title || '';
+        this.message = options.message || '';
+        this.actions = options.actions || [];
+        this.selectedAction = Math.min(
+            Math.max(options.defaultAction ?? 0, 0),
+            Math.max(this.actions.length - 1, 0)
+        );
+        this.setupUI();
+    }
+
+    setupUI() {
+        const config = UI_CONFIG.modal;
+        const panelWidth = config.panel.width;
+        const panelHeight = config.panel.minHeight;
+        const panelX = (STAGE_WIDTH - panelWidth) / 2;
+        const panelY = (STAGE_HEIGHT - panelHeight) / 2;
+
+        this.addElement(new BackgroundOverlay(config.overlayColor));
+        this.addElement(new Panel(panelX, panelY, panelWidth, panelHeight, {
+            backgroundColor: config.panel.backgroundColor,
+            borderColor: config.panel.borderColor,
+            borderWidth: config.panel.borderWidth,
+            cornerRadius: config.panel.cornerRadius
+        }));
+        this.addElement(new TextElement(
+            STAGE_WIDTH / 2,
+            panelY + config.panel.padding - config.titleSize,
+            this.title,
+            {
+                fontSize: config.titleSize,
+                fontFamily: UI_CONFIG.fonts.primary,
+                color: config.titleColor,
+                align: 'center',
+                bold: true
+            }
+        ));
+        this.addElement(new TextElement(
+            panelX + config.panel.padding,
+            panelY + config.panel.padding + config.titleSize,
+            this.message,
+            {
+                fontSize: config.messageSize,
+                fontFamily: UI_CONFIG.fonts.primary,
+                color: config.messageColor,
+                maxWidth: panelWidth - config.panel.padding * 2,
+                lineHeight: config.messageLineHeight
+            }
+        ));
+
+        const totalButtonWidth = this.actions.length * config.button.width +
+            Math.max(0, this.actions.length - 1) * config.button.gap;
+        const buttonY = panelY + panelHeight - config.panel.padding - config.button.height;
+        const firstButtonX = (STAGE_WIDTH - totalButtonWidth) / 2;
+        this.buttons = this.actions.map((action, index) => this.addElement(new Button(
+            firstButtonX + index * (config.button.width + config.button.gap),
+            buttonY,
+            config.button.width,
+            config.button.height,
+            action.label,
+            () => this.activateAction(index),
+            {
+                backgroundColor: action.role === 'confirm'
+                    ? config.button.confirmColor
+                    : config.button.backgroundColor,
+                borderColor: config.button.borderColor,
+                focusBorderColor: config.button.focusBorderColor,
+                textColor: config.button.textColor,
+                fontSize: config.button.fontSize
+            }
+        )));
+        this.updateButtonFocus();
+    }
+
+    updateButtonFocus() {
+        this.buttons.forEach((button, index) => {
+            button.isFocused = index === this.selectedAction;
+        });
+    }
+
+    activateAction(index) {
+        const action = this.actions[index];
+        if (!action) return;
+        this.close();
+        action.onSelect?.();
+    }
+
+    handleClick(x, y) {
+        super.handleClick(x, y);
+        return true;
+    }
+
+    handleKeyPress(event) {
+        if (!this.visible) return false;
+
+        switch (event.code) {
+            case 'ArrowLeft':
+            case 'ArrowUp':
+                if (this.actions.length) {
+                    this.selectedAction = (this.selectedAction - 1 + this.actions.length) % this.actions.length;
+                    this.updateButtonFocus();
+                }
+                return true;
+            case 'ArrowRight':
+            case 'ArrowDown':
+                if (this.actions.length) {
+                    this.selectedAction = (this.selectedAction + 1) % this.actions.length;
+                    this.updateButtonFocus();
+                }
+                return true;
+            case 'Enter':
+            case 'Space':
+                this.activateAction(this.selectedAction);
+                return true;
+            case 'Escape': {
+                const cancelIndex = this.actions.findIndex(action => action.role === 'cancel');
+                if (cancelIndex !== -1) this.activateAction(cancelIndex);
+                return true;
+            }
+            default:
+                return true;
         }
     }
 }
@@ -365,11 +520,13 @@ export class Button extends UIElement {
         this.backgroundColor = options.backgroundColor || '#444444';
         this.hoverColor = options.hoverColor || '#666666';
         this.borderColor = options.borderColor || '#FFFFCC';
+        this.focusBorderColor = options.focusBorderColor || this.borderColor;
         this.textColor = options.textColor || '#FFFFCC';
         this.fontSize = options.fontSize || 14;
         this.fontFamily = options.fontFamily || 'Verdana, sans-serif';
         this.isHovered = false;
         this.isPressed = false;
+        this.isFocused = false;
     }
     
     handleClick(x, y) {
@@ -393,8 +550,8 @@ export class Button extends UIElement {
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
         // Border
-        ctx.strokeStyle = this.borderColor;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = this.isFocused ? this.focusBorderColor : this.borderColor;
+        ctx.lineWidth = this.isFocused ? 4 : 2;
         ctx.strokeRect(this.x, this.y, this.width, this.height);
         
         // Text

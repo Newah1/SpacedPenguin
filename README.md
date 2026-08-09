@@ -99,11 +99,11 @@ npm test
 
 Individual gates are available as `npm run test:unit`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
 
-The browser uses the immutable simulation API; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic.
+The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic, so headless launch commands reproduce independently of display refresh rate.
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 
-Add `--all-bonuses` to require a successful trajectory to collect every bonus before hitting the target, for example: `node .\levelTester.js --level ..\levels\level12.json --all-bonuses --samples 10000` from `testing/`.
+Add `--all-bonuses` to require a successful trajectory to collect every bonus before hitting the target, for example: `node .\levelTester.js --level ..\levels\level12.json --all-bonuses --samples 10000` from `testing/`. If the sweep finds no complete route, it says so and prints the five closest replayable paths, ranked by bonuses collected and then distance from the target.
 
 Headless trajectories run for up to 120 simulated seconds by default so searches can wait for slow orbit alignments. Use `--max-time <seconds>` to choose a different limit.
 

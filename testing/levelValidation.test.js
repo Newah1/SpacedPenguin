@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { LEVEL_CATALOG_CONFIG, builtInLevelPath } from '../js/config/gameConfig.js';
 import {
     LevelValidationError,
     assertValidLevelDefinition,
@@ -26,8 +27,29 @@ function object(type, x, y, properties = {}) {
 }
 
 test('all shipped levels satisfy the shared level contract', async () => {
-    for (let levelNumber = 1; levelNumber <= 19; levelNumber++) {
-        const url = new URL(`../levels/level${levelNumber}.json`, import.meta.url);
+    const levelFileNames = await readdir(new URL('../levels/', import.meta.url));
+    const authoredLevelNumbers = levelFileNames
+        .map(fileName => /^level(\d+)\.json$/.exec(fileName))
+        .filter(Boolean)
+        .map(match => Number.parseInt(match[1], 10))
+        .sort((left, right) => left - right);
+    const configuredLevelNumbers = Array.from(
+        { length: LEVEL_CATALOG_CONFIG.shippedLevelCount },
+        (_, index) => LEVEL_CATALOG_CONFIG.firstLevel + index
+    );
+
+    assert.deepEqual(
+        authoredLevelNumbers,
+        configuredLevelNumbers,
+        'numbered level files must match the configured shipped catalog'
+    );
+
+    for (
+        let levelNumber = LEVEL_CATALOG_CONFIG.firstLevel;
+        levelNumber <= LEVEL_CATALOG_CONFIG.shippedLevelCount;
+        levelNumber++
+    ) {
+        const url = new URL(`../${builtInLevelPath(levelNumber)}`, import.meta.url);
         const level = JSON.parse(await readFile(url, 'utf8'));
         const validation = validateLevelDefinition(level);
         assert.equal(

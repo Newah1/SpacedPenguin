@@ -370,7 +370,7 @@ The export system gathers current live objects and writes the primary level enve
 
 ### Import and Save Status
 
-There is no file picker, arbitrary-path loader, server save, autosave, or local-storage save. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level19.json` during startup. Ctrl+S downloads the same canonical JSON as Export. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, centering, object-property edits, and level-setting edits during the current editor session. Continuous input events from one focused field are coalesced into one undo step.
+There is no file picker, arbitrary-path loader, server save, autosave, or local-storage save. The built-in loader only fetches numbered files `levels/level1.json` through `levels/level20.json` during startup. Ctrl+S downloads the same canonical JSON as Export. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, centering, object-property edits, and level-setting edits during the current editor session. Continuous input events from one focused field are coalesced into one undo step.
 
 ## Advanced Features
 

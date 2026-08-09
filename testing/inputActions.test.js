@@ -19,6 +19,38 @@ test('Q routes gameplay quit through the Game quit dialog', () => {
     assert.equal(quitDialogCalls, 1);
 });
 
+test('Escape opens the return-to-menu confirmation during gameplay', () => {
+    let quitDialogCalls = 0;
+    const game = {
+        state: 'playing',
+        uiManager: { handleKeyPress: () => false },
+        showQuitDialog: () => quitDialogCalls++
+    };
+    const action = new KeyboardInputAction({ game });
+    const event = createKeyboardEventFixture('Escape');
+
+    action.handleKeyDown(event);
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(quitDialogCalls, 1);
+});
+
+test('active modal input does not leak into gameplay shortcuts', () => {
+    let quitDialogCalls = 0;
+    const game = {
+        state: 'playing',
+        uiManager: { handleKeyPress: () => true },
+        showQuitDialog: () => quitDialogCalls++
+    };
+    const action = new KeyboardInputAction({ game });
+    const event = createKeyboardEventFixture('Escape');
+
+    action.handleKeyDown(event);
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(quitDialogCalls, 0);
+});
+
 test('Backquote toggles the console while playing regardless of key value', () => {
     let toggleCalls = 0;
     const game = {

@@ -1,6 +1,6 @@
 # Spaced Penguin Level Authoring Reference
 
-This directory contains the 19 JSON levels loaded by the current HTML5 runtime. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
+This directory contains the 20 JSON levels loaded by the current HTML5 runtime. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
 
 Every browser, editor, and headless consumer passes a level through the shared `LevelSchema` normalizer. Omitted fields receive the same configured defaults everywhere; explicit `0`, `false`, and empty-string values are retained unless validation rejects them for that specific field.
 
@@ -350,7 +350,7 @@ flowchart LR
   Pass2 --> Rules[Apply rules]
 ```
 
-- All 19 authored files are fetched sequentially during bootstrap.
+- All 20 authored files are fetched sequentially during bootstrap.
 - HTTP status, JSON parsing, structure, numeric constraints, composition, IDs, orbit references/cycles, and level rules are checked before caching.
 - Unknown object types and invalid definitions are rejected rather than partially instantiated.
 - A missing level definition is masked by random fallback generation when selected.

@@ -20,6 +20,7 @@ const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
 const { Penguin } = await import('../js/penguin.js');
+const { UIManager } = await import('../js/uiManager.js');
 const {
     invalidateGameSimulationState,
     stepGameSimulation
@@ -34,6 +35,7 @@ const {
 } = await import('./headlessEngine.js');
 const {
     compareAsciiTrajectoryResults,
+    printLevelSummary,
     renderAsciiTrajectory,
     selectDiverseAsciiResults
 } = await import('./levelTester.js');
@@ -594,6 +596,44 @@ test('real Penguin rendering draws a preprocessed frame without pixel-buffer wor
     ]);
 });
 
+test('confirmation modal defaults to cancel and supports keyboard selection', () => {
+    const selections = [];
+    const documentFixture = {
+        ...globalThis.document,
+        createElement: () => ({
+            getContext: () => ({
+                font: '',
+                measureText: text => ({ width: text.length * 8 })
+            })
+        })
+    };
+
+    withGlobalOverrides({ document: documentFixture }, () => {
+        const manager = new UIManager({ getContext: () => ({}) }, null);
+        const modal = manager.showConfirmation({
+            title: 'Return to Menu?',
+            message: 'Current progress will be lost.',
+            onConfirm: () => selections.push('confirm'),
+            onCancel: () => selections.push('cancel')
+        });
+
+        assert.equal(modal.selectedAction, 1);
+        assert.equal(manager.handleKeyPress({ code: 'Escape' }), true);
+        assert.deepEqual(selections, ['cancel']);
+        assert.equal(manager.activeScreens.length, 0);
+
+        const secondModal = manager.showConfirmation({
+            onConfirm: () => selections.push('confirm'),
+            onCancel: () => selections.push('cancel')
+        });
+        assert.equal(manager.handleKeyPress({ code: 'ArrowLeft' }), true);
+        assert.equal(secondModal.selectedAction, 0);
+        assert.equal(manager.handleKeyPress({ code: 'Enter' }), true);
+        assert.deepEqual(selections, ['cancel', 'confirm']);
+        assert.equal(manager.activeScreens.length, 0);
+    });
+});
+
 test('trajectory lines and trail marks are clipped to the playfield', () => {
     const { calls, context } = createRecordingContext();
     const rendered = [];
@@ -701,7 +741,8 @@ test('GameManager resume is idempotent and pause cancels the only RAF', () => {
             isPageVisible: true,
             isRunning: false,
             animationFrameId: null,
-            lastTime: 123
+            lastTime: 123,
+            simulationAccumulator: 0.01
         });
 
         manager.resume();
@@ -710,6 +751,7 @@ test('GameManager resume is idempotent and pause cancels the only RAF', () => {
         assert.equal(animationFrames.requested.length, 1);
         assert.equal(manager.animationFrameId, 1);
         assert.equal(manager.lastTime, 0);
+        assert.equal(manager.simulationAccumulator, 0);
 
         manager.pause();
         manager.pause();
@@ -717,6 +759,82 @@ test('GameManager resume is idempotent and pause cancels the only RAF', () => {
         assert.deepEqual(animationFrames.cancelled, [1]);
         assert.equal(manager.animationFrameId, null);
         assert.equal(manager.isRunning, false);
+    });
+});
+
+test('GameManager accumulates high-refresh frames into exact 60 Hz simulation steps', () => {
+    const animationFrames = createAnimationFrameFixture();
+    const updates = [];
+    let renders = 0;
+
+    withGlobalOverrides({
+        requestAnimationFrame: animationFrames.requestAnimationFrame
+    }, () => {
+        const manager = Object.create(GameManager.prototype);
+        Object.assign(manager, {
+            isRunning: true,
+            isPageVisible: true,
+            animationFrameId: 1,
+            lastTime: 1000,
+            simulationAccumulator: 0,
+            assetsLoaded: true,
+            inputActionManager: null,
+            lastInputContextKey: null,
+            performanceUtils: { recordFrameTime: () => {} },
+            game: {
+                state: GameState.PLAYING,
+                levelEditor: null,
+                update: deltaTime => updates.push(deltaTime),
+                render: () => renders++
+            }
+        });
+
+        manager.gameLoop(1000 + 1000 / 120);
+        assert.deepEqual(updates, []);
+        assert.equal(renders, 1);
+
+        manager.gameLoop(1000 + 2000 / 120);
+        assert.deepEqual(updates, [1 / 60]);
+        assert.equal(renders, 2);
+
+        manager.gameLoop(1000 + 4000 / 120);
+        assert.deepEqual(updates, [1 / 60, 1 / 60]);
+        assert.equal(renders, 3);
+    });
+});
+
+test('GameManager carries irregular frame remainders without variable simulation steps', () => {
+    const animationFrames = createAnimationFrameFixture();
+    const updates = [];
+
+    withGlobalOverrides({
+        requestAnimationFrame: animationFrames.requestAnimationFrame
+    }, () => {
+        const manager = Object.create(GameManager.prototype);
+        Object.assign(manager, {
+            isRunning: true,
+            isPageVisible: true,
+            animationFrameId: 1,
+            lastTime: 1000,
+            simulationAccumulator: 0,
+            assetsLoaded: true,
+            inputActionManager: null,
+            lastInputContextKey: null,
+            performanceUtils: { recordFrameTime: () => {} },
+            game: {
+                state: GameState.PLAYING,
+                levelEditor: null,
+                update: deltaTime => updates.push(deltaTime),
+                render: () => {}
+            }
+        });
+
+        for (const currentTime of [1007, 1019, 1028, 1041, 1050]) {
+            manager.gameLoop(currentTime);
+        }
+
+        assert.deepEqual(updates, [1 / 60, 1 / 60, 1 / 60]);
+        assert.ok(Math.abs(manager.simulationAccumulator) < 1e-12);
     });
 });
 
@@ -856,10 +974,57 @@ test('parallel trajectory workers preserve the all-bonuses requirement', async (
         [300, 300],
         2,
         20,
-        { workers: 2 }
+        { workers: 2, nearMissLimit: 5 }
     );
 
     assert.deepEqual(results, []);
+    assert.equal(engine.lastNearMisses.length, 2);
+    assert.equal(engine.lastNearMisses.every(result => result.reason === 'target_blocked'), true);
+    assert.equal(engine.lastNearMisses.every(result => Number.isFinite(result.targetDistance)), true);
+});
+
+test('all-bonuses summary explicitly reports and prints the closest trajectories', () => {
+    const lines = [];
+    const nearMisses = [
+        {
+            angle: 12.5,
+            power: 42,
+            collectedBonuses: ['one', 'two'],
+            targetDistance: 8.25,
+            reason: 'target_blocked',
+            distance: 900
+        },
+        {
+            angle: 15,
+            power: 40,
+            collectedBonuses: ['one'],
+            targetDistance: 20,
+            reason: 'planet_collision',
+            distance: 700
+        }
+    ];
+
+    withGlobalOverrides({
+        console: { ...console, log: message => lines.push(String(message)) }
+    }, () => printLevelSummary({
+        levelPath: 'fixture.json',
+        requireAllBonuses: true,
+        totalBonuses: 3,
+        successfulTrajectories: 0,
+        totalSamples: 100,
+        showingClosest: true,
+        allResults: nearMisses,
+        asciiMaps: [],
+        duration: 0.25
+    }, false, false));
+
+    assert.equal(lines.includes('No trajectory collected all 3 bonuses and hit the target.'), true);
+    assert.equal(lines.includes('Closest 2 trajectories:'), true);
+    assert.equal(lines.some(line => (
+        line.includes('bonuses=2/3') &&
+        line.includes('targetDistance=8.25') &&
+        line.includes('outcome=target_blocked')
+    )), true);
 });
 
 test('headless loader resolves object-linked orbits in level 10', async () => {
