@@ -1,5 +1,6 @@
 import { isCompactEditorViewport } from '../config/inputConfig.js';
 import { LevelOrbitType } from '../levelSchema.js';
+import { makeDraggablePanel } from './draggablePanel.js';
 
 function escapeHtml(value) {
     return String(value)
@@ -30,6 +31,7 @@ export class LevelEditorInspectorView {
             });
         }
         this.render();
+        this.dragController = makeDraggablePanel(this.element, { handleSelector: '[data-editor-drag-handle]' });
         return this.element;
     }
 
@@ -37,7 +39,7 @@ export class LevelEditorInspectorView {
         if (!this.element) return;
         const selected = this.editor.selectedObject;
         if (!selected) {
-            this.element.innerHTML = '<h3>Properties</h3><p>Select an object to edit its properties</p>';
+            this.element.innerHTML = '<h3 data-editor-drag-handle title="Drag to move">Properties &nbsp;[drag]</h3><p>Select an object to edit its properties</p>';
             return;
         }
 
@@ -45,7 +47,7 @@ export class LevelEditorInspectorView {
         const properties = settings
             ? this.editor.getLevelSettingsProperties()
             : this.editor.getEditableProperties(selected);
-        let html = `<h3>${settings ? 'Level Settings' : `Properties - ${escapeHtml(selected.constructor.name)}`}</h3>`;
+        let html = `<h3 data-editor-drag-handle title="Drag to move">${settings ? 'Level Settings' : `Properties - ${escapeHtml(selected.constructor.name)}`} &nbsp;[drag]</h3>`;
         for (const property of properties) html += this.createPropertyInput(property);
 
         if (!settings) {
@@ -116,6 +118,10 @@ export class LevelEditorInspectorView {
 
     resize() {
         if (!this.element) return;
+        if (this.element.dataset.userPositioned) {
+            this.dragController?.clampToViewport();
+            return;
+        }
         Object.assign(this.element.style, isCompactEditorViewport()
             ? { width: 'calc(100vw - 40px)', maxWidth: '350px', right: '20px', top: '120px', maxHeight: '50vh' }
             : { width: '300px', maxWidth: '', right: '10px', top: '10px', maxHeight: '80vh' });

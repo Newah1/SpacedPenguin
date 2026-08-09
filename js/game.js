@@ -29,7 +29,6 @@ import {
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,
     PHYSICS_CONFIG,
-    SIMULATION_CONFIG,
     WORLD_CONFIG
 } from './config/gameConfig.js';
 import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
@@ -41,6 +40,7 @@ import { SETTINGS_CONFIG } from './config/settingsConfig.js';
 import { LocalSettingsStore } from './settingsStore.js';
 import { SettingsManager } from './settingsManager.js';
 import { SettingsScreen } from './settingsScreen.js';
+import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
@@ -176,7 +176,6 @@ class Game {
         this.currentShotPath = []; // Current shot being recorded
         this.currentShotRenderPath = null;
         this.aimAssistPoints = [];
-        this.aimAssistLengthSeconds = SIMULATION_CONFIG.aimAssist.previewSeconds;
         this.shotColors = RENDER_CONFIG.shotTrails.colors;
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
@@ -1155,6 +1154,11 @@ class Game {
             }
         }
 
+        if (this.levelEditor?.isTestingGravitySculptCandidate?.()) {
+            this.levelEditor.onGravitySculptTestTargetHit();
+            return;
+        }
+
         // Keep this tied to Arrow.visible so both off-screen indicators always
         // appear and disappear together.
         this.drawKevinCam();
@@ -1209,8 +1213,18 @@ class Game {
         this.aimAssistPoints = predictAimAssistTrajectory(
             captureGameSimulationState(this),
             velocity,
-            { previewSeconds: this.aimAssistLengthSeconds }
+            {
+                previewSeconds: getRuntimeGameConfigValue(
+                    'SIMULATION_CONFIG.aimAssist.previewSeconds'
+                )
+            }
         );
+    }
+
+    onRuntimeConfigChanged(path) {
+        if (path === 'SIMULATION_CONFIG.aimAssist.previewSeconds') {
+            this.updateAimAssistPreview();
+        }
     }
 
     drawAimAssist(ctx) {

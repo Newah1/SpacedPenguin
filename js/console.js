@@ -1,3 +1,25 @@
+import {
+    getRuntimeGameConfigValue,
+    listGameConfigPaths,
+    setRuntimeGameConfigValue
+} from './runtimeGameConfig.js';
+
+export const CONSOLE_COMMANDS = Object.freeze([
+    '/help',
+    '/level_editor',
+    '/clear',
+    '/level',
+    '/export',
+    '/launch',
+    '/last',
+    '/setconfig',
+    '/play',
+    '/edit',
+    '/add',
+    '/delete',
+    '/save'
+]);
+
 class Console {
     constructor(game) {
         this.game = game;
@@ -91,8 +113,93 @@ class Console {
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 this.navigateHistory(1);
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.autocomplete();
+            } else {
+                this.completionState = null;
             }
         });
+    }
+
+    autocomplete() {
+        const currentValue = this.input.value;
+        if (this.completionState?.lastValue === currentValue) {
+            const state = this.completionState;
+            state.index = (state.index + 1) % state.matches.length;
+            this.applyCompletion(state, state.matches[state.index]);
+            return;
+        }
+
+        const context = this.getCompletionContext(currentValue);
+        if (!context) return;
+        const matches = context.candidates.filter(candidate =>
+            candidate.toLowerCase().startsWith(context.token.toLowerCase())
+        );
+        if (matches.length === 0) return;
+
+        const state = {
+            ...context,
+            matches,
+            index: -1,
+            lastValue: currentValue
+        };
+        this.completionState = state;
+        if (matches.length === 1) {
+            this.applyCompletion(state, matches[0]);
+            return;
+        }
+
+        const commonPrefix = this.longestCommonPrefix(matches);
+        if (commonPrefix.length > context.token.length) {
+            this.applyCompletion(state, commonPrefix);
+        } else {
+            state.index = 0;
+            this.applyCompletion(state, matches[0]);
+        }
+    }
+
+    getCompletionContext(value) {
+        const cursor = this.input.selectionStart ?? value.length;
+        if (cursor !== value.length) return null;
+        const beforeCursor = value.slice(0, cursor);
+        if (!beforeCursor.includes(' ')) {
+            return {
+                token: beforeCursor,
+                beforeToken: '',
+                afterToken: value.slice(cursor),
+                candidates: CONSOLE_COMMANDS
+            };
+        }
+
+        const match = beforeCursor.match(/^(\/setconfig)\s+([^\s]*)$/i);
+        if (!match) return null;
+        return {
+            token: match[2],
+            beforeToken: `${match[1]} `,
+            afterToken: value.slice(cursor),
+            candidates: listGameConfigPaths()
+        };
+    }
+
+    longestCommonPrefix(values) {
+        if (!values.length) return '';
+        let prefix = values[0];
+        for (let index = 1; index < values.length; index++) {
+            while (!values[index].toLowerCase().startsWith(prefix.toLowerCase())) {
+                prefix = prefix.slice(0, -1);
+                if (!prefix) return '';
+            }
+        }
+        return prefix;
+    }
+
+    applyCompletion(state, completion) {
+        this.input.value = `${state.beforeToken}${completion}${state.afterToken}`;
+        state.lastValue = this.input.value;
+        const cursor = state.beforeToken.length + completion.length;
+        this.input.setSelectionRange?.(cursor, cursor);
     }
     
     show() {
@@ -183,6 +290,9 @@ class Console {
             case '/last':
                 this.repeatLastLaunch();
                 break;
+            case '/setconfig':
+                this.setConfig(args);
+                break;
             default:
                 this.log('Unknown command: ' + cmd);
                 this.log('Type /help for available commands');
@@ -198,6 +308,7 @@ Available Commands:
 /export [filename] - Export current level as JSON
 /launch [angle] [power] - Replay an ASCII trajectory sample
 /last - Repeat the last launch
+/setconfig [dot.path] [value] - Read or override a game config value
 /clear - Clear console output
 
 Level Editor Commands (when in editor mode):
@@ -271,6 +382,27 @@ Level Editor Commands (when in editor mode):
             String(lastLaunch.angle),
             String(lastLaunch.power)
         ]);
+    }
+
+    setConfig(args) {
+        const [path, ...valueParts] = args;
+        if (!path) {
+            this.log('Usage: /setconfig [dot.path] [value]');
+            this.log('Example: /setconfig simulation.aimAssist.previewSeconds 2');
+            return;
+        }
+
+        try {
+            if (valueParts.length === 0) {
+                this.log(`${path} = ${JSON.stringify(getRuntimeGameConfigValue(path))}`);
+                return;
+            }
+            const result = setRuntimeGameConfigValue(path, valueParts.join(' '));
+            this.game.onRuntimeConfigChanged?.(result.canonicalPath, result.value);
+            this.log(`${result.canonicalPath} = ${JSON.stringify(result.value)} (runtime override)`);
+        } catch (error) {
+            this.log(`SetConfig error: ${error.message}`);
+        }
     }
 }
 

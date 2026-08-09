@@ -11,11 +11,74 @@ export class LevelEditorOverlayRenderer {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         this.drawGrid(ctx);
+        this.drawGravitySculpt(ctx);
         this.drawAllOrbitCenters(ctx);
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
             this.drawSelectionHighlight(ctx, editor.selectedObject);
             this.drawArrowTarget(ctx, editor.selectedObject);
         }
+    }
+
+    drawGravitySculpt(ctx) {
+        const sculpt = this.editor.gravitySculpt;
+        if (!sculpt?.active) return;
+        const drawPath = (points, color, width, dash = []) => {
+            if (points.length < 2) return;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.setLineDash(dash);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
+            ctx.stroke();
+            ctx.restore();
+        };
+        sculpt.path.forEach((point, index) => {
+            const start = index === 0;
+            const tolerance = Number(this.editor.gravitySculptView?.checkpointTolerance?.value) ||
+                EDITOR_CONFIG.gravitySculpt.checkpointTolerance;
+            const candidate = sculpt.result?.candidates?.[sculpt.candidateIndex] || null;
+            const match = start ? null : candidate?.waypointMatches?.[index - 1];
+            const reached = match && !match.virtual && match.distance <= tolerance;
+            ctx.save();
+            if (!start) {
+                ctx.fillStyle = match
+                    ? (reached ? 'rgba(76, 210, 120, .10)' : 'rgba(255, 75, 75, .10)')
+                    : 'rgba(255, 166, 40, .08)';
+                ctx.strokeStyle = match
+                    ? (reached ? 'rgba(76, 230, 120, .8)' : 'rgba(255, 75, 75, .85)')
+                    : 'rgba(255, 166, 40, .55)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([7, 5]);
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, tolerance, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                const closest = sculpt.preview?.[match?.index];
+                if (closest && !reached) {
+                    ctx.setLineDash([3, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(point.x, point.y);
+                    ctx.lineTo(closest.x, closest.y);
+                    ctx.stroke();
+                }
+            }
+            ctx.setLineDash([]);
+            ctx.fillStyle = start ? '#59e6ff' : (match ? (reached ? '#4ce078' : '#ff4b4b') : '#ffa628');
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#08101a';
+            ctx.font = 'bold 11px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(start ? 'S' : String(index), point.x, point.y);
+            ctx.restore();
+        });
+        drawPath(sculpt.preview, 'rgba(80, 235, 255, .95)', 3);
     }
 
     drawSelectionHighlight(ctx, object) {

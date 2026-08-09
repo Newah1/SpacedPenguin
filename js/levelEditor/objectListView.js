@@ -1,5 +1,6 @@
 import { INPUT_CONFIG, isCompactEditorViewport } from '../config/inputConfig.js';
 import plog from '../penguinLogger.js';
+import { makeDraggablePanel } from './draggablePanel.js';
 
 function escapeHtml(value) {
     return String(value)
@@ -30,7 +31,8 @@ export class LevelEditorObjectListView {
                 bottom: '80px', maxHeight: '300px'
             });
         }
-        this.element.innerHTML = '<h3>Objects</h3><div data-object-list-content>Loading...</div>';
+        this.element.innerHTML = '<h3 data-editor-drag-handle title="Drag to move">Objects &nbsp;[drag]</h3><div data-object-list-content>Loading...</div>';
+        this.dragController = makeDraggablePanel(this.element, { handleSelector: '[data-editor-drag-handle]' });
         return this.element;
     }
 
@@ -98,6 +100,10 @@ export class LevelEditorObjectListView {
 
     resize() {
         if (!this.element) return;
+        if (this.element.dataset.userPositioned) {
+            this.dragController?.clampToViewport();
+            return;
+        }
         Object.assign(this.element.style, isCompactEditorViewport()
             ? { width: 'calc(100vw - 40px)', maxWidth: '350px', left: '20px', bottom: '80px', maxHeight: '300px' }
             : { width: '300px', maxWidth: '', left: '10px', bottom: '10px', maxHeight: '400px' });

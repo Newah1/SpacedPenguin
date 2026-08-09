@@ -69,7 +69,6 @@ test('start, launch, cancel the menu confirmation, render, and finish a level', 
     await expect(page.locator('#gameCanvas')).toBeVisible();
     await page.keyboard.press('Space');
     await waitForGame(page, 'playing');
-
     await launchFromSlingshot(page);
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
@@ -141,12 +140,21 @@ test('settings are available from the main and pause menus and persist locally',
 
     await page.keyboard.press('Space');
     await waitForGame(page, 'playing');
+    await page.keyboard.press('Backquote');
+    const consoleInput = page.locator('#console input');
+    await consoleInput.fill('/SetConfig simulation.aim');
+    await consoleInput.press('Tab');
+    await expect(consoleInput).toHaveValue('/SetConfig simulation.aimAssist.');
+    await consoleInput.fill('/SetConfig simulation.aimAssist.previewSeconds 0.25');
+    await consoleInput.press('Enter');
+    await page.keyboard.press('Backquote');
     const anchor = await stageToClient(page, 100, 300);
     const pullback = await stageToClient(page, 35, 350);
     await page.mouse.move(anchor.x, anchor.y);
     await page.mouse.down();
     await page.mouse.move(pullback.x, pullback.y, { steps: 4 });
     await expect.poll(() => page.evaluate(() => window.game.aimAssistPoints.length)).toBeGreaterThan(2);
+    await expect.poll(() => page.evaluate(() => window.game.aimAssistPoints.length)).toBeLessThanOrEqual(10);
     await page.mouse.up();
     await page.evaluate(() => window.game.tryAgain());
     await page.keyboard.press('Escape');
@@ -336,6 +344,64 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     expect(exportedLevel.startPosition).toEqual({ x: 125, y: 300 });
     expect(exportedLevel.rules.gravitationalConstant).toBe(2.5);
     expect(Array.isArray(exportedLevel.objects)).toBe(true);
+});
+
+test('Gravity Sculpt draws, solves, previews, applies, and undoes one planet batch', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+    await page.keyboard.press('F1');
+    await page.evaluate(() => window.game.levelEditor.addObject('Planet'));
+
+    await page.getByRole('button', { name: 'Gravity Sculpt', exact: true }).click();
+    await expect(page.locator('#gravity-sculpt-panel')).toBeVisible();
+    await page.getByRole('button', { name: 'Set Waypoints', exact: true }).click();
+    const points = await Promise.all([
+        stageToClient(page, 105, 300),
+        stageToClient(page, 260, 245),
+        stageToClient(page, 470, 230),
+        stageToClient(page, 690, 300)
+    ]);
+    for (const point of points.slice(1)) await page.mouse.click(point.x, point.y);
+    await page.getByRole('button', { name: 'Done Adding', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Solve', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Solve', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Apply Candidate', exact: true })).toBeEnabled({ timeout: 15000 });
+    await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 1 / 4');
+    const firstPreview = await page.evaluate(() => window.game.levelEditor.gravitySculpt.preview);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 2 / 4');
+    const secondPreview = await page.evaluate(() => window.game.levelEditor.gravitySculpt.preview);
+    expect(secondPreview).not.toEqual(firstPreview);
+    const before = await page.evaluate(() => ({
+        position: { ...window.game.planets[0].position },
+        mass: window.game.planets[0].mass
+    }));
+    await expect.poll(() => page.evaluate(() => window.game.levelEditor.gravitySculpt.preview.length)).toBeGreaterThan(1);
+    await page.getByRole('button', { name: 'Test Candidate', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.game.levelEditor.mode)).toBe('play');
+    await expect.poll(() => page.evaluate(() => window.game.penguin.state)).toBe('soaring');
+    await page.getByRole('button', { name: 'Reject & Restore', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.game.levelEditor.mode)).toBe('edit');
+    await expect.poll(() => page.evaluate(() => ({
+        position: { ...window.game.planets[0].position },
+        mass: window.game.planets[0].mass
+    }))).toEqual(before);
+    await page.getByRole('button', { name: 'Test Candidate', exact: true }).click();
+    await page.getByRole('button', { name: 'Accept Tested Layout', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.game.levelEditor.mode)).toBe('edit');
+    const applied = await page.evaluate(() => ({
+        position: { ...window.game.planets[0].position },
+        mass: window.game.planets[0].mass
+    }));
+    expect(applied).not.toEqual(before);
+    await page.keyboard.press('Control+KeyZ');
+    await expect.poll(() => page.evaluate(() => ({
+        position: { ...window.game.planets[0].position },
+        mass: window.game.planets[0].mass
+    }))).toEqual(before);
 });
 
 test.describe('mobile viewport', () => {

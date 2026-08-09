@@ -1,4 +1,5 @@
 import { isCompactEditorViewport } from '../config/inputConfig.js';
+import { makeDraggablePanel } from './draggablePanel.js';
 
 const BUTTON_STYLE = `
     padding: 8px 12px; color: white; border: none; border-radius: 5px;
@@ -38,6 +39,7 @@ export class LevelEditorToolbarView {
         this.deleteButton = button('Delete Selected', '#f44336', () => this.editor.deleteSelectedObject());
         this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
         this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
+        this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.toggleGravitySculpt());
         this.section = document.createElement('div');
         this.section.style.cssText = `
             position: absolute; top: 64px; left: 10px; right: 330px;
@@ -49,9 +51,12 @@ export class LevelEditorToolbarView {
         this.addButtonContainer = document.createElement('div');
         this.addButtonContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; width: 100%;';
         this.section.appendChild(this.addButtonContainer);
-        this.toolbar.append(this.modeButton, this.toggleButton, this.deleteButton, this.cloneButton, this.exportButton);
+        this.toolbar.append(this.modeButton, this.toggleButton, this.deleteButton, this.cloneButton, this.sculptButton, this.exportButton);
         this.wrapper.append(this.toolbar, this.section);
         this.mobileToolbar = this.createMobileToolbar();
+        this.toolbarDrag = makeDraggablePanel(this.toolbar);
+        this.sectionDrag = makeDraggablePanel(this.section);
+        this.mobileToolbarDrag = makeDraggablePanel(this.mobileToolbar);
         return {
             toolbarWrapper: this.wrapper,
             toolbar: this.toolbar,
@@ -63,6 +68,7 @@ export class LevelEditorToolbarView {
             deleteButton: this.deleteButton,
             cloneButton: this.cloneButton,
             exportButton: this.exportButton,
+            sculptButton: this.sculptButton,
             addButtons: this.addButtons
         };
     }
@@ -104,6 +110,7 @@ export class LevelEditorToolbarView {
 
     open() {
         this.section.style.display = 'flex';
+        this.sectionDrag?.clampToViewport();
         this.toggleButton.textContent = 'Add Objects ▲';
     }
 
@@ -114,13 +121,16 @@ export class LevelEditorToolbarView {
 
     resize() {
         const compact = isCompactEditorViewport();
-        Object.assign(this.toolbar.style, compact
+        if (this.toolbar.dataset.userPositioned) this.toolbarDrag?.clampToViewport();
+        else Object.assign(this.toolbar.style, compact
             ? { left: '10px', right: '10px' }
             : { left: '10px', right: '330px' });
-        Object.assign(this.section.style, compact
+        if (this.section.dataset.userPositioned) this.sectionDrag?.clampToViewport();
+        else Object.assign(this.section.style, compact
             ? { right: '10px' }
             : { right: '330px' });
         this.mobileToolbar.style.display = compact ? 'flex' : 'none';
+        if (this.mobileToolbar.dataset.userPositioned) this.mobileToolbarDrag?.clampToViewport();
     }
 }
 

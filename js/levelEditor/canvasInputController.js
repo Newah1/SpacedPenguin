@@ -17,6 +17,10 @@ export class LevelEditorCanvasInputController {
         event.preventDefault();
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
         const position = this.getEventCoordinates(event);
+        if (editor.gravitySculpt?.drawing) {
+            editor.addGravitySculptWaypoint(position);
+            return;
+        }
         if (event.pointerType === 'touch') this.startLongPress(position);
         const hit = editor.getObjectAtPosition(position.x, position.y);
         plog.debug('Level Editor PointerDown:', position.x, position.y, 'Found object:', hit);
@@ -35,6 +39,10 @@ export class LevelEditorCanvasInputController {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         const position = this.getEventCoordinates(event);
+        if (editor.gravitySculpt?.drawing) {
+            event.preventDefault();
+            return;
+        }
         if (event.pointerType === 'touch' && this.touchStart) {
             const distance = Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y);
             if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
@@ -52,6 +60,9 @@ export class LevelEditorCanvasInputController {
         this.cancelLongPress();
         if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        if (editor.gravitySculpt?.drawing) {
+            return;
         }
         editor.stopDragging();
         editor.stopOrbitCenterDragging();

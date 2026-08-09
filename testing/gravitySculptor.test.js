@@ -1,0 +1,185 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+    analyzeSculptTrajectory,
+    createLaunchVariables,
+    createExistingPlanetVariables,
+    evaluateSculptCandidate,
+    scoreSculptTrajectory,
+    solveGravitySculpt
+} from '../js/gravitySculptor.js';
+
+function simulationState() {
+    return {
+        time: 0,
+        penguin: {
+            position: { x: 80, y: 300 }, velocity: { x: 0, y: 0 },
+            radius: 10, state: 'idle', crashFramesRemaining: 0
+        },
+        planets: [{
+            id: 'planet_1', position: { x: 360, y: 190 }, radius: 20,
+            collisionRadius: 25, mass: 100, gravitationalReach: 5000, orbit: null
+        }],
+        bonuses: [],
+        target: { id: 'target', position: { x: 5000, y: 5000 }, width: 20, height: 20, orbit: null },
+        slingshot: {
+            position: { x: 80, y: 300 }, velocityMultiplier: 1,
+            maxPullback: 150, minPullback: 25
+        },
+        bounds: {
+            stage: { x: 0, y: 0, width: 800, height: 600 },
+            flight: { x: -1000, y: -1000, width: 6000, height: 6000 }
+        },
+        rules: {
+            maxTries: null, requiredBonuses: null, allowedMisses: null,
+            scoreMultiplier: 1, gravitationalConstant: 3
+        },
+        counters: { tries: 0, planetCollisions: 0, currentAttemptScore: 0, distance: 0 }
+    };
+}
+
+test('existing-planet variables are composable and exclude orbit-controlled planets', () => {
+    const state = simulationState();
+    state.planets.push({ ...state.planets[0], id: 'orbiting', orbit: { type: 'circular' } });
+    const positionOnly = createExistingPlanetVariables(state, [0, 1], {
+        adjustPosition: true,
+        adjustMass: false
+    });
+    assert.deepEqual(positionOnly.map(variable => variable.key), ['planet.0.x', 'planet.0.y']);
+});
+
+test('checkpoint scoring strongly prefers an ordered bend over a simple shortcut', () => {
+    const desired = [
+        { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 200, y: 0 },
+        { x: 200, y: 100 }, { x: 200, y: 200 }
+    ];
+    const shortcut = [
+        { x: 0, y: 0 }, { x: 50, y: 50 }, { x: 100, y: 100 },
+        { x: 150, y: 150 }, { x: 200, y: 200 }
+    ];
+    const exactScore = scoreSculptTrajectory(desired, desired, 'soaring', [], []);
+    const shortcutScore = scoreSculptTrajectory(shortcut, desired, 'soaring', [], []);
+    assert.ok(shortcutScore > exactScore + 1000);
+});
+
+test('waypoint scoring does not constrain the trajectory between reached checkpoints', () => {
+    const waypoints = [{ x: 0, y: 0 }, { x: 100, y: 100 }, { x: 200, y: 0 }];
+    const direct = waypoints;
+    const expressive = [
+        { x: 0, y: 0 }, { x: 30, y: -80 }, { x: 100, y: 100 },
+        { x: 170, y: 170 }, { x: 200, y: 0 }
+    ];
+    assert.equal(
+        scoreSculptTrajectory(expressive, waypoints, 'soaring', [], []),
+        scoreSculptTrajectory(direct, waypoints, 'soaring', [], [])
+    );
+});
+
+test('waypoint coverage excludes the automatic start and requires forward ordered progress', () => {
+    const waypoints = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 200, y: 0 }];
+    const reversed = [
+        { x: 0, y: 0 }, { x: 200, y: 0 }, { x: 100, y: 0 }, { x: 50, y: 0 }
+    ];
+    const metrics = analyzeSculptTrajectory(reversed, waypoints, 'soaring', [], [], {
+        checkpointTolerance: 10
+    });
+    assert.equal(metrics.checkpointCoverage, 0.5);
+    assert.equal(metrics.missedWaypointCount, 1);
+    assert.ok(metrics.score >= 10000000000);
+});
+
+test('launch angle and power are independent solver dimensions', () => {
+    const state = simulationState();
+    const variables = createLaunchVariables(state, [
+        { x: 80, y: 300 }, { x: 300, y: 200 }
+    ]);
+    assert.deepEqual(variables.map(variable => variable.key), [
+        'launch.angleDegrees', 'launch.pullbackPower'
+    ]);
+    assert.ok(variables[0].min < variables[0].initial);
+    assert.ok(variables[1].min < variables[1].max);
+});
+
+test('candidate evaluation measures nearby launch robustness and hard-goal violations', () => {
+    const state = simulationState();
+    const variables = createLaunchVariables(state, [
+        { x: 80, y: 300 }, { x: 400, y: 300 }
+    ]);
+    const launch = { velocity: { x: 240, y: 0 }, angleDegrees: 0, pullbackPower: 150 };
+    const candidate = evaluateSculptCandidate(
+        state,
+        [{ x: 80, y: 300 }, { x: 400, y: 300 }],
+        launch,
+        variables,
+        variables.map(variable => variable.initial),
+        { goals: { requireTarget: true } }
+    );
+    assert.equal(candidate.simulationCount, 5);
+    assert.ok(candidate.constraintViolations.includes('target'));
+    assert.ok(candidate.score >= 1000000000);
+    assert.ok(candidate.robustGoalSuccessRate >= 0 && candidate.robustGoalSuccessRate <= 1);
+});
+
+test('gravity sculpt improves a layout without mutating the live simulation snapshot', async () => {
+    const state = simulationState();
+    const original = structuredClone(state);
+    const launch = { velocity: { x: 240, y: 0 }, angleDegrees: 0, pullbackPower: 150 };
+    const variables = createExistingPlanetVariables(state, [0], {
+        adjustPosition: false,
+        adjustMass: true,
+        maximumMassMultiplier: 20
+    });
+    const reference = evaluateSculptCandidate(
+        state,
+        [{ x: 80, y: 300 }, { x: 700, y: 220 }],
+        launch,
+        variables,
+        [1400],
+        { previewSeconds: 2.5 }
+    ).trajectory;
+    const result = await solveGravitySculpt({
+        state,
+        desiredPath: reference,
+        planetIndices: [0],
+        launch,
+        options: {
+            adjustPosition: false,
+            adjustMass: true,
+            maximumMassMultiplier: 20,
+            generations: 10,
+            population: 14,
+            searchFamilies: 3,
+            candidateCount: 2,
+            previewSeconds: 2.5,
+            terminalPenalty: 0
+        }
+    });
+    assert.ok(result.score < result.baselineScore);
+    assert.equal(result.adjustments.length, 1);
+    assert.notEqual(result.adjustments[0].mass, state.planets[0].mass);
+    assert.deepEqual(state, original);
+});
+
+test('staged differential evolution returns ranked, distinct launch-and-layout candidates', async () => {
+    const state = simulationState();
+    const result = await solveGravitySculpt({
+        state,
+        desiredPath: [
+            { x: 80, y: 300 }, { x: 220, y: 210 },
+            { x: 430, y: 190 }, { x: 650, y: 320 }
+        ],
+        planetIndices: [0],
+        options: {
+            candidateCount: 3,
+            previewSeconds: 2
+        }
+    });
+    assert.equal(result.candidates.length, 3);
+    assert.ok(result.candidates.every(candidate => Number.isFinite(candidate.launch.angleDegrees)));
+    assert.ok(result.candidates.every(candidate => candidate.checkpointCoverage >= 0));
+    const signatures = new Set(result.candidates.map(candidate =>
+        `${candidate.launch.angleDegrees.toFixed(3)}:${candidate.launch.pullbackPower.toFixed(3)}`
+    ));
+    assert.ok(signatures.size > 1);
+    assert.equal(result.evaluations, 7350);
+});
