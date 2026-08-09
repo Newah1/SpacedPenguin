@@ -94,10 +94,12 @@ export class UIManager {
         const index = this.activeScreens.indexOf(screen);
         if (index !== -1) {
             this.activeScreens.splice(index, 1);
+            screen.destroy?.();
         }
     }
     
     closeAllScreens() {
+        for (const screen of this.activeScreens) screen.destroy?.();
         this.activeScreens = [];
     }
     
@@ -270,14 +272,20 @@ export class ModalScreen extends UIScreen {
             }
         ));
 
-        const totalButtonWidth = this.actions.length * config.button.width +
+        const availableButtonWidth = panelWidth - config.panel.padding * 2 -
+            Math.max(0, this.actions.length - 1) * config.button.gap;
+        const buttonWidth = Math.min(
+            config.button.width,
+            availableButtonWidth / Math.max(1, this.actions.length)
+        );
+        const totalButtonWidth = this.actions.length * buttonWidth +
             Math.max(0, this.actions.length - 1) * config.button.gap;
         const buttonY = panelY + panelHeight - config.panel.padding - config.button.height;
         const firstButtonX = (STAGE_WIDTH - totalButtonWidth) / 2;
         this.buttons = this.actions.map((action, index) => this.addElement(new Button(
-            firstButtonX + index * (config.button.width + config.button.gap),
+            firstButtonX + index * (buttonWidth + config.button.gap),
             buttonY,
-            config.button.width,
+            buttonWidth,
             config.button.height,
             action.label,
             () => this.activateAction(index),

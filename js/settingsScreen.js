@@ -1,0 +1,121 @@
+import { SettingType } from './config/settingsConfig.js';
+
+const controlRenderers = new Map();
+
+function formatValue(definition, value) {
+    if (definition.format === 'percent') return `${Math.round(value * 100)}%`;
+    return String(value);
+}
+
+controlRenderers.set(SettingType.BOOLEAN, ({ definition, value, onChange }) => {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = value;
+    input.setAttribute('aria-label', definition.label);
+    input.addEventListener('change', () => onChange(input.checked));
+    return input;
+});
+
+controlRenderers.set(SettingType.NUMBER, ({ definition, value, onChange }) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'settings-range-control';
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = String(definition.min);
+    input.max = String(definition.max);
+    input.step = String(definition.step);
+    input.value = String(value);
+    input.setAttribute('aria-label', definition.label);
+    const output = document.createElement('output');
+    output.value = formatValue(definition, value);
+    output.textContent = output.value;
+    input.addEventListener('input', () => {
+        const nextValue = onChange(Number(input.value));
+        output.value = formatValue(definition, nextValue);
+        output.textContent = output.value;
+    });
+    wrapper.append(input, output);
+    return wrapper;
+});
+
+export class SettingsScreen {
+    constructor(uiManager, settingsManager, options = {}) {
+        this.uiManager = uiManager;
+        this.settingsManager = settingsManager;
+        this.onClose = options.onClose;
+        this.element = this.build();
+        (uiManager.canvas.parentElement || document.body).appendChild(this.element);
+        this.element.querySelector('input, button')?.focus();
+    }
+
+    build() {
+        const overlay = document.createElement('section');
+        overlay.className = 'settings-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'settings-title');
+
+        const panel = document.createElement('div');
+        panel.className = 'settings-panel';
+        const title = document.createElement('h2');
+        title.id = 'settings-title';
+        title.textContent = this.settingsManager.config.title;
+        panel.appendChild(title);
+
+        for (const definition of this.settingsManager.getDefinitions()) {
+            const renderer = controlRenderers.get(definition.type);
+            if (!renderer) continue;
+            const row = document.createElement('label');
+            row.className = `settings-row settings-row-${definition.type}`;
+            const copy = document.createElement('span');
+            copy.className = 'settings-copy';
+            const name = document.createElement('strong');
+            name.textContent = definition.label;
+            const description = document.createElement('small');
+            description.textContent = definition.description || '';
+            copy.append(name, description);
+            row.append(copy, renderer({
+                definition,
+                value: this.settingsManager.get(definition.key),
+                onChange: value => this.settingsManager.set(definition.key, value)
+            }));
+            panel.appendChild(row);
+        }
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'settings-close-button';
+        closeButton.textContent = 'BACK';
+        closeButton.addEventListener('click', () => this.close());
+        panel.appendChild(closeButton);
+        overlay.appendChild(panel);
+        overlay.addEventListener('keydown', event => {
+            event.stopPropagation();
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                this.close();
+            }
+        });
+        return overlay;
+    }
+
+    close() {
+        this.uiManager.closeScreen(this);
+        this.onClose?.();
+    }
+
+    destroy() {
+        this.element?.remove();
+    }
+
+    handleClick() {
+        return true;
+    }
+
+    handleKeyPress() {
+        return true;
+    }
+
+    update() {}
+    render() {}
+}

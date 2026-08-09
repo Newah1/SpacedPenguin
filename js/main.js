@@ -14,7 +14,6 @@ import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './view
 import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
-import { AUDIO_CONFIG } from './config/audioConfig.js';
 
 plog.info('main.js loaded');
 
@@ -139,9 +138,6 @@ class GameManager {
         
         // Check for level parameter in URL and jump to specific level
         this.checkLevelParameter();
-        
-        // Set up volume control
-        this.setupVolumeControl();
         
         // Hide loading screen
         this.hideLoadingScreen();
@@ -852,38 +848,6 @@ class GameManager {
                     `${LEVEL_CATALOG_CONFIG.firstLevel}-${LEVEL_CATALOG_CONFIG.maxGeneratedLevel}.`
                 );
                 Utils.removeURLParameter('level');
-            }
-        }
-    }
-    
-    setupVolumeControl() {
-        const volumeSlider = document.getElementById('volumeSlider');
-        const volumeValue = document.getElementById('volumeValue');
-        const volumeContainer = volumeSlider ? volumeSlider.parentElement : null;
-        
-        if (volumeSlider && volumeValue && this.game && this.game.assetLoader) {
-            const audioManager = this.game.assetLoader.getAudioManager();
-            
-            if (audioManager) {
-                // Set initial volume
-                const initialPercent = Math.round(AUDIO_CONFIG.defaultMasterVolume * 100);
-                volumeSlider.value = String(initialPercent);
-                volumeValue.textContent = `${initialPercent}%`;
-                audioManager.setMasterVolume(AUDIO_CONFIG.defaultMasterVolume);
-                
-                // Add event listener for volume changes
-                volumeSlider.addEventListener('input', function() {
-                    const volume = this.value / 100;
-                    volumeValue.textContent = this.value + '%';
-                    audioManager.setMasterVolume(volume);
-                });
-                
-                // Hide volume controls on mobile for space
-                if (this.isMobile && volumeContainer) {
-                    volumeContainer.style.display = 'none';
-                }
-                
-                plog.audio('Volume control initialized');
             }
         }
     }

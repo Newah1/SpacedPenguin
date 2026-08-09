@@ -29,6 +29,10 @@ import { RENDER_CONFIG } from './config/renderConfig.js';
 import { assetPath } from './config/assetConfig.js';
 import { AudioCue, getAudioCue } from './config/audioConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
+import { SETTINGS_CONFIG } from './config/settingsConfig.js';
+import { LocalSettingsStore } from './settingsStore.js';
+import { SettingsManager } from './settingsManager.js';
+import { SettingsScreen } from './settingsScreen.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
@@ -57,6 +61,18 @@ class Game {
         this.physics = new Physics();
         this.assetLoader = assetLoader;
         this.audioManager = audioManager;
+        this.settingsManager = new SettingsManager(
+            SETTINGS_CONFIG,
+            new LocalSettingsStore(SETTINGS_CONFIG.storageKey),
+            {
+                audioEnabled: value => this.audioManager?.setEnabled(value),
+                masterVolume: value => this.audioManager?.setMasterVolume(value)
+            }
+        );
+        document.getElementById('menuSettingsButton')?.addEventListener('click', event => {
+            event.stopPropagation();
+            this.showSettings();
+        });
         
         // Canvas scaling for responsive design
         this.canvasScaleX = 1;
@@ -1371,29 +1387,62 @@ class Game {
         }
     }
     
-    showQuitDialog() {
-        if (this.quitDialog && this.uiManager.activeScreens.includes(this.quitDialog)) return this.quitDialog;
+    showPauseMenu() {
+        if (this.pauseMenu && this.uiManager.activeScreens.includes(this.pauseMenu)) return this.pauseMenu;
 
         const previousState = this.state;
         if (previousState === GameState.PLAYING) this.setState(GameState.PAUSED);
 
-        this.quitDialog = this.uiManager.showConfirmation({
-            title: 'Return to Menu?',
-            message: 'Your progress in the current level will be lost.',
-            confirmLabel: 'RETURN TO MENU',
-            cancelLabel: 'KEEP PLAYING',
-            onConfirm: () => {
-                this.quitDialog = null;
-                this.setState(GameState.MENU);
-            },
-            onCancel: () => {
-                this.quitDialog = null;
-                if (previousState === GameState.PLAYING || previousState === GameState.PAUSED) {
-                    this.setState(GameState.PLAYING);
+        this.pauseMenu = this.uiManager.showModal({
+            title: 'PAUSED',
+            message: 'Adjust your settings, return to the main menu, or keep playing.',
+            actions: [
+                {
+                    label: 'SETTINGS',
+                    onSelect: () => {
+                        this.pauseMenu = null;
+                        this.showSettings({ onClose: () => this.showPauseMenu() });
+                    }
+                },
+                {
+                    label: 'MAIN MENU',
+                    role: 'confirm',
+                    onSelect: () => {
+                        this.pauseMenu = null;
+                        this.setState(GameState.MENU);
+                    }
+                },
+                {
+                    label: 'RESUME',
+                    role: 'cancel',
+                    onSelect: () => {
+                        this.pauseMenu = null;
+                        if (previousState === GameState.PLAYING || previousState === GameState.PAUSED) {
+                            this.setState(GameState.PLAYING);
+                        }
+                    }
                 }
+            ],
+            defaultAction: 2
+        });
+        return this.pauseMenu;
+    }
+
+    showQuitDialog() {
+        return this.showPauseMenu();
+    }
+
+    showSettings(options = {}) {
+        if (this.settingsScreen && this.uiManager.activeScreens.includes(this.settingsScreen)) {
+            return this.settingsScreen;
+        }
+        this.settingsScreen = this.uiManager.showScreen(SettingsScreen, this.settingsManager, {
+            onClose: () => {
+                this.settingsScreen = null;
+                options.onClose?.();
             }
         });
-        return this.quitDialog;
+        return this.settingsScreen;
     }
     
     showMessage(message) {

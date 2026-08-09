@@ -117,6 +117,38 @@ test('Escape confirmation can return to the main menu', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(0);
 });
 
+test('settings are available from the main and pause menus and persist locally', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+
+    await page.locator('#menuSettingsButton').click();
+    await expect(page.getByRole('dialog', { name: 'SETTINGS' })).toBeVisible();
+    await page.getByLabel('Sound effects').uncheck();
+    await page.getByLabel('Master volume').fill('0.35');
+    await page.getByRole('button', { name: 'BACK' }).click();
+
+    await page.reload();
+    await waitForGame(page);
+    await page.locator('#menuSettingsButton').click();
+    await expect(page.getByLabel('Sound effects')).not.toBeChecked();
+    await expect(page.getByLabel('Master volume')).toHaveValue('0.35');
+    await page.getByRole('button', { name: 'BACK' }).click();
+
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'SETTINGS' })).toBeVisible();
+    await page.getByRole('button', { name: 'BACK' }).click();
+    await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(1);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
+});
+
 test('slingshot pullback remains live-authoritative across animation frames', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');
