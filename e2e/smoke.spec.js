@@ -370,16 +370,18 @@ test('Gravity Sculpt draws, solves, previews, applies, and undoes one planet bat
     await page.getByRole('button', { name: 'Solve', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Apply Candidate', exact: true })).toBeEnabled({ timeout: 15000 });
     await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 1 / 4');
-    const firstPreview = await page.evaluate(() => window.game.levelEditor.gravitySculpt.preview);
+    const firstPreview = await page.evaluate(() => window.game.levelEditor.gravitySculptController.state.preview);
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 2 / 4');
-    const secondPreview = await page.evaluate(() => window.game.levelEditor.gravitySculpt.preview);
+    const secondPreview = await page.evaluate(() => window.game.levelEditor.gravitySculptController.state.preview);
     expect(secondPreview).not.toEqual(firstPreview);
     const before = await page.evaluate(() => ({
         position: { ...window.game.planets[0].position },
         mass: window.game.planets[0].mass
     }));
-    await expect.poll(() => page.evaluate(() => window.game.levelEditor.gravitySculpt.preview.length)).toBeGreaterThan(1);
+    await expect.poll(() => page.evaluate(() =>
+        window.game.levelEditor.gravitySculptController.state.preview.length
+    )).toBeGreaterThan(1);
     await page.getByRole('button', { name: 'Test Candidate', exact: true }).click();
     await expect.poll(() => page.evaluate(() => window.game.levelEditor.mode)).toBe('play');
     await expect.poll(() => page.evaluate(() => window.game.penguin.state)).toBe('soaring');
