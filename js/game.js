@@ -47,6 +47,8 @@ const GameState = {
     LEVEL_EDITOR: 'levelEditor'
 };
 
+const FAST_FORWARD_UNLOCK_SECONDS = 5;
+
 class Game {
     constructor(canvas, assetLoader, audioManager) {
         plog.info('Game constructor called');
@@ -175,6 +177,10 @@ class Game {
         };
         this._hudValues = Object.create(null);
         this._nextDistanceHudUpdate = 0;
+        this.simulationSpeed = 1;
+        this.soaringElapsedTime = 0;
+        this.simulationSpeedButton = document.getElementById('simulationSpeedButton');
+        this.setupSimulationSpeedControl();
         
         plog.debug('UI elements found:', this.ui);
         plog.debug('Asset loader available:', !!this.assetLoader);
@@ -196,6 +202,9 @@ class Game {
             document.body.classList.toggle('is-menu', newState === GameState.MENU);
             if (newState !== GameState.MENU) {
                 document.getElementById('mobileStartButton')?.remove();
+            }
+            if (newState === GameState.MENU || newState === GameState.GAME_OVER || newState === GameState.SCORING) {
+                this.resetSimulationSpeedControl();
             }
             
             // Notify InputActionManager of state change if available
@@ -620,6 +629,7 @@ class Game {
     
     launchPenguin(velocity, launch = null) {
         plog.soar('Game launchPenguin called with velocity:', velocity);
+        this.resetSimulationSpeedControl();
 
         if (launch) {
             this.launches.push({ angle: launch.angle, power: launch.power });
@@ -810,6 +820,7 @@ class Game {
         }
 
         const simulationResult = this.updateSimulation(deltaTime);
+        this.updateSimulationSpeedControl?.(deltaTime);
         this.updateGameObjects(deltaTime, { updateOrbit: false });
         applyGameSimulationEvents(this, simulationResult.events, deltaTime);
     }
@@ -841,6 +852,49 @@ class Game {
                 obj.update(deltaTime, options);
             }
         }
+    }
+
+    setupSimulationSpeedControl() {
+        if (!this.simulationSpeedButton) return;
+        this.simulationSpeedButton.addEventListener('pointerdown', event => event.stopPropagation());
+        this.simulationSpeedButton.addEventListener('click', event => {
+            event.stopPropagation();
+            if (this.penguin?.state !== 'soaring' || this.soaringElapsedTime < FAST_FORWARD_UNLOCK_SECONDS) return;
+            this.simulationSpeed = this.simulationSpeed === 2 ? 1 : 2;
+            this.updateSimulationSpeedButton();
+        });
+        this.updateSimulationSpeedButton();
+    }
+
+    updateSimulationSpeedControl(deltaTime) {
+        if (this.penguin?.state !== 'soaring') {
+            this.resetSimulationSpeedControl();
+            return;
+        }
+        this.soaringElapsedTime += deltaTime;
+        this.updateSimulationSpeedButton();
+    }
+
+    updateSimulationSpeedButton() {
+        if (!this.simulationSpeedButton) return;
+        const visible = this.penguin?.state === 'soaring' &&
+            this.soaringElapsedTime >= FAST_FORWARD_UNLOCK_SECONDS;
+        this.simulationSpeedButton.style.display = visible ? 'block' : 'none';
+        this.simulationSpeedButton.classList.toggle('is-active', this.simulationSpeed === 2);
+        this.simulationSpeedButton.setAttribute('aria-pressed', String(this.simulationSpeed === 2));
+        this.simulationSpeedButton.title = this.simulationSpeed === 2
+            ? 'Return to normal speed'
+            : 'Run simulation at double speed';
+    }
+
+    resetSimulationSpeedControl() {
+        this.simulationSpeed = 1;
+        this.soaringElapsedTime = 0;
+        this.updateSimulationSpeedButton();
+    }
+
+    getSimulationSpeedMultiplier() {
+        return this.simulationSpeed === 2 ? 2 : 1;
     }
     
     handleTargetHit() {
@@ -912,6 +966,7 @@ class Game {
     }
     
     resetLevel() {
+        this.resetSimulationSpeedControl();
         this.tries = 0;
         this.launches = [];
         this.distance = 0;
@@ -948,6 +1003,7 @@ class Game {
         // Validate before clearing the current world so a bad definition cannot
         // leave the game half-loaded.
         this.levelLoader.assertLevelValid(level);
+        this.resetSimulationSpeedControl();
         this.invalidateSimulationState();
 
         // Clear existing game state
@@ -1426,6 +1482,7 @@ class Game {
     // Add tryAgain method (matching original GPS script)
     tryAgain() {
         plog.waddle('tryAgain called - immediately resetting penguin and bonuses');
+        this.resetSimulationSpeedControl();
         this.endRecordingShotPath();
         this.resetPenguinToSlingshot();
         this.resetBonuses(); // Reset bonuses between tries

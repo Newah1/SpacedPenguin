@@ -223,7 +223,8 @@ class GameManager {
         // gravity integration and collision outcomes.
         const frameDelta = Math.min(deltaTime, RUNTIME_CONFIG.frameTiming.maxDeltaSeconds);
         const simulationStep = 1 / SIMULATION_CONFIG.legacyPhysicsFps;
-        this.simulationAccumulator = (this.simulationAccumulator || 0) + frameDelta;
+        const simulationSpeed = this.game?.getSimulationSpeedMultiplier?.() ?? 1;
+        this.simulationAccumulator = (this.simulationAccumulator || 0) + frameDelta * simulationSpeed;
         
         // Track performance
         if (frameDelta > 0) this.performanceUtils.recordFrameTime(frameDelta);

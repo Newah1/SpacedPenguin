@@ -838,6 +838,68 @@ test('GameManager carries irregular frame remainders without variable simulation
     });
 });
 
+test('Game fast-forward unlocks after five soaring seconds and resets on terminal state', () => {
+    const classes = new Set();
+    const button = {
+        style: {},
+        classList: { toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name) },
+        setAttribute(name, value) { this[name] = value; }
+    };
+    const game = Object.create(Game.prototype);
+    Object.assign(game, {
+        penguin: { state: 'soaring' },
+        simulationSpeed: 1,
+        soaringElapsedTime: 0,
+        simulationSpeedButton: button
+    });
+
+    game.updateSimulationSpeedControl(4.99);
+    assert.equal(button.style.display, 'none');
+    game.updateSimulationSpeedControl(0.01);
+    assert.equal(button.style.display, 'block');
+
+    game.simulationSpeed = 2;
+    game.updateSimulationSpeedButton();
+    assert.equal(game.getSimulationSpeedMultiplier(), 2);
+    assert.equal(classes.has('is-active'), true);
+
+    game.penguin.state = 'crashed';
+    game.updateSimulationSpeedControl(1 / 60);
+    assert.equal(game.getSimulationSpeedMultiplier(), 1);
+    assert.equal(game.soaringElapsedTime, 0);
+    assert.equal(button.style.display, 'none');
+});
+
+test('GameManager double speed runs two fixed simulation steps per display interval', () => {
+    const animationFrames = createAnimationFrameFixture();
+    const updates = [];
+
+    withGlobalOverrides({ requestAnimationFrame: animationFrames.requestAnimationFrame }, () => {
+        const manager = Object.create(GameManager.prototype);
+        Object.assign(manager, {
+            isRunning: true,
+            isPageVisible: true,
+            animationFrameId: 1,
+            lastTime: 1000,
+            simulationAccumulator: 0,
+            assetsLoaded: true,
+            inputActionManager: null,
+            lastInputContextKey: null,
+            performanceUtils: { recordFrameTime: () => {} },
+            game: {
+                state: GameState.PLAYING,
+                levelEditor: null,
+                getSimulationSpeedMultiplier: () => 2,
+                update: deltaTime => updates.push(deltaTime),
+                render: () => {}
+            }
+        });
+
+        manager.gameLoop(1000 + 1000 / 60);
+        assert.deepEqual(updates, [1 / 60, 1 / 60]);
+    });
+});
+
 test('paused input context keeps keyboard/UI active but disables gameplay listeners', () => {
     const game = { state: GameState.PAUSED, levelEditor: { active: false } };
     const canvas = createEventTargetFixture();
