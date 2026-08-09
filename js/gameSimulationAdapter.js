@@ -168,6 +168,8 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 game.penguin.beginCrash(planet, false);
                 game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                 game.endRecordingShotPath();
+                game.preserveCrashedPenguin();
+                game.tryAgain();
                 break;
             }
             case SimulationEventType.PLANET_BOUNCE:

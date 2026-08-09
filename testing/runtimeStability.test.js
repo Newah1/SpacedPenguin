@@ -22,11 +22,13 @@ const LevelEditor = (await import('../js/levelEditor.js')).default;
 const { Penguin } = await import('../js/penguin.js');
 const { UIManager } = await import('../js/uiManager.js');
 const {
+    applyGameSimulationEvents,
     invalidateGameSimulationState,
     stepGameSimulation
 } = await import('../js/gameSimulationAdapter.js');
 const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameObjects.js');
 const { LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
+const { SimulationEventType } = await import('../js/simulationEngine.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
 const {
     DEFAULT_MAX_SIMULATION_TIME,
@@ -496,6 +498,57 @@ test('a playing Game frame invokes the penguin simulation exactly once', () => {
 
     assert.equal(genericPenguinUpdates, 0);
     assert.equal(simulationUpdates, 1);
+});
+
+test('planet collision preserves the crashed penguin and immediately resets the launcher', () => {
+    const calls = [];
+    const penguin = {
+        state: 'soaring',
+        beginCrash: () => {
+            penguin.state = 'crashed';
+            calls.push('crash');
+        }
+    };
+    const game = {
+        penguin,
+        planets: [{}],
+        bonuses: [],
+        playSound: () => {},
+        endRecordingShotPath: () => calls.push('path-ended'),
+        preserveCrashedPenguin: () => calls.push(`preserved-${penguin.state}`),
+        tryAgain: () => {
+            penguin.state = 'idle';
+            calls.push('ready');
+        },
+        updateUI: () => {}
+    };
+
+    applyGameSimulationEvents(game, [{
+        type: SimulationEventType.PLANET_COLLISION,
+        planetIndex: 0
+    }], 1 / 60);
+
+    assert.equal(penguin.state, 'idle');
+    assert.deepEqual(calls, ['crash', 'path-ended', 'preserved-crashed', 'ready']);
+});
+
+test('detached crashed penguins continue moving without controlling the launcher', () => {
+    const crashed = Object.assign(Object.create(Penguin.prototype), {
+        x: 100,
+        y: 100,
+        vx: 60,
+        vy: 0,
+        radius: 8,
+        crashedFrameCount: 2,
+        isSpinning: false,
+        currentAnimation: null,
+        currentAnimationType: 'xc'
+    });
+    const stage = { x: 0, y: 0, width: 800, height: 600 };
+
+    assert.equal(crashed.updateDetachedCrash(1 / 60, [], stage), true);
+    assert.equal(crashed.x, 101);
+    assert.equal(crashed.updateDetachedCrash(1 / 60, [], stage), false);
 });
 
 test('Kevin cam follows the off-screen arrow and renders in the bottom-left inset', () => {

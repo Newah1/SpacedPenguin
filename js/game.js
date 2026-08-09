@@ -92,6 +92,7 @@ class Game {
         
         // Game objects
         this.penguin = null;
+        this.crashedPenguins = [];
         this.slingshot = null;
         this.launches = [];
         this.target = null;
@@ -820,6 +821,7 @@ class Game {
         }
 
         const simulationResult = this.updateSimulation(deltaTime);
+        this.updateCrashedPenguins?.(deltaTime);
         this.updateSimulationSpeedControl?.(deltaTime);
         this.updateGameObjects(deltaTime, { updateOrbit: false });
         applyGameSimulationEvents(this, simulationResult.events, deltaTime);
@@ -827,6 +829,18 @@ class Game {
 
     updateSimulation(deltaTime) {
         return stepGameSimulation(this, deltaTime);
+    }
+
+    preserveCrashedPenguin() {
+        if (this.penguin?.state === 'crashed') {
+            this.crashedPenguins.push(this.penguin.createCrashCopy());
+        }
+    }
+
+    updateCrashedPenguins(deltaTime) {
+        this.crashedPenguins = this.crashedPenguins.filter(penguin =>
+            penguin.updateDetachedCrash(deltaTime, this.planets, this.stageRect)
+        );
     }
 
     updateGameObjects(deltaTime, options = {}) {
@@ -972,6 +986,7 @@ class Game {
         this.distance = 0;
         this.currentAttemptScore = 0;
         this.planetCollisions = 0;
+        this.crashedPenguins = [];
         this.resetPenguin();
         this.resetBonuses();
         this.physics.clearTrace();
@@ -1010,6 +1025,7 @@ class Game {
         this.gameObjects = [];
         this.planets = [];
         this.bonuses = [];
+        this.crashedPenguins = [];
         this.physics.clear();
         this.planetCollisions = 0;
         this.tries = 0;
@@ -1156,6 +1172,9 @@ class Game {
         this.ctx.beginPath();
         this.ctx.rect(playfield.x, playfield.y, playfield.width, playfield.height);
         this.ctx.clip();
+        for (const crashedPenguin of this.crashedPenguins || []) {
+            crashedPenguin.draw(this.ctx);
+        }
         this.penguin.draw(this.ctx);
         this.ctx.restore();
     }

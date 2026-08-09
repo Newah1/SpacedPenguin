@@ -1,6 +1,6 @@
 // Penguin class with real sprite animations
 import plog from './penguinLogger.js';
-import { integratePlanetGravity } from './simulation.js';
+import { integratePlanetGravity, LEGACY_PHYSICS_FPS } from './simulation.js';
 import { LEVEL_DEFAULTS, SIMULATION_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
 import { penguinAnimationAssetPath } from './config/assetConfig.js';
@@ -420,6 +420,53 @@ export class Penguin {
         this.setUpAnimation();
         
         plog.crash(`Penguin crashed into planet with ${this.crashedFrameCount} frame countdown`);
+    }
+
+    createCrashCopy() {
+        const copy = Object.create(Penguin.prototype);
+        Object.assign(copy, this, {
+            animations: { ...this.animations },
+            trail: [],
+            state: 'crashed',
+            launched: true
+        });
+        return copy;
+    }
+
+    updateDetachedCrash(deltaTime, planets, stageRect) {
+        this.crashedFrameCount -= deltaTime * LEGACY_PHYSICS_FPS;
+        const insideStage = this.x >= stageRect.x && this.x <= stageRect.x + stageRect.width &&
+            this.y >= stageRect.y && this.y <= stageRect.y + stageRect.height;
+        if (!insideStage || this.crashedFrameCount <= 0) return false;
+
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
+
+        for (const planet of planets) {
+            const dx = this.x - planet.position.x;
+            const dy = this.y - planet.position.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance >= planet.collisionRadius + this.radius) continue;
+
+            const normalLength = distance || 1;
+            const nx = distance ? dx / normalLength : 1;
+            const ny = distance ? dy / normalLength : 0;
+            const dot = this.vx * nx + this.vy * ny;
+            this.vx = (this.vx - 2 * dot * nx) * SIMULATION_CONFIG.collision.restitution;
+            this.vy = (this.vy - 2 * dot * ny) * SIMULATION_CONFIG.collision.restitution;
+            if (Math.hypot(this.vx, this.vy) < SIMULATION_CONFIG.collision.minimumBounceSpeed) {
+                this.vx = nx * SIMULATION_CONFIG.collision.minimumBounceSpeed;
+                this.vy = ny * SIMULATION_CONFIG.collision.minimumBounceSpeed;
+            }
+            const safeDistance = planet.collisionRadius + this.radius + SIMULATION_CONFIG.collision.separationPadding;
+            this.x = planet.position.x + nx * safeDistance;
+            this.y = planet.position.y + ny * safeDistance;
+            break;
+        }
+
+        this.updateAnimationFrames();
+        this.updateAnimationBasedOnVelocity();
+        return true;
     }
     
     // New method to handle bounce off planet (matching old GPS setBounceOffPlanet)
