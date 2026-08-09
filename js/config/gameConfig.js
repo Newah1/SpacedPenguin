@@ -45,6 +45,11 @@ export const LEVEL_GENERATOR_CONFIG = deepFreeze({
 
 export const SIMULATION_CONFIG = deepFreeze({
     legacyPhysicsFps: 60,
+    aimAssist: {
+        previewSeconds: 1.25,
+        timeStep: 1 / 60,
+        sampleEverySteps: 2
+    },
     launchCurve: {
         lowBreakpoint: 0.3,
         highBreakpoint: 0.7,

@@ -11,6 +11,14 @@ export const SETTINGS_CONFIG = deepFreeze({
     title: 'SETTINGS',
     settings: [
         {
+            key: 'aimAssistEnabled',
+            type: SettingType.BOOLEAN,
+            label: 'Aim assist',
+            description: 'Show a short, dynamic trajectory preview while aiming.',
+            defaultValue: false,
+            effect: 'aimAssistEnabled'
+        },
+        {
             key: 'soundEnabled',
             type: SettingType.BOOLEAN,
             label: 'Sound effects',

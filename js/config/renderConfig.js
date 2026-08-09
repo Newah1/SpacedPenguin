@@ -109,6 +109,13 @@ export const RENDER_CONFIG = deepFreeze({
         alphaMaskHistory: 3,
         maximumCompletedPaths: 7
     },
+    aimAssist: {
+        color: '#9ffcff',
+        lineWidth: 2,
+        alpha: 0.58,
+        dash: [4, 7],
+        glowBlur: 7
+    },
     penguin: {
         renderOrder: 5,
         trailLength: 20,

@@ -9,7 +9,7 @@
   "scripts": {
     "serve": "node testing/staticServer.js",
     "test": "npm run test:unit && npm run test:policy && npm run test:levels && npm run test:syntax && npm run test:e2e",
-    "test:unit": "node --test testing/config.test.js testing/inputActions.test.js testing/levelValidation.test.js testing/liveLevelMutator.test.js testing/runtimeStability.test.js testing/settingsManager.test.js testing/simulationEngine.test.js testing/viewport.test.js",
+    "test:unit": "node --test testing/aimAssist.test.js testing/config.test.js testing/inputActions.test.js testing/levelValidation.test.js testing/liveLevelMutator.test.js testing/runtimeStability.test.js testing/settingsManager.test.js testing/simulationEngine.test.js testing/viewport.test.js",
     "test:policy": "node --test testing/configurationPolicy.test.js",
     "test:levels": "node testing/validateLevels.js",
     "test:syntax": "node testing/checkSyntax.js",

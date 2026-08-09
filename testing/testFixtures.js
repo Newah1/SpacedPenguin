@@ -58,6 +58,10 @@ export function createRecordingContext() {
         rotate: record('rotate'),
         scale: record('scale'),
         beginPath: record('beginPath'),
+        moveTo: record('moveTo'),
+        lineTo: record('lineTo'),
+        stroke: record('stroke'),
+        setLineDash: record('setLineDash'),
         rect: record('rect'),
         clip: record('clip')
     };

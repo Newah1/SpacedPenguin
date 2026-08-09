@@ -119,11 +119,14 @@ test('Escape confirmation can return to the main menu', async ({ page }) => {
 
 test('settings are available from the main and pause menus and persist locally', async ({ page }) => {
     await useDeterministicLevel(page);
+    await page.route('**/*.wav', route => route.abort());
     await page.goto('/');
     await waitForGame(page);
 
     await page.locator('#menuSettingsButton').click();
     await expect(page.getByRole('dialog', { name: 'SETTINGS' })).toBeVisible();
+    await expect(page.getByLabel('Aim assist')).not.toBeChecked();
+    await page.getByLabel('Aim assist').check();
     await page.getByLabel('Sound effects').uncheck();
     await page.getByLabel('Master volume').fill('0.35');
     await page.getByRole('button', { name: 'BACK' }).click();
@@ -131,12 +134,21 @@ test('settings are available from the main and pause menus and persist locally',
     await page.reload();
     await waitForGame(page);
     await page.locator('#menuSettingsButton').click();
+    await expect(page.getByLabel('Aim assist')).toBeChecked();
     await expect(page.getByLabel('Sound effects')).not.toBeChecked();
     await expect(page.getByLabel('Master volume')).toHaveValue('0.35');
     await page.getByRole('button', { name: 'BACK' }).click();
 
     await page.keyboard.press('Space');
     await waitForGame(page, 'playing');
+    const anchor = await stageToClient(page, 100, 300);
+    const pullback = await stageToClient(page, 35, 350);
+    await page.mouse.move(anchor.x, anchor.y);
+    await page.mouse.down();
+    await page.mouse.move(pullback.x, pullback.y, { steps: 4 });
+    await expect.poll(() => page.evaluate(() => window.game.aimAssistPoints.length)).toBeGreaterThan(2);
+    await page.mouse.up();
+    await page.evaluate(() => window.game.tryAgain());
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
     await page.keyboard.press('ArrowLeft');

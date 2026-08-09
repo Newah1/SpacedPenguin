@@ -13,17 +13,25 @@ import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
 import plog from './penguinLogger.js';
 import {
+    captureGameSimulationState,
     applyGameSimulationEvents,
     invalidateGameSimulationState,
     stepGameSimulation
 } from './gameSimulationAdapter.js';
 import { calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
+import { predictAimAssistTrajectory } from './aimAssist.js';
 import {
     LevelObjectType,
     LevelOrbitType,
     levelObjectTypeFromClassName
 } from './levelSchema.js';
-import { LEVEL_CATALOG_CONFIG, LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
+import {
+    LEVEL_CATALOG_CONFIG,
+    LEVEL_DEFAULTS,
+    PHYSICS_CONFIG,
+    SIMULATION_CONFIG,
+    WORLD_CONFIG
+} from './config/gameConfig.js';
 import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
 import { assetPath } from './config/assetConfig.js';
@@ -66,7 +74,10 @@ class Game {
             new LocalSettingsStore(SETTINGS_CONFIG.storageKey),
             {
                 audioEnabled: value => this.audioManager?.setEnabled(value),
-                masterVolume: value => this.audioManager?.setMasterVolume(value)
+                masterVolume: value => this.audioManager?.setMasterVolume(value),
+                aimAssistEnabled: value => {
+                    if (!value) this.aimAssistPoints = [];
+                }
             }
         );
         document.getElementById('menuSettingsButton')?.addEventListener('click', event => {
@@ -164,6 +175,8 @@ class Game {
         this.shotPaths = []; // Array of complete shot paths
         this.currentShotPath = []; // Current shot being recorded
         this.currentShotRenderPath = null;
+        this.aimAssistPoints = [];
+        this.aimAssistLengthSeconds = SIMULATION_CONFIG.aimAssist.previewSeconds;
         this.shotColors = RENDER_CONFIG.shotTrails.colors;
         this.currentColorIndex = 0;
         this.isRecordingPath = false;
@@ -492,6 +505,7 @@ class Game {
             this.isDragging = true;
             this.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
             this.penguin.setState('pullback');
+            this.updateAimAssistPreview();
             
             // Show visual feedback for mobile
             if (this.isMobileDevice()) {
@@ -512,6 +526,7 @@ class Game {
         
         if (this.isDragging && this.slingshot.isPulling) {
             this.slingshot.updatePullback(this.mousePosition.x, this.mousePosition.y);
+            this.updateAimAssistPreview();
         }
     }
     
@@ -526,6 +541,7 @@ class Game {
         
         if (this.isDragging) {
             this.isDragging = false;
+            this.aimAssistPoints = [];
             const velocity = this.slingshot.release();
             this.launchPenguin(velocity, this.slingshot.lastLaunch);
             
@@ -647,6 +663,7 @@ class Game {
     launchPenguin(velocity, launch = null) {
         plog.soar('Game launchPenguin called with velocity:', velocity);
         this.resetSimulationSpeedControl();
+        this.aimAssistPoints = [];
 
         if (launch) {
             this.launches.push({ angle: launch.angle, power: launch.power });
@@ -1168,8 +1185,55 @@ class Game {
         this.drawAllShotPaths(this.ctx);
         this.drawAlphaMasks(this.ctx);
         this.physics.drawTrace(this.ctx);
+        this.drawAimAssist?.(this.ctx);
 
         this.ctx.restore();
+    }
+
+    updateAimAssistPreview() {
+        if (!this.settingsManager.get('aimAssistEnabled') ||
+            this.penguin?.state !== 'pullback' || !this.slingshot?.isPulling) {
+            this.aimAssistPoints = [];
+            return;
+        }
+
+        const dx = this.slingshot.anchor.x - this.penguin.x;
+        const dy = this.slingshot.anchor.y - this.penguin.y;
+        const power = Math.hypot(dx, dy);
+        const angle = Utils.rotationAngle({ x: dx, y: dy });
+        const velocity = calculateLaunchVelocity(angle, power, {
+            velocityMultiplier: this.slingshot.velocityMultiplier,
+            maxPullback: this.slingshot.maxPullback,
+            minPullback: this.slingshot.minPullback
+        });
+        this.aimAssistPoints = predictAimAssistTrajectory(
+            captureGameSimulationState(this),
+            velocity,
+            { previewSeconds: this.aimAssistLengthSeconds }
+        );
+    }
+
+    drawAimAssist(ctx) {
+        if (this.aimAssistPoints.length < 2 ||
+            !this.settingsManager.get('aimAssistEnabled') ||
+            this.penguin?.state !== 'pullback') return;
+
+        const config = RENDER_CONFIG.aimAssist;
+        ctx.save();
+        ctx.globalAlpha = config.alpha;
+        ctx.strokeStyle = config.color;
+        ctx.lineWidth = config.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = config.color;
+        ctx.shadowBlur = config.glowBlur;
+        ctx.setLineDash(config.dash);
+        ctx.beginPath();
+        ctx.moveTo(this.aimAssistPoints[0].x, this.aimAssistPoints[0].y);
+        for (let index = 1; index < this.aimAssistPoints.length; index++) {
+            ctx.lineTo(this.aimAssistPoints[index].x, this.aimAssistPoints[index].y);
+        }
+        ctx.stroke();
+        ctx.restore();
     }
 
     drawPenguinInPlayfield() {

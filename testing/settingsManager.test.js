@@ -15,12 +15,17 @@ test('settings load defaults, persist changes, and invoke configured effects', (
 
     assert.equal(manager.get('soundEnabled'), true);
     assert.equal(manager.get('masterVolume'), 0.7);
+    assert.equal(manager.get('aimAssistEnabled'), false);
     assert.deepEqual(effects, [['enabled', true], ['volume', 0.7]]);
 
     manager.set('soundEnabled', false);
     manager.set('masterVolume', 0.35);
 
-    assert.deepEqual(store.load(), { soundEnabled: false, masterVolume: 0.35 });
+    assert.deepEqual(store.load(), {
+        aimAssistEnabled: false,
+        soundEnabled: false,
+        masterVolume: 0.35
+    });
     assert.deepEqual(effects.slice(-2), [['enabled', false], ['volume', 0.35]]);
 });
 
