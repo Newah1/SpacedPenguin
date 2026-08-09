@@ -9,6 +9,105 @@ import { cloneSimulationState } from './simulationState.js';
 
 const DEFAULT_OPTIONS = EDITOR_CONFIG.gravitySculpt;
 
+const PARAMETER_KIND = Object.freeze({
+    LAUNCH: 'launch',
+    MASS: 'mass',
+    POSITION: 'position',
+    CUSTOM: 'custom'
+});
+
+const PLANET_PARAMETER_DEFINITIONS = Object.freeze([
+    {
+        property: 'x',
+        kind: PARAMETER_KIND.POSITION,
+        enabledBy: 'adjustPosition',
+        read: planet => planet.position.x,
+        bounds: (state, planet, config) => ({
+            min: clamp(planet.position.x - config.positionRange, state.bounds.stage.x, state.bounds.stage.x + state.bounds.stage.width),
+            max: clamp(planet.position.x + config.positionRange, state.bounds.stage.x, state.bounds.stage.x + state.bounds.stage.width)
+        }),
+        write: (planet, value) => { planet.position.x = value; }
+    },
+    {
+        property: 'y',
+        kind: PARAMETER_KIND.POSITION,
+        enabledBy: 'adjustPosition',
+        read: planet => planet.position.y,
+        bounds: (state, planet, config) => ({
+            min: clamp(planet.position.y - config.positionRange, state.bounds.stage.y, state.bounds.stage.y + state.bounds.stage.height),
+            max: clamp(planet.position.y + config.positionRange, state.bounds.stage.y, state.bounds.stage.y + state.bounds.stage.height)
+        }),
+        write: (planet, value) => { planet.position.y = value; }
+    },
+    {
+        property: 'mass',
+        kind: PARAMETER_KIND.MASS,
+        enabledBy: 'adjustMass',
+        read: planet => planet.mass,
+        bounds: (_state, planet, config) => ({
+            min: config.minimumMass,
+            max: Math.max(config.minimumMass * config.maximumMassMultiplier, planet.mass * config.maximumMassMultiplier)
+        }),
+        write: (planet, value) => { planet.mass = value; }
+    }
+]);
+
+const HARD_GOAL_RULES = Object.freeze([
+    {
+        id: 'target',
+        enabled: goals => goals.requireTarget,
+        violated: ({ state }) => state.penguin.state !== 'hitTarget'
+    },
+    {
+        id: 'planet_collision',
+        enabled: goals => goals.avoidPlanetCollisions,
+        violated: ({ eventTypes }) => eventTypes.has(SimulationEventType.PLANET_COLLISION)
+    },
+    {
+        id: 'out_of_bounds',
+        enabled: goals => goals.stayInBounds,
+        violated: ({ eventTypes }) => eventTypes.has(SimulationEventType.OUT_OF_BOUNDS)
+    },
+    {
+        id: 'time_limit',
+        enabled: goals => Number.isFinite(goals.maxFlightSeconds),
+        violated: ({ elapsedSeconds, goals }) => elapsedSeconds > goals.maxFlightSeconds
+    }
+]);
+
+const COMFORT_OBJECTIVE_TERMS = Object.freeze([
+    {
+        name: 'peakGravity',
+        value: ({ peakGravityAcceleration, config }) =>
+            Math.max(0, peakGravityAcceleration / config.peakGravityAccelerationSoftLimit - 1) ** 2 *
+            config.peakGravityAccelerationWeight
+    },
+    {
+        name: 'meanGravity',
+        value: ({ meanGravityAcceleration, config }) =>
+            Math.max(0, meanGravityAcceleration / config.meanGravityAccelerationSoftLimit - 1) ** 2 *
+            config.meanGravityAccelerationWeight
+    },
+    {
+        name: 'routeEfficiency',
+        value: ({ pathEfficiency, config }) =>
+            Math.max(0, pathEfficiency - 1) ** 2 * config.pathEfficiencyWeight
+    }
+]);
+
+const ROBUST_SCORE_TERMS = Object.freeze([
+    { name: 'central', weight: 'robustCentralWeight', value: ({ central }) => central.score },
+    { name: 'average', weight: 'robustAverageWeight', value: ({ averageScore }) => averageScore },
+    { name: 'worst', weight: 'robustWorstWeight', value: ({ worstScore }) => worstScore }
+]);
+
+const OPTIMIZATION_STAGE_DEFINITIONS = Object.freeze([
+    { name: 'launch', accepts: variable => parameterKind(variable) === PARAMETER_KIND.LAUNCH },
+    { name: 'mass', accepts: variable => parameterKind(variable) === PARAMETER_KIND.MASS },
+    { name: 'position', accepts: variable => parameterKind(variable) === PARAMETER_KIND.POSITION },
+    { name: 'joint', accepts: () => true }
+]);
+
 function seededRandom(seed) {
     let state = seed >>> 0;
     return () => {
@@ -39,39 +138,21 @@ export function inferSculptLaunch(state, desiredPath, pullbackPower = state.slin
 
 export function createExistingPlanetVariables(state, planetIndices, options = {}) {
     const config = { ...DEFAULT_OPTIONS, ...options };
-    const variables = [];
-    for (const index of planetIndices) {
+    return planetIndices.flatMap(index => {
         const planet = state.planets[index];
-        if (!planet || planet.orbit) continue;
-        const movement = config.adjustPosition !== false;
-        const mass = config.adjustMass !== false;
-        if (movement) {
-            variables.push({
-                key: `planet.${index}.x`, initial: planet.position.x,
-                min: clamp(planet.position.x - config.positionRange, state.bounds.stage.x, state.bounds.stage.x + state.bounds.stage.width),
-                max: clamp(planet.position.x + config.positionRange, state.bounds.stage.x, state.bounds.stage.x + state.bounds.stage.width),
-                apply: (candidate, value) => { candidate.planets[index].position.x = value; }
-            });
-            variables.push({
-                key: `planet.${index}.y`, initial: planet.position.y,
-                min: clamp(planet.position.y - config.positionRange, state.bounds.stage.y, state.bounds.stage.y + state.bounds.stage.height),
-                max: clamp(planet.position.y + config.positionRange, state.bounds.stage.y, state.bounds.stage.y + state.bounds.stage.height),
-                apply: (candidate, value) => { candidate.planets[index].position.y = value; }
-            });
-        }
-        if (mass) {
-            variables.push({
-                key: `planet.${index}.mass`, initial: planet.mass,
-                min: config.minimumMass,
-                max: Math.max(
-                    config.minimumMass * config.maximumMassMultiplier,
-                    planet.mass * config.maximumMassMultiplier
-                ),
-                apply: (candidate, value) => { candidate.planets[index].mass = value; }
-            });
-        }
-    }
-    return variables;
+        if (!planet || planet.orbit) return [];
+        return PLANET_PARAMETER_DEFINITIONS
+            .filter(definition => config[definition.enabledBy] !== false)
+            .map(definition => ({
+                key: `planet.${index}.${definition.property}`,
+                kind: definition.kind,
+                group: `planet.${index}`,
+                property: definition.property,
+                initial: definition.read(planet),
+                ...definition.bounds(state, planet, config),
+                apply: (candidate, value) => definition.write(candidate.planets[index], value)
+            }));
+    });
 }
 
 export function createLaunchVariables(state, desiredPath, options = {}) {
@@ -87,6 +168,9 @@ export function createLaunchVariables(state, desiredPath, options = {}) {
     return [
         {
             key: 'launch.angleDegrees',
+            kind: PARAMETER_KIND.LAUNCH,
+            group: 'launch',
+            property: 'angleDegrees',
             initial: inferred.angleDegrees,
             min: inferred.angleDegrees - config.launchAngleRange,
             max: inferred.angleDegrees + config.launchAngleRange,
@@ -94,6 +178,9 @@ export function createLaunchVariables(state, desiredPath, options = {}) {
         },
         {
             key: 'launch.pullbackPower',
+            kind: PARAMETER_KIND.LAUNCH,
+            group: 'launch',
+            property: 'pullbackPower',
             initial: inferred.pullbackPower,
             min: Math.max(
                 state.slingshot.minPullback,
@@ -110,6 +197,31 @@ function applyValues(state, variables, values) {
         variables.map((variable, index) => [variable.key, values[index]])
     );
     variables.forEach((variable, index) => variable.apply(state, values[index], parameters));
+}
+
+function parameterKind(variable) {
+    if (variable.kind) return variable.kind;
+    if (variable.key.startsWith('launch.')) return PARAMETER_KIND.LAUNCH;
+    if (variable.key.endsWith('.mass')) return PARAMETER_KIND.MASS;
+    if (/^planet\.\d+\.[xy]$/.test(variable.key)) return PARAMETER_KIND.POSITION;
+    return PARAMETER_KIND.CUSTOM;
+}
+
+function parameterPenalty(variable, config) {
+    return {
+        [PARAMETER_KIND.LAUNCH]: config.launchPenalty,
+        [PARAMETER_KIND.MASS]: config.massPenalty,
+        [PARAMETER_KIND.POSITION]: config.movementPenalty,
+        [PARAMETER_KIND.CUSTOM]: config.movementPenalty
+    }[parameterKind(variable)];
+}
+
+function sumTerms(definitions, context) {
+    return Object.fromEntries(definitions.map(definition => [definition.name, definition.value(context)]));
+}
+
+function totalTerms(terms) {
+    return Object.values(terms).reduce((total, value) => total + value, 0);
 }
 
 function direction(points, index, radius = 2) {
@@ -196,10 +308,7 @@ export function analyzeSculptTrajectory(trajectory, desiredPath, terminal, varia
     variables.forEach((variable, index) => {
         const span = Math.max(1, variable.max - variable.min);
         const normalized = (values[index] - variable.initial) / span;
-        let penalty = config.movementPenalty;
-        if (variable.key.endsWith('.mass')) penalty = config.massPenalty;
-        else if (variable.key.startsWith('launch.')) penalty = config.launchPenalty;
-        score += normalized * normalized * penalty;
+        score += normalized * normalized * parameterPenalty(variable, config);
     });
     if (terminal && terminal !== 'hitTarget') score += config.terminalPenalty;
     return {
@@ -216,21 +325,29 @@ export function scoreSculptTrajectory(trajectory, desiredPath, terminal, variabl
 }
 
 function evaluateHardGoals(state, eventTypes, elapsedSeconds, goals = {}) {
-    const violations = [];
-    if (goals.requireTarget && state.penguin.state !== 'hitTarget') violations.push('target');
-    if (goals.avoidPlanetCollisions && eventTypes.has(SimulationEventType.PLANET_COLLISION)) {
-        violations.push('planet_collision');
+    const context = { state, eventTypes, elapsedSeconds, goals };
+    const ruleViolations = HARD_GOAL_RULES
+        .filter(rule => rule.enabled(goals) && rule.violated(context))
+        .map(rule => rule.id);
+    const bonusViolations = (goals.requiredBonusIndices || [])
+        .filter(index => !state.bonuses[index]?.collected)
+        .map(index => `bonus_${index}`);
+    return [...ruleViolations, ...bonusViolations];
+}
+
+function minimumRouteDistance(desiredPath, state, config) {
+    const route = desiredPath.map(point => ({ ...point }));
+    if (
+        config.goals?.requireTarget &&
+        distance(route.at(-1), state.target.position) > config.checkpointTolerance
+    ) {
+        route.push({ ...state.target.position });
     }
-    if (goals.stayInBounds && eventTypes.has(SimulationEventType.OUT_OF_BOUNDS)) {
-        violations.push('out_of_bounds');
+    let total = 0;
+    for (let index = 1; index < route.length; index++) {
+        total += distance(route[index - 1], route[index]);
     }
-    for (const index of goals.requiredBonusIndices || []) {
-        if (!state.bonuses[index]?.collected) violations.push(`bonus_${index}`);
-    }
-    if (Number.isFinite(goals.maxFlightSeconds) && elapsedSeconds > goals.maxFlightSeconds) {
-        violations.push('time_limit');
-    }
-    return violations;
+    return Math.max(1, total);
 }
 
 function simulateSculptCandidate(
@@ -257,7 +374,14 @@ function simulateSculptCandidate(
     const eventTypes = new Set();
     const steps = Math.ceil(config.previewSeconds / SIMULATION_CONFIG.aimAssist.timeStep);
     let elapsedSeconds = 0;
+    let pathLength = 0;
+    let peakGravityAcceleration = 0;
+    let gravityAccelerationTotal = 0;
+    let gravitySamples = 0;
     for (let step = 1; step <= steps; step++) {
+        const previousPosition = { ...state.penguin.position };
+        const previousVelocity = { ...state.penguin.velocity };
+        const wasSoaring = state.penguin.state === 'soaring';
         const result = stepSimulationMutable(
             state,
             SIMULATION_CONFIG.aimAssist.timeStep,
@@ -265,6 +389,20 @@ function simulateSculptCandidate(
         );
         result.events.forEach(event => eventTypes.add(event.type));
         elapsedSeconds += SIMULATION_CONFIG.aimAssist.timeStep;
+        pathLength += distance(previousPosition, state.penguin.position);
+        const collided = result.events.some(event =>
+            event.type === SimulationEventType.PLANET_COLLISION ||
+            event.type === SimulationEventType.PLANET_BOUNCE
+        );
+        if (wasSoaring && !collided) {
+            const acceleration = Math.hypot(
+                state.penguin.velocity.x - previousVelocity.x,
+                state.penguin.velocity.y - previousVelocity.y
+            ) / SIMULATION_CONFIG.aimAssist.timeStep;
+            peakGravityAcceleration = Math.max(peakGravityAcceleration, acceleration);
+            gravityAccelerationTotal += acceleration;
+            gravitySamples += 1;
+        }
         if (step % config.sampleEverySteps === 0 || state.penguin.state !== 'soaring') {
             trajectory.push({ ...state.penguin.position });
         }
@@ -279,14 +417,38 @@ function simulateSculptCandidate(
         elapsedSeconds,
         config.goals
     );
+    const meanGravityAcceleration = gravitySamples > 0
+        ? gravityAccelerationTotal / gravitySamples
+        : 0;
+    const directDistance = minimumRouteDistance(desiredPath, state, config);
+    const pathEfficiency = pathLength / directDistance;
+    const comfortTerms = sumTerms(COMFORT_OBJECTIVE_TERMS, {
+        peakGravityAcceleration,
+        meanGravityAcceleration,
+        pathEfficiency,
+        config
+    });
+    const physicsComfortPenalty = totalTerms(comfortTerms);
+    const objectiveTerms = {
+        waypointFit: metrics.score,
+        hardConstraints: constraintViolations.length * config.hardConstraintPenalty,
+        ...comfortTerms
+    };
     return {
         ...metrics,
-        score: metrics.score + constraintViolations.length * config.hardConstraintPenalty,
+        score: totalTerms(objectiveTerms),
         trajectory,
         terminal: state.penguin.state,
         values: [...values],
         constraintViolations,
-        elapsedSeconds
+        elapsedSeconds,
+        pathLength,
+        directDistance,
+        pathEfficiency,
+        peakGravityAcceleration,
+        meanGravityAcceleration,
+        physicsComfortPenalty,
+        objectiveTerms
     };
 }
 
@@ -327,12 +489,18 @@ export function evaluateSculptCandidate(baseState, desiredPath, launch, variable
     );
     const robustGoalSuccessRate = [central, ...neighbors]
         .filter(result => result.constraintViolations.length === 0).length / (neighbors.length + 1);
+    const robustScoreTerms = sumTerms(ROBUST_SCORE_TERMS, {
+        central,
+        averageScore,
+        worstScore
+    });
+    for (const definition of ROBUST_SCORE_TERMS) {
+        robustScoreTerms[definition.name] *= config[definition.weight];
+    }
     return {
         ...central,
-        score:
-            central.score * config.robustCentralWeight +
-            averageScore * config.robustAverageWeight +
-            worstScore * config.robustWorstWeight,
+        score: totalTerms(robustScoreTerms),
+        robustScoreTerms,
         robustCheckpointCoverage,
         robustGoalSuccessRate,
         simulationCount: neighbors.length + 1
@@ -340,11 +508,7 @@ export function evaluateSculptCandidate(baseState, desiredPath, launch, variable
 }
 
 function variableIndices(variables, predicate) {
-    const indices = [];
-    variables.forEach((variable, index) => {
-        if (predicate(variable)) indices.push(index);
-    });
-    return indices;
+    return variables.flatMap((variable, index) => predicate(variable) ? [index] : []);
 }
 
 function randomizeActiveValues(seed, activeIndices, variables, path, config, random) {
@@ -358,11 +522,13 @@ function randomizeActiveValues(seed, activeIndices, variables, path, config, ran
     // the shot usefully than uniformly random positions elsewhere on stage.
     const positionByPlanet = new Map();
     for (const index of activeIndices) {
-        const match = /^planet\.(\d+)\.([xy])$/.exec(variables[index].key);
-        if (!match) continue;
-        const entry = positionByPlanet.get(match[1]) || {};
-        entry[match[2]] = index;
-        positionByPlanet.set(match[1], entry);
+        const variable = variables[index];
+        if (parameterKind(variable) !== PARAMETER_KIND.POSITION) continue;
+        const group = variable.group || variable.key.split('.').slice(0, -1).join('.');
+        const property = variable.property || variable.key.split('.').at(-1);
+        const entry = positionByPlanet.get(group) || {};
+        entry[property] = index;
+        positionByPlanet.set(group, entry);
     }
     for (const pair of positionByPlanet.values()) {
         if (pair.x === undefined || pair.y === undefined || path.length < 2) continue;
@@ -554,27 +720,23 @@ export async function solveGravitySculpt({
     const baseline = evaluateSculptCandidate(
         state, path, resolvedLaunch, variables, variables.map(variable => variable.initial), config
     );
-    const launchIndices = variableIndices(variables, variable => variable.key.startsWith('launch.'));
-    const massIndices = variableIndices(variables, variable => variable.key.endsWith('.mass'));
-    const positionIndices = variableIndices(variables, variable => /^planet\.\d+\.[xy]$/.test(variable.key));
-    const allIndices = variables.map((_variable, index) => index);
-    const stageDefinitions = [
-        ['launch', launchIndices],
-        ['mass', massIndices],
-        ['position', positionIndices],
-        ['joint', allIndices]
-    ].filter(([, indices]) => indices.length > 0);
+    const stageDefinitions = OPTIMIZATION_STAGE_DEFINITIONS
+        .map(definition => ({
+            ...definition,
+            activeIndices: variableIndices(variables, definition.accepts)
+        }))
+        .filter(definition => definition.activeIndices.length > 0);
     const progress = {
         generation: 0,
         totalGenerations: stageDefinitions.reduce(
-            (total, [name]) => total + config.stages[name].generations,
+            (total, definition) => total + config.stages[definition.name].generations,
             0
         ),
         evaluations: baseline.simulationCount,
         onProgress
     };
     let population = [baseline];
-    for (const [name, activeIndices] of stageDefinitions) {
+    for (const { name, activeIndices } of stageDefinitions) {
         population = await runDifferentialEvolutionStage({
             name,
             seeds: population,

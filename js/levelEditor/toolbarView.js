@@ -39,7 +39,7 @@ export class LevelEditorToolbarView {
         this.deleteButton = button('Delete Selected', '#f44336', () => this.editor.deleteSelectedObject());
         this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
         this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
-        this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.toggleGravitySculpt());
+        this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
         this.section = document.createElement('div');
         this.section.style.cssText = `
             position: absolute; top: 64px; left: 10px; right: 330px;

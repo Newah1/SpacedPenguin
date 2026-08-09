@@ -20,7 +20,7 @@ export class LevelEditorOverlayRenderer {
     }
 
     drawGravitySculpt(ctx) {
-        const sculpt = this.editor.gravitySculpt;
+        const sculpt = this.editor.gravitySculptController.state;
         if (!sculpt?.active) return;
         const drawPath = (points, color, width, dash = []) => {
             if (points.length < 2) return;

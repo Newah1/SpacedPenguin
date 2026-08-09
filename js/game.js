@@ -1154,8 +1154,8 @@ class Game {
             }
         }
 
-        if (this.levelEditor?.isTestingGravitySculptCandidate?.()) {
-            this.levelEditor.onGravitySculptTestTargetHit();
+        if (this.levelEditor?.gravitySculptController?.isTesting()) {
+            this.levelEditor.gravitySculptController.onTestTargetHit();
             return;
         }
 

@@ -106,21 +106,21 @@ export class GravitySculptView {
         this.planets.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0 12px;';
         this.actions = document.createElement('div');
         this.actions.style.cssText = 'display:flex; flex-wrap:wrap; gap:7px;';
-        this.drawButton = button('Set Waypoints', '#2196f3', () => this.editor.toggleGravitySculptWaypointMode());
-        this.solveButton = button('Solve', '#4caf50', () => this.editor.solveGravitySculptPath());
-        this.testButton = button('Test Candidate', '#7c4dff', () => this.editor.testGravitySculptCandidate());
-        this.applyButton = button('Apply Candidate', '#ff9800', () => this.editor.applyGravitySculptResult());
-        this.cancelButton = button('Close', '#667085', () => this.editor.closeGravitySculpt());
+        this.drawButton = button('Set Waypoints', '#2196f3', () => this.editor.gravitySculptController.toggleWaypointEntry());
+        this.solveButton = button('Solve', '#4caf50', () => this.editor.gravitySculptController.solve());
+        this.testButton = button('Test Candidate', '#7c4dff', () => this.editor.gravitySculptController.testCandidate());
+        this.applyButton = button('Apply Candidate', '#ff9800', () => this.editor.gravitySculptController.applyCandidate());
+        this.cancelButton = button('Close', '#667085', () => this.editor.gravitySculptController.close());
         this.actions.append(this.drawButton, this.solveButton, this.testButton, this.applyButton, this.cancelButton);
         this.testActions = document.createElement('div');
         this.testActions.style.cssText = 'display:none; flex-wrap:wrap; gap:8px;';
-        this.acceptTestButton = button('Accept Tested Layout', '#4caf50', () => this.editor.finishGravitySculptTest(true));
-        this.rejectTestButton = button('Reject & Restore', '#d04444', () => this.editor.finishGravitySculptTest(false));
+        this.acceptTestButton = button('Accept Tested Layout', '#4caf50', () => this.editor.gravitySculptController.finishTest(true));
+        this.rejectTestButton = button('Reject & Restore', '#d04444', () => this.editor.gravitySculptController.finishTest(false));
         this.testActions.append(this.acceptTestButton, this.rejectTestButton);
         this.candidateControls = document.createElement('div');
         this.candidateControls.style.cssText = 'display:none; align-items:center; gap:8px; margin:0 0 10px;';
-        this.previousCandidate = button('Previous', '#44546a', () => this.editor.cycleGravitySculptCandidate(-1));
-        this.nextCandidate = button('Next', '#44546a', () => this.editor.cycleGravitySculptCandidate(1));
+        this.previousCandidate = button('Previous', '#44546a', () => this.editor.gravitySculptController.cycleCandidate(-1));
+        this.nextCandidate = button('Next', '#44546a', () => this.editor.gravitySculptController.cycleCandidate(1));
         this.candidateLabel = document.createElement('span');
         this.candidateLabel.style.cssText = 'font-weight:bold; color:#59e6ff; min-width:100px; text-align:center;';
         this.candidateControls.append(this.previousCandidate, this.candidateLabel, this.nextCandidate);
@@ -144,7 +144,7 @@ export class GravitySculptView {
         this.dragController?.clampToViewport();
         this.populatePlanets();
         this.populateBonusGoals();
-        this.setPhase(this.editor.gravitySculpt.path.length > 1 ? 'ready' : 'empty');
+        this.setPhase(this.editor.gravitySculptController.state.path.length > 1 ? 'ready' : 'empty');
     }
 
     close() {
@@ -228,10 +228,14 @@ export class GravitySculptView {
         const launch = candidate.launch
             ? ` Launch ${candidate.launch.angleDegrees.toFixed(1)}° at ${candidate.launch.pullbackPower.toFixed(0)} power.`
             : '';
+        const comfort = Number.isFinite(candidate.pathEfficiency)
+            ? ` Route ${candidate.pathEfficiency.toFixed(2)}× minimum; peak gravity ` +
+                `${candidate.peakGravityAcceleration.toFixed(0)}. Flight time is not scored.`
+            : '';
         this.setPhase(
             'result',
             `${coverage}% central / ${robustCoverage}% robust waypoint coverage; ` +
-            `${robustGoals}% nearby launches satisfy hard goals.${missed}${constraints}${launch}`
+            `${robustGoals}% nearby launches satisfy hard goals.${missed}${constraints}${comfort}${launch}`
         );
         this.testButton.disabled = !candidate.launch;
     }
@@ -256,7 +260,7 @@ export class GravitySculptView {
             error: detail
         };
         this.status.textContent = messages[phase] || detail;
-        this.solveButton.disabled = this.editor.gravitySculpt.path.length < 2 ||
+        this.solveButton.disabled = this.editor.gravitySculptController.state.path.length < 2 ||
             ['empty', 'drawing', 'solving'].includes(phase);
         this.applyButton.disabled = phase !== 'result';
         this.testButton.disabled = phase !== 'result';

@@ -120,6 +120,34 @@ test('candidate evaluation measures nearby launch robustness and hard-goal viola
     assert.ok(candidate.robustGoalSuccessRate >= 0 && candidate.robustGoalSuccessRate <= 1);
 });
 
+test('physics comfort favors floaty gravity and efficient distance without rewarding speed', () => {
+    const state = simulationState();
+    const variables = createExistingPlanetVariables(state, [0], {
+        adjustPosition: false,
+        adjustMass: true
+    });
+    const launch = { velocity: { x: 240, y: 0 }, angleDegrees: 0, pullbackPower: 150 };
+    const options = {
+        checkpointTolerance: 10000,
+        previewSeconds: 1.5,
+        terminalPenalty: 0,
+        peakGravityAccelerationSoftLimit: 100,
+        meanGravityAccelerationSoftLimit: 50
+    };
+    const floaty = evaluateSculptCandidate(
+        state, [{ x: 80, y: 300 }, { x: 500, y: 300 }],
+        launch, variables, [100], options
+    );
+    const harsh = evaluateSculptCandidate(
+        state, [{ x: 80, y: 300 }, { x: 500, y: 300 }],
+        launch, variables, [800], options
+    );
+    assert.ok(harsh.peakGravityAcceleration > floaty.peakGravityAcceleration);
+    assert.ok(harsh.physicsComfortPenalty > floaty.physicsComfortPenalty);
+    assert.ok(harsh.score > floaty.score);
+    assert.ok(Number.isFinite(floaty.elapsedSeconds));
+});
+
 test('gravity sculpt improves a layout without mutating the live simulation snapshot', async () => {
     const state = simulationState();
     const original = structuredClone(state);

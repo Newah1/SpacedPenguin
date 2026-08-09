@@ -17,8 +17,8 @@ export class LevelEditorCanvasInputController {
         event.preventDefault();
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
         const position = this.getEventCoordinates(event);
-        if (editor.gravitySculpt?.drawing) {
-            editor.addGravitySculptWaypoint(position);
+        if (editor.gravitySculptController.state.drawing) {
+            editor.gravitySculptController.addWaypoint(position);
             return;
         }
         if (event.pointerType === 'touch') this.startLongPress(position);
@@ -39,7 +39,7 @@ export class LevelEditorCanvasInputController {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         const position = this.getEventCoordinates(event);
-        if (editor.gravitySculpt?.drawing) {
+        if (editor.gravitySculptController.state.drawing) {
             event.preventDefault();
             return;
         }
@@ -61,7 +61,7 @@ export class LevelEditorCanvasInputController {
         if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
         }
-        if (editor.gravitySculpt?.drawing) {
+        if (editor.gravitySculptController.state.drawing) {
             return;
         }
         editor.stopDragging();

@@ -14,8 +14,7 @@ import LevelEditorInspectorView from './levelEditor/inspectorView.js';
 import LevelEditorToolbarView from './levelEditor/toolbarView.js';
 import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
 import GravitySculptView from './levelEditor/gravitySculptView.js';
-import { applyGameSimulationState, captureGameSimulationState } from './gameSimulationAdapter.js';
-import { solveGravitySculpt } from './gravitySculptor.js';
+import GravitySculptController from './levelEditor/gravitySculptController.js';
 import {
     INPUT_CONFIG,
     isCompactEditorViewport,
@@ -58,17 +57,7 @@ class LevelEditor {
         this.toolbarView = new LevelEditorToolbarView(this);
         this.canvasInput = new LevelEditorCanvasInputController(this);
         this.gravitySculptView = new GravitySculptView(this);
-        this.gravitySculpt = {
-            active: false,
-            drawing: false,
-            strokeActive: false,
-            path: [],
-            preview: [],
-            result: null,
-            candidateIndex: 0,
-            testSession: null,
-            solveToken: 0
-        };
+        this.gravitySculptController = new GravitySculptController(this);
         this.active = false;
         this.previousGameState = null;
         this.mode = 'edit'; // 'edit' or 'play'
@@ -111,239 +100,6 @@ class LevelEditor {
     
     openCollapsibleSection() { this.toolbarView.open(); }
     closeCollapsibleSection() { this.toolbarView.close(); }
-
-    toggleGravitySculpt() {
-        if (this.mode !== 'edit') return;
-        if (this.gravitySculpt.active) this.closeGravitySculpt();
-        else {
-            this.gravitySculpt.active = true;
-            this.gravitySculptView.open();
-        }
-    }
-
-    closeGravitySculpt() {
-        if (this.gravitySculpt.testSession) this.finishGravitySculptTest(false);
-        this.gravitySculpt.solveToken += 1;
-        Object.assign(this.gravitySculpt, {
-            active: false,
-            drawing: false,
-            strokeActive: false,
-            path: [],
-            preview: [],
-            result: null,
-            candidateIndex: 0,
-            testSession: null
-        });
-        this.gravitySculptView.close();
-    }
-
-    beginGravitySculptDrawing() {
-        if (!this.gravitySculpt.active) return;
-        const start = this.game.slingshot?.anchor || this.game.slingshot?.position || {
-            x: this.game.penguin.x,
-            y: this.game.penguin.y
-        };
-        Object.assign(this.gravitySculpt, {
-            drawing: true,
-            strokeActive: false,
-            path: [{ ...start }],
-            preview: [],
-            result: null,
-            candidateIndex: 0
-        });
-        this.gravitySculptView.setPhase('drawing');
-    }
-
-    toggleGravitySculptWaypointMode() {
-        if (this.gravitySculpt.drawing) this.finishGravitySculptWaypoints();
-        else this.beginGravitySculptDrawing();
-    }
-
-    addGravitySculptWaypoint(position) {
-        if (!this.gravitySculpt.drawing) return;
-        const last = this.gravitySculpt.path.at(-1);
-        if (!last || Math.hypot(position.x - last.x, position.y - last.y) >= EDITOR_CONFIG.gravitySculpt.waypointMinimumSpacing) {
-            this.gravitySculpt.path.push({ ...position });
-            this.gravitySculptView.setPhase(
-                'drawing',
-                `${this.gravitySculpt.path.length - 1} waypoint${this.gravitySculpt.path.length === 2 ? '' : 's'}`
-            );
-        }
-    }
-
-    finishGravitySculptWaypoints() {
-        if (!this.gravitySculpt.drawing) return;
-        this.gravitySculpt.strokeActive = false;
-        this.gravitySculpt.drawing = false;
-        this.gravitySculptView.setPhase(this.gravitySculpt.path.length > 1 ? 'ready' : 'empty');
-    }
-
-    async solveGravitySculptPath() {
-        const selections = this.gravitySculptView.selections();
-        if (selections.planetIndices.length === 0) {
-            this.gravitySculptView.setPhase('error', 'Select at least one stationary planet.');
-            return;
-        }
-        if (!selections.adjustPosition && !selections.adjustMass && !selections.adjustLaunch) {
-            this.gravitySculptView.setPhase('error', 'Enable planet or launch adjustment.');
-            return;
-        }
-        const token = ++this.gravitySculpt.solveToken;
-        this.gravitySculptView.setPhase('solving', '0%');
-        try {
-            const result = await solveGravitySculpt({
-                state: captureGameSimulationState(this.game),
-                desiredPath: this.gravitySculpt.path,
-                planetIndices: selections.planetIndices,
-                options: { ...EDITOR_CONFIG.gravitySculpt, ...selections },
-                onProgress: progress => {
-                    if (token !== this.gravitySculpt.solveToken) return;
-                    const percent = Math.round(progress.generation / progress.total * 100);
-                    this.gravitySculptView.setPhase(
-                        'solving',
-                        `${progress.stage} ${percent}% · ${progress.evaluations} simulations`
-                    );
-                }
-            });
-            if (token !== this.gravitySculpt.solveToken) return;
-            this.gravitySculpt.result = result;
-            this.gravitySculpt.candidateIndex = 0;
-            this.showGravitySculptCandidate(0);
-        } catch (error) {
-            if (token === this.gravitySculpt.solveToken) {
-                this.gravitySculptView.setPhase('error', error.message || 'The solver could not produce a candidate.');
-            }
-        }
-    }
-
-    showGravitySculptCandidate(index) {
-        const result = this.gravitySculpt.result;
-        if (!result?.candidates?.length) return;
-        const count = result.candidates.length;
-        this.gravitySculpt.candidateIndex = (index + count) % count;
-        const candidate = result.candidates[this.gravitySculpt.candidateIndex];
-        this.gravitySculpt.preview = candidate.trajectory;
-        this.gravitySculptView.showCandidate(
-            this.gravitySculpt.candidateIndex,
-            count,
-            candidate
-        );
-    }
-
-    cycleGravitySculptCandidate(direction) {
-        this.showGravitySculptCandidate(this.gravitySculpt.candidateIndex + direction);
-    }
-
-    getActiveGravitySculptCandidate() {
-        const result = this.gravitySculpt.result;
-        return result?.candidates?.[this.gravitySculpt.candidateIndex] || result || null;
-    }
-
-    createGravitySculptBatch(candidate) {
-        const before = [];
-        const after = [];
-        for (const adjustment of candidate?.adjustments || []) {
-            const object = this.game.planets[adjustment.index];
-            if (!object) continue;
-            const beforeState = this.captureObjectPropertyState(object);
-            const afterState = cloneEditValue(beforeState);
-            afterState.position = { ...adjustment.position };
-            afterState.direct.mass = adjustment.mass;
-            before.push({ object, state: beforeState });
-            after.push({ object, state: afterState });
-        }
-        return { before, after };
-    }
-
-    applyGravitySculptStates(entries) {
-        for (const entry of entries) this.restoreObjectPropertyState(entry.object, entry.state);
-    }
-
-    testGravitySculptCandidate() {
-        const candidate = this.getActiveGravitySculptCandidate();
-        if (!candidate?.launch || this.gravitySculpt.testSession) return;
-        const batch = this.createGravitySculptBatch(candidate);
-        const snapshot = {
-            simulation: captureGameSimulationState(this.game),
-            tries: this.game.tries,
-            launches: cloneEditValue(this.game.launches || []),
-            shotPathsLength: this.game.shotPaths?.length || 0,
-            crashedPenguinsLength: this.game.crashedPenguins?.length || 0
-        };
-        this.gravitySculpt.testSession = { candidate, batch, snapshot };
-        this.applyGravitySculptStates(batch.after);
-        this.mode = 'play';
-        this.updateModeButton();
-        this.selectObject(null);
-        this.game.uiManager?.closeAllScreens?.();
-        this.game.tryAgain();
-        this.game.setState?.(GameState.LEVEL_EDITOR);
-        this.gravitySculptView.setTestMode(
-            true,
-            `Testing ${candidate.launch.angleDegrees.toFixed(1)}° at ` +
-            `${candidate.launch.pullbackPower.toFixed(0)} power. Accept or restore when ready.`
-        );
-        this.game.launchPenguin(
-            candidate.launch.velocity,
-            { angle: candidate.launch.angleDegrees, power: candidate.launch.pullbackPower }
-        );
-    }
-
-    finishGravitySculptTest(accept) {
-        const session = this.gravitySculpt.testSession;
-        if (!session) return;
-        this.game.endRecordingShotPath?.();
-        applyGameSimulationState(this.game, session.snapshot.simulation);
-        this.game.tries = session.snapshot.tries;
-        this.game.launches = cloneEditValue(session.snapshot.launches);
-        if (this.game.shotPaths) this.game.shotPaths.length = session.snapshot.shotPathsLength;
-        if (this.game.crashedPenguins) {
-            this.game.crashedPenguins.length = session.snapshot.crashedPenguinsLength;
-        }
-        this.game.target.isHit = false;
-        this.game.target.hitFrameCount = 0;
-        this.game.target.shipState = 'open';
-        if (this.game.target.shipSprites?.open) {
-            this.game.target.currentShipSprite = this.game.target.shipSprites.open;
-        }
-        if (accept) {
-            this.applyGravitySculptStates(session.batch.after);
-            this.history.recordExecuted(LiveEditCommandType.ADJUST_PLANETS, session.batch);
-        } else {
-            this.applyGravitySculptStates(session.batch.before);
-        }
-        this.gravitySculpt.testSession = null;
-        this.mode = 'edit';
-        this.game.uiManager?.closeAllScreens?.();
-        this.game.setState?.(GameState.LEVEL_EDITOR);
-        this.game.resetPenguinToSlingshot?.();
-        this.game.physics?.clearTrace?.();
-        this.updateModeButton();
-        this.gravitySculptView.setTestMode(false);
-        this.showGravitySculptCandidate(this.gravitySculpt.candidateIndex);
-        this.game.updateUI?.();
-    }
-
-    isTestingGravitySculptCandidate() {
-        return Boolean(this.gravitySculpt.testSession);
-    }
-
-    onGravitySculptTestTargetHit() {
-        if (!this.gravitySculpt.testSession) return;
-        this.gravitySculptView.setTestMode(
-            true,
-            'Target reached during the candidate test. Accept this layout or restore the editor snapshot.'
-        );
-    }
-
-    applyGravitySculptResult() {
-        const candidate = this.getActiveGravitySculptCandidate();
-        if (!candidate) return;
-        const batch = this.createGravitySculptBatch(candidate);
-        if (this.history.execute(LiveEditCommandType.ADJUST_PLANETS, batch)) {
-            this.closeGravitySculpt();
-        }
-    }
 
     showMobileAddMenu() {
         if (this.mode !== 'edit') return;
@@ -444,7 +200,7 @@ class LevelEditor {
     
     exit() {
         if (!this.active) return;
-        this.closeGravitySculpt();
+        this.gravitySculptController.close();
         this.active = false;
         this.container.style.display = 'none';
         this.cancelLongPress();
@@ -471,7 +227,7 @@ class LevelEditor {
     
     toggleMode() {
         if (this.mode === 'edit') {
-            this.closeGravitySculpt();
+        this.gravitySculptController.close();
             this.mode = 'play';
             this.game?.invalidateSimulationState?.();
             this.selectObject(null); // Clear selection when entering play mode
