@@ -22,7 +22,7 @@ The application must be served over HTTP because ES modules, levels, assets, and
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000`. A specific authored level can be selected with `http://localhost:8000/?level=5`.
+Then open `http://localhost:8000`. A specific authored level can be selected with `http://localhost:8000/?level=5`. Add `level_editor` to boot directly into the editor, for example `http://localhost:8000/?level=5&level_editor` (or `?level_editor` for level 1).
 
 There is no build or install step for the game itself.
 

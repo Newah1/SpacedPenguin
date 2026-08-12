@@ -13,6 +13,7 @@
     "test:policy": "node --test testing/configurationPolicy.test.js",
     "test:levels": "node testing/validateLevels.js",
     "test:syntax": "node testing/checkSyntax.js",
+    "benchmark:gravity-sculpt-mass": "node testing/benchmarkGravitySculptMass.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

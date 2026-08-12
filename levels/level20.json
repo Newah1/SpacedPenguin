@@ -3,7 +3,7 @@
   "description": "Randomly generated level with 5 planets and 8 bonuses",
   "startPosition": {
     "x": 92.76381909547737,
-    "y": 120.90452261306535
+    "y": 123.91959798994978
   },
   "targetPosition": {
     "x": 267.03517587939695,
@@ -14,11 +14,11 @@
       "type": "slingshot",
       "position": {
         "x": 92.76381909547737,
-        "y": 120.90452261306535
+        "y": 123.91959798994978
       },
       "properties": {
         "name": "Slingshot 1",
-        "rotation": 252.8142938557753,
+        "rotation": 0,
         "alpha": 1,
         "visible": true,
         "width": 100,
@@ -81,10 +81,10 @@
         "height": 65.58498293162573,
         "renderOrder": 2,
         "radius": 32.792491465812866,
-        "mass": 233.43943137994353,
+        "mass": 66.04825750326307,
         "collisionRadius": 40.792491465812866,
         "gravitationalReach": 5000,
-        "color": "#FF00FF",
+        "color": "#FF0000",
         "planetType": "planet_red_gumball",
         "orbit": {
           "orbitCenter": null,
@@ -100,8 +100,8 @@
     {
       "type": "planet",
       "position": {
-        "x": 434.3676589478469,
-        "y": 509.98151504414784
+        "x": 433.16162879709316,
+        "y": 505.76040951650975
       },
       "properties": {
         "id": "planet_2",
@@ -113,10 +113,10 @@
         "height": 63.01551177316962,
         "renderOrder": 2,
         "radius": 31.50775588658481,
-        "mass": 1217.59584465083,
+        "mass": 1372.969751210269,
         "collisionRadius": 36.5077558865848,
-        "gravitationalReach": 103,
-        "color": "#00FF00",
+        "gravitationalReach": 128,
+        "color": "#C8C8C8",
         "planetType": "planet_pink",
         "orbit": {
           "orbitCenter": null,
@@ -133,7 +133,7 @@
       "type": "planet",
       "position": {
         "x": 230.98478530954802,
-        "y": 83.56520872127224
+        "y": 84.16822379664913
       },
       "properties": {
         "id": "planet_3",
@@ -145,10 +145,10 @@
         "height": 60.96901644119084,
         "renderOrder": 2,
         "radius": 30.48450822059542,
-        "mass": 248.2548620485206,
+        "mass": 50.354746188647766,
         "collisionRadius": 30.48450822059542,
-        "gravitationalReach": 5000,
-        "color": "#FF0000",
+        "gravitationalReach": 118,
+        "color": "#00FF00",
         "planetType": "planet_grey",
         "orbit": {
           "orbitCenter": null,
@@ -164,7 +164,7 @@
     {
       "type": "planet",
       "position": {
-        "x": 612.5077751373447,
+        "x": 611.3017449865908,
         "y": 82.93958610431038
       },
       "properties": {
@@ -177,10 +177,10 @@
         "height": 75.45400819846677,
         "renderOrder": 2,
         "radius": 37.72700409923338,
-        "mass": 135.03262353770583,
+        "mass": 153.45797908036627,
         "collisionRadius": 45.72700409923338,
         "gravitationalReach": 5000,
-        "color": "#FF00FF",
+        "color": "#FFFF00",
         "planetType": "planet_pink",
         "orbit": {
           "orbitCenter": null,
@@ -209,10 +209,10 @@
         "height": 116.239476454254,
         "renderOrder": 2,
         "radius": 58.119738227127,
-        "mass": 646.9338736679781,
+        "mass": 1517.0097151803395,
         "collisionRadius": 53.119738227127,
-        "gravitationalReach": 5000,
-        "color": "#FFFF00",
+        "gravitationalReach": 118,
+        "color": "#C8C8C8",
         "planetType": "planet_saturn",
         "orbit": {
           "orbitCenter": null,
@@ -234,8 +234,8 @@
       "properties": {
         "id": "bonus_1",
         "name": "Bonus 1",
-        "rotation": 989.1999999996481,
-        "alpha": 0.9999820723182021,
+        "rotation": 39.89999999999987,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -245,7 +245,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -267,8 +267,8 @@
       "properties": {
         "id": "bonus_3",
         "name": "Bonus 3",
-        "rotation": 1049.724999999595,
-        "alpha": 0.9999820723182021,
+        "rotation": 39.89999999999987,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -278,7 +278,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -300,8 +300,8 @@
       "properties": {
         "id": "bonus_5",
         "name": "Bonus 5",
-        "rotation": 1940.9799999995842,
-        "alpha": 0.9999820723182021,
+        "rotation": 150.71499999999975,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -311,7 +311,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -333,8 +333,8 @@
       "properties": {
         "id": "bonus_6",
         "name": "Bonus 6",
-        "rotation": 1742.741666666237,
-        "alpha": 0.9999820723182021,
+        "rotation": 149.6583333333331,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -344,7 +344,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -366,8 +366,8 @@
       "properties": {
         "id": "bonus_7",
         "name": "Bonus 7",
-        "rotation": 2779.861666666894,
-        "alpha": 0.9999820723182021,
+        "rotation": 140.2766666666666,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -377,7 +377,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -399,8 +399,8 @@
       "properties": {
         "id": "bonus_8",
         "name": "Bonus 8",
-        "rotation": 1261.419999999682,
-        "alpha": 0.9999820723182021,
+        "rotation": 72.36499999999826,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -410,7 +410,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -432,8 +432,8 @@
       "properties": {
         "id": "bonus_9",
         "name": "Bonus 1",
-        "rotation": 1049.724999999595,
-        "alpha": 0.9999820723182021,
+        "rotation": 39.89999999999987,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -443,7 +443,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -465,8 +465,8 @@
       "properties": {
         "id": "bonus_2",
         "name": "Bonus 3",
-        "rotation": 1049.724999999595,
-        "alpha": 0.9999820723182021,
+        "rotation": 39.89999999999987,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -476,7 +476,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -505,10 +505,10 @@
         "height": 60.96901644119084,
         "renderOrder": 2,
         "radius": 30.48450822059542,
-        "mass": 148.25486204852058,
+        "mass": 993.3551149110212,
         "collisionRadius": 22.4845082205954,
         "gravitationalReach": 5000,
-        "color": "#FF00FF",
+        "color": "#0000FF",
         "planetType": "planet_grey",
         "orbit": {
           "orbitCenter": null,
@@ -530,8 +530,8 @@
       "properties": {
         "id": "bonus_4",
         "name": "Bonus 1",
-        "rotation": 4169.891666667031,
-        "alpha": 0.9999820723182021,
+        "rotation": 157.79833333333337,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -541,7 +541,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -563,8 +563,8 @@
       "properties": {
         "id": "bonus_10",
         "name": "Bonus 1",
-        "rotation": 4107.173333333798,
-        "alpha": 0.9999820723182021,
+        "rotation": 156.92499999999998,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -574,7 +574,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -596,8 +596,8 @@
       "properties": {
         "id": "bonus_11",
         "name": "Bonus 1",
-        "rotation": 2967.056666667094,
-        "alpha": 0.9999820723182021,
+        "rotation": 155.81499999999988,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -607,7 +607,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -629,8 +629,8 @@
       "properties": {
         "id": "bonus_12",
         "name": "Bonus 1",
-        "rotation": 3041.565000000296,
-        "alpha": 0.9999820723182021,
+        "rotation": 154.4233333333332,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -640,7 +640,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -662,8 +662,8 @@
       "properties": {
         "id": "bonus_13",
         "name": "Bonus 8",
-        "rotation": 1127.5383333329376,
-        "alpha": 0.9999820723182021,
+        "rotation": 126.34833333333175,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -673,7 +673,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -695,8 +695,8 @@
       "properties": {
         "id": "bonus_14",
         "name": "Bonus 3",
-        "rotation": 1117.671666666268,
-        "alpha": 0.9999820723182021,
+        "rotation": 58.798333333331804,
+        "alpha": 0.9942296755842102,
         "visible": true,
         "width": 42.5,
         "height": 43,
@@ -706,7 +706,7 @@
         "state": "notHit",
         "collectedRotationSpeed": 30,
         "collected": false,
-        "pulseTimer": 329.7333333333621,
+        "pulseTimer": 13.30000000000024,
         "pulseSpeed": 0.1,
         "orbit": {
           "orbitCenter": null,
@@ -722,7 +722,7 @@
     {
       "type": "planet",
       "position": {
-        "x": 616.6616994561057,
+        "x": 617.2647145314826,
         "y": 293.61980731758075
       },
       "properties": {
@@ -735,7 +735,7 @@
         "height": 116.239476454254,
         "renderOrder": 2,
         "radius": 58.119738227127,
-        "mass": 106.9338736679781,
+        "mass": 10.776304097201026,
         "collisionRadius": 58.119738227127,
         "gravitationalReach": 5000,
         "color": "#FF00FF",

@@ -19,6 +19,7 @@ const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
 const { LevelEndScreen } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
+const LevelEditorToolbarView = (await import('../js/levelEditor/toolbarView.js')).default;
 const { Penguin } = await import('../js/penguin.js');
 const { UIManager } = await import('../js/uiManager.js');
 const {
@@ -84,6 +85,34 @@ test('level editor text width updates the renderer wrap limit', () => {
 
     assert.equal(editor.selectedObject.width, 360);
     assert.equal(editor.selectedObject.maxWidth, 340);
+});
+
+test('level editor toolbar minimizes to a restore control', () => {
+    const view = Object.create(LevelEditorToolbarView.prototype);
+    view.toolbarControls = [{ style: {} }, { style: {} }];
+    view.minimizeButton = {
+        style: {},
+        setAttribute(name, value) { this[name] = value; }
+    };
+    view.toolbar = { style: {}, dataset: {} };
+    view.section = { style: {} };
+    view.toggleButton = {};
+    view.toolbarDrag = { clampToViewport() {} };
+
+    view.setMinimized(true);
+
+    assert.equal(view.toolbarControls[0].style.display, 'none');
+    assert.equal(view.section.style.display, 'none');
+    assert.equal(view.minimizeButton.textContent, '+');
+    assert.equal(view.minimizeButton['aria-label'], 'Restore editor toolbar');
+    assert.equal(view.toolbar.style.right, 'auto');
+
+    view.resize = () => { view.didResize = true; };
+    view.setMinimized(false);
+
+    assert.equal(view.toolbarControls[0].style.display, '');
+    assert.equal(view.minimizeButton.textContent, '−');
+    assert.equal(view.didResize, true);
 });
 
 test('level editor root settings update metadata, positions, and live gravity', () => {

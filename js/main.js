@@ -138,6 +138,9 @@ class GameManager {
         
         // Check for level parameter in URL and jump to specific level
         this.checkLevelParameter();
+
+        // Open the loaded level directly in the editor when requested.
+        this.checkLevelEditorParameter();
         
         // Hide loading screen
         this.hideLoadingScreen();
@@ -850,6 +853,19 @@ class GameManager {
                 Utils.removeURLParameter('level');
             }
         }
+    }
+
+    checkLevelEditorParameter() {
+        if (!Utils.hasURLParameter('level_editor')) return;
+
+        // A level parameter has already loaded its requested level. Without one,
+        // initialize the normal first level before activating the editor.
+        if (this.game.state === GameState.MENU) {
+            this.game.startGame();
+        }
+
+        plog.info('Entering level editor from URL parameter');
+        this.game.enterLevelEditor();
     }
     
     destroy() {

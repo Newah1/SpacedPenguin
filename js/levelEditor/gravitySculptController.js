@@ -13,6 +13,7 @@ const INITIAL_STATE = Object.freeze({
     result: null,
     candidateIndex: 0,
     testSession: null,
+    lastSeed: null,
     solveToken: 0
 });
 
@@ -22,6 +23,18 @@ function freshState() {
 
 function cloneValue(value) {
     return value === undefined ? undefined : structuredClone(value);
+}
+
+function randomSeed(previousSeed) {
+    let seed;
+    do {
+        if (globalThis.crypto?.getRandomValues) {
+            seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+        } else {
+            seed = Math.floor(Math.random() * 0x100000000) >>> 0;
+        }
+    } while (seed === previousSeed);
+    return seed;
 }
 
 export default class GravitySculptController {
@@ -97,13 +110,15 @@ export default class GravitySculptController {
             return;
         }
         const token = ++this.state.solveToken;
+        const seed = randomSeed(this.state.lastSeed);
+        this.state.lastSeed = seed;
         this.view.setPhase('solving', '0%');
         try {
             const result = await solveGravitySculpt({
                 state: captureGameSimulationState(this.game),
                 desiredPath: this.state.path,
                 planetIndices: selections.planetIndices,
-                options: { ...EDITOR_CONFIG.gravitySculpt, ...selections },
+                options: { ...EDITOR_CONFIG.gravitySculpt, ...selections, seed },
                 onProgress: progress => this.reportProgress(token, progress)
             });
             if (token !== this.state.solveToken) return;

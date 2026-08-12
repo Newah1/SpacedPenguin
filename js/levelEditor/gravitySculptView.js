@@ -75,6 +75,27 @@ export class GravitySculptView {
         });
         toleranceLabel.append(toleranceText, this.checkpointTolerance, this.toleranceValue);
         this.options.appendChild(toleranceLabel);
+        const budgetLabel = document.createElement('label');
+        budgetLabel.style.cssText = 'grid-column:1 / -1; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center;';
+        const budgetText = document.createElement('span');
+        budgetText.textContent = 'Search budget';
+        this.budgetMultiplier = document.createElement('input');
+        this.budgetMultiplier.type = 'range';
+        this.budgetMultiplier.min = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplierRange.minimum);
+        this.budgetMultiplier.max = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplierRange.maximum);
+        this.budgetMultiplier.step = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplierRange.step);
+        this.budgetMultiplier.value = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplier);
+        this.budgetValue = document.createElement('span');
+        this.budgetValue.style.cssText = 'min-width:82px; text-align:right; color:#ffcf80;';
+        const updateBudgetValue = () => {
+            const multiplier = Number(this.budgetMultiplier.value);
+            this.budgetValue.textContent = `${multiplier.toFixed(2).replace(/\.00$/, '')}× (~${(multiplier ** 2).toFixed(2).replace(/\.00$/, '')}× time)`;
+        };
+        this.budgetMultiplier.addEventListener('input', updateBudgetValue);
+        updateBudgetValue();
+        budgetLabel.title = 'Scales every optimization population and generation count. Runtime grows approximately with the square of this value.';
+        budgetLabel.append(budgetText, this.budgetMultiplier, this.budgetValue);
+        this.options.appendChild(budgetLabel);
         this.goals = document.createElement('div');
         this.goals.style.cssText = 'border-top:1px solid rgba(255,255,255,.18); padding-top:8px; margin-top:4px;';
         const goalsHeading = document.createElement('div');
@@ -190,6 +211,7 @@ export class GravitySculptView {
             adjustMass: this.adjustMass.checked,
             adjustLaunch: this.adjustLaunch.checked,
             checkpointTolerance: Number(this.checkpointTolerance.value),
+            budgetMultiplier: Number(this.budgetMultiplier.value),
             goals: {
                 requireTarget: this.requireTarget.checked,
                 avoidPlanetCollisions: this.avoidPlanetCollisions.checked,
@@ -266,6 +288,9 @@ export class GravitySculptView {
         this.testButton.disabled = phase !== 'result';
         this.drawButton.disabled = phase === 'solving';
         this.drawButton.textContent = phase === 'drawing' ? 'Done Adding' : 'Set Waypoints';
+        this.solveButton.textContent = phase === 'solving'
+            ? 'Solving…'
+            : (this.editor.gravitySculptController.state.result ? 'Reroll' : 'Solve');
         if (phase !== 'result') this.candidateControls.style.display = 'none';
     }
 }

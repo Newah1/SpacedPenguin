@@ -42,6 +42,7 @@ const PLANET_PARAMETER_DEFINITIONS = Object.freeze([
     {
         property: 'mass',
         kind: PARAMETER_KIND.MASS,
+        scale: 'log',
         enabledBy: 'adjustMass',
         read: planet => planet.mass,
         bounds: (_state, planet, config) => ({
@@ -102,10 +103,10 @@ const ROBUST_SCORE_TERMS = Object.freeze([
 ]);
 
 const OPTIMIZATION_STAGE_DEFINITIONS = Object.freeze([
-    { name: 'launch', accepts: variable => parameterKind(variable) === PARAMETER_KIND.LAUNCH },
-    { name: 'mass', accepts: variable => parameterKind(variable) === PARAMETER_KIND.MASS },
-    { name: 'position', accepts: variable => parameterKind(variable) === PARAMETER_KIND.POSITION },
-    { name: 'joint', accepts: () => true }
+    { name: 'launch', accepts: variable => parameterKind(variable) === PARAMETER_KIND.LAUNCH, useInfluenceGuidance: true },
+    { name: 'mass', accepts: variable => parameterKind(variable) === PARAMETER_KIND.MASS, useInfluenceGuidance: true },
+    { name: 'position', accepts: variable => parameterKind(variable) === PARAMETER_KIND.POSITION, useInfluenceGuidance: true },
+    { name: 'joint', accepts: () => true, useInfluenceGuidance: true }
 ]);
 
 function seededRandom(seed) {
@@ -146,6 +147,7 @@ export function createExistingPlanetVariables(state, planetIndices, options = {}
             .map(definition => ({
                 key: `planet.${index}.${definition.property}`,
                 kind: definition.kind,
+                scale: definition.scale || 'linear',
                 group: `planet.${index}`,
                 property: definition.property,
                 initial: definition.read(planet),
@@ -214,6 +216,22 @@ function parameterPenalty(variable, config) {
         [PARAMETER_KIND.POSITION]: config.movementPenalty,
         [PARAMETER_KIND.CUSTOM]: config.movementPenalty
     }[parameterKind(variable)];
+}
+
+function toSearchCoordinate(variable, value) {
+    return variable.scale === 'log' ? Math.log(Math.max(Number.MIN_VALUE, value)) : value;
+}
+
+function fromSearchCoordinate(variable, coordinate) {
+    const value = variable.scale === 'log' ? Math.exp(coordinate) : coordinate;
+    return clamp(value, variable.min, variable.max);
+}
+
+function searchSpan(variable) {
+    return Math.max(
+        Number.EPSILON,
+        toSearchCoordinate(variable, variable.max) - toSearchCoordinate(variable, variable.min)
+    );
 }
 
 function sumTerms(definitions, context) {
@@ -306,8 +324,10 @@ export function analyzeSculptTrajectory(trajectory, desiredPath, terminal, varia
     score += missedWaypointCount * config.waypointConstraintPenalty;
     const endpointDelta = distance(trajectory.at(-1), desiredPath.at(-1));
     variables.forEach((variable, index) => {
-        const span = Math.max(1, variable.max - variable.min);
-        const normalized = (values[index] - variable.initial) / span;
+        const normalized = (
+            toSearchCoordinate(variable, values[index]) -
+            toSearchCoordinate(variable, variable.initial)
+        ) / searchSpan(variable);
         score += normalized * normalized * parameterPenalty(variable, config);
     });
     if (terminal && terminal !== 'hitTarget') score += config.terminalPenalty;
@@ -372,7 +392,12 @@ function simulateSculptCandidate(
     if (velocityOverride) state.penguin.velocity = { ...velocityOverride };
     const trajectory = [{ ...state.penguin.position }];
     const eventTypes = new Set();
-    const steps = Math.ceil(config.previewSeconds / SIMULATION_CONFIG.aimAssist.timeStep);
+    const directDistance = minimumRouteDistance(desiredPath, state, config);
+    const trajectoryDistanceBudget = directDistance * config.trajectoryDistanceBudgetMultiplier;
+    const steps = Math.ceil(
+        config.previewSeconds * config.trajectoryTimeSafetyMultiplier /
+        SIMULATION_CONFIG.aimAssist.timeStep
+    );
     let elapsedSeconds = 0;
     let pathLength = 0;
     let peakGravityAcceleration = 0;
@@ -407,6 +432,7 @@ function simulateSculptCandidate(
             trajectory.push({ ...state.penguin.position });
         }
         if (state.penguin.state !== 'soaring') break;
+        if (pathLength >= trajectoryDistanceBudget) break;
     }
     const metrics = analyzeSculptTrajectory(
         trajectory, desiredPath, state.penguin.state, variables, values, config
@@ -420,7 +446,6 @@ function simulateSculptCandidate(
     const meanGravityAcceleration = gravitySamples > 0
         ? gravityAccelerationTotal / gravitySamples
         : 0;
-    const directDistance = minimumRouteDistance(desiredPath, state, config);
     const pathEfficiency = pathLength / directDistance;
     const comfortTerms = sumTerms(COMFORT_OBJECTIVE_TERMS, {
         peakGravityAcceleration,
@@ -515,7 +540,11 @@ function randomizeActiveValues(seed, activeIndices, variables, path, config, ran
     const values = [...seed];
     for (const index of activeIndices) {
         const variable = variables[index];
-        values[index] = variable.min + random() * (variable.max - variable.min);
+        const minimum = toSearchCoordinate(variable, variable.min);
+        values[index] = fromSearchCoordinate(
+            variable,
+            minimum + random() * searchSpan(variable)
+        );
     }
 
     // Planet positions seeded beside checkpoints are much more likely to bend
@@ -567,6 +596,187 @@ function distinctPopulationIndices(length, excluded, count, random) {
     return available.slice(0, count);
 }
 
+function compareSculptCandidates(left, right) {
+    const missedWaypoints = (left.missedWaypointCount ?? Number.POSITIVE_INFINITY) -
+        (right.missedWaypointCount ?? Number.POSITIVE_INFINITY);
+    if (missedWaypoints !== 0) return missedWaypoints;
+
+    const robustCoverage = (right.robustCheckpointCoverage ?? right.checkpointCoverage ?? 0) -
+        (left.robustCheckpointCoverage ?? left.checkpointCoverage ?? 0);
+    if (robustCoverage !== 0) return robustCoverage;
+
+    const hardGoalViolations = (left.constraintViolations?.length || 0) -
+        (right.constraintViolations?.length || 0);
+    if (hardGoalViolations !== 0) return hardGoalViolations;
+
+    return left.score - right.score;
+}
+
+function candidateWaypointErrors(candidate, path, sampleIndices) {
+    const indices = sampleIndices || (candidate.waypointMatches || []).map(match => match.index);
+    return indices.map((sampleIndex, index) => {
+        const point = candidate.trajectory[Math.min(sampleIndex, candidate.trajectory.length - 1)];
+        const waypoint = path[index + 1];
+        return {
+            x: point.x - waypoint.x,
+            y: point.y - waypoint.y
+        };
+    });
+}
+
+function solveInfluenceCorrections(base, perturbations, variableIndicesToSolve, variables, path, config) {
+    const sampleIndices = (base.waypointMatches || []).map(match => match.index);
+    const baseErrors = candidateWaypointErrors(base, path, sampleIndices);
+    if (baseErrors.length === 0) return null;
+    const sensitivities = perturbations.map(({ lower, upper, parameterDelta }) => {
+        const lowerErrors = candidateWaypointErrors(lower, path, sampleIndices);
+        const upperErrors = candidateWaypointErrors(upper, path, sampleIndices);
+        return baseErrors.map((_error, index) => ({
+            x: (upperErrors[index].x - lowerErrors[index].x) / parameterDelta,
+            y: (upperErrors[index].y - lowerErrors[index].y) / parameterDelta
+        }));
+    });
+    const corrections = variableIndicesToSolve.map(() => 0);
+    const residuals = baseErrors.map(error => ({ ...error }));
+    for (let pass = 0; pass < config.influenceCorrectionPasses; pass++) {
+        variableIndicesToSolve.forEach((variableIndex, influenceIndex) => {
+            const sensitivity = sensitivities[influenceIndex];
+            const previousCorrection = corrections[influenceIndex];
+            let projection = 0;
+            let magnitudeSquared = config.influenceRegularization;
+            sensitivity.forEach((effect, waypointIndex) => {
+                const withoutCurrent = {
+                    x: residuals[waypointIndex].x - effect.x * previousCorrection,
+                    y: residuals[waypointIndex].y - effect.y * previousCorrection
+                };
+                projection += effect.x * withoutCurrent.x + effect.y * withoutCurrent.y;
+                magnitudeSquared += effect.x ** 2 + effect.y ** 2;
+            });
+            const variable = variables[variableIndex];
+            const baseCoordinate = toSearchCoordinate(variable, base.values[variableIndex]);
+            const nextCorrection = clamp(
+                -projection / magnitudeSquared,
+                toSearchCoordinate(variable, variable.min) - baseCoordinate,
+                toSearchCoordinate(variable, variable.max) - baseCoordinate
+            );
+            const correctionDelta = nextCorrection - previousCorrection;
+            corrections[influenceIndex] = nextCorrection;
+            sensitivity.forEach((effect, waypointIndex) => {
+                residuals[waypointIndex].x += effect.x * correctionDelta;
+                residuals[waypointIndex].y += effect.y * correctionDelta;
+            });
+        });
+    }
+    return corrections;
+}
+
+function selectInfluentialVariables(variableIndicesToRank, sensitivities, variables, config) {
+    if (variableIndicesToRank.length <= config.influenceMinimumActiveVariables) {
+        return [...variableIndicesToRank];
+    }
+    const ranked = variableIndicesToRank.map((variableIndex, influenceIndex) => {
+        const effects = sensitivities[influenceIndex];
+        const span = searchSpan(variables[variableIndex]);
+        const leverage = effects.reduce((total, effect, waypointIndex) => {
+            const recencyWeight = waypointIndex === effects.length - 1 ? 1 : 0.25;
+            return total + Math.hypot(effect.x, effect.y) * span * recencyWeight;
+        }, 0);
+        return { variableIndex, leverage };
+    }).sort((left, right) => right.leverage - left.leverage);
+    const maximumLeverage = ranked[0]?.leverage || 0;
+    const selected = ranked
+        .filter(entry => entry.leverage >= maximumLeverage * config.influenceActivationThreshold)
+        .map(entry => entry.variableIndex);
+    for (const entry of ranked) {
+        if (selected.length >= Math.min(config.influenceMinimumActiveVariables, ranked.length)) break;
+        if (!selected.includes(entry.variableIndex)) selected.push(entry.variableIndex);
+    }
+    return selected;
+}
+
+function createInfluenceGuidance({
+    base,
+    activeIndices,
+    state,
+    path,
+    launch,
+    variables,
+    config,
+    progress
+}) {
+    if (activeIndices.length === 0) return { candidates: [], activeIndices: [] };
+    const perturbations = [];
+    const probeConfig = { ...config, robustLaunchOffsets: [] };
+    for (const variableIndex of activeIndices) {
+        const variable = variables[variableIndex];
+        const baseCoordinate = toSearchCoordinate(variable, base.values[variableIndex]);
+        const requestedDelta = searchSpan(variable) * config.influencePerturbationFraction;
+        const lowerValues = [...base.values];
+        const upperValues = [...base.values];
+        lowerValues[variableIndex] = fromSearchCoordinate(
+            variable,
+            baseCoordinate - requestedDelta
+        );
+        upperValues[variableIndex] = fromSearchCoordinate(
+            variable,
+            baseCoordinate + requestedDelta
+        );
+        const parameterDelta =
+            toSearchCoordinate(variable, upperValues[variableIndex]) -
+            toSearchCoordinate(variable, lowerValues[variableIndex]);
+        if (parameterDelta === 0) continue;
+        const lower = evaluateSculptCandidate(
+            state, path, launch, variables, lowerValues, probeConfig
+        );
+        const upper = evaluateSculptCandidate(
+            state, path, launch, variables, upperValues, probeConfig
+        );
+        perturbations.push({ lower, upper, parameterDelta });
+        progress.evaluations += lower.simulationCount + upper.simulationCount;
+    }
+    if (perturbations.length !== activeIndices.length) {
+        return { candidates: [], activeIndices: [...activeIndices] };
+    }
+    const sampleIndices = (base.waypointMatches || []).map(match => match.index);
+    const sensitivities = perturbations.map(({ lower, upper, parameterDelta }) => {
+        const lowerErrors = candidateWaypointErrors(lower, path, sampleIndices);
+        const upperErrors = candidateWaypointErrors(upper, path, sampleIndices);
+        return lowerErrors.map((_error, index) => ({
+            x: (upperErrors[index].x - lowerErrors[index].x) / parameterDelta,
+            y: (upperErrors[index].y - lowerErrors[index].y) / parameterDelta
+        }));
+    });
+    const influentialIndices = selectInfluentialVariables(
+        activeIndices, sensitivities, variables, config
+    );
+    const influentialPerturbations = influentialIndices.map(index =>
+        perturbations[activeIndices.indexOf(index)]
+    );
+    const corrections = solveInfluenceCorrections(
+        base, influentialPerturbations, influentialIndices, variables, path, config
+    );
+    if (!corrections) return { candidates: [], activeIndices: influentialIndices };
+    const candidates = [];
+    for (const scale of config.influenceSeedScales) {
+        const values = [...base.values];
+        influentialIndices.forEach((variableIndex, influenceIndex) => {
+            const variable = variables[variableIndex];
+            values[variableIndex] = fromSearchCoordinate(
+                variable,
+                toSearchCoordinate(variable, base.values[variableIndex]) +
+                corrections[influenceIndex] * scale
+            );
+        });
+        if (candidates.some(candidate => normalizedParameterDistance(candidate.values, values, variables) < 1e-8)) {
+            continue;
+        }
+        const candidate = evaluateSculptCandidate(state, path, launch, variables, values, config);
+        candidates.push(candidate);
+        progress.evaluations += candidate.simulationCount;
+    }
+    return { candidates, activeIndices: influentialIndices };
+}
+
 async function runDifferentialEvolutionStage({
     name,
     seeds,
@@ -578,23 +788,69 @@ async function runDifferentialEvolutionStage({
     variables,
     config,
     random,
-    progress
+    progress,
+    useInfluenceGuidance
 }) {
     if (activeIndices.length === 0) return seeds;
+    const populationPerVariable = Math.max(2, Math.round(4 * config.budgetMultiplier));
     const populationSize = Math.min(
         config.maximumPopulation,
-        Math.max(stageConfig.population, activeIndices.length * 4, 4)
+        Math.max(stageConfig.population, activeIndices.length * populationPerVariable, 4)
     );
     const eliteSeeds = [...seeds]
-        .sort((left, right) => left.score - right.score)
+        .sort(compareSculptCandidates)
         .slice(0, Math.min(config.eliteSeedCount, populationSize));
     const population = [...eliteSeeds];
+    let mutationIndices = activeIndices;
     while (population.length < populationSize) {
         const seed = eliteSeeds[Math.floor(random() * eliteSeeds.length)] || seeds[0];
         const values = randomizeActiveValues(seed.values, activeIndices, variables, path, config, random);
         const candidate = evaluateSculptCandidate(state, path, launch, variables, values, config);
         population.push(candidate);
         progress.evaluations += candidate.simulationCount;
+    }
+    if (
+        useInfluenceGuidance &&
+        config.influenceGuidanceEnabled !== false &&
+        populationSize >= config.influenceMinimumPopulation
+    ) {
+        const maximumInformed = Math.max(
+            1,
+            Math.floor(Math.max(1, populationSize - eliteSeeds.length) * config.influencePopulationFraction)
+        );
+        const guidance = createInfluenceGuidance({
+            base: eliteSeeds[0],
+            activeIndices,
+            state,
+            path,
+            launch,
+            variables,
+            config,
+            progress
+        });
+        mutationIndices = guidance.activeIndices.length > 0
+            ? guidance.activeIndices
+            : activeIndices;
+        progress.influenceAnalyses.push({
+            stage: name,
+            waypointCount: path.length - 1,
+            consideredVariables: activeIndices.map(index => variables[index].key),
+            activeVariables: mutationIndices.map(index => variables[index].key)
+        });
+        const informed = guidance.candidates
+            .sort(compareSculptCandidates)
+            .slice(0, maximumInformed);
+        for (const candidate of informed) {
+            let worstIndex = 0;
+            for (let index = 1; index < population.length; index++) {
+                if (compareSculptCandidates(population[worstIndex], population[index]) < 0) {
+                    worstIndex = index;
+                }
+            }
+            if (compareSculptCandidates(candidate, population[worstIndex]) < 0) {
+                population[worstIndex] = candidate;
+            }
+        }
     }
 
     for (let generation = 0; generation < stageConfig.generations; generation++) {
@@ -603,21 +859,26 @@ async function runDifferentialEvolutionStage({
             const [a, b, c] = distinctPopulationIndices(population.length, targetIndex, 3, random);
             const target = population[targetIndex];
             const trialValues = [...target.values];
-            const forcedIndex = activeIndices[Math.floor(random() * activeIndices.length)];
+            const forcedIndex = mutationIndices[Math.floor(random() * mutationIndices.length)];
+            const influentialSet = new Set(mutationIndices);
             for (const index of activeIndices) {
-                if (index !== forcedIndex && random() > config.crossoverRate) continue;
+                const crossoverRate = influentialSet.has(index)
+                    ? config.crossoverRate
+                    : config.influenceBackgroundCrossoverRate;
+                if (index !== forcedIndex && random() > crossoverRate) continue;
                 const variable = variables[index];
-                trialValues[index] = clamp(
-                    population[a].values[index] + config.differentialWeight * (
-                        population[b].values[index] - population[c].values[index]
-                    ),
-                    variable.min,
-                    variable.max
+                trialValues[index] = fromSearchCoordinate(
+                    variable,
+                    toSearchCoordinate(variable, population[a].values[index]) +
+                    config.differentialWeight * (
+                        toSearchCoordinate(variable, population[b].values[index]) -
+                        toSearchCoordinate(variable, population[c].values[index])
+                    )
                 );
             }
             const trial = evaluateSculptCandidate(state, path, launch, variables, trialValues, config);
             progress.evaluations += trial.simulationCount;
-            if (trial.score <= target.score) next[targetIndex] = trial;
+            if (compareSculptCandidates(trial, target) <= 0) next[targetIndex] = trial;
         }
         population.splice(0, population.length, ...next);
         progress.generation += 1;
@@ -626,40 +887,108 @@ async function runDifferentialEvolutionStage({
             generation: progress.generation,
             total: progress.totalGenerations,
             evaluations: progress.evaluations,
-            bestScore: Math.min(...population.map(candidate => candidate.score))
+            bestScore: [...population].sort(compareSculptCandidates)[0].score
         });
         await new Promise(resolve => setTimeout(resolve, 0));
     }
-    return population.sort((left, right) => left.score - right.score);
+    return population.sort(compareSculptCandidates);
 }
 
 function normalizedParameterDistance(left, right, variables) {
     let squared = 0;
     variables.forEach((variable, index) => {
-        const span = Math.max(1, variable.max - variable.min);
-        squared += ((left[index] - right[index]) / span) ** 2;
+        squared += ((
+            toSearchCoordinate(variable, left[index]) -
+            toSearchCoordinate(variable, right[index])
+        ) / searchSpan(variable)) ** 2;
     });
     return Math.sqrt(squared / variables.length);
 }
 
-function selectDiverseCandidates(candidates, variables, config) {
-    const sorted = [...candidates].sort((left, right) => left.score - right.score);
+function selectDiverseCandidates(candidates, variables, config, requestedCount = config.candidateCount) {
+    const sorted = [...candidates].sort(compareSculptCandidates);
+    const bestWaypointTier = sorted[0]?.missedWaypointCount;
+    const eligible = sorted.filter(candidate => candidate.missedWaypointCount === bestWaypointTier);
     const selected = [];
-    for (const candidate of sorted) {
+    for (const candidate of eligible) {
         if (selected.every(existing =>
             normalizedParameterDistance(existing.values, candidate.values, variables) >= config.diversityThreshold
         )) {
             selected.push(candidate);
         }
-        if (selected.length >= config.candidateCount) break;
+        if (selected.length >= requestedCount) break;
     }
-    if (selected.length >= config.candidateCount) return selected;
-    for (const candidate of sorted) {
+    if (selected.length >= requestedCount) return selected;
+    for (const candidate of eligible) {
         if (selected.includes(candidate)) continue;
         selected.push(candidate);
-        if (selected.length >= config.candidateCount) break;
+        if (selected.length >= requestedCount) break;
     }
     return selected;
+}
+
+function allocateCurriculumGenerations(totalGenerations, prefixCount, config, prefixOffset = 0) {
+    const allocations = Array(prefixCount).fill(0);
+    if (prefixCount <= 1 || config.waypointCurriculumEnabled === false) {
+        allocations[prefixCount - 1] = totalGenerations;
+        return allocations;
+    }
+    const fullRouteGenerations = Math.max(
+        1,
+        Math.round(totalGenerations * config.waypointCurriculumFullRouteFraction)
+    );
+    allocations[prefixCount - 1] = Math.min(totalGenerations, fullRouteGenerations);
+    let remaining = totalGenerations - allocations[prefixCount - 1];
+    let prefixIndex = 0;
+    while (remaining > 0) {
+        allocations[(prefixIndex + prefixOffset) % (prefixCount - 1)] += 1;
+        prefixIndex += 1;
+        remaining -= 1;
+    }
+    return allocations;
+}
+
+function buildWaypointCurriculum(path, stageDefinitions, config) {
+    const prefixCount = path.length - 1;
+    const allocationsByStage = Object.fromEntries(stageDefinitions.map((definition, stageIndex) => [
+        definition.name,
+        allocateCurriculumGenerations(
+            config.stages[definition.name].generations,
+            prefixCount,
+            config,
+            stageIndex
+        )
+    ]));
+    return Array.from({ length: prefixCount }, (_unused, prefixIndex) => ({
+        waypointCount: prefixIndex + 1,
+        path: path.slice(0, prefixIndex + 2),
+        stageGenerations: Object.fromEntries(stageDefinitions.map(definition => [
+            definition.name,
+            allocationsByStage[definition.name][prefixIndex]
+        ]))
+    })).filter(phase => Object.values(phase.stageGenerations).some(generations => generations > 0));
+}
+
+function curriculumConfig(config, isCompleteRoute) {
+    if (isCompleteRoute) return config;
+    return {
+        ...config,
+        goals: {
+            ...config.goals,
+            requireTarget: false,
+            requiredBonusIndices: []
+        }
+    };
+}
+
+function reevaluateSeeds(seeds, state, path, launch, variables, config, progress) {
+    return seeds.map(seed => {
+        const candidate = evaluateSculptCandidate(
+            state, path, launch, variables, seed.values, config
+        );
+        progress.evaluations += candidate.simulationCount;
+        return candidate;
+    });
 }
 
 function materializeCandidate(candidate, state, variables, planetIndices) {
@@ -701,10 +1030,23 @@ export async function solveGravitySculpt({
     onProgress
 }) {
     const config = { ...DEFAULT_OPTIONS, ...options };
+    const budgetMultiplier = clamp(
+        Number(options.budgetMultiplier) || DEFAULT_OPTIONS.budgetMultiplier,
+        DEFAULT_OPTIONS.budgetMultiplierRange.minimum,
+        DEFAULT_OPTIONS.budgetMultiplierRange.maximum
+    );
+    config.budgetMultiplier = budgetMultiplier;
+    config.maximumPopulation = Math.max(
+        4,
+        Math.round(config.maximumPopulation * budgetMultiplier)
+    );
     config.stages = Object.fromEntries(
         Object.entries(DEFAULT_OPTIONS.stages).map(([name, defaults]) => [
             name,
-            { ...defaults, ...(options.stages?.[name] || {}) }
+            Object.fromEntries(
+                Object.entries({ ...defaults, ...(options.stages?.[name] || {}) })
+                    .map(([key, value]) => [key, Math.max(1, Math.round(value * budgetMultiplier))])
+            )
         ])
     );
     const path = desiredPath.map(point => ({ ...point }));
@@ -733,26 +1075,57 @@ export async function solveGravitySculpt({
             0
         ),
         evaluations: baseline.simulationCount,
+        influenceAnalyses: [],
         onProgress
     };
+    const curriculum = buildWaypointCurriculum(path, stageDefinitions, config);
+    const prefixArchives = [];
+    let archive = [baseline];
     let population = [baseline];
-    for (const { name, activeIndices } of stageDefinitions) {
-        population = await runDifferentialEvolutionStage({
-            name,
-            seeds: population,
-            activeIndices,
-            stageConfig: config.stages[name],
+    for (const phase of curriculum) {
+        const isCompleteRoute = phase.path.length === path.length;
+        const phaseConfig = curriculumConfig(config, isCompleteRoute);
+        archive = reevaluateSeeds(
+            archive,
             state,
-            path,
-            launch: resolvedLaunch,
+            phase.path,
+            resolvedLaunch,
             variables,
-            config,
-            random,
+            phaseConfig,
             progress
+        );
+        for (const { name, activeIndices, useInfluenceGuidance } of stageDefinitions) {
+            const generations = phase.stageGenerations[name];
+            if (generations <= 0) continue;
+            population = await runDifferentialEvolutionStage({
+                name: `${name} · waypoint ${phase.waypointCount}/${path.length - 1}`,
+                seeds: archive,
+                activeIndices,
+                stageConfig: { ...config.stages[name], generations },
+                state,
+                path: phase.path,
+                launch: resolvedLaunch,
+                variables,
+                config: phaseConfig,
+                random,
+                progress,
+                useInfluenceGuidance
+            });
+            archive = selectDiverseCandidates(
+                population,
+                variables,
+                phaseConfig,
+                config.waypointCurriculumArchiveSize
+            );
+        }
+        prefixArchives.push({
+            waypointCount: phase.waypointCount,
+            candidateCount: archive.length,
+            bestMissedWaypointCount: archive[0]?.missedWaypointCount ?? phase.waypointCount
         });
     }
     const candidates = selectDiverseCandidates(
-        [baseline, ...population], variables, config
+        [...archive, ...population], variables, config
     ).map(candidate => materializeCandidate(candidate, state, variables, planetIndices));
     const best = candidates[0];
     return {
@@ -760,6 +1133,9 @@ export async function solveGravitySculpt({
         baselineScore: baseline.score,
         path,
         variables,
+        prefixArchives,
+        influenceAnalyses: progress.influenceAnalyses,
+        seed: config.seed,
         evaluations: progress.evaluations,
         candidates
     };

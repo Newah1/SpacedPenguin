@@ -40,6 +40,14 @@ export class LevelEditorToolbarView {
         this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
         this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
         this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
+        this.minimizeButton = button('−', '#555', event => {
+            event.stopPropagation();
+            this.setMinimized(!this.minimized);
+        });
+        this.minimizeButton.title = 'Minimize editor toolbar';
+        this.minimizeButton.setAttribute('aria-label', this.minimizeButton.title);
+        this.minimizeButton.style.fontSize = '22px';
+        this.minimizeButton.style.padding = '4px 12px';
         this.section = document.createElement('div');
         this.section.style.cssText = `
             position: absolute; top: 64px; left: 10px; right: 330px;
@@ -51,7 +59,11 @@ export class LevelEditorToolbarView {
         this.addButtonContainer = document.createElement('div');
         this.addButtonContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; width: 100%;';
         this.section.appendChild(this.addButtonContainer);
-        this.toolbar.append(this.modeButton, this.toggleButton, this.deleteButton, this.cloneButton, this.sculptButton, this.exportButton);
+        this.toolbarControls = [
+            this.modeButton, this.toggleButton, this.deleteButton,
+            this.cloneButton, this.sculptButton, this.exportButton
+        ];
+        this.toolbar.append(...this.toolbarControls, this.minimizeButton);
         this.wrapper.append(this.toolbar, this.section);
         this.mobileToolbar = this.createMobileToolbar();
         this.toolbarDrag = makeDraggablePanel(this.toolbar);
@@ -69,6 +81,7 @@ export class LevelEditorToolbarView {
             cloneButton: this.cloneButton,
             exportButton: this.exportButton,
             sculptButton: this.sculptButton,
+            minimizeButton: this.minimizeButton,
             addButtons: this.addButtons
         };
     }
@@ -119,9 +132,27 @@ export class LevelEditorToolbarView {
         this.toggleButton.textContent = 'Add Objects ▼';
     }
 
+    setMinimized(minimized) {
+        this.minimized = minimized;
+        for (const control of this.toolbarControls) {
+            control.style.display = minimized ? 'none' : '';
+        }
+        if (minimized) this.close();
+        this.minimizeButton.textContent = minimized ? '+' : '−';
+        this.minimizeButton.title = minimized ? 'Restore editor toolbar' : 'Minimize editor toolbar';
+        this.minimizeButton.setAttribute('aria-label', this.minimizeButton.title);
+        this.toolbar.dataset.minimized = String(minimized);
+        this.toolbar.style.minHeight = minimized ? '0' : '44px';
+
+        if (minimized) this.toolbar.style.right = 'auto';
+        else this.resize();
+        this.toolbarDrag?.clampToViewport();
+    }
+
     resize() {
         const compact = isCompactEditorViewport();
         if (this.toolbar.dataset.userPositioned) this.toolbarDrag?.clampToViewport();
+        else if (this.minimized) this.toolbar.style.right = 'auto';
         else Object.assign(this.toolbar.style, compact
             ? { left: '10px', right: '10px' }
             : { left: '10px', right: '330px' });

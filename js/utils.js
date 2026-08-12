@@ -154,6 +154,11 @@ export default class Utils {
         const params = new URLSearchParams(window.location.search);
         return params.get(name) || defaultValue;
     }
+
+    static hasURLParameter(name) {
+        const params = new URLSearchParams(window.location.search);
+        return params.has(name);
+    }
     
     static setURLParameter(name, value) {
         const url = new URL(window.location);

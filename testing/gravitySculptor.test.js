@@ -148,6 +148,49 @@ test('physics comfort favors floaty gravity and efficient distance without rewar
     assert.ok(Number.isFinite(floaty.elapsedSeconds));
 });
 
+test('mass regularization treats reciprocal ratios symmetrically', () => {
+    const trajectory = [{ x: 0, y: 0 }, { x: 100, y: 0 }];
+    const desiredPath = [{ x: 0, y: 0 }, { x: 100, y: 0 }];
+    const massVariable = {
+        key: 'planet.0.mass',
+        kind: 'mass',
+        scale: 'log',
+        initial: 100,
+        min: 25,
+        max: 400,
+        apply() {}
+    };
+    const lighter = analyzeSculptTrajectory(
+        trajectory, desiredPath, null, [massVariable], [50], { terminalPenalty: 0 }
+    );
+    const heavier = analyzeSculptTrajectory(
+        trajectory, desiredPath, null, [massVariable], [200], { terminalPenalty: 0 }
+    );
+
+    assert.ok(Math.abs(lighter.score - heavier.score) < 1e-9);
+});
+
+test('slow trajectories receive distance-based opportunity beyond the old fixed time horizon', () => {
+    const state = simulationState();
+    state.planets = [];
+    const result = evaluateSculptCandidate(
+        state,
+        [{ x: 80, y: 300 }, { x: 500, y: 300 }],
+        { velocity: { x: 50, y: 0 }, angleDegrees: 0, pullbackPower: 50 },
+        [],
+        [],
+        {
+            previewSeconds: 1,
+            trajectoryDistanceBudgetMultiplier: 2,
+            trajectoryTimeSafetyMultiplier: 3,
+            robustLaunchOffsets: []
+        }
+    );
+
+    assert.ok(result.elapsedSeconds > 2.9);
+    assert.ok(result.pathLength > 140);
+});
+
 test('gravity sculpt improves a layout without mutating the live simulation snapshot', async () => {
     const state = simulationState();
     const original = structuredClone(state);
@@ -188,7 +231,66 @@ test('gravity sculpt improves a layout without mutating the live simulation snap
     assert.deepEqual(state, original);
 });
 
-test('staged differential evolution returns ranked, distinct launch-and-layout candidates', async () => {
+test('prefix curriculum improves a small multi-waypoint search without crowding its population', async () => {
+    const state = simulationState();
+    state.penguin.position = { x: 70, y: 300 };
+    state.slingshot.position = { x: 70, y: 300 };
+    state.target.position = { x: 760, y: 300 };
+    state.planets = [
+        { id: 'upper', position: { x: 270, y: 175 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null },
+        { id: 'lower', position: { x: 470, y: 430 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null },
+        { id: 'exit', position: { x: 650, y: 170 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null }
+    ];
+    const desiredPath = [
+        { x: 70, y: 300 },
+        { x: 280, y: 225 },
+        { x: 500, y: 350 },
+        { x: 730, y: 245 }
+    ];
+    const shared = {
+        state,
+        desiredPath,
+        planetIndices: [0, 1, 2],
+        launch: { velocity: { x: 235, y: 0 }, angleDegrees: 0, pullbackPower: 150 },
+        options: {
+            adjustPosition: false,
+            adjustMass: true,
+            maximumMassMultiplier: 14,
+            previewSeconds: 3.2,
+            checkpointTolerance: 20,
+            candidateCount: 3,
+            budgetMultiplier: 0.5,
+            stages: {
+                mass: { population: 12, generations: 4 },
+                joint: { population: 16, generations: 6 }
+            },
+            robustLaunchOffsets: [],
+            waypointCurriculumEnabled: false,
+            seed: 778151
+        }
+    };
+    const unguided = await solveGravitySculpt({
+        ...shared,
+        options: { ...shared.options, influenceGuidanceEnabled: false }
+    });
+    const curriculum = await solveGravitySculpt({
+        ...shared,
+        options: {
+            ...shared.options,
+            influenceGuidanceEnabled: false,
+            waypointCurriculumEnabled: true
+        }
+    });
+
+    assert.ok(curriculum.missedWaypointCount < unguided.missedWaypointCount);
+    assert.ok(curriculum.checkpointCoverage > unguided.checkpointCoverage);
+    assert.deepEqual(
+        curriculum.prefixArchives.map(archive => archive.waypointCount),
+        [1, 2, 3]
+    );
+});
+
+test('staged differential evolution returns waypoint-tiered, distinct launch-and-layout candidates', async () => {
     const state = simulationState();
     const result = await solveGravitySculpt({
         state,
@@ -199,15 +301,30 @@ test('staged differential evolution returns ranked, distinct launch-and-layout c
         planetIndices: [0],
         options: {
             candidateCount: 3,
-            previewSeconds: 2
+            previewSeconds: 2,
+            influenceActivationThreshold: 0.6
         }
     });
     assert.equal(result.candidates.length, 3);
     assert.ok(result.candidates.every(candidate => Number.isFinite(candidate.launch.angleDegrees)));
     assert.ok(result.candidates.every(candidate => candidate.checkpointCoverage >= 0));
+    const jointAnalysis = result.influenceAnalyses.find(analysis =>
+        analysis.stage.startsWith('joint') &&
+        analysis.consideredVariables.some(key => key.startsWith('launch.')) &&
+        analysis.consideredVariables.some(key => key.endsWith('.mass')) &&
+        analysis.consideredVariables.some(key => key.endsWith('.x'))
+    );
+    assert.ok(jointAnalysis, 'joint influence analysis should span launch, mass, and position variables');
+    assert.ok(jointAnalysis.activeVariables.length < jointAnalysis.consideredVariables.length);
+    assert.ok(result.candidates.every(candidate =>
+        candidate.missedWaypointCount === result.missedWaypointCount
+    ));
     const signatures = new Set(result.candidates.map(candidate =>
         `${candidate.launch.angleDegrees.toFixed(3)}:${candidate.launch.pullbackPower.toFixed(3)}`
     ));
     assert.ok(signatures.size > 1);
-    assert.equal(result.evaluations, 7350);
+    assert.equal(result.seed, 1548501076);
+    assert.ok(result.prefixArchives.length > 1);
+    assert.equal(result.prefixArchives.at(-1).waypointCount, 3);
+    assert.equal(result.evaluations, 8405);
 });

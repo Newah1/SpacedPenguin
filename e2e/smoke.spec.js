@@ -346,6 +346,23 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     expect(Array.isArray(exportedLevel.objects)).toBe(true);
 });
 
+test('level_editor URL parameter boots directly into the editor', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/?level_editor');
+    await waitForGame(page, 'levelEditor');
+
+    await expect(page.locator('#level-editor')).toBeVisible();
+    expect(await page.evaluate(() => ({
+        active: window.game.levelEditor.active,
+        level: window.game.level,
+        name: window.game.levelMetadata.name
+    }))).toEqual({
+        active: true,
+        level: 1,
+        name: 'Browser Smoke Level'
+    });
+});
+
 test('Gravity Sculpt draws, solves, previews, applies, and undoes one planet batch', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');
@@ -357,6 +374,8 @@ test('Gravity Sculpt draws, solves, previews, applies, and undoes one planet bat
 
     await page.getByRole('button', { name: 'Gravity Sculpt', exact: true }).click();
     await expect(page.locator('#gravity-sculpt-panel')).toBeVisible();
+    await expect(page.getByLabel('Search budget')).toHaveValue('1');
+    await expect(page.locator('#gravity-sculpt-panel')).toContainText('1× (~1× time)');
     await page.getByRole('button', { name: 'Set Waypoints', exact: true }).click();
     const points = await Promise.all([
         stageToClient(page, 105, 300),
@@ -369,12 +388,22 @@ test('Gravity Sculpt draws, solves, previews, applies, and undoes one planet bat
     await expect(page.getByRole('button', { name: 'Solve', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Solve', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Apply Candidate', exact: true })).toBeEnabled({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: 'Reroll', exact: true })).toBeEnabled();
     await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 1 / 4');
     const firstPreview = await page.evaluate(() => window.game.levelEditor.gravitySculptController.state.preview);
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.locator('#gravity-sculpt-panel')).toContainText('Candidate 2 / 4');
     const secondPreview = await page.evaluate(() => window.game.levelEditor.gravitySculptController.state.preview);
     expect(secondPreview).not.toEqual(firstPreview);
+    const firstSeed = await page.evaluate(() =>
+        window.game.levelEditor.gravitySculptController.state.result.seed
+    );
+    await page.getByRole('button', { name: 'Reroll', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Apply Candidate', exact: true })).toBeEnabled({ timeout: 15000 });
+    await expect.poll(() => page.evaluate(
+        seed => window.game.levelEditor.gravitySculptController.state.result.seed !== seed,
+        firstSeed
+    )).toBe(true);
     const before = await page.evaluate(() => ({
         position: { ...window.game.planets[0].position },
         mass: window.game.planets[0].mass
