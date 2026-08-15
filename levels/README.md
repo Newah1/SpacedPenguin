@@ -1,6 +1,6 @@
 # Spaced Penguin Level Authoring Reference
 
-This directory contains the 20 JSON levels loaded by the current HTML5 runtime. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
+This directory contains the 25 JSON levels loaded by the default HTML5 runtime. The archived `manual/` catalog contains 20 earlier hand-authored levels. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
 
 Every browser, editor, and headless consumer passes a level through the shared `LevelSchema` normalizer. Omitted fields receive the same configured defaults everywhere; explicit `0`, `false`, and empty-string values are retained unless validation rejects them for that specific field.
 
@@ -354,7 +354,7 @@ flowchart LR
   Pass2 --> Rules[Apply rules]
 ```
 
-- All 20 authored files are fetched sequentially during bootstrap.
+- All 25 default-catalog authored files are fetched sequentially during bootstrap. The archived manual catalog is loaded on demand when selected with `?level=manual:N`.
 - HTTP status, JSON parsing, structure, numeric constraints, composition, IDs, orbit references/cycles, and level rules are checked before caching.
 - Unknown object types and invalid definitions are rejected rather than partially instantiated.
 - A missing level definition is masked by random fallback generation when selected.
@@ -368,7 +368,7 @@ node .\levelTester.js --validate-only --level ..\levels\level10.json
 
 ## Editor export and round-trip caveats
 
-The editor exports a browser-downloaded JSON file. There is no editor import picker, server save, autosave, local-storage save, undo, or redo implementation.
+The editor exports a browser-downloaded JSON file. There is no editor import picker, server save, autosave, or local-storage level save. In-session undo/redo is supported for structural edits, canvas and orbit-center movement, object properties, and level settings.
 
 Export is not a lossless authored-model codec:
 

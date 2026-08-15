@@ -425,6 +425,7 @@ test('level-end buttons handle clicks before the screen-wide continue action', (
 });
 
 test('level-end continuation reaches game over at the configured final level', () => {
+    let endGameCalls = 0;
     const game = {
         level: LEVEL_CATALOG_CONFIG.maxGeneratedLevel,
         state: GameState.SCORING,
@@ -432,6 +433,10 @@ test('level-end continuation reaches game over at the configured final level', (
         uiManager: {
             audioManager: null,
             playSound() {}
+        },
+        endGame() {
+            endGameCalls++;
+            this.state = GameState.GAME_OVER;
         },
         nextLevel: () => assert.fail('final level must not advance')
     };
@@ -447,6 +452,7 @@ test('level-end continuation reaches game over at the configured final level', (
     LevelEndScreen.prototype.handleContinue.call(screen);
 
     assert.equal(game.state, GameState.GAME_OVER);
+    assert.equal(endGameCalls, 1);
 });
 
 test('Game validates a level before clearing the current world', () => {

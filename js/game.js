@@ -40,6 +40,8 @@ import { SETTINGS_CONFIG } from './config/settingsConfig.js';
 import { LocalSettingsStore } from './settingsStore.js';
 import { SettingsManager } from './settingsManager.js';
 import { SettingsScreen } from './settingsScreen.js';
+import { HighScoreStore } from './highScoreStore.js';
+import { HighScoresScreen } from './highScoresScreen.js';
 import { createButton, registerButton } from './buttonFramework.js';
 import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
@@ -108,6 +110,10 @@ class Game {
         this.distance = 0;
         this.tries = 0;
         this.highScore = 0;
+        this.highScoreStore = new HighScoreStore(
+            typeof localStorage === 'undefined' ? null : localStorage
+        );
+        this.currentRunScoreSaved = false;
         this.planetCollisions = 0; // Track planet collisions for rules
         
         // Level system
@@ -1537,6 +1543,8 @@ class Game {
         this.currentAttemptScore = 0;
         this.distance = 0;
         this.tries = 0;
+        this.currentRunScoreSaved = false;
+        this.uiManager.closeAllScreens();
         this.loadLevel(this.level);
         this.setState(GameState.PLAYING);
     }
@@ -1588,14 +1596,45 @@ class Game {
     }
     
     saveHighScore() {
-        localStorage.setItem('spacedPenguinHighScore', this.highScore.toString());
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('spacedPenguinHighScore', this.highScore.toString());
+        }
     }
     
     loadHighScore() {
-        const saved = localStorage.getItem('spacedPenguinHighScore');
-        if (saved) {
-            this.highScore = parseInt(saved);
-        }
+        const saved = typeof localStorage === 'undefined'
+            ? 0
+            : parseInt(localStorage.getItem('spacedPenguinHighScore'), 10) || 0;
+        const leaderboardBest = this.highScoreStore.getAllTime(1)[0]?.score || 0;
+        this.highScore = Math.max(saved, leaderboardBest);
+    }
+
+    showHighScores(options = {}) {
+        return this.uiManager.showScreen(HighScoresScreen, this, options);
+    }
+
+    recordHighScore(name, region) {
+        if (this.currentRunScoreSaved) return null;
+        const entry = this.highScoreStore.add({ name, region, score: this.score });
+        this.currentRunScoreSaved = true;
+        this.highScore = Math.max(this.highScore, entry.score);
+        this.saveHighScore();
+        return entry;
+    }
+
+    endGame() {
+        this.uiManager.closeAllScreens();
+        this.setState(GameState.GAME_OVER);
+        return this.showHighScores({
+            gameEnd: true,
+            requiresEntry: !this.currentRunScoreSaved && this.highScoreStore.qualifies(this.score)
+        });
+    }
+
+    returnToMenu() {
+        this.uiManager.closeAllScreens();
+        Utils.removeURLParameter('level');
+        this.setState(GameState.MENU);
     }
 
     resetPenguinToSlingshot() {

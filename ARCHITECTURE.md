@@ -4,13 +4,13 @@
 
 **Audience:** Software architects, maintainers, game/system developers, and level-tooling developers
 
-**Last verified:** 2026-08-14 against the repository source
+**Last verified:** 2026-08-15 against the repository source
 
 **Scope:** The browser-based HTML5 rewrite. `OldSource/` is reference material, not a runtime dependency.
 
 ## 1. Executive summary
 
-Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 stage coordinate system, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 20 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
+Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 stage coordinate system, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
 The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
 
@@ -40,9 +40,9 @@ flowchart LR
 |---|---|---|---|
 | Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputActionManager`, `Game`, `UIManager`, `FullscreenManager` | Input actions are activated by game/editor state. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
-| Level definitions | `levels/level1.json` through `level20.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
-| URL level selector | `?level=N` | `GameManager` / `Utils` | The shared catalog configuration distinguishes 20 shipped levels from procedural fallback through level 25. |
-| Prior high score | `localStorage.spacedPenguinHighScore` | `Game` | Only durable gameplay state in the current rewrite. |
+| Level definitions | `levels/level01.json` through `level25.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
+| URL level selector | `?level=N` | `GameManager` / `Utils` | Numeric selectors address the 25-level shipped catalog; `manual:N` selects the archived 20-level catalog. |
+| High scores | `localStorage.spacedPenguinHighScores` plus legacy best-score key | `HighScoreStore` / `Game` | Local all-time and today top-ten entries; no network submission. |
 
 ### Outputs
 
@@ -175,7 +175,7 @@ sequenceDiagram
     GM->>IA: new InputActionManager(context)
     IA->>IA: activate listeners for MENU
     GM->>LL: loadDefaultLevels()
-    loop levels 1 through 20
+    loop levels 1 through 25
         LL->>LL: fetch levels/levelN.json
     end
     GM->>G: loadHighScore()
@@ -292,7 +292,7 @@ stateDiagram-v2
 
 `Game.setState` is the preferred transition operation because it immediately refreshes active input listeners. A few loader, editor, and end-screen paths assign `game.state` directly; those paths rely on the next frame's `InputActionManager.updateActiveActions()` to reconcile listeners.
 
-The end screen derives its terminal branch from the configured maximum generated level. The first 20 levels are shipped JSON definitions; levels 21–25 use the procedural fallback generator, and completion of level 25 enters `GAME_OVER`.
+The end screen derives its terminal branch from the configured maximum selectable level. All 25 default-catalog levels are shipped JSON definitions, and completion of level 25 enters `GAME_OVER`. The archived `manual` catalog contains 20 levels and remains within that catalog when advancing.
 
 ### Penguin state
 
@@ -506,12 +506,12 @@ Current persistence is intentionally small:
 ```mermaid
 flowchart LR
     Score[Completed score] --> Game
-    Game -->|setItem| Local[(localStorage high score)]
-    Local -->|getItem on bootstrap| Game
+    Game -->|save entries and best score| Local[(localStorage high scores)]
+    Local -->|load on bootstrap and high-score screen| Game
     Editor -->|Blob/download| JSON[Level JSON file]
 ```
 
-The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard, does not encode/submit player names, and does not persist level progress or settings. Those behaviors appear only in historical documentation and `OldSource/`.
+The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or submit scores over the network. It does persist local high-score entries (up to 100 saved entries, with top-ten all-time and today views); it does not persist level progress or settings. Historical network behavior appears only in the original documentation and `OldSource/`.
 
 ## 13. Design decisions and trade-offs
 
@@ -644,7 +644,7 @@ flowchart TB
     Core --> Headless
 ```
 
-Verified limitations as of 2026-08-14:
+Verified limitations as of 2026-08-15:
 
 - The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
 - Worker count is capped at four. `auto` remains single-threaded below 5,000 candidates to avoid paying worker startup and duplicate-timeline costs on small sweeps.

@@ -340,11 +340,7 @@ class GameManager {
     }
 
     showMenuHighScores() {
-        this.game?.uiManager.showModal({
-            title: 'HIGH SCORES',
-            message: `Best distance: ${Utils.formatScore(this.game.highScore)}\nKeep launching Kevin to beat your record.`,
-            actions: [{ label: 'BACK', role: 'cancel' }]
-        });
+        this.game?.showHighScores();
     }
 
     showMenuTips() {

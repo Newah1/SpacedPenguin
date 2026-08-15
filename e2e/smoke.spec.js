@@ -330,6 +330,36 @@ test('menu uses the original black and orange title-card composition', async ({ 
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
 });
 
+test('high-score button and final-game entry share the persisted leaderboard', async ({ page }) => {
+    await page.goto('/');
+    await waitForGame(page);
+
+    const highScores = await stageToClient(page, 123, 544);
+    await page.mouse.click(highScores.x, highScores.y);
+    await expect(page.getByRole('heading', { name: 'HIGH SCORES' })).toBeVisible();
+    await expect(page.getByText('No scores saved yet')).toBeVisible();
+    await page.getByRole('button', { name: 'BACK' }).click();
+
+    await page.evaluate(() => {
+        window.game.score = 1234;
+        window.game.highScore = 1234;
+        window.game.endGame();
+    });
+    await expect(page.getByRole('heading', { name: 'A NEW HIGH SCORE!' })).toBeVisible();
+    await page.getByLabel('First name').fill('Kevin');
+    await page.getByLabel('Region').fill('NY');
+    await page.getByRole('button', { name: 'SAVE SCORE' }).click();
+
+    await expect(page.getByRole('heading', { name: 'HIGH SCORES' })).toBeVisible();
+    await expect(page.locator('.high-score-list tbody tr')).toHaveCount(1);
+    await expect(page.locator('.high-score-list tbody tr')).toContainText('Kevin');
+    await expect(page.locator('.high-score-list tbody tr')).toContainText('1,234');
+    expect(await page.evaluate(() => JSON.parse(localStorage.spacedPenguinHighScores).entries[0].score)).toBe(1234);
+
+    await page.getByRole('button', { name: 'MAIN MENU' }).click();
+    await waitForGame(page);
+});
+
 test('manual harness index and repository-relative modules remain available', async ({ page }) => {
     await page.goto('/testing/manual/');
     await expect(page.getByRole('heading', { name: 'Manual test harnesses' })).toBeVisible();

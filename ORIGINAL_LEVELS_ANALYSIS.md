@@ -1,6 +1,6 @@
 # Spaced Penguin Original Level System Analysis
 
-> **Historical scope:** This document analyzes the original Director/Shockwave movie and its estimated 25-level timeline. The current HTML5 rewrite ships 19 validated JSON levels. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`levels/README.md`](levels/README.md) for current behavior.
+> **Historical scope:** This document analyzes the original Director/Shockwave movie and its estimated 25-level timeline. The current HTML5 rewrite ships 25 validated converted JSON levels, with a separate archived 20-level manual catalog. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`levels/README.md`](levels/README.md) for current behavior.
 
 ## Executive Summary
 
@@ -230,7 +230,7 @@ The following draft predates the current loader and is retained only as design h
 1. **Preserve Original Mechanics**: Maintain exact physics constants and formulas
 2. **Current JSON format**: Implemented with compatibility aliases; executable validation exists, but a generated JSON Schema artifact does not
 3. **Validation System**: Implemented for structure, numeric constraints, identities, orbit references/cycles, composition, and rules
-4. **Level editor**: Implemented for live editing and JSON download; import, persistent save, undo, and redo remain future work
+4. **Level editor**: Implemented for live editing, JSON download, and in-session undo/redo; import and persistent save remain future work
 
 ## Conclusion
 
