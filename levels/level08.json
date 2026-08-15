@@ -1,0 +1,177 @@
+{
+  "level": 8,
+  "name": "Original Level 08",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 626.819805,
+    "y": 358.819805
+  },
+  "targetPosition": {
+    "x": 100.0,
+    "y": 145.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 626.819805,
+        "y": 358.819805
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 595.0,
+          "y": 327.0
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 427.0,
+        "y": 475.5
+      },
+      "properties": {
+        "id": "planet-ch7",
+        "radius": 34.5,
+        "mass": 100,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 493.0,
+        "y": 154.5
+      },
+      "properties": {
+        "id": "planet-ch8",
+        "radius": 34.5,
+        "mass": 100,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 239.5,
+        "y": 217.5
+      },
+      "properties": {
+        "id": "planet-ch9",
+        "radius": 57.0,
+        "mass": 100,
+        "collisionRadius": 53.0,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_saturn"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 166.0,
+        "y": 184.5
+      },
+      "properties": {
+        "id": "bonus-ch10",
+        "value": 250,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 728.5,
+        "y": 468.0
+      },
+      "properties": {
+        "id": "bonus-ch11",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 653.5,
+        "y": 150.0
+      },
+      "properties": {
+        "id": "bonus-ch12",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 106.0,
+        "y": 544.5
+      },
+      "properties": {
+        "id": "bonus-ch13",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 100.0,
+        "y": 145.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 18,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "level": 5,
+  "name": "Original Level 05",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 626.819805,
+    "y": 358.819805
+  },
+  "targetPosition": {
+    "x": 137.5,
+    "y": 97.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -284.0,
+      "y": -309.0,
+      "width": 1368.0,
+      "height": 1218.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 626.819805,
+        "y": 358.819805
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 595.0,
+          "y": 327.0
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 427.0,
+        "y": 475.5
+      },
+      "properties": {
+        "id": "planet-ch7",
+        "radius": 34.5,
+        "mass": 100,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 493.0,
+        "y": 154.5
+      },
+      "properties": {
+        "id": "planet-ch8",
+        "radius": 34.5,
+        "mass": 100,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 745.0,
+        "y": 478.5
+      },
+      "properties": {
+        "id": "bonus-ch10",
+        "value": 5000,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 739.0,
+        "y": 274.5
+      },
+      "properties": {
+        "id": "bonus-ch11",
+        "value": 5000,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 68.5,
+        "y": 336.0
+      },
+      "properties": {
+        "id": "bonus-ch12",
+        "value": 5000,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 77.5,
+        "y": 201.0
+      },
+      "properties": {
+        "id": "bonus-ch13",
+        "value": 5000,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 137.5,
+        "y": 97.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 272.5,
+        "y": 541.5
+      },
+      "properties": {
+        "id": "tutorial-text-ch9",
+        "name": "txt_all4",
+        "content": "<font color=\"#FFFFCC\">Can you get all 4 distance bonuses on the way to the ship?</font>",
+        "width": 186.0,
+        "height": 84.0,
+        "fontSize": 18,
+        "color": "#FFFFCC",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": 0,
+        "maxWidth": 186.0,
+        "autoSize": false,
+        "fadeIn": false,
+        "sourceChannel": 9
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 15,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

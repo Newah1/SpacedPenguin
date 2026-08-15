@@ -1,0 +1,393 @@
+{
+  "level": 24,
+  "name": "Original Level 24",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 659.5,
+    "y": 301.5
+  },
+  "targetPosition": {
+    "x": 100.0,
+    "y": 100.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -315.5,
+      "y": -340.5,
+      "width": 1431.0,
+      "height": 1281.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 659.5,
+        "y": 301.5
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 614.5,
+          "y": 301.5
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 400.0,
+        "y": 90.0
+      },
+      "properties": {
+        "id": "planet-ch10",
+        "radius": 34.5,
+        "mass": 48,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_sun",
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 0.253125,
+            "initialVelocity": {
+              "x": 5.625,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 136,
+                "collisionRadius": 120.0,
+                "position": {
+                  "x": 400.0,
+                  "y": 240.0
+                }
+              }
+            ]
+          },
+          "orbitCenter": {
+            "x": 400.0,
+            "y": 240.0
+          }
+        }
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 400.0,
+        "y": 390.0
+      },
+      "properties": {
+        "id": "planet-ch11",
+        "radius": 34.5,
+        "mass": 48,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_sun",
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 0.253125,
+            "initialVelocity": {
+              "x": -5.625,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 136,
+                "collisionRadius": 120.0,
+                "position": {
+                  "x": 400.0,
+                  "y": 240.0
+                }
+              }
+            ]
+          },
+          "orbitCenter": {
+            "x": 400.0,
+            "y": 240.0
+          }
+        }
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 400.0,
+        "y": 240.0
+      },
+      "properties": {
+        "id": "planet-ch12",
+        "radius": 34.5,
+        "mass": 48,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_sun",
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 0.253125,
+            "initialVelocity": {
+              "x": 5.625,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 136,
+                "collisionRadius": 120.0,
+                "position": {
+                  "x": 400.0,
+                  "y": 390.0
+                }
+              }
+            ]
+          },
+          "orbitCenter": {
+            "x": 400.0,
+            "y": 390.0
+          }
+        }
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 400.0,
+        "y": 540.0
+      },
+      "properties": {
+        "id": "planet-ch13",
+        "radius": 34.5,
+        "mass": 48,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_sun",
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 0.253125,
+            "initialVelocity": {
+              "x": -5.625,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 136,
+                "collisionRadius": 120.0,
+                "position": {
+                  "x": 400.0,
+                  "y": 390.0
+                }
+              }
+            ]
+          },
+          "orbitCenter": {
+            "x": 400.0,
+            "y": 390.0
+          }
+        }
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 400.0,
+        "y": 165.0
+      },
+      "properties": {
+        "id": "bonus-ch14",
+        "value": 2500,
+        "width": 37.5,
+        "height": 37.5,
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 2.025,
+            "initialVelocity": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 68,
+                "collisionRadius": 34.5,
+                "targetId": "planet-ch12"
+              }
+            ]
+          },
+          "orbitTargetId": "planet-ch12"
+        }
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 475.0,
+        "y": 360.0
+      },
+      "properties": {
+        "id": "bonus-ch15",
+        "value": 2500,
+        "width": 37.5,
+        "height": 37.5,
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 2.025,
+            "initialVelocity": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 68,
+                "collisionRadius": 34.5,
+                "targetId": "planet-ch11"
+              }
+            ]
+          },
+          "orbitTargetId": "planet-ch11"
+        }
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 325.0,
+        "y": 360.0
+      },
+      "properties": {
+        "id": "bonus-ch16",
+        "value": 2500,
+        "width": 37.5,
+        "height": 37.5,
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 2.025,
+            "initialVelocity": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 68,
+                "collisionRadius": 34.5,
+                "targetId": "planet-ch11"
+              }
+            ]
+          },
+          "orbitTargetId": "planet-ch11"
+        }
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 400.0,
+        "y": 315.0
+      },
+      "properties": {
+        "id": "bonus-ch17",
+        "value": 2500,
+        "width": 37.5,
+        "height": 37.5,
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 2.025,
+            "initialVelocity": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 68,
+                "collisionRadius": 34.5,
+                "targetId": "planet-ch12"
+              }
+            ]
+          },
+          "orbitTargetId": "planet-ch12"
+        }
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 100.0,
+        "y": 100.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75,
+        "orbit": {
+          "orbitType": "director-gravity",
+          "orbitParams": {
+            "sourceFrameRate": 30,
+            "gravityStrength": 0.95971564,
+            "initialVelocity": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "gravitySources": [
+              {
+                "mass": 182,
+                "collisionRadius": 253.5,
+                "position": {
+                  "x": 100.0,
+                  "y": 300.0
+                }
+              }
+            ]
+          },
+          "orbitCenter": {
+            "x": 100.0,
+            "y": 300.0
+          }
+        }
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 34,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

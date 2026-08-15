@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-After comprehensive analysis of the original Shockwave source code, **the original 25 levels are not stored as extractable data files**. Instead, they exist as **frame-based layouts** within the Director movie file (`spaced_penguin.dir`), making automated extraction impossible without the original Director project file.
+The original 25 levels are stored as **frame-based layouts** in the Director movie's `VWSC` score chunk. They are not external data files, but they are extractable: `tools/extract_original_levels.py` reconstructs the delta-compressed score frames, resolves cast members, and decodes attached Lingo behavior initializers into JSON. Generated intermediate data lives in `OldSource/extracted_levels/`.
 
 ## Level System Architecture
 
@@ -143,29 +143,24 @@ Available planet types from asset analysis:
 
 ## Conversion Strategy for Modern JSON Format
 
-### Impossible Automated Conversion
+### Automated Extraction
 
-**The original level data cannot be programmatically extracted** because:
+The repository now includes a standard-library Python extractor. It:
 
-1. **No External Data Files**: Levels exist only as sprite arrangements in the Director movie
-2. **Binary Format**: The `.dir` file is a proprietary binary format
-3. **Embedded Layout**: Sprite positions are stored in the movie's internal frame data
+1. Reads the `VWSC-1806.bin` score header and sprite-detail index.
+2. Reconstructs all 64 frames from Director's delta-compressed channel updates.
+3. Selects the 25 GPS-controlled level frames (11–35), stopping at the frame whose GPS behavior has `plastLevel: 1`.
+4. Resolves logical cast slots through the three `CAS_` association tables.
+5. Decodes sprite coordinates, dimensions, appearance fields, and cross-channel references.
+6. Resolves attached behaviors and parses their serialized property lists, including planet mass/reach, orbital velocity and parents, bonus value, target channel, border, gravitational constant, stretch limit, and final-level flag.
 
-### Required Manual Recreation Process
+Run it from the repository root:
 
-To recreate the 25 original levels, you must:
+```powershell
+python tools\extract_original_levels.py
+```
 
-#### Option 1: Play-Through Documentation
-1. **Run Original Game**: Play through all 25 levels
-2. **Screenshot Each Level**: Capture level layouts at start
-3. **Document Coordinates**: Manually measure sprite positions
-4. **Record Properties**: Note planet masses and behaviors through gameplay observation
-
-#### Option 2: Director File Analysis (If Available)
-1. **Source Director Project**: Obtain original `.dir` working files
-2. **Export Frame Data**: Use Director to export sprite coordinates per frame
-3. **Behavior Property Export**: Extract behavior script properties
-4. **Automated Conversion**: Write script to transform Director data to JSON
+The result is an intermediate preservation format rather than the modern runtime schema. A separate conversion step should decide how Director registration points, support sprites, and behavior semantics map into current objects.
 
 ### Historical proposed JSON schema
 
@@ -225,10 +220,10 @@ The following draft predates the current loader and is retained only as design h
 
 ### For Level Recreation
 
-1. **Manual Documentation Approach**: Most practical given source limitations
-2. **Community Effort**: Engage players to help document levels
-3. **Progressive Recreation**: Start with simple levels, build complexity
-4. **Behavior Testing**: Use existing modern physics to match original feel
+1. **Use the extracted JSON as provenance**: Keep Director frame, channel, cast, and raw sprite-info fields through conversion.
+2. **Convert into the current schema separately**: Do not make the binary decoder responsible for modern gameplay design decisions.
+3. **Render and compare**: Validate converted layouts against the original stage and account for cast registration points.
+4. **Behavior testing**: Compare the modern physics against the extracted masses, velocities, gravity factors, and reach values.
 
 ### For Modern Implementation
 
@@ -239,8 +234,6 @@ The following draft predates the current loader and is retained only as design h
 
 ## Conclusion
 
-The original Spaced Penguin's 25 levels are **embedded in the Director movie timeline** and cannot be extracted automatically. The level system uses a sophisticated **frame-based progression** with **behavior-driven object properties** rather than external configuration files.
+The original Spaced Penguin's 25 levels are embedded in the Director movie timeline and are now automatically extracted into readable JSON. The level system uses frame-based progression with behavior-driven object properties rather than external configuration files.
 
-**To recreate the original levels**, manual documentation through gameplay is the most viable approach, requiring systematic capture of sprite positions, masses, and behavioral configurations for all 25 levels.
-
-The analysis has provided complete understanding of the object behavior system, enabling accurate recreation of the original game mechanics in the modern JSON-based level format.
+The intermediate extraction preserves all active sprite identities and every attached initializer encountered on the level frames. Converting that data into the modern runtime format remains a distinct follow-up task because the two engines use different coordinate, rendering, and physics models.

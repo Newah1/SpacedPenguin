@@ -36,6 +36,16 @@ export function calculateLaunchScale(normalizedDistance) {
 }
 
 export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot = {}) {
+    if (slingshot.launchModel === 'director') {
+        const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
+        const pullback = Math.min(Math.max(pullbackPower, 0), maxPullback);
+        const coordinateScale = slingshot.coordinateScale ?? 1;
+        const sourceFrameRate = slingshot.sourceFrameRate ?? 30;
+        const sourceSpeed = 40 * Math.pow(pullback / Math.max(1, maxPullback), 2);
+        const speed = sourceSpeed * coordinateScale * sourceFrameRate;
+        const radians = angleDegrees * Math.PI / 180;
+        return { x: Math.cos(radians) * speed, y: Math.sin(radians) * speed };
+    }
     const velocityMultiplier = slingshot.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier;
     const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
     const minPullback = slingshot.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
@@ -59,13 +69,32 @@ export function calculateLaunchVelocity(angleDegrees, pullbackPower, slingshot =
     return { x: Math.cos(radians) * speed, y: Math.sin(radians) * speed };
 }
 
+export function calculateLaunchPosition(angleDegrees, pullbackPower, slingshot = {}) {
+    const fallback = slingshot.position || { x: 0, y: 0 };
+    if (slingshot.launchModel !== 'director') return clonePoint(fallback);
+    const maxPullback = slingshot.maxPullback ?? slingshot.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback;
+    const minPullback = slingshot.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
+    const pullback = Math.min(Math.max(pullbackPower, minPullback), maxPullback);
+    const coordinateScale = slingshot.coordinateScale ?? 1;
+    const sourceSpeed = 40 * Math.pow(pullback / Math.max(1, maxPullback), 2);
+    const normalizedDistance = 100 * pullback / Math.max(1, maxPullback);
+    const snapFrames = Math.trunc(normalizedDistance / Math.max(sourceSpeed, Number.EPSILON) + 1);
+    const launchOffset = (sourceSpeed * snapFrames - pullback) * coordinateScale;
+    const radians = angleDegrees * Math.PI / 180;
+    const anchor = slingshot.anchorPosition || fallback;
+    return {
+        x: anchor.x + Math.cos(radians) * launchOffset,
+        y: anchor.y + Math.sin(radians) * launchOffset
+    };
+}
+
 export function launchSimulationPenguin(stateInput, angleDegrees, pullbackPower) {
     const state = cloneSimulationState(stateInput);
     return launchSimulationPenguinMutable(state, angleDegrees, pullbackPower);
 }
 
 export function launchSimulationPenguinMutable(state, angleDegrees, pullbackPower) {
-    state.penguin.position = clonePoint(state.slingshot.position);
+    state.penguin.position = calculateLaunchPosition(angleDegrees, pullbackPower, state.slingshot);
     state.penguin.velocity = calculateLaunchVelocity(angleDegrees, pullbackPower, state.slingshot);
     state.penguin.state = 'soaring';
     state.penguin.crashFramesRemaining = 0;
@@ -182,7 +211,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     }
 
     collectBonuses(state, events);
-    if (circlesOverlap(state.penguin.position, 0, state.target.position, state.target.width / 2)) {
+    if (circlesOverlap(state.penguin.position, 0, state.target.position, state.target.collisionRadius)) {
         const victoryFailure = evaluateVictoryRules(state);
         if (victoryFailure) {
             state.penguin.state = 'crashed';

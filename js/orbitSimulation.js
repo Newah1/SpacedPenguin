@@ -12,25 +12,39 @@ export function cloneOrbitState(orbit) {
         radius: orbit.radius ?? 0,
         speed: orbit.speed ?? 0,
         angle: orbit.angle ?? 0,
-        params: { ...(orbit.params || {}) },
+        params: {
+            ...(orbit.params || {}),
+            ...(Array.isArray(orbit.params?.gravitySources)
+                ? { gravitySources: orbit.params.gravitySources.map(source => ({
+                    ...source,
+                    ...(source.position ? { position: clonePoint(source.position) } : {})
+                })) }
+                : {})
+        },
         velocity: clonePoint(orbit.velocity || { x: 0, y: 0 }),
+        frameAccumulator: orbit.frameAccumulator ?? 0,
         gravityStrength: orbit.gravityStrength ?? orbit.params?.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
         maxGravityAccel: orbit.maxGravityAccel ?? PHYSICS_CONFIG.orbit.maxGravityAcceleration
     };
 }
 
-export function stepOrbit(orbitInput, currentPosition, center, target, deltaTime) {
+export function stepOrbit(orbitInput, currentPosition, center, target, deltaTime, targets = null) {
     const orbit = cloneOrbitState(orbitInput);
-    if (!orbit || !center || deltaTime <= 0) {
+    if (!orbit || deltaTime <= 0 || (!center && orbit.type !== LevelOrbitType.DIRECTOR_GRAVITY)) {
         return { position: clonePoint(currentPosition), orbit };
     }
 
-    if (orbit.type !== LevelOrbitType.GRAVITY && orbit.speed === 0) {
+    if (orbit.type !== LevelOrbitType.GRAVITY &&
+        orbit.type !== LevelOrbitType.DIRECTOR_GRAVITY &&
+        orbit.speed === 0) {
         return { position: clonePoint(currentPosition), orbit };
     }
 
     if (orbit.type === LevelOrbitType.GRAVITY) {
         return stepGravityOrbit(orbit, currentPosition, center, target, deltaTime);
+    }
+    if (orbit.type === LevelOrbitType.DIRECTOR_GRAVITY) {
+        return stepDirectorGravityOrbit(orbit, currentPosition, targets || [], deltaTime);
     }
 
     orbit.angle += orbit.speed * deltaTime;
@@ -45,6 +59,37 @@ export function stepOrbit(orbitInput, currentPosition, center, target, deltaTime
         default:
             return { position: circularPosition(orbit, center), orbit };
     }
+}
+
+function stepDirectorGravityOrbit(orbit, currentPosition, targets, deltaTime) {
+    const position = clonePoint(currentPosition);
+    const sources = orbit.params.gravitySources || [];
+    const sourceFrameRate = orbit.params.sourceFrameRate ?? 30;
+    orbit.frameAccumulator += deltaTime * sourceFrameRate;
+
+    while (orbit.frameAccumulator + Number.EPSILON >= 1) {
+        for (let index = 0; index < sources.length; index++) {
+            const source = sources[index];
+            const sourcePosition = targets[index]?.position || source.position;
+            if (!sourcePosition) continue;
+            const dx = sourcePosition.x - position.x;
+            const dy = sourcePosition.y - position.y;
+            const minimumDistance = Math.max(0, source.collisionRadius ?? 0);
+            const distanceSquared = Math.max(
+                dx * dx + dy * dy,
+                minimumDistance * minimumDistance
+            );
+            if (distanceSquared <= 0) continue;
+            const force = (source.mass ?? 1) * (orbit.params.gravityStrength ?? orbit.gravityStrength) / distanceSquared;
+            orbit.velocity.x += force * dx;
+            orbit.velocity.y += force * dy;
+        }
+        position.x += orbit.velocity.x;
+        position.y += orbit.velocity.y;
+        orbit.frameAccumulator -= 1;
+    }
+    if (orbit.frameAccumulator < Number.EPSILON) orbit.frameAccumulator = 0;
+    return { position, orbit };
 }
 
 function circularPosition(orbit, center) {
@@ -139,11 +184,19 @@ export function advanceOrbitGraph(entities, deltaTime) {
 
 export function compileOrbitGraph(entities) {
     const indexesById = new Map(entities.map((entity, index) => [entity.id, index]));
-    const targetIndexes = entities.map(entity => (
-        entity.orbit?.targetId && indexesById.has(entity.orbit.targetId)
+    const sourceIndexes = entities.map(entity => {
+        if (entity.orbit?.type === LevelOrbitType.DIRECTOR_GRAVITY) {
+            return (entity.orbit.params?.gravitySources || []).map(source => (
+                source.targetId && indexesById.has(source.targetId)
+                    ? indexesById.get(source.targetId)
+                    : -1
+            ));
+        }
+        return [entity.orbit?.targetId && indexesById.has(entity.orbit.targetId)
             ? indexesById.get(entity.orbit.targetId)
-            : -1
-    ));
+            : -1];
+    });
+    const targetIndexes = sourceIndexes.map(indexes => indexes[0] ?? -1);
     const visitState = new Uint8Array(entities.length);
     const order = [];
 
@@ -151,14 +204,15 @@ export function compileOrbitGraph(entities) {
         if (visitState[index] === 2) return;
         if (visitState[index] === 1) return;
         visitState[index] = 1;
-        const targetIndex = targetIndexes[index];
-        if (targetIndex >= 0) visit(targetIndex);
+        for (const targetIndex of sourceIndexes[index]) {
+            if (targetIndex >= 0) visit(targetIndex);
+        }
         visitState[index] = 2;
         order.push(index);
     };
 
     for (let index = 0; index < entities.length; index++) visit(index);
-    return { order, targetIndexes };
+    return { order, targetIndexes, sourceIndexes };
 }
 
 export function advanceOrbitGraphMutable(entities, deltaTime, graph = compileOrbitGraph(entities)) {
@@ -168,7 +222,9 @@ export function advanceOrbitGraphMutable(entities, deltaTime, graph = compileOrb
         const targetIndex = graph.targetIndexes[index];
         const target = targetIndex >= 0 ? entities[targetIndex] : null;
         const center = target?.position ?? entity.orbit.center;
-        const stepped = stepOrbit(entity.orbit, entity.position, center, target, deltaTime);
+        const targets = (graph.sourceIndexes?.[index] || [targetIndex])
+            .map(sourceIndex => sourceIndex >= 0 ? entities[sourceIndex] : null);
+        const stepped = stepOrbit(entity.orbit, entity.position, center, target, deltaTime, targets);
         entity.position = stepped.position;
         entity.orbit = stepped.orbit;
     }

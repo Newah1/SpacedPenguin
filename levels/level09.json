@@ -1,0 +1,95 @@
+{
+  "level": 9,
+  "name": "Original Level 09",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 157.319805,
+    "y": 391.819805
+  },
+  "targetPosition": {
+    "x": 655.0,
+    "y": 214.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 157.319805,
+        "y": 391.819805
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 125.5,
+          "y": 360.0
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 398.5,
+        "y": 312.0
+      },
+      "properties": {
+        "id": "planet-ch9",
+        "radius": 227.25,
+        "mass": 159,
+        "collisionRadius": 223.25,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_saturn"
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 655.0,
+        "y": 214.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 19,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

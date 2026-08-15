@@ -3,7 +3,6 @@
 
 import { UIScreen, BackgroundOverlay, Panel, TextElement, Button, AnimatedNumber } from './uiManager.js';
 import { GameState } from './game.js';
-import { LEVEL_CATALOG_CONFIG } from './config/gameConfig.js';
 import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
 import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
 import { UI_CONFIG } from './config/uiConfig.js';
@@ -95,7 +94,7 @@ export class LevelEndScreen extends UIScreen {
         }));
         
         // Title (matches original "Level x of x Complete!" display)
-        const totalLevels = LEVEL_CATALOG_CONFIG.maxGeneratedLevel;
+        const totalLevels = this.game.levelLoader.maximumSelectableLevel;
         this.titleText = this.addElement(new TextElement(
             panelX + panelWidth / 2, panelY + config.titleOffsetY,
             `Level ${this.game.level} of ${totalLevels} Complete!`,
@@ -379,7 +378,7 @@ export class LevelEndScreen extends UIScreen {
         this.close();
         
         // Return to game for next level or end game
-        if (this.game.level >= LEVEL_CATALOG_CONFIG.maxGeneratedLevel) {
+        if (this.game.level >= this.game.levelLoader.maximumSelectableLevel) {
             this.game.state = GameState.GAME_OVER;
         } else {
             this.game.nextLevel();

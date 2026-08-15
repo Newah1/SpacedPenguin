@@ -21,12 +21,15 @@ import {
 } from './levelSchema.js';
 import { evaluateFailureRules, evaluateVictoryRules } from './simulationEngine.js';
 import {
+    LEVEL_COLLECTION_CONFIG,
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,
     LEVEL_GENERATOR_CONFIG,
     PHYSICS_CONFIG,
     WORLD_CONFIG,
-    builtInLevelPath
+    builtInLevelPath,
+    formatLevelSelector,
+    levelCollectionPath
 } from './config/gameConfig.js';
 
 export class GameObjectFactory {
@@ -157,9 +160,11 @@ export class GameObjectFactory {
             width = LEVEL_DEFAULTS.target.width,
             height = LEVEL_DEFAULTS.target.height,
             spriteType = LEVEL_DEFAULTS.target.spriteType,
-            id = null
+            id = null,
+            collisionRadius = width / 2
         } = properties;
         const target = new Target(position.x, position.y, width, height, spriteType, assetLoader, gameObjectLookup);
+        target.collisionRadius = collisionRadius;
         
         // Set name and ID if provided
         if (name) {
@@ -185,14 +190,18 @@ export class GameObjectFactory {
         
         const {
             name = null,
-            anchorX = position.x,
-            anchorY = position.y,
+            anchorX = properties.anchorPosition?.x ?? position.x,
+            anchorY = properties.anchorPosition?.y ?? position.y,
             stretchLimit = properties.maxPullback ?? LEVEL_DEFAULTS.slingshot.maxPullback,
             velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier
         } = properties;
         
         const slingshot = new Slingshot(position.x, position.y, anchorX, anchorY, stretchLimit);
         slingshot.velocityMultiplier = velocityMultiplier;
+        slingshot.minPullback = properties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
+        slingshot.launchModel = properties.launchModel ?? 'modern';
+        slingshot.sourceFrameRate = properties.sourceFrameRate ?? null;
+        slingshot.coordinateScale = properties.coordinateScale ?? 1;
         
         // Set name if provided
         if (name) {
@@ -372,6 +381,12 @@ export class GameObjectFactory {
                     const objectPosition = object.position || { x: object.x, y: object.y };
                     object.orbitSystem.setGravityOrbit(orbitCenter, initialVelocity, gravityStrength, objectPosition);
                     break;
+
+                case LevelOrbitType.DIRECTOR_GRAVITY: {
+                    const objectPosition = object.position || { x: object.x, y: object.y };
+                    object.orbitSystem.setDirectorGravityOrbit(params, objectPosition);
+                    break;
+                }
                     
                 case LevelOrbitType.CUSTOM:
                     if (params.xFunction && params.yFunction) {
@@ -441,6 +456,8 @@ export class LevelLoader {
         this.assetLoader = assetLoader;
         this.levels = new Map();
         this.validationResults = new Map();
+        this.activeCollection = 'shipped';
+        this.maximumSelectableLevel = LEVEL_CATALOG_CONFIG.maxGeneratedLevel;
     }
 
     validateDefinition(levelDefinition) {
@@ -461,6 +478,34 @@ export class LevelLoader {
         for (let i = LEVEL_CATALOG_CONFIG.firstLevel; i <= totalLevels; i++) {
             await this.tryLoadLevelFile(i, builtInLevelPath(i));
         }
+    }
+
+    async loadCollection(collectionId) {
+        const collection = LEVEL_COLLECTION_CONFIG[collectionId];
+        if (!collection) throw new Error(`Unknown level collection "${collectionId}"`);
+        const levels = new Map();
+        const validationResults = new Map();
+        for (let level = collection.firstLevel; level <= collection.levelCount; level++) {
+            const path = levelCollectionPath(collectionId, level);
+            const response = await fetch(path, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Failed to load ${path}: HTTP ${response.status}`);
+            const definition = await response.json();
+            const validation = validateLevelDefinition(definition);
+            if (!validation.valid) {
+                throw new Error(`Level validation failed:\n${formatLevelDiagnostics(validation, path)}`);
+            }
+            levels.set(level, definition);
+            validationResults.set(level, validation);
+        }
+        this.levels = levels;
+        this.validationResults = validationResults;
+        this.activeCollection = collectionId;
+        this.maximumSelectableLevel = collection.maximumSelectableLevel;
+        return true;
+    }
+
+    formatLevelSelector(levelNumber) {
+        return formatLevelSelector(this.activeCollection, levelNumber);
     }
 
     async tryLoadLevelFile(levelNumber, filePath) {
@@ -515,6 +560,11 @@ export class LevelLoader {
             name: levelDefinition.name || `Custom Level ${levelNumber}`,
             description: levelDefinition.description ?? ''
         };
+        game.stageRect = { ...(levelDefinition.bounds?.stage || {
+            x: 0, y: 0, width: WORLD_CONFIG.stage.width, height: WORLD_CONFIG.stage.height
+        }) };
+        game.flightRect = { ...(levelDefinition.bounds?.flight || WORLD_CONFIG.flightBounds) };
+        game.arrow?.setFlightRect(game.flightRect);
         
         // Clear existing game state
         game.gameObjects = [];

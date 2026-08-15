@@ -1,0 +1,193 @@
+{
+  "level": 1,
+  "name": "Original Level 01",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 644.5,
+    "y": 453.0
+  },
+  "targetPosition": {
+    "x": 113.5,
+    "y": 157.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 644.5,
+        "y": 453.0
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 599.5,
+          "y": 453.0
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": -360.5,
+        "y": -298.5
+      },
+      "properties": {
+        "id": "planet-ch7",
+        "radius": 34.5,
+        "mass": 0,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_saturn"
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 113.5,
+        "y": 157.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 133.75,
+        "y": 398.25
+      },
+      "properties": {
+        "id": "tutorial-text-ch8",
+        "name": "txt_hit the ship",
+        "content": "<font color=\"#FFFFCC\">Try to get Kevin back to the ship!</font>",
+        "width": 151.5,
+        "height": 220.5,
+        "fontSize": 18,
+        "color": "#FFFFCC",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": 0,
+        "maxWidth": 151.5,
+        "autoSize": false,
+        "fadeIn": false,
+        "sourceChannel": 8
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 668.5,
+        "y": 289.5
+      },
+      "properties": {
+        "id": "tutorial-text-ch28",
+        "name": "txt_pull_kevin",
+        "content": "<font color=\"#FFFFCC\">Click on Kevin and hold your mouse down.  Then pull Kevin back to the tip of the arrow and let your mouse go.</font>",
+        "width": 186.0,
+        "height": 84.0,
+        "fontSize": 18,
+        "color": "#FFFFCC",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": 0,
+        "maxWidth": 186.0,
+        "autoSize": false,
+        "fadeIn": false,
+        "sourceChannel": 28
+      }
+    },
+    {
+      "type": "pointingarrow",
+      "position": {
+        "x": 115.0,
+        "y": 168.0
+      },
+      "properties": {
+        "id": "tutorial-arrow-ch13",
+        "name": "Arrow to target",
+        "pointingAt": {
+          "x": 113.5,
+          "y": 157.5
+        },
+        "color": "#FFFFCC",
+        "glowColor": "rgba(255, 255, 204, 0.65)",
+        "scaleWithDistance": true,
+        "maxDistance": 1,
+        "minWidth": 76.5,
+        "maxWidth": 76.5,
+        "pulseSpeed": 0,
+        "minAlpha": 1,
+        "maxAlpha": 1,
+        "sourceChannel": 13,
+        "sourceRotation": -89.99,
+        "targetId": "target"
+      }
+    },
+    {
+      "type": "pointingarrow",
+      "position": {
+        "x": 721.0,
+        "y": 489.0
+      },
+      "properties": {
+        "id": "tutorial-arrow-ch14",
+        "name": "Arrow to slingshot",
+        "pointingAt": {
+          "x": 644.5,
+          "y": 453.0
+        },
+        "color": "#FFFFCC",
+        "glowColor": "rgba(255, 255, 204, 0.65)",
+        "scaleWithDistance": true,
+        "maxDistance": 1,
+        "minWidth": 90.0,
+        "maxWidth": 90.0,
+        "pulseSpeed": 0,
+        "minAlpha": 1,
+        "maxAlpha": 1,
+        "sourceChannel": 14,
+        "sourceRotation": 80.0,
+        "targetId": "slingshot"
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 11,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

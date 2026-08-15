@@ -38,6 +38,7 @@ export const LevelOrbitType = Object.freeze({
     ELLIPTICAL: 'elliptical',
     FIGURE_8: 'figure8',
     GRAVITY: 'gravity',
+    DIRECTOR_GRAVITY: 'director-gravity',
     CUSTOM: 'custom'
 });
 

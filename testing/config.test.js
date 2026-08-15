@@ -2,12 +2,16 @@ import './nodeShims.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+    LEVEL_COLLECTION_CONFIG,
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,
     PHYSICS_CONFIG,
     SIMULATION_CONFIG,
     WORLD_CONFIG,
-    builtInLevelPath
+    builtInLevelPath,
+    formatLevelSelector,
+    levelCollectionPath,
+    parseLevelSelector
 } from '../js/config/gameConfig.js';
 import {
     DEFAULT_GRAVITATIONAL_REACH,
@@ -44,6 +48,7 @@ import Utils from '../js/utils.js';
 test('game configuration is deeply frozen and satisfies core invariants', () => {
     for (const config of [
         WORLD_CONFIG,
+        LEVEL_COLLECTION_CONFIG,
         LEVEL_CATALOG_CONFIG,
         SIMULATION_CONFIG,
         PHYSICS_CONFIG,
@@ -57,6 +62,18 @@ test('game configuration is deeply frozen and satisfies core invariants', () => 
     assert.ok(SIMULATION_CONFIG.legacyPhysicsFps > 0);
     assert.ok(LEVEL_CATALOG_CONFIG.shippedLevelCount <= LEVEL_CATALOG_CONFIG.maxGeneratedLevel);
     assert.equal(builtInLevelPath(12), 'levels/level12.json');
+    assert.equal(builtInLevelPath(6), 'levels/level06.json');
+    assert.equal(levelCollectionPath('manual', 6), 'levels/manual/level6.json');
+    assert.deepEqual(parseLevelSelector('5'), { collection: 'shipped', level: 5 });
+    assert.deepEqual(parseLevelSelector('manual:06'), { collection: 'manual', level: 6 });
+    assert.equal(parseLevelSelector('shipped:6'), null);
+    assert.equal(parseLevelSelector('current:6'), null);
+    assert.equal(parseLevelSelector('original:6'), null);
+    assert.equal(parseLevelSelector('extracted:25'), null);
+    assert.equal(parseLevelSelector('manual:21'), null);
+    assert.equal(parseLevelSelector('mystery:1'), null);
+    assert.equal(formatLevelSelector('shipped', 7), '7');
+    assert.equal(formatLevelSelector('manual', 7), 'manual:7');
     assert.equal(Object.isFrozen(INPUT_CONFIG.hapticsMs), true);
     assert.equal(Object.isFrozen(RENDER_CONFIG.starfield), true);
     assert.equal(Object.isFrozen(EDITOR_CONFIG.authoringDefaults), true);

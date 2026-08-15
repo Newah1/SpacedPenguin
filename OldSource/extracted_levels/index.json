@@ -1,0 +1,605 @@
+{
+  "format": "spaced-penguin-director-levels-v1",
+  "source": {
+    "scoreChunk": "OldSource/spaced_penguin/chunks/VWSC-1806.bin",
+    "scoreChunkSha256": "f64e0230ad52741f690a83e23481e01479f402b96fc07f0215358064174a2ac0",
+    "labelsChunk": "OldSource/spaced_penguin/chunks/VWLB-1808.bin",
+    "labelsChunkSha256": "fe273d9b8984299d7b0a1bddba9adaa0c0711c442082cadfccc24c6419ddfe7a"
+  },
+  "movie": {
+    "stage": {
+      "width": 500,
+      "height": 400
+    },
+    "directorVersion": 1600,
+    "frameRate": 30,
+    "decodedFrameCount": 64,
+    "declaredFrameCount": 64,
+    "displayedChannelCount": 150,
+    "spriteRecordSize": 48,
+    "labels": [
+      {
+        "frame": 1,
+        "name": "Load",
+        "comment": null
+      },
+      {
+        "frame": 3,
+        "name": "Intro",
+        "comment": null
+      },
+      {
+        "frame": 6,
+        "name": "Tips",
+        "comment": null
+      },
+      {
+        "frame": 11,
+        "name": "Levels",
+        "comment": null
+      },
+      {
+        "frame": 50,
+        "name": "End_Stats",
+        "comment": null
+      },
+      {
+        "frame": 55,
+        "name": "HS FM",
+        "comment": null
+      },
+      {
+        "frame": 60,
+        "name": "HS_Sending",
+        "comment": null
+      }
+    ],
+    "castLibraries": [
+      {
+        "number": 1,
+        "name": "Internal",
+        "associationFile": "CAS_-1404.json",
+        "logicalMemberCount": 110
+      },
+      {
+        "number": 2,
+        "name": "scripts",
+        "associationFile": "CAS_-1303.json",
+        "logicalMemberCount": 17
+      },
+      {
+        "number": 3,
+        "name": "Text",
+        "associationFile": "CAS_-1267.json",
+        "logicalMemberCount": 40
+      }
+    ]
+  },
+  "levelCount": 25,
+  "levels": [
+    {
+      "levelNumber": 1,
+      "directorFrame": 11,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 35,
+        "visibleSpriteCount": 35,
+        "gameplayObjectCount": 3,
+        "roles": {
+          "background": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 22,
+          "target": 1,
+          "ui": 5
+        }
+      },
+      "file": "levels/level01.json"
+    },
+    {
+      "levelNumber": 2,
+      "directorFrame": 12,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 36,
+        "visibleSpriteCount": 36,
+        "gameplayObjectCount": 4,
+        "roles": {
+          "background": 1,
+          "bonus": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 22,
+          "target": 1,
+          "ui": 5
+        }
+      },
+      "file": "levels/level02.json"
+    },
+    {
+      "levelNumber": 3,
+      "directorFrame": 13,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 34,
+        "visibleSpriteCount": 34,
+        "gameplayObjectCount": 4,
+        "roles": {
+          "background": 1,
+          "bonus": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 21,
+          "target": 1,
+          "ui": 4
+        }
+      },
+      "file": "levels/level03.json"
+    },
+    {
+      "levelNumber": 4,
+      "directorFrame": 14,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 33,
+        "visibleSpriteCount": 33,
+        "gameplayObjectCount": 4,
+        "roles": {
+          "background": 1,
+          "bonus": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 21,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level04.json"
+    },
+    {
+      "levelNumber": 5,
+      "directorFrame": 15,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 37,
+        "visibleSpriteCount": 37,
+        "gameplayObjectCount": 8,
+        "roles": {
+          "background": 1,
+          "bonus": 4,
+          "planet": 2,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 21,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level05.json"
+    },
+    {
+      "levelNumber": 6,
+      "directorFrame": 16,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 38,
+        "visibleSpriteCount": 38,
+        "gameplayObjectCount": 10,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 7,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level06.json"
+    },
+    {
+      "levelNumber": 7,
+      "directorFrame": 17,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 44,
+        "visibleSpriteCount": 44,
+        "gameplayObjectCount": 16,
+        "roles": {
+          "background": 1,
+          "bonus": 10,
+          "planet": 4,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level07.json"
+    },
+    {
+      "levelNumber": 8,
+      "directorFrame": 18,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 37,
+        "visibleSpriteCount": 37,
+        "gameplayObjectCount": 9,
+        "roles": {
+          "background": 1,
+          "bonus": 4,
+          "planet": 3,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level08.json"
+    },
+    {
+      "levelNumber": 9,
+      "directorFrame": 19,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 31,
+        "visibleSpriteCount": 31,
+        "gameplayObjectCount": 3,
+        "roles": {
+          "background": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level09.json"
+    },
+    {
+      "levelNumber": 10,
+      "directorFrame": 20,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 33,
+        "visibleSpriteCount": 33,
+        "gameplayObjectCount": 5,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 1,
+          "orbitingPlanet": 1,
+          "planet": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level10.json"
+    },
+    {
+      "levelNumber": 11,
+      "directorFrame": 21,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 34,
+        "visibleSpriteCount": 34,
+        "gameplayObjectCount": 6,
+        "roles": {
+          "background": 1,
+          "bonus": 1,
+          "orbitingPlanet": 1,
+          "planet": 2,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level11.json"
+    },
+    {
+      "levelNumber": 12,
+      "directorFrame": 22,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 50,
+        "visibleSpriteCount": 50,
+        "gameplayObjectCount": 22,
+        "roles": {
+          "background": 1,
+          "bonus": 14,
+          "planet": 6,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level12.json"
+    },
+    {
+      "levelNumber": 13,
+      "directorFrame": 23,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 46,
+        "visibleSpriteCount": 46,
+        "gameplayObjectCount": 18,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 14,
+          "planet": 2,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level13.json"
+    },
+    {
+      "levelNumber": 14,
+      "directorFrame": 24,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 46,
+        "visibleSpriteCount": 46,
+        "gameplayObjectCount": 18,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 14,
+          "planet": 2,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level14.json"
+    },
+    {
+      "levelNumber": 15,
+      "directorFrame": 25,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 49,
+        "visibleSpriteCount": 49,
+        "gameplayObjectCount": 21,
+        "roles": {
+          "background": 1,
+          "bonus": 13,
+          "planet": 6,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level15.json"
+    },
+    {
+      "levelNumber": 16,
+      "directorFrame": 26,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 42,
+        "visibleSpriteCount": 42,
+        "gameplayObjectCount": 14,
+        "roles": {
+          "background": 1,
+          "bonus": 6,
+          "planet": 6,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level16.json"
+    },
+    {
+      "levelNumber": 17,
+      "directorFrame": 27,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 40,
+        "visibleSpriteCount": 40,
+        "gameplayObjectCount": 7,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 1,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 25,
+          "ui": 3
+        }
+      },
+      "file": "levels/level17.json"
+    },
+    {
+      "levelNumber": 18,
+      "directorFrame": 28,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 33,
+        "visibleSpriteCount": 33,
+        "gameplayObjectCount": 5,
+        "roles": {
+          "background": 1,
+          "bonus": 1,
+          "orbitingTarget": 1,
+          "planet": 2,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "ui": 3
+        }
+      },
+      "file": "levels/level18.json"
+    },
+    {
+      "levelNumber": 19,
+      "directorFrame": 29,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 40,
+        "visibleSpriteCount": 40,
+        "gameplayObjectCount": 7,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 1,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 25,
+          "ui": 3
+        }
+      },
+      "file": "levels/level19.json"
+    },
+    {
+      "levelNumber": 20,
+      "directorFrame": 30,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 50,
+        "visibleSpriteCount": 50,
+        "gameplayObjectCount": 22,
+        "roles": {
+          "background": 1,
+          "bonus": 13,
+          "planet": 7,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level20.json"
+    },
+    {
+      "levelNumber": 21,
+      "directorFrame": 31,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 43,
+        "visibleSpriteCount": 43,
+        "gameplayObjectCount": 15,
+        "roles": {
+          "background": 1,
+          "bonus": 10,
+          "planet": 3,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "target": 1,
+          "ui": 3
+        }
+      },
+      "file": "levels/level21.json"
+    },
+    {
+      "levelNumber": 22,
+      "directorFrame": 32,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 34,
+        "visibleSpriteCount": 34,
+        "gameplayObjectCount": 6,
+        "roles": {
+          "background": 1,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 20,
+          "ui": 3
+        }
+      },
+      "file": "levels/level22.json"
+    },
+    {
+      "levelNumber": 23,
+      "directorFrame": 33,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 41,
+        "visibleSpriteCount": 41,
+        "gameplayObjectCount": 10,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 4,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 23,
+          "ui": 3
+        }
+      },
+      "file": "levels/level23.json"
+    },
+    {
+      "levelNumber": 24,
+      "directorFrame": 34,
+      "isLastLevel": false,
+      "summary": {
+        "spriteCount": 41,
+        "visibleSpriteCount": 41,
+        "gameplayObjectCount": 10,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 4,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 23,
+          "ui": 3
+        }
+      },
+      "file": "levels/level24.json"
+    },
+    {
+      "levelNumber": 25,
+      "directorFrame": 35,
+      "isLastLevel": true,
+      "summary": {
+        "spriteCount": 40,
+        "visibleSpriteCount": 40,
+        "gameplayObjectCount": 10,
+        "roles": {
+          "background": 1,
+          "orbitingObject": 4,
+          "orbitingPlanet": 4,
+          "orbitingTarget": 1,
+          "playerController": 1,
+          "slingshotComponent": 4,
+          "support": 22,
+          "ui": 3
+        }
+      },
+      "file": "levels/level25.json"
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "level": 21,
+  "name": "Original Level 21",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 104.5,
+    "y": 243.0
+  },
+  "targetPosition": {
+    "x": 674.5,
+    "y": 307.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 104.5,
+        "y": 243.0
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 104.5,
+          "y": 288.0
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 238.0,
+        "y": 297.0
+      },
+      "properties": {
+        "id": "planet-ch9",
+        "radius": 57.0,
+        "mass": 159,
+        "collisionRadius": 53.0,
+        "gravitationalReach": 217.5,
+        "planetType": "planet_sun"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 530.5,
+        "y": 303.0
+      },
+      "properties": {
+        "id": "planet-ch10",
+        "radius": 59.25,
+        "mass": 159,
+        "collisionRadius": 55.25,
+        "gravitationalReach": 219.75,
+        "planetType": "planet_sun"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 614.5,
+        "y": 205.5
+      },
+      "properties": {
+        "id": "bonus-ch12",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 181.0,
+        "y": 417.0
+      },
+      "properties": {
+        "id": "bonus-ch13",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 674.5,
+        "y": 231.0
+      },
+      "properties": {
+        "id": "bonus-ch14",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 131.5,
+        "y": 375.0
+      },
+      "properties": {
+        "id": "bonus-ch15",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 244.0,
+        "y": 435.0
+      },
+      "properties": {
+        "id": "bonus-ch16",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 359.5,
+        "y": 385.5
+      },
+      "properties": {
+        "id": "bonus-ch17",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 406.0,
+        "y": 325.5
+      },
+      "properties": {
+        "id": "bonus-ch18",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 452.5,
+        "y": 256.5
+      },
+      "properties": {
+        "id": "bonus-ch19",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 524.5,
+        "y": 216.0
+      },
+      "properties": {
+        "id": "bonus-ch20",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 313.0,
+        "y": 427.5
+      },
+      "properties": {
+        "id": "bonus-ch21",
+        "value": 500,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 314.5,
+        "y": 43.5
+      },
+      "properties": {
+        "id": "planet-ch22",
+        "radius": 31.5,
+        "mass": 20,
+        "collisionRadius": 27.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_pink"
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 674.5,
+        "y": 307.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 31,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

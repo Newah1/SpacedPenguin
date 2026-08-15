@@ -35,6 +35,7 @@ function orbitFromDefinition(definition) {
         center: normalized.center ? clonePoint(normalized.center) : null,
         params,
         velocity: clonePoint(params.initialVelocity || { x: 0, y: 0 }),
+        frameAccumulator: 0,
         gravityStrength: params.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
         maxGravityAccel: params.maxGravityAccel ?? PHYSICS_CONFIG.orbit.maxGravityAcceleration
     };
@@ -96,6 +97,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
         position: clonePoint(targetPosition),
         width: targetProperties.width ?? LEVEL_DEFAULTS.target.width,
         height: targetProperties.height ?? LEVEL_DEFAULTS.target.height,
+        collisionRadius: targetProperties.collisionRadius ??
+            (targetProperties.width ?? LEVEL_DEFAULTS.target.width) / 2,
         orbit: targetDefinition ? orbitFromDefinition(targetDefinition) : null
     };
     const slingshotProperties = slingshotDefinition?.properties || {};
@@ -114,13 +117,19 @@ export function createSimulationStateFromLevel(level, options = {}) {
         target,
         slingshot: {
             position: clonePoint(startPosition),
+            anchorPosition: slingshotProperties.anchorPosition
+                ? clonePoint(slingshotProperties.anchorPosition)
+                : clonePoint(startPosition),
+            launchModel: slingshotProperties.launchModel ?? 'modern',
+            sourceFrameRate: slingshotProperties.sourceFrameRate ?? null,
+            coordinateScale: slingshotProperties.coordinateScale ?? 1,
             velocityMultiplier: slingshotProperties.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier,
             maxPullback: slingshotProperties.maxPullback ?? slingshotProperties.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback,
             minPullback: slingshotProperties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback
         },
         bounds: {
-            stage: { ...(options.stageBounds || DEFAULT_STAGE_BOUNDS) },
-            flight: { ...(options.flightBounds || DEFAULT_FLIGHT_BOUNDS) }
+            stage: { ...(options.stageBounds || normalizedLevel.bounds?.stage || DEFAULT_STAGE_BOUNDS) },
+            flight: { ...(options.flightBounds || normalizedLevel.bounds?.flight || DEFAULT_FLIGHT_BOUNDS) }
         },
         rules: {
             maxTries: normalizedLevel.rules.maxTries ?? null,
@@ -161,7 +170,11 @@ export function cloneSimulationState(state) {
             position: clonePoint(state.target.position),
             orbit: cloneOrbitState(state.target.orbit)
         },
-        slingshot: { ...state.slingshot, position: clonePoint(state.slingshot.position) },
+        slingshot: {
+            ...state.slingshot,
+            position: clonePoint(state.slingshot.position),
+            anchorPosition: clonePoint(state.slingshot.anchorPosition || state.slingshot.position)
+        },
         bounds: { stage: { ...state.bounds.stage }, flight: { ...state.bounds.flight } },
         rules: { ...state.rules },
         counters: { ...state.counters }

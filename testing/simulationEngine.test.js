@@ -87,6 +87,41 @@ test('compiled mutable orbit graphs preserve dependency ordering across repeated
     assert.deepEqual(mutable, expectedSecond);
 });
 
+test('Director gravity preserves 30 Hz multi-source behavior inside the 60 Hz runtime', () => {
+    const entities = [
+        { id: 'left', position: { x: 0, y: 0 }, orbit: null },
+        { id: 'right', position: { x: 10, y: 0 }, orbit: null },
+        {
+            id: 'satellite',
+            position: { x: 5, y: 0 },
+            orbit: {
+                type: 'director-gravity',
+                targetId: 'left',
+                center: null,
+                params: {
+                    sourceFrameRate: 30,
+                    gravityStrength: 1,
+                    initialVelocity: { x: 0, y: 0 },
+                    gravitySources: [
+                        { targetId: 'left', mass: 1, collisionRadius: 0 },
+                        { targetId: 'right', mass: 2, collisionRadius: 0 }
+                    ]
+                },
+                velocity: { x: 0, y: 0 },
+                frameAccumulator: 0
+            }
+        }
+    ];
+
+    const halfFrame = advanceOrbitGraph(entities, 1 / 60);
+    assertPointClose(halfFrame[2].position, { x: 5, y: 0 });
+    assert.equal(halfFrame[2].orbit.frameAccumulator, 0.5);
+    const fullFrame = advanceOrbitGraph(halfFrame, 1 / 60);
+    assertPointClose(fullFrame[2].position, { x: 5.2, y: 0 });
+    assertPointClose(fullFrame[2].orbit.velocity, { x: 0.2, y: 0 });
+    assert.equal(fullFrame[2].orbit.frameAccumulator, 0);
+});
+
 test('simulation steps are immutable and deterministic across 30 and 60 FPS', () => {
     const initial = createSimulationStateFromLevel(levelWith([
         {
@@ -335,6 +370,12 @@ test('attempt reset restores world state while preserving aggregate attempt coun
 });
 
 test('launch and scoring calculations are shared deterministic functions', () => {
+    assert.deepEqual(calculateLaunchVelocity(0, 100, {
+        launchModel: 'director',
+        maxPullback: 100,
+        coordinateScale: 1.5,
+        sourceFrameRate: 30
+    }), { x: 1800, y: 0 });
     assert.deepEqual(calculateLaunchVelocity(0, 100, {
         velocityMultiplier: 8,
         maxPullback: 100,

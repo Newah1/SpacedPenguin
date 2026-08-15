@@ -11,15 +11,59 @@ export const WORLD_CONFIG = deepFreeze({
 
 export const LEVEL_CATALOG_CONFIG = deepFreeze({
     firstLevel: 1,
-    shippedLevelCount: 20,
-    // Levels above the shipped catalog use procedural fallback generation.
+    shippedLevelCount: 25,
     maxGeneratedLevel: 25,
     pathPrefix: 'levels/level',
-    pathSuffix: '.json'
+    pathSuffix: '.json',
+    padWidth: 2
 });
 
+export const LEVEL_COLLECTION_CONFIG = deepFreeze({
+    shipped: {
+        id: 'shipped', aliases: [], firstLevel: 1,
+        levelCount: LEVEL_CATALOG_CONFIG.shippedLevelCount,
+        maximumSelectableLevel: LEVEL_CATALOG_CONFIG.maxGeneratedLevel,
+        pathPrefix: LEVEL_CATALOG_CONFIG.pathPrefix, pathSuffix: LEVEL_CATALOG_CONFIG.pathSuffix,
+        padWidth: LEVEL_CATALOG_CONFIG.padWidth
+    },
+    manual: {
+        id: 'manual', aliases: ['manual'], firstLevel: 1,
+        levelCount: 20, maximumSelectableLevel: 20,
+        pathPrefix: 'levels/manual/level', pathSuffix: '.json', padWidth: 0
+    }
+});
+
+export function levelCollectionPath(collectionId, levelNumber) {
+    const collection = LEVEL_COLLECTION_CONFIG[collectionId];
+    if (!collection) return null;
+    const number = String(levelNumber).padStart(collection.padWidth, '0');
+    return `${collection.pathPrefix}${number}${collection.pathSuffix}`;
+}
+
+export function parseLevelSelector(rawValue) {
+    if (typeof rawValue !== 'string' || rawValue.trim() === '') return null;
+    const value = rawValue.trim();
+    const separator = value.indexOf(':');
+    const rawCollection = separator >= 0 ? value.slice(0, separator).trim().toLowerCase() : null;
+    const rawLevel = separator >= 0 ? value.slice(separator + 1).trim() : value;
+    const collection = rawCollection === null
+        ? LEVEL_COLLECTION_CONFIG.shipped
+        : Object.values(LEVEL_COLLECTION_CONFIG).find(candidate => candidate.id !== 'shipped' && (
+            candidate.id === rawCollection || candidate.aliases.includes(rawCollection)
+        )
+        );
+    const level = Number(rawLevel);
+    if (!collection || !Number.isInteger(level) ||
+        level < collection.firstLevel || level > collection.maximumSelectableLevel) return null;
+    return { collection: collection.id, level };
+}
+
+export function formatLevelSelector(collectionId, levelNumber) {
+    return collectionId === 'shipped' ? String(levelNumber) : `${collectionId}:${levelNumber}`;
+}
+
 export function builtInLevelPath(levelNumber) {
-    return `${LEVEL_CATALOG_CONFIG.pathPrefix}${levelNumber}${LEVEL_CATALOG_CONFIG.pathSuffix}`;
+    return levelCollectionPath('shipped', levelNumber);
 }
 
 export const LEVEL_GENERATOR_CONFIG = deepFreeze({

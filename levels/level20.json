@@ -1,763 +1,354 @@
 {
-  "name": "Generated Level 20",
-  "description": "Randomly generated level with 5 planets and 8 bonuses",
+  "level": 20,
+  "name": "Original Level 20",
+  "description": "Generated runtime port from the extracted Director score.",
   "startPosition": {
-    "x": 92.76381909547737,
-    "y": 123.91959798994978
+    "x": 190.319805,
+    "y": 174.319805
   },
   "targetPosition": {
-    "x": 267.03517587939695,
-    "y": 195.678391959799
+    "x": 370.0,
+    "y": 217.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
   },
   "objects": [
     {
       "type": "slingshot",
       "position": {
-        "x": 92.76381909547737,
-        "y": 123.91959798994978
+        "x": 190.319805,
+        "y": 174.319805
       },
       "properties": {
-        "name": "Slingshot 1",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 100,
-        "height": 100,
-        "renderOrder": 3,
-        "velocityMultiplier": 15,
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 158.5,
+          "y": 142.5
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
         "maxPullback": 100,
-        "minPullback": 10,
-        "isPulling": false,
-        "rubberBandColor": "#FFFF00",
-        "hoopColor": "#00FFFF",
-        "glowColor": "#0099FF",
-        "hoopRadiusX": 16,
-        "hoopRadiusY": 29
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 634.0,
+        "y": 91.5
+      },
+      "properties": {
+        "id": "planet-ch9",
+        "radius": 41.25,
+        "mass": 68,
+        "collisionRadius": 37.25,
+        "gravitationalReach": 191.25,
+        "planetType": "planet_pink"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 532.0,
+        "y": 529.5
+      },
+      "properties": {
+        "id": "planet-ch10",
+        "radius": 34.5,
+        "mass": 182,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 139.5,
+        "planetType": "planet_sun"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 286.0,
+        "y": 88.5
+      },
+      "properties": {
+        "id": "planet-ch11",
+        "radius": 34.5,
+        "mass": 68,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 184.5,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 406.0,
+        "y": 307.5
+      },
+      "properties": {
+        "id": "planet-ch12",
+        "radius": 57.0,
+        "mass": 159,
+        "collisionRadius": 53.0,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_saturn"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 650.5,
+        "y": 310.5
+      },
+      "properties": {
+        "id": "planet-ch13",
+        "radius": 59.25,
+        "mass": 68,
+        "collisionRadius": 55.25,
+        "gravitationalReach": 209.25,
+        "planetType": "planet_red_gumball"
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 202.0,
+        "y": 268.5
+      },
+      "properties": {
+        "id": "planet-ch14",
+        "radius": 34.5,
+        "mass": 68,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 184.5,
+        "planetType": "planet_sun"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 478.0,
+        "y": 436.5
+      },
+      "properties": {
+        "id": "bonus-ch15",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 113.5,
+        "y": 523.5
+      },
+      "properties": {
+        "id": "planet-ch16",
+        "radius": 40.5,
+        "mass": 68,
+        "collisionRadius": 36.5,
+        "gravitationalReach": 190.5,
+        "planetType": "planet_sun"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 551.5,
+        "y": 463.5
+      },
+      "properties": {
+        "id": "bonus-ch17",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 596.5,
+        "y": 510.0
+      },
+      "properties": {
+        "id": "bonus-ch18",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 608.5,
+        "y": 577.5
+      },
+      "properties": {
+        "id": "bonus-ch19",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 478.0,
+        "y": 556.5
+      },
+      "properties": {
+        "id": "bonus-ch20",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 490.0,
+        "y": 337.5
+      },
+      "properties": {
+        "id": "bonus-ch21",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 491.5,
+        "y": 249.0
+      },
+      "properties": {
+        "id": "bonus-ch22",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 457.0,
+        "y": 154.5
+      },
+      "properties": {
+        "id": "bonus-ch23",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 395.5,
+        "y": 76.5
+      },
+      "properties": {
+        "id": "bonus-ch24",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 286.0,
+        "y": 28.5
+      },
+      "properties": {
+        "id": "bonus-ch25",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 274.0,
+        "y": 262.5
+      },
+      "properties": {
+        "id": "bonus-ch26",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 319.0,
+        "y": 333.0
+      },
+      "properties": {
+        "id": "bonus-ch27",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 389.5,
+        "y": 402.0
+      },
+      "properties": {
+        "id": "bonus-ch28",
+        "value": 750,
+        "width": 37.5,
+        "height": 37.5
       }
     },
     {
       "type": "target",
       "position": {
-        "x": 267.03517587939695,
-        "y": 195.678391959799
+        "x": 370.0,
+        "y": 217.5
       },
       "properties": {
-        "name": "Target 1",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 60,
-        "height": 60,
-        "renderOrder": 4,
-        "spriteType": "ship_open",
-        "shipState": "open",
-        "hitFrameCount": 0,
-        "hitDuration": 30,
-        "isHit": false,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 66.23414333702519,
-        "y": 521.5683898881147
-      },
-      "properties": {
-        "id": "planet_1",
-        "name": "Planet 1",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 65.58498293162573,
-        "height": 65.58498293162573,
-        "renderOrder": 2,
-        "radius": 32.792491465812866,
-        "mass": 66.04825750326307,
-        "collisionRadius": 40.792491465812866,
-        "gravitationalReach": 5000,
-        "color": "#FF0000",
-        "planetType": "planet_red_gumball",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 433.16162879709316,
-        "y": 505.76040951650975
-      },
-      "properties": {
-        "id": "planet_2",
-        "name": "Planet 2",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 63.01551177316962,
-        "height": 63.01551177316962,
-        "renderOrder": 2,
-        "radius": 31.50775588658481,
-        "mass": 1372.969751210269,
-        "collisionRadius": 36.5077558865848,
-        "gravitationalReach": 128,
-        "color": "#C8C8C8",
-        "planetType": "planet_pink",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 230.98478530954802,
-        "y": 84.16822379664913
-      },
-      "properties": {
-        "id": "planet_3",
-        "name": "Planet 3",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 60.96901644119084,
-        "height": 60.96901644119084,
-        "renderOrder": 2,
-        "radius": 30.48450822059542,
-        "mass": 50.354746188647766,
-        "collisionRadius": 30.48450822059542,
-        "gravitationalReach": 118,
-        "color": "#00FF00",
-        "planetType": "planet_grey",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 611.3017449865908,
-        "y": 82.93958610431038
-      },
-      "properties": {
-        "id": "planet_4",
-        "name": "Planet 4",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 75.45400819846677,
-        "height": 75.45400819846677,
-        "renderOrder": 2,
-        "radius": 37.72700409923338,
-        "mass": 153.45797908036627,
-        "collisionRadius": 45.72700409923338,
-        "gravitationalReach": 5000,
-        "color": "#FFFF00",
-        "planetType": "planet_pink",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 292.89285523500007,
-        "y": 296.68513395074655
-      },
-      "properties": {
-        "id": "planet_5",
-        "name": "Planet 5",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 116.239476454254,
-        "height": 116.239476454254,
-        "renderOrder": 2,
-        "radius": 58.119738227127,
-        "mass": 1517.0097151803395,
-        "collisionRadius": 53.119738227127,
-        "gravitationalReach": 118,
-        "color": "#C8C8C8",
-        "planetType": "planet_saturn",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 231.7272976286795,
-        "y": 20.13331283392865
-      },
-      "properties": {
-        "id": "bonus_1",
-        "name": "Bonus 1",
-        "rotation": 39.89999999999987,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 378.98920500221277,
-        "y": 139.04338598496994
-      },
-      "properties": {
-        "id": "bonus_3",
-        "name": "Bonus 3",
-        "rotation": 39.89999999999987,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 278,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 469.29653211262314,
-        "y": 451.06493998206486
-      },
-      "properties": {
-        "id": "bonus_5",
-        "name": "Bonus 5",
-        "rotation": 150.71499999999975,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 402,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 508.46534476096565,
-        "y": 495.11623844078383
-      },
-      "properties": {
-        "id": "bonus_6",
-        "name": "Bonus 6",
-        "rotation": 149.6583333333331,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 413,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 408.11581931925184,
-        "y": 429.6946943579398
-      },
-      "properties": {
-        "id": "bonus_7",
-        "name": "Bonus 7",
-        "rotation": 140.2766666666666,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 389,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 518.4677721415119,
-        "y": 552.9781617009666
-      },
-      "properties": {
-        "id": "bonus_8",
-        "name": "Bonus 8",
-        "rotation": 72.36499999999826,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 204,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 340.2197599402372,
-        "y": 56.2639661002603
-      },
-      "properties": {
-        "id": "bonus_9",
-        "name": "Bonus 1",
-        "rotation": 39.89999999999987,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 395.8233758564841,
-        "y": 228.84238095984432
-      },
-      "properties": {
-        "id": "bonus_2",
-        "name": "Bonus 3",
-        "rotation": 39.89999999999987,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 278,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 105.557649631156,
-        "y": 249.94711826901096
-      },
-      "properties": {
-        "id": "planet_6",
-        "name": "Planet 3",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 60.96901644119084,
-        "height": 60.96901644119084,
-        "renderOrder": 2,
-        "radius": 30.48450822059542,
-        "mass": 993.3551149110212,
-        "collisionRadius": 22.4845082205954,
-        "gravitationalReach": 5000,
-        "color": "#0000FF",
-        "planetType": "planet_grey",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 180.97352878445838,
-        "y": 248.57552388920493
-      },
-      "properties": {
-        "id": "bonus_4",
-        "name": "Bonus 1",
-        "rotation": 157.79833333333337,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 203.2348353171217,
-        "y": 317.8720063012652
-      },
-      "properties": {
-        "id": "bonus_10",
-        "name": "Bonus 1",
-        "rotation": 156.92499999999998,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 245.3956393372222,
-        "y": 385.9624585625717
-      },
-      "properties": {
-        "id": "bonus_11",
-        "name": "Bonus 1",
-        "rotation": 155.81499999999988,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 320.1192574276744,
-        "y": 418.4750213766421
-      },
-      "properties": {
-        "id": "bonus_12",
-        "name": "Bonus 1",
-        "rotation": 154.4233333333332,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 484,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 370.67882741789384,
-        "y": 534.2344431080018
-      },
-      "properties": {
-        "id": "bonus_13",
-        "name": "Bonus 8",
-        "rotation": 126.34833333333175,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 204,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "bonus",
-      "position": {
-        "x": 385.52186831879567,
-        "y": 335.5257980452714
-      },
-      "properties": {
-        "id": "bonus_14",
-        "name": "Bonus 3",
-        "rotation": 58.798333333331804,
-        "alpha": 0.9942296755842102,
-        "visible": true,
-        "width": 42.5,
-        "height": 43,
-        "renderOrder": 1,
-        "value": 278,
-        "rotationSpeed": 3,
-        "state": "notHit",
-        "collectedRotationSpeed": 30,
-        "collected": false,
-        "pulseTimer": 13.30000000000024,
-        "pulseSpeed": 0.1,
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
-      }
-    },
-    {
-      "type": "planet",
-      "position": {
-        "x": 617.2647145314826,
-        "y": 293.61980731758075
-      },
-      "properties": {
-        "id": "planet_7",
-        "name": "Planet 5",
-        "rotation": 0,
-        "alpha": 1,
-        "visible": true,
-        "width": 116.239476454254,
-        "height": 116.239476454254,
-        "renderOrder": 2,
-        "radius": 58.119738227127,
-        "mass": 10.776304097201026,
-        "collisionRadius": 58.119738227127,
-        "gravitationalReach": 5000,
-        "color": "#FF00FF",
-        "planetType": "planet_red_gumball",
-        "orbit": {
-          "orbitCenter": null,
-          "orbitTargetId": null,
-          "orbitRadius": 0,
-          "orbitSpeed": 0,
-          "orbitAngle": 0,
-          "orbitType": "circular",
-          "orbitParams": {}
-        }
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
       }
     }
   ],
   "rules": {
-    "maxTries": null,
-    "timeLimit": null,
-    "scoreMultiplier": 2.9000000000000004,
-    "requiredBonuses": null,
-    "allowedMisses": null,
-    "gravitationalConstant": 3
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 30,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
   }
 }

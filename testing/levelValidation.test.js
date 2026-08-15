@@ -110,7 +110,7 @@ test('shared schema owns aliases and supported orbit vocabulary', () => {
     assert.equal(levelObjectTypeFromClassName('PointingArrow'), LevelObjectType.POINTING_ARROW);
     assert.equal(levelObjectTypeFromClassName('BonusPopup'), null);
     assert.equal(LEVEL_OBJECT_TYPE_NAMES.includes('penguin'), true);
-    assert.deepEqual(LEVEL_ORBIT_TYPES, ['circular', 'elliptical', 'figure8', 'gravity', 'custom']);
+    assert.deepEqual(LEVEL_ORBIT_TYPES, ['circular', 'elliptical', 'figure8', 'gravity', 'director-gravity', 'custom']);
     assert.equal(normalizeLevelOrbitType(' GRAVITY '), LevelOrbitType.GRAVITY);
     assert.equal(isLevelOrbitType('Circular'), true);
     assert.equal(normalizeOrbitDefinition({ type: 'ELLIPTICAL' }).type, LevelOrbitType.ELLIPTICAL);

@@ -74,6 +74,22 @@ function validatePoint(value, path, collector, required = true) {
     return valid;
 }
 
+function validateRect(value, path, collector) {
+    if (!isRecord(value)) {
+        collector.error('RECT_TYPE', path, 'must be an object with finite x, y, width, and height values');
+        return;
+    }
+    for (const field of ['x', 'y', 'width', 'height']) {
+        if (value[field] === undefined || value[field] === null) {
+            collector.error('FINITE_NUMBER_REQUIRED', `${path}.${field}`, 'must be a finite number');
+        }
+    }
+    validateOptionalNumber(value.x, `${path}.x`, collector);
+    validateOptionalNumber(value.y, `${path}.y`, collector);
+    validateOptionalNumber(value.width, `${path}.width`, collector, { exclusiveMin: 0 });
+    validateOptionalNumber(value.height, `${path}.height`, collector, { exclusiveMin: 0 });
+}
+
 function validateOptionalNumber(value, path, collector, constraints = {}) {
     if (value === undefined || value === null) return;
     if (!isFiniteNumber(value)) {
@@ -133,11 +149,18 @@ function validateTypeSpecificProperties(type, properties, objectPath, collector)
     } else if (type === LevelObjectType.TARGET) {
         validateOptionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
+        validateOptionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
     } else if (type === LevelObjectType.SLINGSHOT) {
         validateOptionalNumber(properties.velocityMultiplier, `${propertyPath}.velocityMultiplier`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.maxPullback, `${propertyPath}.maxPullback`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.minPullback, `${propertyPath}.minPullback`, collector, { min: 0 });
         validateOptionalNumber(properties.stretchLimit, `${propertyPath}.stretchLimit`, collector, { exclusiveMin: 0 });
+        if (properties.anchorPosition !== undefined) validatePoint(properties.anchorPosition, `${propertyPath}.anchorPosition`, collector);
+        if (properties.launchModel !== undefined && !['modern', 'director'].includes(properties.launchModel)) {
+            collector.error('LAUNCH_MODEL_UNKNOWN', `${propertyPath}.launchModel`, 'must be "modern" or "director"');
+        }
+        validateOptionalNumber(properties.sourceFrameRate, `${propertyPath}.sourceFrameRate`, collector, { exclusiveMin: 0 });
+        validateOptionalNumber(properties.coordinateScale, `${propertyPath}.coordinateScale`, collector, { exclusiveMin: 0 });
     }
 }
 
@@ -207,13 +230,51 @@ function validateOrbits(objects, identifiers, collector) {
                 } else if (typeof entry.properties.id !== 'string') {
                     collector.warning('ORBIT_SOURCE_WITHOUT_ID', `${entry.path}.properties.id`, 'orbiting object has no ID, so cycles involving it cannot be identified');
                 } else {
-                    edges.set(entry.properties.id, orbit.targetId);
+                    edges.set(entry.properties.id, [orbit.targetId]);
                 }
             }
         }
 
+        if (orbit.type === LevelOrbitType.DIRECTOR_GRAVITY) {
+            const sources = orbit.params?.gravitySources;
+            if (!Array.isArray(sources) || sources.length === 0) {
+                collector.error('DIRECTOR_GRAVITY_SOURCES', `${path}.orbitParams.gravitySources`, 'must contain at least one gravity source');
+            } else {
+                for (let index = 0; index < sources.length; index++) {
+                    const source = sources[index];
+                    const sourcePath = `${path}.orbitParams.gravitySources[${index}]`;
+                    if (!isRecord(source)) {
+                        collector.error('DIRECTOR_GRAVITY_SOURCE_TYPE', sourcePath, 'must be an object');
+                        continue;
+                    }
+                    validateOptionalNumber(source.mass, `${sourcePath}.mass`, collector, { exclusiveMin: 0 });
+                    validateOptionalNumber(source.collisionRadius, `${sourcePath}.collisionRadius`, collector, { min: 0 });
+                    if (source.position !== undefined) validatePoint(source.position, `${sourcePath}.position`, collector);
+                    if (source.targetId !== undefined) {
+                        const target = identifiers.get(source.targetId);
+                        if (!target) {
+                            collector.error('ORBIT_TARGET_MISSING', `${sourcePath}.targetId`, `references unknown object ID "${source.targetId}"`);
+                        } else if (!ORBIT_LOOKUP_TARGET_TYPES.includes(target.type)) {
+                            collector.error('ORBIT_TARGET_UNAVAILABLE', `${sourcePath}.targetId`, `references ${target.type}, but runtime orbit lookup supports planet and bonus IDs`);
+                        } else if (target === entry) {
+                            collector.error('ORBIT_SELF_REFERENCE', `${sourcePath}.targetId`, 'cannot reference the same object');
+                        } else if (typeof entry.properties.id === 'string') {
+                            const targets = edges.get(entry.properties.id) || [];
+                            if (!targets.includes(source.targetId)) targets.push(source.targetId);
+                            edges.set(entry.properties.id, targets);
+                        }
+                    } else if (source.position === undefined) {
+                        collector.error('DIRECTOR_GRAVITY_SOURCE_POSITION', sourcePath, 'requires targetId or position');
+                    }
+                }
+            }
+            validateOptionalNumber(orbit.params?.sourceFrameRate, `${path}.orbitParams.sourceFrameRate`, collector, { exclusiveMin: 0 });
+            validateOptionalNumber(orbit.params?.gravityStrength, `${path}.orbitParams.gravityStrength`, collector, { min: 0 });
+        }
+
         const activeNonGravityOrbit = orbit.type !== LevelOrbitType.GRAVITY && orbit.radius > 0 && orbit.speed !== 0;
-        if ((activeNonGravityOrbit || orbit.type === LevelOrbitType.GRAVITY) && !ORBIT_SOURCE_TYPES.includes(entry.type)) {
+        const activePhysicsOrbit = orbit.type === LevelOrbitType.GRAVITY || orbit.type === LevelOrbitType.DIRECTOR_GRAVITY;
+        if ((activeNonGravityOrbit || activePhysicsOrbit) && !ORBIT_SOURCE_TYPES.includes(entry.type)) {
             collector.error('ORBIT_SOURCE_UNAVAILABLE', path, `runtime orbit stepping supports planet, bonus, and target sources, not ${entry.type}`);
         }
         if ((activeNonGravityOrbit || orbit.type === LevelOrbitType.GRAVITY) && orbit.targetId === null && orbit.center === null) {
@@ -224,29 +285,26 @@ function validateOrbits(objects, identifiers, collector) {
 }
 
 function validateOrbitCycles(edges, identifiers, collector) {
+    const visiting = new Set();
     const completed = new Set();
-    for (const start of edges.keys()) {
-        if (completed.has(start)) continue;
-        const chain = [];
-        const indexes = new Map();
-        let current = start;
-        while (edges.has(current) && !completed.has(current)) {
-            if (indexes.has(current)) {
-                const cycle = [...chain.slice(indexes.get(current)), current];
-                const source = identifiers.get(current);
-                collector.error(
-                    'ORBIT_CYCLE',
-                    `${source.path}.properties.orbit.orbitTargetId`,
-                    `orbit reference cycle detected: ${cycle.join(' -> ')}`
-                );
-                break;
-            }
-            indexes.set(current, chain.length);
-            chain.push(current);
-            current = edges.get(current);
+    const chain = [];
+    const visit = current => {
+        if (completed.has(current)) return;
+        if (visiting.has(current)) {
+            const start = chain.indexOf(current);
+            const cycle = [...chain.slice(start), current];
+            const source = identifiers.get(current);
+            collector.error('ORBIT_CYCLE', `${source.path}.properties.orbit.orbitTargetId`, `orbit reference cycle detected: ${cycle.join(' -> ')}`);
+            return;
         }
-        for (const id of chain) completed.add(id);
-    }
+        visiting.add(current);
+        chain.push(current);
+        for (const target of edges.get(current) || []) visit(target);
+        chain.pop();
+        visiting.delete(current);
+        completed.add(current);
+    };
+    for (const start of edges.keys()) visit(start);
 }
 
 function validateComposition(level, objects, collector) {
@@ -312,6 +370,14 @@ export function validateLevelDefinition(level) {
     const objects = level.objects
         .map((object, index) => validateObjectShape(object, index, collector))
         .filter(Boolean);
+    if (level.bounds !== undefined) {
+        if (!isRecord(level.bounds)) {
+            collector.error('BOUNDS_TYPE', '$.bounds', 'must be an object');
+        } else {
+            validateRect(level.bounds.stage, '$.bounds.stage', collector);
+            validateRect(level.bounds.flight, '$.bounds.flight', collector);
+        }
+    }
     validateComposition(level, objects, collector);
     const identifiers = collectIdentifiers(objects, collector);
     validateOrbits(objects, identifiers, collector);

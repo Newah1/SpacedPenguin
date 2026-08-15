@@ -8,7 +8,9 @@ import { AudioCue, getAudioCue } from './config/audioConfig.js';
 function orbitFromRuntime(system) {
     if (!system) return null;
     const meaningful = system.orbitTargetId || system.orbitCenter ||
-        system.orbitRadius !== 0 || system.orbitSpeed !== 0 || system.orbitType === LevelOrbitType.GRAVITY;
+        system.orbitRadius !== 0 || system.orbitSpeed !== 0 ||
+        system.orbitType === LevelOrbitType.GRAVITY ||
+        system.orbitType === LevelOrbitType.DIRECTOR_GRAVITY;
     if (!meaningful) return null;
     return cloneOrbitState({
         type: system.orbitType,
@@ -20,7 +22,8 @@ function orbitFromRuntime(system) {
         params: system.orbitParams,
         velocity: system.velocity,
         gravityStrength: system.gravityStrength,
-        maxGravityAccel: system.maxGravityAccel
+        maxGravityAccel: system.maxGravityAccel,
+        frameAccumulator: system.frameAccumulator
     });
 }
 
@@ -30,6 +33,7 @@ function applyOrbitToRuntime(system, orbit) {
     system.velocity ||= { x: 0, y: 0 };
     system.velocity.x = orbit.velocity.x;
     system.velocity.y = orbit.velocity.y;
+    system.frameAccumulator = orbit.frameAccumulator ?? system.frameAccumulator;
 }
 
 export function captureGameSimulationState(game) {
@@ -67,10 +71,17 @@ export function captureGameSimulationState(game) {
             position: { ...game.target.position },
             width: game.target.width,
             height: game.target.height,
+            collisionRadius: game.target.collisionRadius ?? game.target.width / 2,
             orbit: orbitFromRuntime(game.target.orbitSystem)
         },
         slingshot: {
-            position: { ...game.slingshot.anchor },
+            position: { ...(game.slingshot.launchModel === 'director'
+                ? game.slingshot.resetPosition
+                : game.slingshot.anchor) },
+            anchorPosition: { ...game.slingshot.anchor },
+            launchModel: game.slingshot.launchModel ?? 'modern',
+            sourceFrameRate: game.slingshot.sourceFrameRate ?? null,
+            coordinateScale: game.slingshot.coordinateScale ?? 1,
             velocityMultiplier: game.slingshot.velocityMultiplier,
             maxPullback: game.slingshot.maxPullback,
             minPullback: game.slingshot.minPullback

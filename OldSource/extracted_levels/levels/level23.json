@@ -1,0 +1,3395 @@
+{
+  "levelNumber": 23,
+  "directorFrame": 33,
+  "isLastLevel": false,
+  "summary": {
+    "spriteCount": 41,
+    "visibleSpriteCount": 41,
+    "gameplayObjectCount": 10,
+    "roles": {
+      "background": 1,
+      "orbitingObject": 4,
+      "orbitingPlanet": 4,
+      "orbitingTarget": 1,
+      "playerController": 1,
+      "slingshotComponent": 4,
+      "support": 23,
+      "ui": 3
+    }
+  },
+  "controllerProperties": {
+    "pTarget": 29,
+    "pBorder": 227,
+    "plastLevel": 0,
+    "pStretchLimit": 100
+  },
+  "mainChannels": {
+    "script": {
+      "cast": {
+        "libraryNumber": 2,
+        "memberNumber": 3,
+        "library": "scripts",
+        "sourceMemberId": 30,
+        "name": "Game_Looping",
+        "type": "script",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "spriteInfo": {
+        "detailIndex": 47,
+        "name": null,
+        "rawHex": "00 00 00 03 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 3,
+            "library": "scripts",
+            "sourceMemberId": 30,
+            "name": "Game_Looping",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    "tempo": {
+      "cuePoint": 0,
+      "value": 0
+    },
+    "transition": {
+      "cast": {
+        "libraryNumber": 0,
+        "memberNumber": 0,
+        "library": null,
+        "name": null,
+        "resolved": false
+      }
+    },
+    "sound2": {
+      "cast": {
+        "libraryNumber": 0,
+        "memberNumber": 0,
+        "library": null,
+        "name": null,
+        "resolved": false
+      }
+    },
+    "sound1": {
+      "cast": {
+        "libraryNumber": 0,
+        "memberNumber": 0,
+        "library": null,
+        "name": null,
+        "resolved": false
+      }
+    }
+  },
+  "sprites": [
+    {
+      "channel": 1,
+      "role": "background",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 14,
+        "library": "Internal",
+        "sourceMemberId": 327,
+        "name": "bk_Drop",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_14_bk_Drop.png",
+          "category": "background",
+          "usage": "background_drop",
+          "notes": "Background drop effect"
+        }
+      },
+      "position": {
+        "x": 1,
+        "y": 1
+      },
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "bounds": {
+        "left": 1,
+        "top": 1,
+        "right": 2,
+        "bottom": 2
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 843,
+        "name": null,
+        "rawHex": "00 00 00 01 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 06 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 6,
+            "library": "scripts",
+            "sourceMemberId": 340,
+            "name": "script_bk_drop",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    {
+      "channel": 2,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 31,
+        "library": "Internal",
+        "sourceMemberId": 57,
+        "name": "fld_level",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 8,
+        "y": 6
+      },
+      "size": {
+        "width": 56,
+        "height": 13
+      },
+      "bounds": {
+        "left": 8,
+        "top": 6,
+        "right": 64,
+        "bottom": 19
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 846,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 07 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 3,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 32,
+        "library": "Internal",
+        "sourceMemberId": 111,
+        "name": "fld_score",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 93,
+        "y": 6
+      },
+      "size": {
+        "width": 102,
+        "height": 13
+      },
+      "bounds": {
+        "left": 93,
+        "top": 6,
+        "right": 195,
+        "bottom": 19
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 849,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 08 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 4,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 33,
+        "library": "Internal",
+        "sourceMemberId": 189,
+        "name": "fld_tries",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 230,
+        "y": 6
+      },
+      "size": {
+        "width": 56,
+        "height": 13
+      },
+      "bounds": {
+        "left": 230,
+        "top": 6,
+        "right": 286,
+        "bottom": 19
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 852,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 09 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 5,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 34,
+        "library": "Internal",
+        "sourceMemberId": 190,
+        "name": "fld_distance",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 338,
+        "y": 6
+      },
+      "size": {
+        "width": 116,
+        "height": 13
+      },
+      "bounds": {
+        "left": 338,
+        "top": 6,
+        "right": 454,
+        "bottom": 19
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 855,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 0a 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 6,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 35,
+        "library": "Internal",
+        "sourceMemberId": 150,
+        "name": "fld_quit",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 450,
+        "y": 6
+      },
+      "size": {
+        "width": 43,
+        "height": 13
+      },
+      "bounds": {
+        "left": 450,
+        "top": 6,
+        "right": 493,
+        "bottom": 19
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 858,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 0b 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 7,
+      "role": "orbitingPlanet",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 8,
+        "library": "Internal",
+        "sourceMemberId": 145,
+        "name": "planet_sun",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 23,
+          "y": 22
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_8_planet_sun.swf",
+          "category": "planet",
+          "usage": "planet_sun",
+          "notes": "Sun planet obstacle"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 140
+      },
+      "size": {
+        "width": 46,
+        "height": 45
+      },
+      "bounds": {
+        "left": 250,
+        "top": 140,
+        "right": 296,
+        "bottom": 185
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 9000,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6076,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 0c 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 4,
+            "library": "scripts",
+            "sourceMemberId": 92,
+            "name": "Planet",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6079,
+          "initializer": "[#pMass: 48, #pGReach: 0]",
+          "properties": {
+            "pMass": 48,
+            "pGReach": 0
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6080,
+          "initializer": "[#pSun: 11, #pSun2: 0, #pSun3: 0, #pVX: 3.7500, #pVY: 0.0000, #pGravFactor: 8.0000, #pAltMass: 136]",
+          "properties": {
+            "pSun": 11,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 3.75,
+            "pVY": 0.0,
+            "pGravFactor": 8.0,
+            "pAltMass": 136
+          }
+        }
+      ]
+    },
+    {
+      "channel": 8,
+      "role": "orbitingPlanet",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 8,
+        "library": "Internal",
+        "sourceMemberId": 145,
+        "name": "planet_sun",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 23,
+          "y": 22
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_8_planet_sun.swf",
+          "category": "planet",
+          "usage": "planet_sun",
+          "notes": "Sun planet obstacle"
+        }
+      },
+      "position": {
+        "x": 350,
+        "y": 160
+      },
+      "size": {
+        "width": 46,
+        "height": 45
+      },
+      "bounds": {
+        "left": 350,
+        "top": 160,
+        "right": 396,
+        "bottom": 205
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 18000,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6086,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 0d 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 4,
+            "library": "scripts",
+            "sourceMemberId": 92,
+            "name": "Planet",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6089,
+          "initializer": "[#pMass: 48, #pGReach: 0]",
+          "properties": {
+            "pMass": 48,
+            "pGReach": 0
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6090,
+          "initializer": "[#pSun: 12, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 3.7500, #pGravFactor: 8.0000, #pAltMass: 136]",
+          "properties": {
+            "pSun": 12,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 3.75,
+            "pGravFactor": 8.0,
+            "pAltMass": 136
+          }
+        }
+      ]
+    },
+    {
+      "channel": 9,
+      "role": "orbitingPlanet",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 8,
+        "library": "Internal",
+        "sourceMemberId": 145,
+        "name": "planet_sun",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 23,
+          "y": 22
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_8_planet_sun.swf",
+          "category": "planet",
+          "usage": "planet_sun",
+          "notes": "Sun planet obstacle"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 340
+      },
+      "size": {
+        "width": 46,
+        "height": 45
+      },
+      "bounds": {
+        "left": 250,
+        "top": 340,
+        "right": 296,
+        "bottom": 385
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 4294958296,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6100,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 0e 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 4,
+            "library": "scripts",
+            "sourceMemberId": 92,
+            "name": "Planet",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6103,
+          "initializer": "[#pMass: 48, #pGReach: 0]",
+          "properties": {
+            "pMass": 48,
+            "pGReach": 0
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6104,
+          "initializer": "[#pSun: 11, #pSun2: 0, #pSun3: 0, #pVX: -3.7500, #pVY: 0.0000, #pGravFactor: 8.0000, #pAltMass: 136]",
+          "properties": {
+            "pSun": 11,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": -3.75,
+            "pVY": 0.0,
+            "pGravFactor": 8.0,
+            "pAltMass": 136
+          }
+        }
+      ]
+    },
+    {
+      "channel": 10,
+      "role": "orbitingPlanet",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 8,
+        "library": "Internal",
+        "sourceMemberId": 145,
+        "name": "planet_sun",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 23,
+          "y": 22
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_8_planet_sun.swf",
+          "category": "planet",
+          "usage": "planet_sun",
+          "notes": "Sun planet obstacle"
+        }
+      },
+      "position": {
+        "x": 150,
+        "y": 160
+      },
+      "size": {
+        "width": 46,
+        "height": 45
+      },
+      "bounds": {
+        "left": 150,
+        "top": 160,
+        "right": 196,
+        "bottom": 205
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6114,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 0f 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 4,
+            "library": "scripts",
+            "sourceMemberId": 92,
+            "name": "Planet",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6117,
+          "initializer": "[#pMass: 48, #pGReach: 0]",
+          "properties": {
+            "pMass": 48,
+            "pGReach": 0
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6118,
+          "initializer": "[#pSun: 12, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: -3.7500, #pGravFactor: 8.0000, #pAltMass: 136]",
+          "properties": {
+            "pSun": 12,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": -3.75,
+            "pGravFactor": 8.0,
+            "pAltMass": 136
+          }
+        }
+      ]
+    },
+    {
+      "channel": 11,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 7,
+        "library": "Internal",
+        "sourceMemberId": 28,
+        "name": "planet_red_gumball",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 39,
+          "y": 38
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_7_planet_red_gumball.swf",
+          "category": "planet",
+          "usage": "planet_red_gumball",
+          "notes": "Red gumball planet obstacle"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 240
+      },
+      "size": {
+        "width": 160,
+        "height": 160
+      },
+      "bounds": {
+        "left": 250,
+        "top": 240,
+        "right": 410,
+        "bottom": 400
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6119,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 10 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 17,
+            "library": "scripts",
+            "sourceMemberId": 883,
+            "name": "invisible",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    {
+      "channel": 12,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 7,
+        "library": "Internal",
+        "sourceMemberId": 28,
+        "name": "planet_red_gumball",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 39,
+          "y": 38
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_7_planet_red_gumball.swf",
+          "category": "planet",
+          "usage": "planet_red_gumball",
+          "notes": "Red gumball planet obstacle"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 160
+      },
+      "size": {
+        "width": 160,
+        "height": 160
+      },
+      "bounds": {
+        "left": 250,
+        "top": 160,
+        "right": 410,
+        "bottom": 320
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6903,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 11 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 17,
+            "library": "scripts",
+            "sourceMemberId": 883,
+            "name": "invisible",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    {
+      "channel": 13,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 7,
+        "library": "Internal",
+        "sourceMemberId": 28,
+        "name": "planet_red_gumball",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 39,
+          "y": 38
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_7_planet_red_gumball.swf",
+          "category": "planet",
+          "usage": "planet_red_gumball",
+          "notes": "Red gumball planet obstacle"
+        }
+      },
+      "position": {
+        "x": 50,
+        "y": 200
+      },
+      "size": {
+        "width": 338,
+        "height": 326
+      },
+      "bounds": {
+        "left": 50,
+        "top": 200,
+        "right": 388,
+        "bottom": 526
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6880,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 12 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 17,
+            "library": "scripts",
+            "sourceMemberId": 883,
+            "name": "invisible",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    {
+      "channel": 14,
+      "role": "orbitingObject",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 12,
+        "library": "Internal",
+        "sourceMemberId": 659,
+        "name": "bonus",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 42,
+          "y": 43
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_12_bonus.swf",
+          "category": "bonus",
+          "usage": "bonus",
+          "notes": "Bonus item to collect"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 110
+      },
+      "size": {
+        "width": 25,
+        "height": 25
+      },
+      "bounds": {
+        "left": 250,
+        "top": 110,
+        "right": 275,
+        "bottom": 135
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6883,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 13 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 13,
+            "library": "scripts",
+            "sourceMemberId": 793,
+            "name": "Bonus",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6886,
+          "initializer": "[#pValue: 2500]",
+          "properties": {
+            "pValue": 2500
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6887,
+          "initializer": "[#pSun: 12, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 0.0000, #pGravFactor: 1.0000, #pAltMass: 68]",
+          "properties": {
+            "pSun": 12,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 0.0,
+            "pGravFactor": 1.0,
+            "pAltMass": 68
+          }
+        }
+      ]
+    },
+    {
+      "channel": 15,
+      "role": "orbitingObject",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 12,
+        "library": "Internal",
+        "sourceMemberId": 659,
+        "name": "bonus",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 42,
+          "y": 43
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_12_bonus.swf",
+          "category": "bonus",
+          "usage": "bonus",
+          "notes": "Bonus item to collect"
+        }
+      },
+      "position": {
+        "x": 300,
+        "y": 240
+      },
+      "size": {
+        "width": 25,
+        "height": 25
+      },
+      "bounds": {
+        "left": 300,
+        "top": 240,
+        "right": 325,
+        "bottom": 265
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6888,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 14 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 13,
+            "library": "scripts",
+            "sourceMemberId": 793,
+            "name": "Bonus",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6891,
+          "initializer": "[#pValue: 2500]",
+          "properties": {
+            "pValue": 2500
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6892,
+          "initializer": "[#pSun: 11, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 0.0000, #pGravFactor: 1.0000, #pAltMass: 68]",
+          "properties": {
+            "pSun": 11,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 0.0,
+            "pGravFactor": 1.0,
+            "pAltMass": 68
+          }
+        }
+      ]
+    },
+    {
+      "channel": 16,
+      "role": "orbitingObject",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 12,
+        "library": "Internal",
+        "sourceMemberId": 659,
+        "name": "bonus",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 42,
+          "y": 43
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_12_bonus.swf",
+          "category": "bonus",
+          "usage": "bonus",
+          "notes": "Bonus item to collect"
+        }
+      },
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "size": {
+        "width": 25,
+        "height": 25
+      },
+      "bounds": {
+        "left": 200,
+        "top": 240,
+        "right": 225,
+        "bottom": 265
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6893,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 15 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 13,
+            "library": "scripts",
+            "sourceMemberId": 793,
+            "name": "Bonus",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6896,
+          "initializer": "[#pValue: 2500]",
+          "properties": {
+            "pValue": 2500
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6897,
+          "initializer": "[#pSun: 11, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 0.0000, #pGravFactor: 1.0000, #pAltMass: 68]",
+          "properties": {
+            "pSun": 11,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 0.0,
+            "pGravFactor": 1.0,
+            "pAltMass": 68
+          }
+        }
+      ]
+    },
+    {
+      "channel": 17,
+      "role": "orbitingObject",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 12,
+        "library": "Internal",
+        "sourceMemberId": 659,
+        "name": "bonus",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 42,
+          "y": 43
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_12_bonus.swf",
+          "category": "bonus",
+          "usage": "bonus",
+          "notes": "Bonus item to collect"
+        }
+      },
+      "position": {
+        "x": 250,
+        "y": 210
+      },
+      "size": {
+        "width": 25,
+        "height": 25
+      },
+      "bounds": {
+        "left": 250,
+        "top": 210,
+        "right": 275,
+        "bottom": 235
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6898,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 16 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 13,
+            "library": "scripts",
+            "sourceMemberId": 793,
+            "name": "Bonus",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6901,
+          "initializer": "[#pValue: 2500]",
+          "properties": {
+            "pValue": 2500
+          }
+        },
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6902,
+          "initializer": "[#pSun: 12, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 0.0000, #pGravFactor: 1.0000, #pAltMass: 68]",
+          "properties": {
+            "pSun": 12,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 0.0,
+            "pGravFactor": 1.0,
+            "pAltMass": 68
+          }
+        }
+      ]
+    },
+    {
+      "channel": 29,
+      "role": "orbitingTarget",
+      "target": true,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 1,
+        "library": "Internal",
+        "sourceMemberId": 123,
+        "name": "ship",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 26,
+          "y": 19
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_1_ship.png",
+          "category": "game_object",
+          "usage": "ship_closed",
+          "notes": "Target ship (closed state)"
+        }
+      },
+      "position": {
+        "x": 50,
+        "y": 67
+      },
+      "size": {
+        "width": 53,
+        "height": 38
+      },
+      "bounds": {
+        "left": 50,
+        "top": 67,
+        "right": 103,
+        "bottom": 105
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 8,
+        "name": "matte",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6196,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 22 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 5,
+            "library": "scripts",
+            "sourceMemberId": 89,
+            "name": "Orbiting",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6199,
+          "initializer": "[#pSun: 13, #pSun2: 0, #pSun3: 0, #pVX: 0.0000, #pVY: 0.0000, #pGravFactor: 2.1100, #pAltMass: 182]",
+          "properties": {
+            "pSun": 13,
+            "pSun2": 0,
+            "pSun3": 0,
+            "pVX": 0.0,
+            "pVY": 0.0,
+            "pGravFactor": 2.11,
+            "pAltMass": 182
+          }
+        }
+      ]
+    },
+    {
+      "channel": 30,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 68,
+        "library": "Internal",
+        "sourceMemberId": 483,
+        "name": "k3",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_68_k3.png",
+          "category": "icon",
+          "usage": "k3_icon",
+          "notes": "Icon k3"
+        }
+      },
+      "position": {
+        "x": 407,
+        "y": 362
+      },
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "bounds": {
+        "left": 407,
+        "top": 362,
+        "right": 408,
+        "bottom": 363
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 0,
+        "colorCode": 16,
+        "blendAmount": 153,
+        "thickness": 145,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 5419,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 23 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 31,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 67,
+        "library": "Internal",
+        "sourceMemberId": 835,
+        "name": "k2",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_67_k2.png",
+          "category": "icon",
+          "usage": "k2_icon",
+          "notes": "Icon k2"
+        }
+      },
+      "position": {
+        "x": 458,
+        "y": 372
+      },
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "bounds": {
+        "left": 458,
+        "top": 372,
+        "right": 459,
+        "bottom": 373
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 0,
+        "colorCode": 16,
+        "blendAmount": 153,
+        "thickness": 145,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 5422,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 24 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 32,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 66,
+        "library": "Internal",
+        "sourceMemberId": 673,
+        "name": "k1",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_66_k1.png",
+          "category": "icon",
+          "usage": "k1_icon",
+          "notes": "Icon k1"
+        }
+      },
+      "position": {
+        "x": 426,
+        "y": 373
+      },
+      "size": {
+        "width": 1,
+        "height": 1
+      },
+      "bounds": {
+        "left": 426,
+        "top": 373,
+        "right": 427,
+        "bottom": 374
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 0,
+        "colorCode": 16,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 5425,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 25 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 33,
+      "role": "ui",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 11,
+        "library": "Internal",
+        "sourceMemberId": 240,
+        "name": "arrow",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 76,
+          "y": 23
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_11_arrow.swf",
+          "category": "ui",
+          "usage": "arrow",
+          "notes": "UI arrow indicator"
+        }
+      },
+      "position": {
+        "x": 1,
+        "y": -1
+      },
+      "size": {
+        "width": 38,
+        "height": 15
+      },
+      "bounds": {
+        "left": 1,
+        "top": -1,
+        "right": 39,
+        "bottom": 14
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 4294958296,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 5428,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 26 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 34,
+      "role": "slingshotComponent",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 3,
+        "library": "Internal",
+        "sourceMemberId": 201,
+        "name": "hoop",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 39,
+          "y": 55
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_3_hoop.swf",
+          "category": "game_object",
+          "usage": "hoop",
+          "notes": "Target hoop for landing"
+        }
+      },
+      "position": {
+        "x": 436,
+        "y": 363
+      },
+      "size": {
+        "width": 12,
+        "height": 46
+      },
+      "bounds": {
+        "left": 436,
+        "top": 363,
+        "right": 448,
+        "bottom": 409
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 161,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 18000,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 5431,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 27 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 35,
+      "role": "slingshotComponent",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 4,
+        "library": "Internal",
+        "sourceMemberId": 4,
+        "name": "rubber_band",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 1,
+          "y": 4
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_4_rubber_band.swf",
+          "category": "game_object",
+          "usage": "rubber_band",
+          "notes": "Slingshot rubber band"
+        }
+      },
+      "position": {
+        "x": 390,
+        "y": 355
+      },
+      "size": {
+        "width": 100,
+        "height": 1
+      },
+      "bounds": {
+        "left": 390,
+        "top": 355,
+        "right": 490,
+        "bottom": 356
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 1000,
+        "skewRaw": 43
+      },
+      "spriteInfo": {
+        "detailIndex": 5434,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 28 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 36,
+      "role": "playerController",
+      "target": false,
+      "gameplayObject": true,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 75,
+        "library": "Internal",
+        "sourceMemberId": 502,
+        "name": "KevinSpin_Xc.12",
+        "type": "bitmap",
+        "registrationPoint": {
+          "x": 8,
+          "y": 13
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_75_KevinSpin_Xc.12.png",
+          "category": "penguin_animation",
+          "usage": "penguin_spin",
+          "notes": "Penguin spin animation frame 12 (X axis)"
+        }
+      },
+      "position": {
+        "x": 481,
+        "y": 349
+      },
+      "size": {
+        "width": 17,
+        "height": 26
+      },
+      "bounds": {
+        "left": 481,
+        "top": 349,
+        "right": 498,
+        "bottom": 375
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 8,
+        "name": "matte",
+        "trails": false,
+        "stretch": false
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6208,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 29 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 2,
+            "library": "scripts",
+            "sourceMemberId": 665,
+            "name": "GPS",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": 6211,
+          "initializer": "[#pTarget: 29, #pBorder: 227, #plastLevel: 0, #pStretchLimit: 100]",
+          "properties": {
+            "pTarget": 29,
+            "pBorder": 227,
+            "plastLevel": 0,
+            "pStretchLimit": 100
+          }
+        }
+      ]
+    },
+    {
+      "channel": 37,
+      "role": "slingshotComponent",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 4,
+        "library": "Internal",
+        "sourceMemberId": 4,
+        "name": "rubber_band",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 1,
+          "y": 4
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_4_rubber_band.swf",
+          "category": "game_object",
+          "usage": "rubber_band",
+          "notes": "Slingshot rubber band"
+        }
+      },
+      "position": {
+        "x": 402,
+        "y": 381
+      },
+      "size": {
+        "width": 100,
+        "height": 1
+      },
+      "bounds": {
+        "left": 402,
+        "top": 381,
+        "right": 502,
+        "bottom": 382
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 4294966296,
+        "skewRaw": 4294966381
+      },
+      "spriteInfo": {
+        "detailIndex": 5441,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 2a 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 38,
+      "role": "slingshotComponent",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 3,
+        "library": "Internal",
+        "sourceMemberId": 201,
+        "name": "hoop",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 39,
+          "y": 55
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_3_hoop.swf",
+          "category": "game_object",
+          "usage": "hoop",
+          "notes": "Target hoop for landing"
+        }
+      },
+      "position": {
+        "x": 393,
+        "y": 201
+      },
+      "size": {
+        "width": 12,
+        "height": 46
+      },
+      "bounds": {
+        "left": 393,
+        "top": 201,
+        "right": 405,
+        "bottom": 247
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 1,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 6218,
+        "name": null,
+        "rawHex": "00 00 00 21 00 00 00 21 00 00 00 00 00 00 00 00 00 00 00 2b 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 39,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 23,
+        "library": "Internal",
+        "sourceMemberId": 742,
+        "name": "txt_db",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 239,
+        "y": 188
+      },
+      "size": {
+        "width": 60,
+        "height": 13
+      },
+      "bounds": {
+        "left": 239,
+        "top": 188,
+        "right": 299,
+        "bottom": 201
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 3225,
+        "name": null,
+        "rawHex": "00 00 00 0b 00 00 00 31 00 00 00 00 00 00 00 00 00 00 00 2c 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": [
+        {
+          "script": {
+            "libraryNumber": 2,
+            "memberNumber": 14,
+            "library": "scripts",
+            "sourceMemberId": 840,
+            "name": "Bonus Value Poppup",
+            "type": "script",
+            "registrationPoint": {
+              "x": 0,
+              "y": 0
+            },
+            "resolved": true
+          },
+          "initializerDetailIndex": null,
+          "initializer": null,
+          "properties": {}
+        }
+      ]
+    },
+    {
+      "channel": 41,
+      "role": "ui",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 18,
+        "library": "Internal",
+        "sourceMemberId": 676,
+        "name": "box_orange_large",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 202,
+          "y": 107
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_18_box_orange_large.swf",
+          "category": "ui",
+          "usage": "box_orange_large",
+          "notes": "Large orange UI box"
+        }
+      },
+      "position": {
+        "x": 255,
+        "y": 191
+      },
+      "size": {
+        "width": 404,
+        "height": 212
+      },
+      "bounds": {
+        "left": 255,
+        "top": 191,
+        "right": 659,
+        "bottom": 403
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 51,
+        "thickness": 145,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 746,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 2e 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 42,
+      "role": "ui",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 73,
+        "library": "Internal",
+        "sourceMemberId": 466,
+        "name": "box_yellow",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 44,
+          "y": 27
+        },
+        "resolved": true,
+        "asset": {
+          "filename": "Internal_73_box_yellow.swf",
+          "category": "ui",
+          "usage": "box_yellow",
+          "notes": "Yellow UI box"
+        }
+      },
+      "position": {
+        "x": 258,
+        "y": 191
+      },
+      "size": {
+        "width": 386,
+        "height": 198
+      },
+      "bounds": {
+        "left": 258,
+        "top": 191,
+        "right": 644,
+        "bottom": 389
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 0,
+        "colorCode": 0,
+        "blendAmount": 51,
+        "thickness": 145,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 0,
+        "foregroundBlue": 0,
+        "backgroundBlue": 0,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1808,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 2f 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 43,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 24,
+        "library": "Internal",
+        "sourceMemberId": 885,
+        "name": "fld_Level_complete",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 64,
+        "y": 124
+      },
+      "size": {
+        "width": 388,
+        "height": 44
+      },
+      "bounds": {
+        "left": 64,
+        "top": 124,
+        "right": 452,
+        "bottom": 168
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1778,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 30 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 44,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 25,
+        "library": "Internal",
+        "sourceMemberId": 1136,
+        "name": "text_function",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 94,
+        "y": 167
+      },
+      "size": {
+        "width": 357,
+        "height": 18
+      },
+      "bounds": {
+        "left": 94,
+        "top": 167,
+        "right": 451,
+        "bottom": 185
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1781,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 31 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 45,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 26,
+        "library": "Internal",
+        "sourceMemberId": 832,
+        "name": "fld_score_actual",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 94,
+        "y": 189
+      },
+      "size": {
+        "width": 356,
+        "height": 18
+      },
+      "bounds": {
+        "left": 94,
+        "top": 189,
+        "right": 450,
+        "bottom": 207
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1784,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 32 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 46,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 27,
+        "library": "Internal",
+        "sourceMemberId": 921,
+        "name": "fld_score_total",
+        "type": "xtra",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 175,
+        "y": 221
+      },
+      "size": {
+        "width": 285,
+        "height": 44
+      },
+      "bounds": {
+        "left": 175,
+        "top": 221,
+        "right": 460,
+        "bottom": 265
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1787,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 33 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 47,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 29,
+        "library": "Internal",
+        "sourceMemberId": 88,
+        "name": "fld_your_high_score",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 166,
+        "y": 261
+      },
+      "size": {
+        "width": 285,
+        "height": 23
+      },
+      "bounds": {
+        "left": 166,
+        "top": 261,
+        "right": 451,
+        "bottom": 284
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1790,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 34 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 48,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 3,
+        "memberNumber": 2,
+        "library": "Text",
+        "sourceMemberId": 1437,
+        "name": "clk_to_skip",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 163,
+        "y": 101
+      },
+      "size": {
+        "width": 184,
+        "height": 15
+      },
+      "bounds": {
+        "left": 163,
+        "top": 101,
+        "right": 347,
+        "bottom": 116
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 153,
+        "backgroundGreen": 255,
+        "foregroundBlue": 51,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 7135,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 35 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 36"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 49,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 3,
+        "memberNumber": 12,
+        "library": "Text",
+        "sourceMemberId": 198,
+        "name": "fld_Really_Quit",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 114,
+        "y": 134
+      },
+      "size": {
+        "width": 285,
+        "height": 30
+      },
+      "bounds": {
+        "left": 114,
+        "top": 134,
+        "right": 399,
+        "bottom": 164
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1796,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 36 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 50,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 37,
+        "library": "Internal",
+        "sourceMemberId": 71,
+        "name": "btn_yes",
+        "type": "button",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 147,
+        "y": 220
+      },
+      "size": {
+        "width": 77,
+        "height": 30
+      },
+      "bounds": {
+        "left": 147,
+        "top": 220,
+        "right": 224,
+        "bottom": 250
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1799,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 37 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 51,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 38,
+        "library": "Internal",
+        "sourceMemberId": 164,
+        "name": "btn_no",
+        "type": "button",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 297,
+        "y": 220
+      },
+      "size": {
+        "width": 73,
+        "height": 30
+      },
+      "bounds": {
+        "left": 297,
+        "top": 220,
+        "right": 370,
+        "bottom": 250
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 255,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1802,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 38 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 52,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 39,
+        "library": "Internal",
+        "sourceMemberId": 342,
+        "name": "btn_OK",
+        "type": "button",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 223,
+        "y": 236
+      },
+      "size": {
+        "width": 73,
+        "height": 30
+      },
+      "bounds": {
+        "left": 223,
+        "top": 236,
+        "right": 296,
+        "bottom": 266
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 0,
+        "name": "copy",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 0,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 0,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1817,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 39 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    },
+    {
+      "channel": 53,
+      "role": "support",
+      "target": false,
+      "gameplayObject": false,
+      "visible": true,
+      "cast": {
+        "libraryNumber": 1,
+        "memberNumber": 64,
+        "library": "Internal",
+        "sourceMemberId": 753,
+        "name": "fld_Alert",
+        "type": "text",
+        "registrationPoint": {
+          "x": 0,
+          "y": 0
+        },
+        "resolved": true
+      },
+      "position": {
+        "x": 79,
+        "y": 118
+      },
+      "size": {
+        "width": 358,
+        "height": 124
+      },
+      "bounds": {
+        "left": 79,
+        "top": 118,
+        "right": 437,
+        "bottom": 242
+      },
+      "spriteType": {
+        "code": 16,
+        "name": "castMember"
+      },
+      "ink": {
+        "code": 36,
+        "name": "backgroundTransparent",
+        "trails": false,
+        "stretch": true
+      },
+      "appearance": {
+        "foregroundColorIndex": 255,
+        "backgroundColorIndex": 255,
+        "colorCode": 48,
+        "blendAmount": 0,
+        "thickness": 129,
+        "flags": 0,
+        "foregroundGreen": 102,
+        "backgroundGreen": 255,
+        "foregroundBlue": 0,
+        "backgroundBlue": 255,
+        "rotationRaw": 0,
+        "skewRaw": 0
+      },
+      "spriteInfo": {
+        "detailIndex": 1814,
+        "name": null,
+        "rawHex": "00 00 00 0a 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 3a 00 01 00 00 00 0f e1 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+      },
+      "behaviors": []
+    }
+  ]
+}

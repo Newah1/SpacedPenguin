@@ -1,0 +1,157 @@
+{
+  "level": 3,
+  "name": "Original Level 03",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 664.0,
+    "y": 466.5
+  },
+  "targetPosition": {
+    "x": 98.5,
+    "y": 55.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 664.0,
+        "y": 466.5
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 619.0,
+          "y": 466.5
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 151.0,
+        "y": 477.0
+      },
+      "properties": {
+        "id": "planet-ch7",
+        "radius": 119.25,
+        "mass": 524,
+        "collisionRadius": 115.25,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_saturn"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 478.0,
+        "y": 211.5
+      },
+      "properties": {
+        "id": "bonus-ch9",
+        "value": 250,
+        "width": 43.5,
+        "height": 43.5
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 98.5,
+        "y": 55.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 440.5,
+        "y": 563.25
+      },
+      "properties": {
+        "id": "tutorial-text-ch15",
+        "name": "txt_planets",
+        "content": "<font color=\"#FFFFCC\">Planets will &quot;pull&quot; at Kevin.  </font>",
+        "width": 186.0,
+        "height": 79.5,
+        "fontSize": 18,
+        "color": "#FFFFCC",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": 0,
+        "maxWidth": 186.0,
+        "autoSize": false,
+        "fadeIn": false,
+        "sourceChannel": 15
+      }
+    },
+    {
+      "type": "pointingarrow",
+      "position": {
+        "x": 233.5,
+        "y": 504.0
+      },
+      "properties": {
+        "id": "tutorial-arrow-ch14",
+        "name": "Arrow to planet-ch7",
+        "pointingAt": {
+          "x": 151.0,
+          "y": 477.0
+        },
+        "color": "#FFFFCC",
+        "glowColor": "rgba(255, 255, 204, 0.65)",
+        "scaleWithDistance": true,
+        "maxDistance": 1,
+        "minWidth": 76.5,
+        "maxWidth": 76.5,
+        "pulseSpeed": 0,
+        "minAlpha": 1,
+        "maxAlpha": 1,
+        "sourceChannel": 14,
+        "sourceRotation": 192.0,
+        "targetId": "planet-ch7"
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 13,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

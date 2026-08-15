@@ -11,7 +11,7 @@ import plog from './penguinLogger.js';
 import Utils from './utils.js';
 import PerformanceUtils from './performanceUtils.js';
 import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './viewport.js';
-import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
+import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG, parseLevelSelector } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import { CanvasButton, createButton } from './buttonFramework.js';
@@ -140,7 +140,7 @@ class GameManager {
         this.game.loadHighScore();
         
         // Check for level parameter in URL and jump to specific level
-        this.checkLevelParameter();
+        await this.checkLevelParameter();
 
         // Open the loaded level directly in the editor when requested.
         this.checkLevelEditorParameter();
@@ -886,19 +886,23 @@ class GameManager {
         this.scheduleNextFrame();
     }
     
-    checkLevelParameter() {
-        // Check for level parameter in URL (e.g., ?level=5)
+    async checkLevelParameter() {
+        // Numeric selectors use the default catalog; manual:N selects the
+        // archived hand-authored campaign.
         const levelParam = Utils.getURLParameter('level');
         if (levelParam) {
-            const targetLevel = Utils.validateLevel(levelParam, LEVEL_CATALOG_CONFIG.maxGeneratedLevel);
-            if (targetLevel) {
-                plog.info(`Jumping to level ${targetLevel} from URL parameter`);
-                this.game.jumpToLevel(targetLevel);
+            const selector = parseLevelSelector(levelParam);
+            if (selector) {
+                if (selector.collection !== this.game.levelLoader.activeCollection) {
+                    await this.game.levelLoader.loadCollection(selector.collection);
+                }
+                plog.info(`Jumping to ${selector.collection} level ${selector.level} from URL parameter`);
+                this.game.jumpToLevel(selector.level);
                 
                 // Show level info briefly
                 const loadingText = document.getElementById('loadingText');
                 if (loadingText) {
-                    loadingText.textContent = `Starting Level ${targetLevel}...`;
+                    loadingText.textContent = `Starting ${selector.collection === 'manual' ? 'Manual ' : ''}Level ${selector.level}...`;
                     setTimeout(() => {
                         const loadingScreen = document.getElementById('loadingScreen');
                         if (loadingScreen) {
@@ -909,7 +913,8 @@ class GameManager {
             } else {
                 plog.warn(
                     `Invalid level parameter: ${levelParam}. Must be ` +
-                    `${LEVEL_CATALOG_CONFIG.firstLevel}-${LEVEL_CATALOG_CONFIG.maxGeneratedLevel}.`
+                    `${LEVEL_CATALOG_CONFIG.firstLevel}-${LEVEL_CATALOG_CONFIG.maxGeneratedLevel} ` +
+                    `or manual:1-manual:25.`
                 );
                 Utils.removeURLParameter('level');
             }

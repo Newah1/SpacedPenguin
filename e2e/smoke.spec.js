@@ -11,7 +11,7 @@ const deterministicLevel = {
 };
 
 async function useDeterministicLevel(page) {
-    await page.route('**/levels/level1.json', route => route.fulfill({
+    await page.route('**/levels/level01.json', route => route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(deterministicLevel)
@@ -98,6 +98,55 @@ test('start, launch, cancel the menu confirmation, render, and finish a level', 
         return visibleSamples;
     });
     expect(renderedPixelCount).toBeGreaterThan(0);
+});
+
+test('numeric selector loads the default original ports and manual prefix loads the archived catalog', async ({ page }) => {
+    await page.goto('/?level=2');
+    await waitForGame(page, 'playing');
+
+    await expect.poll(() => page.evaluate(() => ({
+        level: window.game.level,
+        collection: window.game.levelLoader.activeCollection,
+        name: window.game.levelMetadata.name,
+        selector: new URL(window.location.href).searchParams.get('level'),
+        tutorialText: window.game.textObjects.map(object => object.parsedContent.text),
+        tutorialArrows: window.game.pointingArrows.length
+    }))).toEqual({
+        level: 2,
+        collection: 'shipped',
+        name: 'Original Level 02',
+        selector: '2',
+        tutorialText: [
+            'Try to get Kevin back to the ship!',
+            'Distance Bonus\nadds to your distance which boosts your score!'
+        ],
+        tutorialArrows: 2
+    });
+
+    await page.evaluate(() => window.game.nextLevel());
+    await expect.poll(() => page.evaluate(() => ({
+        level: window.game.level,
+        name: window.game.levelMetadata.name,
+        selector: new URL(window.location.href).searchParams.get('level')
+    }))).toEqual({
+        level: 3,
+        name: 'Original Level 03',
+        selector: '3'
+    });
+
+    await page.goto('/?level=manual:2');
+    await waitForGame(page, 'playing');
+    await expect.poll(() => page.evaluate(() => ({
+        level: window.game.level,
+        collection: window.game.levelLoader.activeCollection,
+        name: window.game.levelMetadata.name,
+        selector: new URL(window.location.href).searchParams.get('level')
+    }))).toEqual({
+        level: 2,
+        collection: 'manual',
+        name: 'Custom Level 2',
+        selector: 'manual:2'
+    });
 });
 
 test('Escape confirmation can return to the main menu', async ({ page }) => {

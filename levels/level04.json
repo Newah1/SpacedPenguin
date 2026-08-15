@@ -1,0 +1,130 @@
+{
+  "level": 4,
+  "name": "Original Level 04",
+  "description": "Generated runtime port from the extracted Director score.",
+  "startPosition": {
+    "x": 664.0,
+    "y": 466.5
+  },
+  "targetPosition": {
+    "x": 103.0,
+    "y": 88.5
+  },
+  "bounds": {
+    "stage": {
+      "x": 25.0,
+      "y": 0,
+      "width": 750.0,
+      "height": 600
+    },
+    "flight": {
+      "x": -125.0,
+      "y": -150.0,
+      "width": 1050.0,
+      "height": 900.0
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 664.0,
+        "y": 466.5
+      },
+      "properties": {
+        "id": "slingshot",
+        "anchorPosition": {
+          "x": 619.0,
+          "y": 466.5
+        },
+        "launchModel": "director",
+        "sourceFrameRate": 30,
+        "coordinateScale": 1.5,
+        "maxPullback": 100,
+        "minPullback": 10
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 472.0,
+        "y": 358.5
+      },
+      "properties": {
+        "id": "planet-ch7",
+        "radius": 34.5,
+        "mass": 100,
+        "collisionRadius": 30.5,
+        "gravitationalReach": 7500.0,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 377.5,
+        "y": 414.0
+      },
+      "properties": {
+        "id": "bonus-ch9",
+        "value": 300,
+        "width": 37.5,
+        "height": 37.5
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 103.0,
+        "y": 88.5
+      },
+      "properties": {
+        "id": "target",
+        "width": 79.5,
+        "height": 57.0,
+        "collisionRadius": 55.75
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 563.5,
+        "y": 540.0
+      },
+      "properties": {
+        "id": "tutorial-text-ch8",
+        "name": "txt_pull_light",
+        "content": "<font color=\"#FFFFCC\">Pulling Kevin back all the way may give him too much speed to get to the ship.</font>",
+        "width": 234.0,
+        "height": 63.0,
+        "fontSize": 18,
+        "color": "#FFFFCC",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": 0,
+        "maxWidth": 234.0,
+        "autoSize": false,
+        "fadeIn": false,
+        "sourceChannel": 8
+      }
+    }
+  ],
+  "rules": {
+    "gravitationalConstant": 30.375000000000007,
+    "scoreMultiplier": 1
+  },
+  "port": {
+    "status": "default",
+    "sourceFrame": 14,
+    "sourceStage": {
+      "width": 500,
+      "height": 400,
+      "fps": 30
+    },
+    "coordinateTransform": {
+      "scale": 1.5,
+      "offsetX": 25.0,
+      "offsetY": 0
+    },
+    "isLastLevel": false
+  }
+}

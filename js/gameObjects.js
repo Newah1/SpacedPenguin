@@ -29,6 +29,7 @@ class OrbitSystem {
         this.velocity = { x: 0, y: 0 }; // Current velocity for gravity orbits
         this.gravityStrength = PHYSICS_CONFIG.orbit.gravityStrength;
         this.maxGravityAccel = PHYSICS_CONFIG.orbit.maxGravityAcceleration;
+        this.frameAccumulator = 0;
     }
     
     // Set up circular orbit (original behavior)
@@ -109,6 +110,21 @@ class OrbitSystem {
             };
         }
     }
+
+    setDirectorGravityOrbit(params = {}, currentPosition = null) {
+        const sources = Array.isArray(params.gravitySources) ? params.gravitySources : [];
+        this.orbitTargetId = sources[0]?.targetId ?? null;
+        this.orbitCenter = sources[0]?.position ?? null;
+        this.orbitType = LevelOrbitType.DIRECTOR_GRAVITY;
+        this.velocity = { ...(params.initialVelocity || { x: 0, y: 0 }) };
+        this.gravityStrength = params.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength;
+        this.frameAccumulator = 0;
+        this.orbitParams = {
+            ...params,
+            gravitySources: sources.map(source => ({ ...source }))
+        };
+        if (currentPosition) this.orbitParams.initialPosition = { ...currentPosition };
+    }
     
     // Helper method to calculate stable circular orbital velocity
     static calculateOrbitalVelocity(distance, gravityStrength) {
@@ -170,11 +186,24 @@ class OrbitSystem {
             params: this.orbitParams,
             velocity: this.velocity,
             gravityStrength: this.gravityStrength,
-            maxGravityAccel: this.maxGravityAccel
-        }, currentPosition || { x: 0, y: 0 }, center, this.getResolvedTarget(), deltaTime);
+            maxGravityAccel: this.maxGravityAccel,
+            frameAccumulator: this.frameAccumulator
+        }, currentPosition || { x: 0, y: 0 }, center, this.getResolvedTarget(), deltaTime,
+        this.getResolvedGravitySources());
         this.orbitAngle = result.orbit?.angle ?? this.orbitAngle;
         this.velocity = result.orbit?.velocity || this.velocity;
+        this.frameAccumulator = result.orbit?.frameAccumulator ?? this.frameAccumulator;
         return result.position;
+    }
+
+    getResolvedGravitySources() {
+        if (this.orbitType !== LevelOrbitType.DIRECTOR_GRAVITY) return null;
+        return (this.orbitParams.gravitySources || []).map(source => {
+            const target = source.targetId && this.gameObjectLookup
+                ? this.gameObjectLookup(source.targetId)
+                : null;
+            return target || (source.position ? { position: source.position } : null);
+        });
     }
     
     // Resolve orbit center - can be a fixed position or dynamic object reference
@@ -1233,6 +1262,7 @@ class Slingshot extends GameObject {
         // Set position to anchor for consistency
         this.position = { x: anchorX !== null ? anchorX : x, y: anchorY !== null ? anchorY : y };
         this.anchor = this.position;
+        this.resetPosition = { x, y };
         this.pullback = { x: 0, y: 0 }; // Offset from anchor
         this.maxPullback = stretchLimit; // pStretchLimit from Lingo (increased by 50% for finer control)
         this.minPullback = LEVEL_DEFAULTS.slingshot.minPullback;
@@ -1245,6 +1275,9 @@ class Slingshot extends GameObject {
         this.hoopRadiusY = RENDER_CONFIG.entities.slingshot.hoopRadiusY;
         this.penguin = null; // Reference to penguin object
         this.velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier;
+        this.launchModel = 'modern';
+        this.sourceFrameRate = null;
+        this.coordinateScale = 1;
         this.rotation = 0; // Hoop rotation (like pSHoopT.rotation)
     }
 
@@ -1400,7 +1433,10 @@ class Slingshot extends GameObject {
         return calculateLaunchVelocity(tempAngle, distance, {
             velocityMultiplier: this.velocityMultiplier,
             maxPullback: this.maxPullback,
-            minPullback: this.minPullback
+            minPullback: this.minPullback,
+            launchModel: this.launchModel,
+            sourceFrameRate: this.sourceFrameRate,
+            coordinateScale: this.coordinateScale
         });
     }
     
@@ -1463,8 +1499,9 @@ class TextObject extends GameObject {
         // Check for bold
         isBold = /<b[^>]*>/.test(text) || /<strong[^>]*>/.test(text);
         
-        // Handle line breaks before removing HTML tags
-        text = text.replace(/<br\s*\/?>/gi, '\n');
+        // Preserve authored line breaks without treating source-file indentation as copy.
+        const lineBreakToken = '\u0000LINE_BREAK\u0000';
+        text = text.replace(/<br\s*\/?>/gi, lineBreakToken);
         
         // Remove all HTML tags
         text = text.replace(/<[^>]*>/g, '');
@@ -1473,8 +1510,14 @@ class TextObject extends GameObject {
         text = text.replace(/&nbsp;/g, ' ');
         text = text.replace(/&lt;/g, '<');
         text = text.replace(/&gt;/g, '>');
+        text = text.replace(/&quot;/g, '"');
+        text = text.replace(/&#39;|&apos;/g, "'");
         text = text.replace(/&amp;/g, '&');
         text = text.replace(/&#58;/g, ':');
+        text = text
+            .split(lineBreakToken)
+            .map(line => line.replace(/\s+/g, ' ').trim())
+            .join('\n');
         
         return {
             text: text.trim(),
@@ -1542,26 +1585,23 @@ class TextObject extends GameObject {
     }
     
     wrapText(ctx, text, maxWidth) {
-        const words = text.split(' ');
         const lines = [];
-        let currentLine = '';
-        
-        for (let i = 0; i < words.length; i++) {
-            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
-            const metrics = ctx.measureText(testLine);
-            
-            if (metrics.width > maxWidth && currentLine) {
-                lines.push(currentLine);
-                currentLine = words[i];
-            } else {
-                currentLine = testLine;
+        for (const paragraph of text.split('\n')) {
+            const words = paragraph.split(' ').filter(Boolean);
+            let currentLine = '';
+
+            for (const word of words) {
+                const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
             }
-        }
-        
-        if (currentLine) {
             lines.push(currentLine);
         }
-        
+
         return lines;
     }
     

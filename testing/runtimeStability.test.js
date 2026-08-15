@@ -170,6 +170,15 @@ test('text factory restores an explicitly exported wrap limit', () => {
     assert.equal(textObject.maxWidth, 340);
 });
 
+test('tutorial text parser preserves authored breaks and decodes quoted copy', () => {
+    const textObject = new TextObject(10, 20,
+        '<font size=4><b>Distance Bonus<br>Planets will &quot;pull&quot; Kevin.</b></font>');
+
+    assert.equal(textObject.parsedContent.text, 'Distance Bonus\nPlanets will "pull" Kevin.');
+    assert.equal(textObject.parsedContent.isBold, true);
+    assert.equal(textObject.parsedContent.fontSize, 16);
+});
+
 test('planet factory respects an explicit collision radius', () => {
     const planet = GameObjectFactory.createPlanet({ x: 100, y: 200 }, {
         radius: 65.8413472395633,
@@ -419,6 +428,7 @@ test('level-end continuation reaches game over at the configured final level', (
     const game = {
         level: LEVEL_CATALOG_CONFIG.maxGeneratedLevel,
         state: GameState.SCORING,
+        levelLoader: { maximumSelectableLevel: LEVEL_CATALOG_CONFIG.maxGeneratedLevel },
         uiManager: {
             audioManager: null,
             playSound() {}
@@ -1196,7 +1206,7 @@ test('all-bonuses summary explicitly reports and prints the closest trajectories
 });
 
 test('headless loader resolves object-linked orbits in level 10', async () => {
-    const level = JSON.parse(await readFile(new URL('../levels/level10.json', import.meta.url), 'utf8'));
+    const level = JSON.parse(await readFile(new URL('../levels/manual/level10.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
 
     assert.equal(engine.loadLevel(level), true);
@@ -1209,7 +1219,7 @@ test('headless loader resolves object-linked orbits in level 10', async () => {
 });
 
 test('level 12 preserves its tuned collision radii', async () => {
-    const level = JSON.parse(await readFile(new URL('../levels/level12.json', import.meta.url), 'utf8'));
+    const level = JSON.parse(await readFile(new URL('../levels/manual/level12.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
     engine.loadLevel(level);
 
@@ -1218,7 +1228,7 @@ test('level 12 preserves its tuned collision radii', async () => {
 });
 
 test('level 8 legacy zero reaches retain normal planet gravity', async () => {
-    const level = JSON.parse(await readFile(new URL('../levels/level8.json', import.meta.url), 'utf8'));
+    const level = JSON.parse(await readFile(new URL('../levels/manual/level8.json', import.meta.url), 'utf8'));
     const engine = new HeadlessGameEngine();
     engine.loadLevel(level);
 

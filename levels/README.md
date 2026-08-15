@@ -264,6 +264,10 @@ If axes are omitted, the major axis defaults to `orbitRadius` and the minor axis
 
 Gravity orbit motion is numerically integrated. Editor export after a play preview can capture current rather than original position/velocity, so review exported values.
 
+### Director compatibility gravity
+
+`orbitType: "director-gravity"` is reserved for generated ports of the original Lingo `Orbiting` behavior. Its `orbitParams.gravitySources` array supports one to three fixed positions or planet/bonus IDs, with source mass and collision-distance clamps. It advances in discrete `sourceFrameRate` ticks and is intentionally separate from the editor's modern gravity orbit. See `ORIGINAL_PORTS.md` and `tools/convert_original_levels.py`; hand-authored levels should normally use `gravity`.
+
 ### Hierarchical/object-referenced orbit
 
 ```json

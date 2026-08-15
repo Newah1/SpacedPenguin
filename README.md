@@ -4,7 +4,7 @@ A browser-native rewrite of the classic Shockwave gravity-slingshot game, implem
 
 ## Current capabilities
 
-- Nineteen authored levels with planets, bonuses, targets, tutorial text/arrows, and hierarchical orbit configurations
+- Twenty-five ported original levels with planets, bonuses, targets, tutorial text/arrows, and Director-compatible gravity
 - Gravity-based launch, collision, bonus, scoring, retry, and level-completion flows
 - Circular, elliptical, figure-8, and gravity-driven object orbits
 - Manifest-driven images, sprite sheets, SVGs, and WAV audio with visual fallbacks
@@ -22,7 +22,7 @@ The application must be served over HTTP because ES modules, levels, assets, and
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000`. A specific authored level can be selected with `http://localhost:8000/?level=5`. Add `level_editor` to boot directly into the editor, for example `http://localhost:8000/?level=5&level_editor` (or `?level_editor` for level 1).
+Then open `http://localhost:8000`. Select a default ported level with `http://localhost:8000/?level=5`. The previous hand-authored campaign is archived under the `manual` catalog and can be loaded with `http://localhost:8000/?level=manual:5`; advancing keeps that catalog active. Add `level_editor` to boot the selected level directly into the editor, for example `http://localhost:8000/?level=manual:5&level_editor` (or `?level_editor` for default level 1).
 
 There is no build or install step for the game itself.
 
@@ -57,7 +57,7 @@ All level consumers normalize through `LevelSchema` before constructing runtime 
 index.html                 Browser shell, HUD, canvas, responsive styling
 js/                        Production ES modules
 assets/                    Manifest, images, SVGs, audio, animation metadata
-levels/                    Nineteen current JSON levels and authoring guide
+levels/                    Twenty-five default ports, archived manual catalog, and authoring guide
 testing/                   Node tests, trajectory CLI, and organized manual harnesses
 e2e/                       Automated Playwright browser smoke tests
 OldSource/                 Decompiled Shockwave source and extracted references
@@ -114,3 +114,7 @@ Validate a definition without simulation using `node .\levelTester.js --validate
 ## Historical source
 
 `OldSource/` contains decompiled Director/Lingo scripts and extracted assets used to study original behavior. It is not loaded or deployed by the HTML5 game. Historical claims about frame-based levels and network leaderboards describe the Shockwave version, not the current runtime.
+
+Run `python tools\extract_original_levels.py` to regenerate the readable intermediate JSON for all 25 original Director levels in `OldSource/extracted_levels/`. See `OldSource/extracted_levels/README.md` for format and provenance details.
+
+Run `python tools\convert_original_levels.py` to regenerate the 25 default levels in `levels/`, then `npm run test:original-levels` to validate them and prove every port completable with the shared headless runner. The previous hand-authored campaign remains available in `levels/manual/` through the `manual:N` URL selector.

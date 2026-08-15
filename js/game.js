@@ -18,7 +18,7 @@ import {
     invalidateGameSimulationState,
     stepGameSimulation
 } from './gameSimulationAdapter.js';
-import { calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
+import { calculateLaunchPosition, calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
 import { predictAimAssistTrajectory } from './aimAssist.js';
 import {
     LevelObjectType,
@@ -667,6 +667,18 @@ class Game {
         if (launch) {
             this.launches.push({ angle: launch.angle, power: launch.power });
         }
+        if (launch && this.slingshot.launchModel === 'director') {
+            const position = calculateLaunchPosition(launch.angle, launch.power, {
+                position: this.slingshot.position,
+                anchorPosition: this.slingshot.anchor,
+                maxPullback: this.slingshot.maxPullback,
+                minPullback: this.slingshot.minPullback,
+                launchModel: this.slingshot.launchModel,
+                sourceFrameRate: this.slingshot.sourceFrameRate,
+                coordinateScale: this.slingshot.coordinateScale
+            });
+            this.penguin.setPosition(position.x, position.y);
+        }
         
         // Create alpha mask at current launch position (matching original game's setUpSnapping)
         this.createAlphaMaskAtLaunchPosition();
@@ -703,7 +715,10 @@ class Game {
         const velocity = calculateLaunchVelocity(angle, power, {
             velocityMultiplier: this.slingshot.velocityMultiplier,
             maxPullback: this.slingshot.maxPullback,
-            minPullback: this.slingshot.minPullback
+            minPullback: this.slingshot.minPullback,
+            launchModel: this.slingshot.launchModel,
+            sourceFrameRate: this.slingshot.sourceFrameRate,
+            coordinateScale: this.slingshot.coordinateScale
         });
         this.launchPenguin(velocity, { angle, power });
         return velocity;
@@ -1005,7 +1020,7 @@ class Game {
         this.loadLevel(this.level);
         
         // Update URL parameter to reflect current level
-        Utils.setURLParameter('level', this.level.toString());
+        Utils.setURLParameter('level', this.levelLoader.formatLevelSelector(this.level));
         
         // Return to playing state
         this.setState(GameState.PLAYING);
@@ -1190,10 +1205,15 @@ class Game {
         const velocity = calculateLaunchVelocity(angle, power, {
             velocityMultiplier: this.slingshot.velocityMultiplier,
             maxPullback: this.slingshot.maxPullback,
-            minPullback: this.slingshot.minPullback
+            minPullback: this.slingshot.minPullback,
+            launchModel: this.slingshot.launchModel,
+            sourceFrameRate: this.slingshot.sourceFrameRate,
+            coordinateScale: this.slingshot.coordinateScale
         });
+        const previewState = captureGameSimulationState(this);
+        previewState.penguin.position = calculateLaunchPosition(angle, power, previewState.slingshot);
         this.aimAssistPoints = predictAimAssistTrajectory(
-            captureGameSimulationState(this),
+            previewState,
             velocity,
             {
                 previewSeconds: getRuntimeGameConfigValue(
@@ -1523,9 +1543,10 @@ class Game {
     
     jumpToLevel(targetLevel) {
         // Validate level exists (check if level file is available)
-        const { firstLevel, maxGeneratedLevel } = LEVEL_CATALOG_CONFIG;
-        if (targetLevel < firstLevel || targetLevel > maxGeneratedLevel) {
-            plog.error(`Invalid level: ${targetLevel}. Must be ${firstLevel}-${maxGeneratedLevel}.`);
+        const { firstLevel } = LEVEL_CATALOG_CONFIG;
+        const maximumLevel = this.levelLoader.maximumSelectableLevel;
+        if (targetLevel < firstLevel || targetLevel > maximumLevel) {
+            plog.error(`Invalid level: ${targetLevel}. Must be ${firstLevel}-${maximumLevel}.`);
             return false;
         }
         
@@ -1549,7 +1570,7 @@ class Game {
             this.setState(GameState.PLAYING);
             
             // Update URL parameter to reflect current level
-            Utils.setURLParameter('level', this.level.toString());
+            Utils.setURLParameter('level', this.levelLoader.formatLevelSelector(this.level));
             
             plog.success(`Successfully jumped to level ${targetLevel}`);
             return true;
@@ -1579,7 +1600,10 @@ class Game {
 
     resetPenguinToSlingshot() {
         if (this.penguin && this.slingshot) {
-            this.penguin.setPosition(this.slingshot.anchor.x, this.slingshot.anchor.y);
+            const resetPosition = this.slingshot.launchModel === 'director'
+                ? this.slingshot.resetPosition
+                : this.slingshot.anchor;
+            this.penguin.setPosition(resetPosition.x, resetPosition.y);
             this.penguin.setState('idle');
             this.penguin.reset();
             this.slingshot.isPulling = false;
@@ -1644,8 +1668,11 @@ class Game {
         
         // Prefer slingshot anchor for the canonical start position. If no slingshot,
         // fall back to penguin position, then defaults.
-        const startPosForExport = this.slingshot && this.slingshot.position
-            ? { x: this.slingshot.position.x, y: this.slingshot.position.y }
+        const exportedSlingshotPosition = this.slingshot?.launchModel === 'director'
+            ? this.slingshot.resetPosition
+            : this.slingshot?.position;
+        const startPosForExport = exportedSlingshotPosition
+            ? { ...exportedSlingshotPosition }
             : (this.penguin
                 ? { x: this.penguin.x, y: this.penguin.y }
                 : { ...WORLD_CONFIG.defaultStartPosition });
