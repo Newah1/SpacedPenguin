@@ -4,6 +4,7 @@
 import { STAGE_HEIGHT, STAGE_WIDTH, screenToStage } from './viewport.js';
 import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
 import { UI_CONFIG } from './config/uiConfig.js';
+import { CanvasButton } from './buttonFramework.js';
 
 export class UIManager {
     constructor(canvas, audioManager) {
@@ -110,7 +111,30 @@ export class UIManager {
             event.clientX,
             event.clientY
         );
-        this.handleStageClick(point.x, point.y);
+        return this.handleStageClick(point.x, point.y);
+    }
+
+    handlePointerMove(event) {
+        const point = screenToStage(this.canvas, this.canvas.viewport, event.clientX, event.clientY);
+        let hovered = false;
+        for (let i = this.activeScreens.length - 1; i >= 0; i--) {
+            const screen = this.activeScreens[i];
+            if (screen.handlePointerMove?.(point.x, point.y)) hovered = true;
+        }
+        this.canvas.style.cursor = hovered ? 'pointer' : 'default';
+        return hovered;
+    }
+
+    handlePointerDown(event) {
+        const point = screenToStage(this.canvas, this.canvas.viewport, event.clientX, event.clientY);
+        for (let i = this.activeScreens.length - 1; i >= 0; i--) {
+            if (this.activeScreens[i].handlePointerDown?.(point.x, point.y)) return true;
+        }
+        return false;
+    }
+
+    handlePointerUp() {
+        for (const screen of this.activeScreens) screen.handlePointerUp?.();
     }
 
     handleStageClick(x, y) {
@@ -185,6 +209,27 @@ export class UIScreen {
             }
         }
         return false;
+    }
+
+    handlePointerMove(x, y) {
+        if (!this.visible) return false;
+        let hovered = false;
+        for (const element of this.elements) {
+            if (element.handlePointerMove?.(x, y)) hovered = true;
+        }
+        return hovered;
+    }
+
+    handlePointerDown(x, y) {
+        if (!this.visible) return false;
+        for (const element of this.elements) {
+            if (element.handlePointerDown?.(x, y)) return true;
+        }
+        return false;
+    }
+
+    handlePointerUp() {
+        for (const element of this.elements) element.handlePointerUp?.();
     }
     
     handleKeyPress(event) {
@@ -519,55 +564,10 @@ export class TextElement extends UIElement {
     }
 }
 
-// Button with original game styling
-export class Button extends UIElement {
+// Canvas button kept as the UI manager's public button type.
+export class Button extends CanvasButton {
     constructor(x, y, width, height, text, onClick, options = {}) {
-        super(x, y, width, height);
-        this.text = text;
-        this.onClick = onClick;
-        this.backgroundColor = options.backgroundColor || '#444444';
-        this.hoverColor = options.hoverColor || '#666666';
-        this.borderColor = options.borderColor || '#FFFFCC';
-        this.focusBorderColor = options.focusBorderColor || this.borderColor;
-        this.textColor = options.textColor || '#FFFFCC';
-        this.fontSize = options.fontSize || 14;
-        this.fontFamily = options.fontFamily || 'Verdana, sans-serif';
-        this.isHovered = false;
-        this.isPressed = false;
-        this.isFocused = false;
-    }
-    
-    handleClick(x, y) {
-        if (!this.visible) return false;
-        
-        if (this.isPointInside(x, y)) {
-            if (this.onClick) {
-                this.onClick();
-            }
-            return true;
-        }
-        return false;
-    }
-    
-    render(ctx) {
-        if (!this.visible) return;
-        
-        // Background
-        ctx.fillStyle = this.isPressed ? this.hoverColor : 
-                       this.isHovered ? this.hoverColor : this.backgroundColor;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        // Border
-        ctx.strokeStyle = this.isFocused ? this.focusBorderColor : this.borderColor;
-        ctx.lineWidth = this.isFocused ? 4 : 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
-        
-        // Text
-        ctx.font = `${this.fontSize}px ${this.fontFamily}`;
-        ctx.fillStyle = this.textColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2);
+        super(x, y, width, height, text, onClick, options);
     }
 }
 

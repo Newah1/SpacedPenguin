@@ -1,17 +1,15 @@
 import { isCompactEditorViewport } from '../config/inputConfig.js';
 import { makeDraggablePanel } from './draggablePanel.js';
-
-const BUTTON_STYLE = `
-    padding: 8px 12px; color: white; border: none; border-radius: 5px;
-    cursor: pointer; min-height: 44px; font-size: 14px; touch-action: manipulation;
-    white-space: nowrap; flex-shrink: 0;
-`;
+import { createButton } from '../buttonFramework.js';
 
 function button(label, background, action) {
-    const element = document.createElement('button');
-    element.textContent = label;
-    element.style.cssText = `${BUTTON_STYLE} background: ${background};`;
-    element.addEventListener('click', action);
+    const element = createButton(label, action, {
+        backgroundColor: background,
+        hoverColor: background,
+        textColor: 'white',
+        borderColor: 'rgba(255, 255, 255, .25)'
+    });
+    element.style.cssText += 'padding: 8px 12px; min-height: 44px; font-size: 14px; white-space: nowrap; flex-shrink: 0;';
     return element;
 }
 

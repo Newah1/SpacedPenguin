@@ -148,6 +148,9 @@ export class MenuInputAction extends InputAction {
         const game = this.getGame();
         if (!game || this.getGameState() !== GameState.MENU) return;
         if (this.rootContext.consumeMenuInteraction?.()) return;
+        if (e.__spacedPenguinUiHandled || game.uiManager?.activeScreens?.length) return;
+
+        if (this.rootContext.handleMenuButtonClick?.(e)) return;
         if (this.rootContext.shouldStartGameFromMenu && !this.rootContext.shouldStartGameFromMenu(e)) return;
 
         if (game.state === GameState.MENU) {
@@ -383,6 +386,10 @@ export class UIInputAction extends InputAction {
         if (!canvas) return;
         
         this.addListener(canvas, 'click', this.handleClick);
+        this.addListener(canvas, 'pointermove', this.handlePointerMove);
+        this.addListener(canvas, 'pointerdown', this.handlePointerDown);
+        this.addListener(canvas, 'pointerup', this.handlePointerUp);
+        this.addListener(canvas, 'pointercancel', this.handlePointerUp);
         this.addListener(canvas, 'touchstart', this.handleTouchStart, { passive: false });
         this.addListener(canvas, 'touchend', this.handleTouchEnd, { passive: false });
     }
@@ -390,8 +397,26 @@ export class UIInputAction extends InputAction {
     handleClick(e) {
         const game = this.getGame();
         if (!game?.uiManager) return;
-        
-        game.uiManager.handleClick(e);
+
+        if (game.uiManager.activeScreens.length && game.uiManager.handleClick(e)) {
+            e.__spacedPenguinUiHandled = true;
+        }
+    }
+
+    handlePointerMove(e) {
+        const game = this.getGame();
+        if (!game?.uiManager || !game.uiManager.activeScreens.length) return;
+        game.uiManager.handlePointerMove(e);
+    }
+
+    handlePointerDown(e) {
+        const game = this.getGame();
+        if (!game?.uiManager || !game.uiManager.activeScreens.length) return;
+        if (game.uiManager.handlePointerDown(e)) e.preventDefault();
+    }
+
+    handlePointerUp() {
+        this.getGame()?.uiManager?.handlePointerUp();
     }
     
     handleTouchStart(e) {

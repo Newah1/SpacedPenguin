@@ -2,6 +2,7 @@
 // Handles fullscreen toggle with level editor compatibility
 
 import { createViewport, screenToStage } from './viewport.js';
+import { createButton } from './buttonFramework.js';
 
 class FullscreenManager {
     constructor(canvas, gameContainer, onViewportChange = null) {
@@ -37,31 +38,28 @@ class FullscreenManager {
     }
     
     createFullscreenButton() {
-        this.fullscreenButton = document.createElement('button');
+        this.fullscreenButton = createButton('FULLSCREEN', event => {
+            event.preventDefault();
+            this.toggle();
+        }, {
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            hoverColor: 'rgba(30, 55, 30, 0.9)',
+            textColor: 'rgb(72, 247, 72)',
+            borderColor: 'rgb(72, 247, 72)'
+        });
         this.fullscreenButton.id = 'fullscreenButton';
         this.fullscreenButton.innerHTML = '⛶';
         this.fullscreenButton.title = 'Toggle Fullscreen (F11)';
-        this.fullscreenButton.style.cssText = `
+        this.fullscreenButton.style.cssText += `
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 15;
-            background: rgba(0, 0, 0, 0.7);
-            color: rgb(72, 247, 72);
-            border: 1px solid rgb(72, 247, 72);
             border-radius: 4px;
             padding: 8px 12px;
-            cursor: pointer;
             font-size: 16px;
             font-family: monospace;
-            transition: background-color 0.2s;
         `;
-        
-        // Hide in level editor mode
-        this.fullscreenButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.toggle();
-        });
         
         this.gameContainer.appendChild(this.fullscreenButton);
     }

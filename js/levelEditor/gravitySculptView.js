@@ -1,17 +1,16 @@
 import { makeDraggablePanel } from './draggablePanel.js';
 
 import { EDITOR_CONFIG } from '../config/editorConfig.js';
-
-const BUTTON_STYLE = `
-    padding: 8px 12px; color: white; border: 0; border-radius: 5px;
-    cursor: pointer; min-height: 38px; font-size: 13px;
-`;
+import { createButton } from '../buttonFramework.js';
 
 function button(label, color, action) {
-    const element = document.createElement('button');
-    element.textContent = label;
-    element.style.cssText = `${BUTTON_STYLE} background: ${color};`;
-    element.addEventListener('click', action);
+    const element = createButton(label, action, {
+        backgroundColor: color,
+        hoverColor: color,
+        textColor: 'white',
+        borderColor: 'rgba(255, 255, 255, .25)'
+    });
+    element.style.cssText += 'padding: 8px 12px; min-height: 38px; font-size: 13px;';
     return element;
 }
 

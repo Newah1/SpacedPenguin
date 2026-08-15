@@ -127,6 +127,11 @@
         }
 
         #simulationSpeedButton {
+            --button-bg: rgba(2, 12, 28, 0.88);
+            --button-hover: rgba(20, 46, 74, 0.96);
+            --button-active: rgba(72, 247, 72, 0.9);
+            --button-fg: var(--hud-color);
+            --button-border: rgba(72, 247, 72, 0.72);
             position: absolute;
             right: 18px;
             bottom: 18px;
@@ -135,20 +140,17 @@
             min-width: 64px;
             min-height: 44px;
             padding: 8px 13px;
-            border: 2px solid rgba(72, 247, 72, 0.72);
             border-radius: 22px;
-            background: rgba(2, 12, 28, 0.88);
-            color: var(--hud-color);
             font: 800 16px/1 "Trebuchet MS", Arial, sans-serif;
             letter-spacing: 0.04em;
-            cursor: pointer;
             touch-action: manipulation;
             box-shadow: 0 0 12px rgba(72, 247, 72, 0.18);
         }
 
         #simulationSpeedButton.is-active {
-            background: var(--hud-color);
-            color: #031124;
+            --button-bg: var(--hud-color);
+            --button-hover: #8aff8a;
+            --button-fg: #031124;
             box-shadow: 0 0 18px rgba(72, 247, 72, 0.65);
         }
 
@@ -158,6 +160,10 @@
         }
 
         #menuSettingsButton {
+            --button-bg: #fff3bb;
+            --button-hover: #fff9d7;
+            --button-fg: #c95616;
+            --button-border: #f79433;
             position: absolute;
             right: 4%;
             bottom: 5%;
@@ -165,13 +171,9 @@
             display: none;
             min-width: 150px;
             padding: 12px 20px;
-            border: 3px solid #f79433;
             border-radius: 24px;
-            background: #fff3bb;
-            color: #c95616;
             font: 900 16px/1 "Trebuchet MS", Arial, sans-serif;
             letter-spacing: .08em;
-            cursor: pointer;
             box-shadow: 0 0 0 2px #ffca69;
             touch-action: manipulation;
         }
@@ -290,7 +292,7 @@
 </head>
 <body>
     <div id="gameContainer">
-        <button id="menuSettingsButton" type="button">SETTINGS</button>
+        <button id="menuSettingsButton" class="spaced-button" type="button">SETTINGS</button>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="ui">
             <div>Level: <span id="level">1</span></div>
@@ -298,7 +300,7 @@
             <div>Distance: <span id="distance">0</span></div>
             <div>Tries: <span id="tries">0</span></div>
         </div>
-        <button id="simulationSpeedButton" type="button" aria-label="Toggle double simulation speed" aria-pressed="false">▶▶ 2×</button>
+        <button id="simulationSpeedButton" class="spaced-button" type="button" aria-label="Toggle double simulation speed" aria-pressed="false">▶▶ 2×</button>
         <div id="loading">Loading...</div>
     </div>
     

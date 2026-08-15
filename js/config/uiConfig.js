@@ -53,7 +53,15 @@ export const UI_CONFIG = deepFreeze({
         tableOffsetY: 95,
         tableInsetX: 30,
         lineHeight: 25,
-        button: { width: 100, height: 30, spacing: 20, offsetBottom: 70 },
+        button: {
+            width: 100,
+            height: 30,
+            spacing: 20,
+            offsetBottom: 70,
+            backgroundColor: '#cb7928',
+            hoverColor: '#f0ad5a',
+            activeColor: '#a96520'
+        },
         animation: {
             stepPauseMs: 50,
             finalPauseMs: 100,

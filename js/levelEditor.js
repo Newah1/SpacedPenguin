@@ -15,6 +15,7 @@ import LevelEditorToolbarView from './levelEditor/toolbarView.js';
 import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
 import GravitySculptView from './levelEditor/gravitySculptView.js';
 import GravitySculptController from './levelEditor/gravitySculptController.js';
+import { createButton } from './buttonFramework.js';
 import {
     INPUT_CONFIG,
     isCompactEditorViewport,
@@ -1736,28 +1737,22 @@ class LevelEditor {
         // Add menu items for object creation
         const editableClasses = this.getEditableObjectClasses();
         editableClasses.forEach(className => {
-            const item = document.createElement('div');
-            item.textContent = `Add ${className}`;
-            item.style.cssText = `
+            const item = createButton(`Add ${className}`, () => {
+                this.addObjectAtPosition(className, x, y);
+                menu.remove();
+            }, {
+                backgroundColor: 'transparent',
+                hoverColor: '#333',
+                textColor: 'white',
+                borderColor: 'transparent'
+            });
+            item.style.cssText += `
                 padding: 12px 16px;
-                cursor: pointer;
                 border-bottom: 1px solid #333;
                 min-height: 20px;
                 touch-action: manipulation;
             `;
             item.style.borderBottom = '1px solid #333';
-            
-            item.addEventListener('mouseenter', () => {
-                item.style.background = '#333';
-            });
-            item.addEventListener('mouseleave', () => {
-                item.style.background = 'transparent';
-            });
-            
-            item.addEventListener('click', () => {
-                this.addObjectAtPosition(className, x, y);
-                menu.remove();
-            });
             
             menu.appendChild(item);
         });

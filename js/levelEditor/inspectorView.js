@@ -53,9 +53,9 @@ export class LevelEditorInspectorView {
         if (!settings) {
             html += `<div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
                 <div style="font-weight: bold; margin-bottom: 6px;">Quick Actions</div>
-                <button data-quick-action="center" style="width: 100%; padding: 10px; background: #4a90e2; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-bottom: 8px;">Center on Canvas</button>`;
+                <button class="spaced-button" data-quick-action="center" style="--button-bg: #4a90e2; --button-hover: #6aa9f2; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px; margin-bottom: 8px;">Center on Canvas</button>`;
             if (selected.orbitSystem?.orbitType === LevelOrbitType.GRAVITY) {
-                html += '<button data-quick-action="reset-gravity" style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">Reset Position (Keep Current Velocity)</button>';
+                html += '<button class="spaced-button" data-quick-action="reset-gravity" style="--button-bg: #e74c3c; --button-hover: #f06b5f; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px;">Reset Position (Keep Current Velocity)</button>';
             }
             html += '</div>';
         }
@@ -83,7 +83,7 @@ export class LevelEditorInspectorView {
         } else if (type === 'color') {
             input = `<input type="color" data-property="${property}" value="${escapeHtml(value || '#ffffff')}" style="${baseStyle}">`;
         } else if (type === 'button') {
-            input = `<button data-property="${property}" style="width: 100%; padding: 10px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">${escapeHtml(options.buttonText || 'Click')}</button>`;
+            input = `<button class="spaced-button" data-property="${property}" style="--button-bg: #e74c3c; --button-hover: #f06b5f; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px;">${escapeHtml(options.buttonText || 'Click')}</button>`;
         } else {
             const nullable = type === 'nullableNumber';
             const inputType = type === 'text' ? 'text' : 'number';

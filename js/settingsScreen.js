@@ -1,4 +1,5 @@
 import { SettingType } from './config/settingsConfig.js';
+import { createButton } from './buttonFramework.js';
 
 const controlRenderers = new Map();
 
@@ -82,11 +83,13 @@ export class SettingsScreen {
             panel.appendChild(row);
         }
 
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'settings-close-button';
-        closeButton.textContent = 'BACK';
-        closeButton.addEventListener('click', () => this.close());
+        const closeButton = createButton('BACK', () => this.close(), {
+            backgroundColor: '#4b3b32',
+            hoverColor: '#6a5142',
+            textColor: '#fff6d6',
+            borderColor: '#e9c27a'
+        });
+        closeButton.classList.add('settings-close-button');
         panel.appendChild(closeButton);
         overlay.appendChild(panel);
         overlay.addEventListener('keydown', event => {

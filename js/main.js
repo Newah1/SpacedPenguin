@@ -14,6 +14,7 @@ import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './view
 import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
+import { CanvasButton, createButton } from './buttonFramework.js';
 
 plog.info('main.js loaded');
 
@@ -38,6 +39,7 @@ class GameManager {
         this.lastInputContextKey = null;
         this.menuKevin = null;
         this.menuSlingshot = this.createMenuSlingshotState();
+        this.menuButtons = this.createMenuButtons();
         
         this.init();
         this.setupPageVisibilityHandling();
@@ -118,6 +120,7 @@ class GameManager {
             handleMenuPointerDown: this.handleMenuPointerDown.bind(this),
             handleMenuPointerMove: this.handleMenuPointerMove.bind(this),
             handleMenuPointerUp: this.handleMenuPointerUp.bind(this),
+            handleMenuButtonClick: this.handleMenuButtonClick.bind(this),
             consumeMenuInteraction: this.consumeMenuInteraction.bind(this),
             shouldStartGameFromMenu: this.shouldStartGameFromMenu.bind(this)
         });
@@ -309,6 +312,65 @@ class GameManager {
         };
     }
 
+    createMenuButtons() {
+        const originalButton = (x, y, width, height, label, action, fontSize) =>
+            new CanvasButton(x, y, width, height, label, action, {
+                hitTest: (pointX, pointY) => pointX >= x && pointX <= x + width &&
+                    pointY >= y && pointY <= y + height,
+                renderButton: (ctx, button) => this.drawOriginalMenuButton(
+                    ctx, x, y, width, height, button.text, fontSize, button
+                )
+            });
+
+        return {
+            highScores: originalButton(40, 517, 166, 54, 'High Scores',
+                () => this.showMenuHighScores(), 20),
+            tips: originalButton(683, 351, 80, 50, 'Tips!',
+                () => this.showMenuTips(), 19),
+            start: new CanvasButton(563, 464, 184, 96, 'Start',
+                () => this.startGame(), {
+                    hitTest: (pointX, pointY) => {
+                        const normalizedX = (pointX - 655) / 92;
+                        const normalizedY = (pointY - 512) / 48;
+                        return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+                    },
+                    renderButton: (ctx, button) => this.drawStartButtonVisual(ctx, button)
+                })
+        };
+    }
+
+    showMenuHighScores() {
+        this.game?.uiManager.showModal({
+            title: 'HIGH SCORES',
+            message: `Best distance: ${Utils.formatScore(this.game.highScore)}\nKeep launching Kevin to beat your record.`,
+            actions: [{ label: 'BACK', role: 'cancel' }]
+        });
+    }
+
+    showMenuTips() {
+        this.game?.uiManager.showModal({
+            title: 'TIPS',
+            message: 'Pull Kevin back from the ship, then release to launch.\nUse nearby planets to bend the flight path toward the target.',
+            actions: [{ label: 'BACK', role: 'cancel' }]
+        });
+    }
+
+    updateMenuButtonHover(point) {
+        const hovered = Object.values(this.menuButtons).some(button =>
+            button.handlePointerMove(point.x, point.y)
+        );
+        this.canvas.style.cursor = hovered ? 'pointer' : 'default';
+        return hovered;
+    }
+
+    handleMenuButtonClick(event) {
+        if (this.game?.uiManager.activeScreens?.length) return false;
+        const point = this.getMenuStagePoint(event);
+        return Object.values(this.menuButtons).some(button =>
+            button.handleClick(point.x, point.y, event)
+        );
+    }
+
     resetMenuSlingshot() {
         const previousTime = this.menuSlingshot?.lastFrameTime ?? null;
         this.menuSlingshot = this.createMenuSlingshotState();
@@ -326,7 +388,14 @@ class GameManager {
     }
 
     handleMenuPointerDown(event) {
+        if (this.game?.uiManager.activeScreens?.length) return false;
         const point = this.getMenuStagePoint(event);
+        for (const button of Object.values(this.menuButtons)) {
+            if (button.handlePointerDown(point.x, point.y)) {
+                this.canvas.style.cursor = 'pointer';
+                return true;
+            }
+        }
         const state = this.menuSlingshot;
         const distance = Math.hypot(point.x - state.position.x, point.y - state.position.y);
         if (distance > 32) return false;
@@ -340,12 +409,23 @@ class GameManager {
     }
 
     handleMenuPointerMove(event) {
-        if (!this.menuSlingshot.dragging) return false;
-        this.updateMenuDragPosition(this.getMenuStagePoint(event));
+        if (this.game?.uiManager.activeScreens?.length) return false;
+        const point = this.getMenuStagePoint(event);
+        if (!this.menuSlingshot.dragging) return this.updateMenuButtonHover(point);
+        this.updateMenuDragPosition(point);
+        this.canvas.style.cursor = 'grabbing';
         return true;
     }
 
     handleMenuPointerUp(event) {
+        if (this.game?.uiManager.activeScreens?.length) return false;
+        const point = this.getMenuStagePoint(event);
+        const overButton = Object.values(this.menuButtons).some(button => button.isPressed);
+        if (overButton) {
+            Object.values(this.menuButtons).forEach(button => button.handlePointerUp());
+            this.updateMenuButtonHover(point);
+            return true;
+        }
         const state = this.menuSlingshot;
         if (!state.dragging) return false;
 
@@ -438,53 +518,30 @@ class GameManager {
         }
         
         // Create mobile start button
-        const startButton = document.createElement('button');
+        const startButton = createButton('TAP TO LAUNCH', () => this.startGame(), {
+            backgroundColor: '#fff3bb',
+            hoverColor: '#fff9d7',
+            activeColor: '#f5df91',
+            textColor: '#f47b20',
+            borderColor: '#f79433'
+        });
         startButton.id = 'mobileStartButton';
-        startButton.textContent = 'TAP TO LAUNCH';
-        startButton.style.cssText = `
+        startButton.style.cssText += `
             position: absolute;
             top: 82%;
             left: 81%;
             transform: translate(-50%, -50%);
-            background: #fff3bb;
-            color: #f47b20;
-            border: 4px solid #f79433;
             padding: 14px 24px;
             font-family: Arial, sans-serif;
             font-size: 18px;
             font-weight: 900;
             letter-spacing: .5px;
             border-radius: 50%;
-            cursor: pointer;
             box-shadow: 0 0 0 2px #ffca69;
             z-index: 100;
             min-width: 170px;
             touch-action: manipulation;
         `;
-        
-        // Add hover effect for desktop
-        if (!this.isMobile) {
-            startButton.addEventListener('mouseenter', () => {
-                startButton.style.background = 'linear-gradient(45deg, #45a049, #4CAF50)';
-            });
-            startButton.addEventListener('mouseleave', () => {
-                startButton.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
-            });
-        }
-        
-        // Add click/tap handler
-        startButton.addEventListener('click', () => {
-            this.startGame();
-        });
-        
-        // Add touch feedback
-        startButton.addEventListener('touchstart', () => {
-            startButton.style.transform = 'translate(-50%, -50%) scale(0.96)';
-        });
-        
-        startButton.addEventListener('touchend', () => {
-            startButton.style.transform = 'translate(-50%, -50%) scale(1)';
-        });
         
         this.canvas.parentElement.appendChild(startButton);
     }
@@ -612,7 +669,7 @@ class GameManager {
     drawMenuConsole(ctx, time) {
         this.drawHowToPlayCard(ctx);
         this.drawTryItVignette(ctx, time);
-        this.drawOriginalMenuButton(ctx, 40, 517, 166, 54, 'High Scores', 20);
+        this.menuButtons.highScores.render(ctx);
         this.drawStartButton(ctx, time);
 
         if (this.game.highScore > 0) {
@@ -661,7 +718,7 @@ class GameManager {
         ctx.fillText('Kevin in the right direction.', x + 20, y + 291);
         ctx.font = '900 15px Arial, sans-serif';
         ctx.fillText('Good luck!', x + 62, y + 322);
-        this.drawOriginalMenuButton(ctx, x + width - 67, y + height - 36, 80, 50, 'Tips!', 19);
+        this.menuButtons.tips.render(ctx);
     }
 
     drawTryItVignette(ctx, time) {
@@ -728,9 +785,9 @@ class GameManager {
         ctx.restore();
     }
 
-    drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize) {
+    drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize, button = {}) {
         this.roundedRectPath(ctx, x, y, width, height, 8);
-        ctx.fillStyle = '#f79433';
+        ctx.fillStyle = button.isPressed ? '#e46d12' : button.isHovered ? '#ffb24d' : '#f79433';
         ctx.fill();
         this.roundedRectPath(ctx, x + 6, y + 6, width - 12, height - 12, 4);
         ctx.fillStyle = '#fff3bb';
@@ -742,24 +799,7 @@ class GameManager {
     }
 
     drawStartButton(ctx, time) {
-        const x = 655;
-        const y = 512;
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(-0.08);
-        ctx.fillStyle = '#f79433';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 92, 48, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff3bb';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 84, 40, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#f47b20';
-        ctx.font = '900 39px Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Start', 0, 13);
-        ctx.restore();
+        this.menuButtons.start.render(ctx);
 
         for (const planet of this.getMenuStartPlanets(time)) {
             const dotX = planet.x;
@@ -773,6 +813,27 @@ class GameManager {
             ctx.arc(dotX, dotY, 18, 0, Math.PI * 2);
             ctx.fill();
         }
+    }
+
+    drawStartButtonVisual(ctx, button) {
+        const x = 655;
+        const y = 512;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.08);
+        ctx.fillStyle = button.isPressed ? '#e46d12' : button.isHovered ? '#ffb24d' : '#f79433';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 92, 48, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff3bb';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 84, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f47b20';
+        ctx.font = '900 39px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Start', 0, 13);
+        ctx.restore();
     }
 
     drawMenuPlanet(ctx, x, y, radius) {

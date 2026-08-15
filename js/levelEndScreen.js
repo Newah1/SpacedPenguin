@@ -210,8 +210,9 @@ export class LevelEndScreen extends UIScreen {
             {
                 fontSize: 14,
                 fontFamily: UI_CONFIG.fonts.primary,
-                backgroundColor: config.accentColor,
-                hoverColor: config.accentColor,
+                backgroundColor: config.button.backgroundColor,
+                hoverColor: config.button.hoverColor,
+                activeColor: config.button.activeColor,
                 borderColor: config.accentColor,
                 textColor: config.panelColor
             }
@@ -226,8 +227,9 @@ export class LevelEndScreen extends UIScreen {
             {
                 fontSize: 14,
                 fontFamily: UI_CONFIG.fonts.primary,
-                backgroundColor: config.accentColor,
-                hoverColor: config.accentColor,
+                backgroundColor: config.button.backgroundColor,
+                hoverColor: config.button.hoverColor,
+                activeColor: config.button.activeColor,
                 borderColor: config.accentColor,
                 textColor: config.panelColor
             }

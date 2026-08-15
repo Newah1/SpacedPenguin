@@ -40,6 +40,7 @@ import { SETTINGS_CONFIG } from './config/settingsConfig.js';
 import { LocalSettingsStore } from './settingsStore.js';
 import { SettingsManager } from './settingsManager.js';
 import { SettingsScreen } from './settingsScreen.js';
+import { createButton, registerButton } from './buttonFramework.js';
 import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
@@ -80,9 +81,15 @@ class Game {
                 }
             }
         );
-        document.getElementById('menuSettingsButton')?.addEventListener('click', event => {
+        const menuSettingsButton = document.getElementById('menuSettingsButton');
+        registerButton(menuSettingsButton, event => {
             event.stopPropagation();
             this.showSettings();
+        }, {
+            backgroundColor: '#fff3bb',
+            hoverColor: '#fff9d7',
+            textColor: '#c95616',
+            borderColor: '#f79433'
         });
         
         // Canvas scaling for responsive design
@@ -209,6 +216,13 @@ class Game {
         this.simulationSpeed = 1;
         this.soaringElapsedTime = 0;
         this.simulationSpeedButton = document.getElementById('simulationSpeedButton');
+        registerButton(this.simulationSpeedButton, null, {
+            backgroundColor: 'rgba(2, 12, 28, 0.88)',
+            hoverColor: 'rgba(20, 46, 74, 0.96)',
+            activeColor: 'rgba(72, 247, 72, 0.9)',
+            textColor: 'var(--hud-color)',
+            borderColor: 'rgba(72, 247, 72, 0.72)'
+        });
         this.setupSimulationSpeedControl();
         
         plog.debug('UI elements found:', this.ui);
@@ -301,58 +315,47 @@ class Game {
         `;
         
         // Create reset button
-        const resetButton = document.createElement('button');
-        resetButton.className = 'mobile-control-button';
-        resetButton.textContent = '↻ TRY AGAIN';
-        resetButton.style.cssText = `
-            background: rgba(255, 100, 100, 0.9);
-            color: white;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 25px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            touch-action: manipulation;
-            min-height: 44px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-        `;
-        
-        resetButton.addEventListener('click', () => {
+        const resetButton = createButton('TRY AGAIN', () => {
             if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
                 this.tryAgain();
-                // Haptic feedback
-                if ('vibrate' in navigator) {
-                    navigator.vibrate(INPUT_CONFIG.hapticsMs.mobileControl);
-                }
+                if ('vibrate' in navigator) navigator.vibrate(INPUT_CONFIG.hapticsMs.mobileControl);
             }
-        });
-        
-        // Create quit button
-        const quitButton = document.createElement('button');
-        quitButton.className = 'mobile-control-button';
-        quitButton.textContent = '✕ QUIT';
-        quitButton.style.cssText = `
-            background: rgba(128, 128, 128, 0.9);
-            color: white;
+        }, { backgroundColor: 'rgba(255, 100, 100, 0.9)', hoverColor: 'rgba(255, 135, 135, 0.96)', textColor: 'white' });
+        resetButton.classList.add('mobile-control-button');
+        resetButton.textContent = '↻ TRY AGAIN';
+        resetButton.style.cssText += `
             border: none;
             padding: 12px 16px;
             border-radius: 25px;
             font-size: 14px;
             font-weight: bold;
-            cursor: pointer;
             touch-action: manipulation;
             min-height: 44px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             backdrop-filter: blur(10px);
         `;
         
-        quitButton.addEventListener('click', () => {
+        
+        // Create quit button
+        const quitButton = createButton('QUIT', () => {
             if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
                 this.showQuitDialog();
             }
-        });
+        }, { backgroundColor: 'rgba(128, 128, 128, 0.9)', hoverColor: 'rgba(160, 160, 160, 0.96)', textColor: 'white' });
+        quitButton.classList.add('mobile-control-button');
+        quitButton.textContent = '✕ QUIT';
+        quitButton.style.cssText += `
+            border: none;
+            padding: 12px 16px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            touch-action: manipulation;
+            min-height: 44px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        `;
+        
         
         controlPanel.appendChild(resetButton);
         controlPanel.appendChild(quitButton);
