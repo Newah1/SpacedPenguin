@@ -388,6 +388,10 @@ class GameManager {
         const point = this.getMenuStagePoint(event);
         for (const button of Object.values(this.menuButtons)) {
             if (button.handlePointerDown(point.x, point.y)) {
+                // A completed Kevin swing suppresses its synthetic click. A
+                // later button press is a new interaction and must not inherit
+                // that suppression flag.
+                this.menuSlingshot.suppressClick = false;
                 this.canvas.style.cursor = 'pointer';
                 return true;
             }

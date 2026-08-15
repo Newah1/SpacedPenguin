@@ -20,7 +20,10 @@ export class SettingsManager {
         const storedValues = store.load();
         this.values = Object.fromEntries(config.settings.map(definition => [
             definition.key,
-            normalizeValue(definition, storedValues[definition.key])
+            normalizeValue(
+                definition,
+                definition.persistent === false ? definition.defaultValue : storedValues[definition.key]
+            )
         ]));
         this.applyAll();
     }
@@ -38,7 +41,9 @@ export class SettingsManager {
         if (!definition) throw new Error(`Unknown setting: ${key}`);
         const normalizedValue = normalizeValue(definition, value);
         this.values[key] = normalizedValue;
-        this.store.save(this.values);
+        this.store.save(Object.fromEntries(this.config.settings
+            .filter(setting => setting.persistent !== false)
+            .map(setting => [setting.key, this.values[setting.key]])));
         this.apply(definition, normalizedValue);
         return normalizedValue;
     }

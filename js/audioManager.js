@@ -17,6 +17,9 @@ export class AudioManager {
         this.backgroundMusicGain = null;
         this.backgroundMusicQueue = [];
         this.currentBackgroundTrack = null;
+        this.stellarMusicBuffer = null;
+        this.stellarMusicSource = null;
+        this.stellarMusicGain = null;
         
         // Initialize audio context
         this.initAudioContext();
@@ -171,6 +174,7 @@ export class AudioManager {
     setMasterVolume(volume) {
         this.masterVolume = Math.max(0, Math.min(1, volume));
         this.updateBackgroundMusicVolume(false);
+        this.updateStellarMusicVolume(false);
         plog.audio(`Master volume set to: ${this.masterVolume}`);
     }
     
@@ -274,6 +278,92 @@ export class AudioManager {
 
     isBackgroundMusicPlaying() {
         return Boolean(this.backgroundMusicSource);
+    }
+
+    async loadStellarTrack(file) {
+        if (!this.enabled || !this.audioContext || !file) return false;
+        const isMp3 = file.type === 'audio/mpeg' || /\.mp3$/i.test(file.name || '');
+        if (!isMp3) return false;
+
+        try {
+            this.stopStellarMusic();
+            const arrayBuffer = await file.arrayBuffer();
+            this.stellarMusicBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            await this.resumeAudioContext();
+            return true;
+        } catch (error) {
+            this.stellarMusicBuffer = null;
+            plog.error('Failed to load Stellar Mode MP3:', error);
+            return false;
+        }
+    }
+
+    clearStellarTrack() {
+        this.stopStellarMusic();
+        this.stellarMusicBuffer = null;
+    }
+
+    playStellarMusic() {
+        if (!this.enabled || !this.audioContext || !this.stellarMusicBuffer || this.stellarMusicSource) {
+            return false;
+        }
+
+        try {
+            const source = this.audioContext.createBufferSource();
+            const gainNode = this.audioContext.createGain();
+            const now = this.audioContext.currentTime;
+            const config = AUDIO_CONFIG.stellarMusic;
+            source.buffer = this.stellarMusicBuffer;
+            source.loop = true;
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(config.volume * this.masterVolume, now + config.fadeSeconds);
+            source.onended = () => {
+                if (this.stellarMusicSource !== source) return;
+                this.stellarMusicSource = null;
+                this.stellarMusicGain = null;
+            };
+            this.stellarMusicSource = source;
+            this.stellarMusicGain = gainNode;
+            source.start(0);
+            plog.audio('Playing Stellar Mode music');
+            return true;
+        } catch (error) {
+            this.stellarMusicSource = null;
+            this.stellarMusicGain = null;
+            plog.error('Failed to play Stellar Mode music:', error);
+            return false;
+        }
+    }
+
+    updateStellarMusicVolume(animate = true) {
+        const gain = this.stellarMusicGain?.gain;
+        if (!gain) return;
+        const now = this.audioContext?.currentTime ?? 0;
+        const volume = AUDIO_CONFIG.stellarMusic.volume * this.masterVolume;
+        gain.cancelScheduledValues?.(now);
+        gain.setValueAtTime?.(gain.value, now);
+        if (animate && gain.linearRampToValueAtTime) {
+            gain.linearRampToValueAtTime(volume, now + AUDIO_CONFIG.stellarMusic.fadeSeconds);
+        } else if (gain.setValueAtTime) {
+            gain.setValueAtTime(volume, now);
+        } else {
+            gain.value = volume;
+        }
+    }
+
+    stopStellarMusic() {
+        const source = this.stellarMusicSource;
+        this.stellarMusicSource = null;
+        this.stellarMusicGain = null;
+        if (!source) return;
+        source.onended = null;
+        this.stopSound(source);
+    }
+
+    isStellarMusicPlaying() {
+        return Boolean(this.stellarMusicSource);
     }
     
     // Get loaded sounds count

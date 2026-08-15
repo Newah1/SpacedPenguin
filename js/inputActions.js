@@ -400,6 +400,11 @@ export class UIInputAction extends InputAction {
 
         if (game.uiManager.activeScreens.length && game.uiManager.handleClick(e)) {
             e.__spacedPenguinUiHandled = true;
+            // Modal/canvas screens are blocking. Prevent the menu click
+            // listener registered on the same canvas from processing the same
+            // event after the screen has handled it.
+            e.preventDefault();
+            e.stopImmediatePropagation();
         }
     }
 

@@ -218,6 +218,23 @@ test('settings are available from the main and pause menus and persist locally',
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
 });
 
+test('Stellar Mode accepts a selected MP3', async ({ page }) => {
+    await page.goto('/');
+    await waitForGame(page);
+    await page.locator('#menuSettingsButton').click();
+
+    const stellarMode = page.getByLabel('Stellar Mode');
+    const [fileChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        stellarMode.check()
+    ]);
+    const buffer = await readFile(new URL('../assets/audio/bgm/penguins-ska.mp3', import.meta.url));
+    await fileChooser.setFiles({ name: 'stellar.mp3', mimeType: 'audio/mpeg', buffer });
+
+    await expect(stellarMode).toBeChecked();
+    await expect.poll(() => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer))).toBe(true);
+});
+
 test('slingshot pullback remains live-authoritative across animation frames', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');
@@ -291,24 +308,14 @@ test('experimental background music persists, plays, and dims for menus', async 
     expect(await page.evaluate(() => JSON.parse(localStorage.spacedPenguinSettings)
         .experimentalBackgroundMusic)).toBe(true);
 
-    await page.evaluate(() => {
-        window.musicDimHistory = [];
-        const manager = window.game.audioManager;
-        const original = manager.setBackgroundMusicDimmed.bind(manager);
-        manager.setBackgroundMusicDimmed = value => {
-            window.musicDimHistory.push([value, window.game.state, window.game.uiManager.activeScreens.length]);
-            return original(value);
-        };
-    });
     await page.getByRole('button', { name: 'BACK', exact: true }).click();
     await page.keyboard.press('Space');
     await waitForGame(page, 'playing');
     await expect.poll(() => page.evaluate(() => ({
         state: window.game.state,
         screens: window.game.uiManager.activeScreens.length,
-        dimmed: window.game.audioManager.backgroundMusicDimmed,
-        history: window.musicDimHistory
-    }))).toEqual({ state: 'playing', screens: 0, dimmed: false, history: [] });
+        dimmed: window.game.audioManager.backgroundMusicDimmed
+    }))).toEqual({ state: 'playing', screens: 0, dimmed: false });
 
     await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');

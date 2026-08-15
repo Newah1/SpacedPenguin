@@ -966,9 +966,13 @@ class Game {
         this.simulationSpeedButton.title = this.simulationSpeed === 2
             ? 'Return to normal speed'
             : 'Run simulation at double speed';
+        if (visible && this.settingsManager?.get('stellarModeEnabled')) {
+            this.audioManager?.playStellarMusic();
+        }
     }
 
     resetSimulationSpeedControl() {
+        this.audioManager?.stopStellarMusic();
         this.simulationSpeed = 1;
         this.soaringElapsedTime = 0;
         this.updateSimulationSpeedButton();
@@ -1537,12 +1541,52 @@ class Game {
             return this.settingsScreen;
         }
         this.settingsScreen = this.uiManager.showScreen(SettingsScreen, this.settingsManager, {
+            onSettingChange: (definition, value) => this.changeSetting(definition, value),
             onClose: () => {
                 this.settingsScreen = null;
                 options.onClose?.();
             }
         });
         return this.settingsScreen;
+    }
+
+    async changeSetting(definition, value) {
+        if (definition.key !== 'stellarModeEnabled') {
+            return this.settingsManager.set(definition.key, value);
+        }
+
+        if (!value) {
+            this.audioManager?.clearStellarTrack();
+            return this.settingsManager.set(definition.key, false);
+        }
+
+        const file = await this.selectStellarMp3();
+        const loaded = file && await this.audioManager?.loadStellarTrack(file);
+        if (!loaded) {
+            this.showMessage('We need a Stellar MP3 to continue.');
+            return this.settingsManager.set(definition.key, false);
+        }
+        return this.settingsManager.set(definition.key, true);
+    }
+
+    selectStellarMp3() {
+        return new Promise(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.mp3,audio/mpeg';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+            let settled = false;
+            const finish = file => {
+                if (settled) return;
+                settled = true;
+                input.remove();
+                resolve(file || null);
+            };
+            input.addEventListener('change', () => finish(input.files?.[0]));
+            input.addEventListener('cancel', () => finish(null));
+            input.click();
+        });
     }
     
     showMessage(message) {

@@ -992,6 +992,35 @@ test('Game fast-forward unlocks after five soaring seconds and resets on termina
     assert.equal(button.style.display, 'none');
 });
 
+test('Stellar Mode starts at the fast-forward unlock and stops with the attempt', () => {
+    let starts = 0;
+    let stops = 0;
+    const button = {
+        style: {},
+        classList: { toggle() {} },
+        setAttribute() {}
+    };
+    const game = Object.create(Game.prototype);
+    Object.assign(game, {
+        penguin: { state: 'soaring' },
+        simulationSpeed: 1,
+        soaringElapsedTime: 0,
+        simulationSpeedButton: button,
+        settingsManager: { get: key => key === 'stellarModeEnabled' },
+        audioManager: {
+            playStellarMusic: () => { starts++; },
+            stopStellarMusic: () => { stops++; }
+        }
+    });
+
+    game.updateSimulationSpeedControl(4.99);
+    assert.equal(starts, 0);
+    game.updateSimulationSpeedControl(0.01);
+    assert.equal(starts, 1);
+    game.resetSimulationSpeedControl();
+    assert.equal(stops, 1);
+});
+
 test('GameManager double speed runs two fixed simulation steps per display interval', () => {
     const animationFrames = createAnimationFrameFixture();
     const updates = [];

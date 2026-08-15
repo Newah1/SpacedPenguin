@@ -17,6 +17,10 @@ export const AUDIO_CONFIG = deepFreeze({
         menuVolumeMultiplier: 0.25,
         fadeSeconds: 0.25
     },
+    stellarMusic: {
+        volume: 0.7,
+        fadeSeconds: 1
+    },
     cues: {
         [AudioCue.ARP]: { soundId: '15_Arp', volume: 0.6, pitch: 1, loop: false },
         [AudioCue.BONUS]: { soundId: '16_snd_bonus', volume: 0.9, pitch: 1, loop: false },

@@ -13,7 +13,14 @@ controlRenderers.set(SettingType.BOOLEAN, ({ definition, value, onChange }) => {
     input.type = 'checkbox';
     input.checked = value;
     input.setAttribute('aria-label', definition.label);
-    input.addEventListener('change', () => onChange(input.checked));
+    input.addEventListener('change', async () => {
+        input.disabled = true;
+        try {
+            input.checked = Boolean(await onChange(input.checked));
+        } finally {
+            input.disabled = false;
+        }
+    });
     return input;
 });
 
@@ -44,6 +51,7 @@ export class SettingsScreen {
         this.uiManager = uiManager;
         this.settingsManager = settingsManager;
         this.onClose = options.onClose;
+        this.onSettingChange = options.onSettingChange;
         this.element = this.build();
         (uiManager.canvas.parentElement || document.body).appendChild(this.element);
         this.element.querySelector('input, button')?.focus();
@@ -78,7 +86,9 @@ export class SettingsScreen {
             row.append(copy, renderer({
                 definition,
                 value: this.settingsManager.get(definition.key),
-                onChange: value => this.settingsManager.set(definition.key, value)
+                onChange: value => this.onSettingChange
+                    ? this.onSettingChange(definition, value)
+                    : this.settingsManager.set(definition.key, value)
             }));
             panel.appendChild(row);
         }

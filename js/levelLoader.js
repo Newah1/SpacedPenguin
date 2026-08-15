@@ -702,7 +702,8 @@ export class LevelLoader {
         // Reset game state
         game.tries = 0;
         game.distance = 0;
-        game.state = GameState.PLAYING;
+        if (typeof game.setState === 'function') game.setState(GameState.PLAYING);
+        else game.state = GameState.PLAYING;
         
         plog.level(`Level ${levelNumber} loaded: ${game.planets.length} planets, ${game.bonuses.length} bonuses`);
         return levelDefinition;

@@ -3,7 +3,30 @@ import assert from 'node:assert/strict';
 import './nodeShims.js';
 import { createKeyboardEventFixture } from './testFixtures.js';
 
-const { KeyboardInputAction } = await import('../js/inputActions.js');
+const { KeyboardInputAction, UIInputAction } = await import('../js/inputActions.js');
+
+test('blocking canvas screens stop clicks before menu handling', () => {
+    let canvasClickStopped = false;
+    const action = new UIInputAction({
+        game: {
+            uiManager: {
+                activeScreens: [{}],
+                handleClick: () => true
+            }
+        }
+    });
+    const event = {
+        preventDefault() {},
+        stopImmediatePropagation() {
+            canvasClickStopped = true;
+        }
+    };
+
+    action.handleClick(event);
+
+    assert.equal(event.__spacedPenguinUiHandled, true);
+    assert.equal(canvasClickStopped, true);
+});
 
 test('Q routes gameplay quit through the Game quit dialog', () => {
     let quitDialogCalls = 0;
