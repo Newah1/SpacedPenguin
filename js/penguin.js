@@ -171,6 +171,27 @@ export class Penguin {
             plog.waddle('Starting to load real penguin sprites...');
             
             this.spriteSheets = {};
+
+            // AssetLoader owns the long-lived image resources. Level changes
+            // replace this gameplay object, but must not reload its sprites.
+            if (this.assetLoader?.getAnimationSpriteSheet) {
+                for (const type of ['xc', 'yc', 'zc']) {
+                    const spriteSheet = this.assetLoader.getAnimationSpriteSheet(type);
+                    if (spriteSheet) this.spriteSheets[type] = spriteSheet;
+                }
+
+                if (Object.keys(this.spriteSheets).length === 3) {
+                    await this.loadMetadata();
+                }
+
+                // Do not fall back to new network-backed Image objects when
+                // the shared loader has a failed/missing optional animation.
+                // The renderer will use its normal penguin fallback instead.
+                return;
+            }
+
+            // Keep the standalone fallback for editor/manual callers that
+            // construct a Penguin without the shared asset service.
             
             // Load XC animation
             const xcImage = new Image();
@@ -205,13 +226,19 @@ export class Penguin {
     }
     
     async loadMetadata() {
+        if (this.metadataPromise) return this.metadataPromise;
+
+        this.metadataPromise = (async () => {
         if (this.spriteSheets.xc && this.spriteSheets.yc && this.spriteSheets.zc) {
             try {
-                const [xcMeta, ycMeta, zcMeta] = await Promise.all([
-                    fetch(penguinAnimationAssetPath('xc', 'metadata')).then(r => r.json()),
-                    fetch(penguinAnimationAssetPath('yc', 'metadata')).then(r => r.json()),
-                    fetch(penguinAnimationAssetPath('zc', 'metadata')).then(r => r.json())
-                ]);
+                const metadata = this.assetLoader?.getAnimationMetadata
+                    ? await Promise.all(['xc', 'yc', 'zc'].map(type => this.assetLoader.getAnimationMetadata(type)))
+                    : await Promise.all([
+                        fetch(penguinAnimationAssetPath('xc', 'metadata')).then(r => r.json()),
+                        fetch(penguinAnimationAssetPath('yc', 'metadata')).then(r => r.json()),
+                        fetch(penguinAnimationAssetPath('zc', 'metadata')).then(r => r.json())
+                    ]);
+                const [xcMeta, ycMeta, zcMeta] = metadata;
                 
                 this.metadata = { xc: xcMeta, yc: ycMeta, zc: zcMeta };
                 this.processedSpriteFrames = Object.fromEntries(
@@ -229,6 +256,9 @@ export class Penguin {
                 console.error('Failed to load metadata:', error);
             }
         }
+        })();
+
+        return this.metadataPromise;
     }
     
     async init() {

@@ -7,7 +7,6 @@ import { stepOrbit } from './orbitSimulation.js';
 import { calculateLaunchScale, calculateLaunchVelocity } from './simulationEngine.js';
 import { LevelOrbitType } from './levelSchema.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
-import { assetPath } from './config/assetConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
 
 function colorForThreshold(value, thresholds, fallback) {
@@ -649,53 +648,17 @@ class Bonus extends GameObject {
         // Use consolidated orbit system
         this.orbitSystem = new OrbitSystem(gameObjectLookup);
         
-        // Initialize sprites if asset loader is available
+        // Reuse the startup-loaded sprites. Constructing a new level should
+        // only create gameplay state, not start new image requests.
         if (this.assetLoader) {
-            // Initialize sprites asynchronously
-            this.initializeSprites().catch(error => {
-                console.error('Failed to initialize bonus sprites:', error);
-            });
+            this.initializeSprites();
         }
     }
-    
-    async initializeSprites() {
-        try {
-            // Load both bonus sprites
-            this.bonusSprite = await this.loadSVGSprite('bonus');
-            this.bonusHitSprite = await this.loadSVGSprite('bonus_hit');
-            
-            // Start with normal bonus sprite
-            this.currentSprite = this.bonusSprite;
-            
-            plog.bonus('Bonus sprites initialized');
-        } catch (error) {
-            plog.error('Error initializing bonus sprites:', error);
-        }
-    }
-    
-    async loadSVGSprite(spriteName) {
-        try {
-            const response = await fetch(assetPath(`sprites/${spriteName}.svg`));
-            const svgText = await response.text();
-            
-            // Create an image from the SVG
-            const img = new Image();
-            const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(svgBlob);
-            
-            return new Promise((resolve, reject) => {
-                img.onload = () => {
-                    // Clean up
-                    URL.revokeObjectURL(url);
-                    resolve(img);
-                };
-                img.onerror = reject;
-                img.src = url;
-            });
-        } catch (error) {
-            plog.error(`Error loading SVG sprite ${spriteName}:`, error);
-            return null;
-        }
+
+    initializeSprites() {
+        this.bonusSprite = this.assetLoader.getGameSprite('bonus');
+        this.bonusHitSprite = this.assetLoader.getGameSprite('bonus_hit');
+        this.currentSprite = this.bonusSprite;
     }
     
     update(deltaTime, options = {}) {
@@ -999,32 +962,10 @@ class Target extends GameObject {
     
     initializeShip() {
         try {
-            plog.success('Initializing ship sprites...');
-            
-            // Create ship sprites using HTML Image elements
             this.shipSprites = {
-                closed: new Image(),
-                open: new Image()
+                closed: this.assetLoader.getGameSprite('ship_closed'),
+                open: this.assetLoader.getGameSprite('ship_open')
             };
-            
-            // Set up error handling for image loading
-            this.shipSprites.closed.onerror = () => {
-                plog.error('Failed to load ship_closed.png');
-            };
-            this.shipSprites.open.onerror = () => {
-                plog.error('Failed to load ship_open.png');
-            };
-            
-            this.shipSprites.closed.onload = () => {
-                plog.success('Ship closed sprite loaded successfully');
-            };
-            this.shipSprites.open.onload = () => {
-                plog.success('Ship open sprite loaded successfully');
-            };
-            
-            // Load the ship images
-            this.shipSprites.closed.src = assetPath('sprites/ship_closed.png');
-            this.shipSprites.open.src = assetPath('sprites/ship_open.png');
             
             // Set current sprite based on spriteType, fallback to open
             if (this.spriteType === 'ship_closed') {

@@ -1918,6 +1918,17 @@ class Game {
     }
     
     loadAlphaMask() {
+        const cachedAlphaMask = this.assetLoader?.getUI('alpha_mask');
+        if (cachedAlphaMask) {
+            this.alphaMaskImage = cachedAlphaMask;
+            try {
+                this.prepareAlphaMaskStencil();
+            } catch (error) {
+                plog.error('Failed to prepare cached alpha mask image:', error);
+            }
+            return;
+        }
+
         // Load the alpha mask image directly
         this.alphaMaskImage = new Image();
         this.alphaMaskImage.onload = () => {

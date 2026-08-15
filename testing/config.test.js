@@ -96,6 +96,36 @@ test('lazy asset loading uses the configured asset root', async () => {
     }
 });
 
+test('shared asset lookups reuse image objects and coalesce animation metadata requests', async () => {
+    const loader = new AssetLoader();
+    const bonusSprite = { id: 'bonus-sprite' };
+    loader.resources.sprite_bonus = { image: bonusSprite };
+
+    assert.equal(loader.getGameSprite('bonus'), bonusSprite);
+    assert.equal(loader.getGameSprite('bonus'), bonusSprite);
+
+    const originalFetch = globalThis.fetch;
+    let metadataRequests = 0;
+    globalThis.fetch = async () => {
+        metadataRequests++;
+        return {
+            ok: true,
+            json: async () => ({ frame_count: 1 })
+        };
+    };
+
+    try {
+        const [first, second] = await Promise.all([
+            loader.getAnimationMetadata('xc'),
+            loader.getAnimationMetadata('xc')
+        ]);
+        assert.equal(first, second);
+        assert.equal(metadataRequests, 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test('responsive policy is shared without requiring browser globals', () => {
     assert.equal(isMobileViewport({ userAgent: '', width: 768, height: 1024 }), true);
     assert.equal(isMobileViewport({ userAgent: '', width: 769, height: 1024 }), false);

@@ -20,6 +20,8 @@ export class AssetLoader {
         this.loadedCount = 0;
         this.totalCount = 0;
         this.loadAttempts = new Map(); // Track load attempts to prevent redundant loading
+        this.animationMetadata = new Map();
+        this.animationMetadataPromises = new Map();
         
         // Initialize audio manager
         this.audioManager = new AudioManager();
@@ -340,12 +342,11 @@ export class AssetLoader {
 
         try {
             // Load metadata
-            const metadataResponse = await fetch(penguinAnimationAssetPath(animationType, 'metadata'));
-            const metadata = await metadataResponse.json();
+            const metadata = await this.getAnimationMetadata(animationType);
             
             // Create animation object with sprite sheet and metadata
             const animation = {
-                spriteSheet: this.resources[animationName].image,
+                spriteSheet: this.getAnimationSpriteSheet(animationType),
                 metadata: metadata,
                 animationType: animationType,
                 currentFrame: 0,
@@ -364,12 +365,52 @@ export class AssetLoader {
         }
     }
 
+    getImage(resourceName) {
+        const resource = this.resources[resourceName];
+        if (!resource) return null;
+
+        // Eagerly loaded images are wrapped in a resource record. Fallbacks
+        // and legacy on-demand resources may already be image-like values.
+        return resource.image || resource;
+    }
+
+    getAnimationSpriteSheet(animationType = 'xc') {
+        return this.getImage(`penguin_spin_${animationType}_sheet`);
+    }
+
+    async getAnimationMetadata(animationType = 'xc') {
+        if (this.animationMetadata.has(animationType)) {
+            return this.animationMetadata.get(animationType);
+        }
+
+        if (!this.animationMetadataPromises.has(animationType)) {
+            const metadataPromise = fetch(penguinAnimationAssetPath(animationType, 'metadata'))
+                .then(response => {
+                    if (!response.ok && response.ok !== undefined) {
+                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(metadata => {
+                    this.animationMetadata.set(animationType, metadata);
+                    this.animationMetadataPromises.delete(animationType);
+                    return metadata;
+                })
+                .catch(error => {
+                    this.animationMetadataPromises.delete(animationType);
+                    throw error;
+                });
+            this.animationMetadataPromises.set(animationType, metadataPromise);
+        }
+
+        return this.animationMetadataPromises.get(animationType);
+    }
+
     // Get a sprite by name
     getSprite(category, name) {
         const resourceName = `${category}_${name}`;
-        if (this.resources[resourceName]) {
-            return this.resources[resourceName].image;
-        }
+        const image = this.getImage(resourceName);
+        if (image) return image;
         console.warn(`Sprite ${resourceName} not found`);
         return null;
     }
