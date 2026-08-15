@@ -27,6 +27,14 @@ export const SETTINGS_CONFIG = deepFreeze({
             effect: 'audioEnabled'
         },
         {
+            key: 'experimentalBackgroundMusic',
+            type: SettingType.BOOLEAN,
+            label: 'Experimental background music',
+            description: 'Shuffle the new soundtrack while you play.',
+            defaultValue: false,
+            effect: 'backgroundMusicEnabled'
+        },
+        {
             key: 'masterVolume',
             type: SettingType.NUMBER,
             label: 'Master volume',

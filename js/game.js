@@ -77,6 +77,7 @@ class Game {
             new LocalSettingsStore(SETTINGS_CONFIG.storageKey),
             {
                 audioEnabled: value => this.audioManager?.setEnabled(value),
+                backgroundMusicEnabled: value => this.audioManager?.setBackgroundMusicEnabled(value),
                 masterVolume: value => this.audioManager?.setMasterVolume(value),
                 aimAssistEnabled: value => {
                     if (!value) this.aimAssistPoints = [];
@@ -99,10 +100,13 @@ class Game {
         this.canvasScaleY = 1;
         
         // UI Manager for menus and overlays
-        this.uiManager = new UIManager(canvas, audioManager);
+        this.uiManager = new UIManager(canvas, audioManager, {
+            onScreensChanged: () => this.updateBackgroundMusicDimming()
+        });
         
         // Game state
         this.state = GameState.MENU;
+        this.updateBackgroundMusicDimming();
         this.level = 1;
         this.score = 0;
         this.currentLevelBestScore = 0;
@@ -247,6 +251,7 @@ class Game {
         if (this.state !== newState) {
             plog.info(`Game state changing from ${this.state} to ${newState}`);
             this.state = newState;
+            this.updateBackgroundMusicDimming();
 
             document.body.classList.toggle('is-menu', newState === GameState.MENU);
             if (newState !== GameState.MENU) {
@@ -888,6 +893,15 @@ class Game {
         if (this.penguin?.state === 'crashed') {
             this.crashedPenguins.push(this.penguin.createCrashCopy());
         }
+    }
+
+    updateBackgroundMusicDimming() {
+        const menuState = this.state === GameState.MENU ||
+            this.state === GameState.PAUSED ||
+            this.state === GameState.GAME_OVER ||
+            this.state === GameState.SCORING;
+        const menuOpen = Boolean(this.uiManager?.activeScreens?.length);
+        this.audioManager?.setBackgroundMusicDimmed(menuState || menuOpen);
     }
 
     updateCrashedPenguins(deltaTime) {

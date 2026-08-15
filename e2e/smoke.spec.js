@@ -267,6 +267,54 @@ test('audio request failures degrade without blocking bootstrap', async ({ page 
     await expect.poll(() => page.evaluate(() => Boolean(window.game?.assetLoader))).toBe(true);
 });
 
+test('experimental background music persists, plays, and dims for menus', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+
+    await page.getByRole('button', { name: 'SETTINGS', exact: true }).click();
+    const musicToggle = page.getByLabel('Experimental background music');
+    await musicToggle.check();
+    await expect.poll(() => page.evaluate(() => ({
+        enabled: window.game.audioManager.backgroundMusicEnabled,
+        playing: window.game.audioManager.isBackgroundMusicPlaying(),
+        dimmed: window.game.audioManager.backgroundMusicDimmed
+    }))).toEqual({
+        enabled: true,
+        playing: true,
+        dimmed: true
+    });
+    expect(await page.evaluate(() => {
+        const manager = window.game.audioManager;
+        return manager.currentBackgroundTrack && manager.sounds.has(manager.currentBackgroundTrack);
+    })).toBe(true);
+    expect(await page.evaluate(() => JSON.parse(localStorage.spacedPenguinSettings)
+        .experimentalBackgroundMusic)).toBe(true);
+
+    await page.evaluate(() => {
+        window.musicDimHistory = [];
+        const manager = window.game.audioManager;
+        const original = manager.setBackgroundMusicDimmed.bind(manager);
+        manager.setBackgroundMusicDimmed = value => {
+            window.musicDimHistory.push([value, window.game.state, window.game.uiManager.activeScreens.length]);
+            return original(value);
+        };
+    });
+    await page.getByRole('button', { name: 'BACK', exact: true }).click();
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+    await expect.poll(() => page.evaluate(() => ({
+        state: window.game.state,
+        screens: window.game.uiManager.activeScreens.length,
+        dimmed: window.game.audioManager.backgroundMusicDimmed,
+        history: window.musicDimHistory
+    }))).toEqual({ state: 'playing', screens: 0, dimmed: false, history: [] });
+
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+    await expect.poll(() => page.evaluate(() => window.game.audioManager.backgroundMusicDimmed)).toBe(true);
+});
+
 test('menu uses the original black and orange title-card composition', async ({ page }, testInfo) => {
     await page.goto('/');
     await waitForGame(page);

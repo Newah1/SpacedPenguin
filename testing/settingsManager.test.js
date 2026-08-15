@@ -10,13 +10,15 @@ test('settings load defaults, persist changes, and invoke configured effects', (
     const effects = [];
     const manager = new SettingsManager(SETTINGS_CONFIG, store, {
         audioEnabled: value => effects.push(['enabled', value]),
+        backgroundMusicEnabled: value => effects.push(['music', value]),
         masterVolume: value => effects.push(['volume', value])
     });
 
     assert.equal(manager.get('soundEnabled'), true);
     assert.equal(manager.get('masterVolume'), 0.7);
     assert.equal(manager.get('aimAssistEnabled'), false);
-    assert.deepEqual(effects, [['enabled', true], ['volume', 0.7]]);
+    assert.equal(manager.get('experimentalBackgroundMusic'), false);
+    assert.deepEqual(effects, [['enabled', true], ['music', false], ['volume', 0.7]]);
 
     manager.set('soundEnabled', false);
     manager.set('masterVolume', 0.35);
@@ -24,6 +26,7 @@ test('settings load defaults, persist changes, and invoke configured effects', (
     assert.deepEqual(store.load(), {
         aimAssistEnabled: false,
         soundEnabled: false,
+        experimentalBackgroundMusic: false,
         masterVolume: 0.35
     });
     assert.deepEqual(effects.slice(-2), [['enabled', false], ['volume', 0.35]]);

@@ -10,6 +10,13 @@ export class AudioManager {
         this.sounds = new Map();
         this.masterVolume = AUDIO_CONFIG.defaultMasterVolume;
         this.enabled = true;
+        this.soundEffectsEnabled = true;
+        this.backgroundMusicEnabled = false;
+        this.backgroundMusicDimmed = false;
+        this.backgroundMusicSource = null;
+        this.backgroundMusicGain = null;
+        this.backgroundMusicQueue = [];
+        this.currentBackgroundTrack = null;
         
         // Initialize audio context
         this.initAudioContext();
@@ -21,10 +28,10 @@ export class AudioManager {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
             
-            // Resume context if it's suspended (required for autoplay policies)
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
-            }
+            // A gesture may still be required by browser autoplay policy. A
+            // suspended context is valid and can load/decode assets normally.
+            this.installAudioUnlockListeners();
+            await this.resumeAudioContext();
             
             plog.audio('Audio context initialized successfully');
         } catch (error) {
@@ -55,8 +62,8 @@ export class AudioManager {
     }
     
     playSound(name, volume = 1.0, pitch = 1.0, loop = false) {
-        if (!this.enabled || !this.audioContext || !this.sounds.has(name)) {
-            plog.warn(`Cannot play sound: ${name} (enabled: ${this.enabled}, loaded: ${this.sounds.has(name)})`);
+        if (!this.enabled || !this.soundEffectsEnabled || !this.audioContext || !this.sounds.has(name)) {
+            plog.warn(`Cannot play sound: ${name} (enabled: ${this.enabled && this.soundEffectsEnabled}, loaded: ${this.sounds.has(name)})`);
             return null;
         }
         
@@ -101,6 +108,30 @@ export class AudioManager {
         }
     }
 
+    installAudioUnlockListeners() {
+        if (typeof document === 'undefined' || this.audioUnlockHandler) return;
+        this.audioUnlockHandler = () => this.resumeAudioContext();
+        document.addEventListener('pointerdown', this.audioUnlockHandler, { passive: true });
+        document.addEventListener('keydown', this.audioUnlockHandler);
+    }
+
+    removeAudioUnlockListeners() {
+        if (typeof document === 'undefined' || !this.audioUnlockHandler) return;
+        document.removeEventListener('pointerdown', this.audioUnlockHandler);
+        document.removeEventListener('keydown', this.audioUnlockHandler);
+        this.audioUnlockHandler = null;
+    }
+
+    async resumeAudioContext() {
+        if (!this.audioContext || this.audioContext.state !== 'suspended') return;
+        try {
+            await this.audioContext.resume();
+            if (this.audioContext.state === 'running') this.removeAudioUnlockListeners();
+        } catch (error) {
+            plog.debug('Audio context is waiting for a user gesture:', error);
+        }
+    }
+
     playCue(cue, overrides = {}) {
         const configured = getAudioCue(cue);
         if (!configured) {
@@ -139,13 +170,110 @@ export class AudioManager {
     // Volume control
     setMasterVolume(volume) {
         this.masterVolume = Math.max(0, Math.min(1, volume));
+        this.updateBackgroundMusicVolume(false);
         plog.audio(`Master volume set to: ${this.masterVolume}`);
     }
     
     // Enable/disable audio
     setEnabled(enabled) {
-        this.enabled = enabled;
-        plog.audio(`Audio ${enabled ? 'enabled' : 'disabled'}`);
+        this.soundEffectsEnabled = Boolean(enabled);
+        if (this.soundEffectsEnabled) {
+            this.resumeAudioContext();
+        }
+        plog.audio(`Sound effects ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    setBackgroundMusicEnabled(enabled) {
+        this.backgroundMusicEnabled = Boolean(enabled);
+        if (this.backgroundMusicEnabled && this.enabled) {
+            this.resumeAudioContext();
+            this.startBackgroundMusic();
+        } else {
+            this.stopBackgroundMusic();
+        }
+    }
+
+    setBackgroundMusicDimmed(dimmed) {
+        this.backgroundMusicDimmed = Boolean(dimmed);
+        this.updateBackgroundMusicVolume(true);
+    }
+
+    getBackgroundMusicVolume() {
+        const config = AUDIO_CONFIG.backgroundMusic;
+        const multiplier = this.backgroundMusicDimmed ? config.menuVolumeMultiplier : 1;
+        return config.volume * multiplier * this.masterVolume;
+    }
+
+    updateBackgroundMusicVolume(animate = true) {
+        const gain = this.backgroundMusicGain?.gain;
+        if (!gain) return;
+        const volume = this.getBackgroundMusicVolume();
+        const now = this.audioContext?.currentTime ?? 0;
+        gain.cancelScheduledValues?.(now);
+        gain.setValueAtTime?.(gain.value, now);
+        if (animate && gain.linearRampToValueAtTime) {
+            gain.linearRampToValueAtTime(volume, now + AUDIO_CONFIG.backgroundMusic.fadeSeconds);
+        } else if (gain.setValueAtTime) {
+            gain.setValueAtTime(volume, now);
+        } else {
+            gain.value = volume;
+        }
+    }
+
+    refillBackgroundMusicQueue() {
+        const tracks = AUDIO_CONFIG.backgroundMusic.trackIds.filter(track => this.sounds.has(track));
+        for (let index = tracks.length - 1; index > 0; index--) {
+            const swapIndex = Math.floor(Math.random() * (index + 1));
+            [tracks[index], tracks[swapIndex]] = [tracks[swapIndex], tracks[index]];
+        }
+        if (tracks.length > 1 && tracks[0] === this.currentBackgroundTrack) {
+            [tracks[0], tracks[1]] = [tracks[1], tracks[0]];
+        }
+        this.backgroundMusicQueue = tracks;
+    }
+
+    startBackgroundMusic() {
+        if (!this.enabled || !this.backgroundMusicEnabled || this.backgroundMusicSource) return;
+        if (!this.backgroundMusicQueue.length) this.refillBackgroundMusicQueue();
+        const track = this.backgroundMusicQueue.shift();
+        if (!track || !this.audioContext) return;
+
+        try {
+            const source = this.audioContext.createBufferSource();
+            const gainNode = this.audioContext.createGain();
+            source.buffer = this.sounds.get(track);
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            this.backgroundMusicSource = source;
+            this.backgroundMusicGain = gainNode;
+            this.currentBackgroundTrack = track;
+            this.updateBackgroundMusicVolume(false);
+            source.onended = () => {
+                if (this.backgroundMusicSource !== source) return;
+                this.backgroundMusicSource = null;
+                this.backgroundMusicGain = null;
+                this.startBackgroundMusic();
+            };
+            source.start(0);
+            plog.audio(`Playing background music: ${track}`);
+        } catch (error) {
+            this.backgroundMusicSource = null;
+            this.backgroundMusicGain = null;
+            plog.error(`Failed to play background music ${track}:`, error);
+        }
+    }
+
+    stopBackgroundMusic() {
+        const source = this.backgroundMusicSource;
+        this.backgroundMusicSource = null;
+        this.backgroundMusicGain = null;
+        if (!source) return;
+        source.onended = null;
+        this.stopSound(source);
+    }
+
+    isBackgroundMusicPlaying() {
+        return Boolean(this.backgroundMusicSource);
     }
     
     // Get loaded sounds count

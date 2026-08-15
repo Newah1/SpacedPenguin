@@ -7,11 +7,12 @@ import { UI_CONFIG } from './config/uiConfig.js';
 import { CanvasButton } from './buttonFramework.js';
 
 export class UIManager {
-    constructor(canvas, audioManager) {
+    constructor(canvas, audioManager, options = {}) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.audioManager = audioManager;
         this.activeScreens = [];
+        this.onScreensChanged = options.onScreensChanged;
         this.fonts = {
             verdana: UI_CONFIG.fonts.primary,
             system: UI_CONFIG.fonts.system
@@ -63,12 +64,14 @@ export class UIManager {
     showScreen(screenClass, ...args) {
         const screen = new screenClass(this, ...args);
         this.activeScreens.push(screen);
+        this.onScreensChanged?.(this.activeScreens);
         return screen;
     }
 
     showModal(options = {}) {
         const screen = new ModalScreen(this, options);
         this.activeScreens.push(screen);
+        this.onScreensChanged?.(this.activeScreens);
         return screen;
     }
 
@@ -96,12 +99,14 @@ export class UIManager {
         if (index !== -1) {
             this.activeScreens.splice(index, 1);
             screen.destroy?.();
+            this.onScreensChanged?.(this.activeScreens);
         }
     }
     
     closeAllScreens() {
         for (const screen of this.activeScreens) screen.destroy?.();
         this.activeScreens = [];
+        this.onScreensChanged?.(this.activeScreens);
     }
     
     handleClick(event) {

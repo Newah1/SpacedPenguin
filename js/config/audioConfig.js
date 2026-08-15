@@ -11,6 +11,12 @@ export const AudioCue = Object.freeze({
 export const AUDIO_CONFIG = deepFreeze({
     defaultMasterVolume: 0.7,
     scoringLoopVolume: 0.6,
+    backgroundMusic: {
+        trackIds: ['bgm_penguins_ska', 'bgm_penguins_ska_2', 'bgm_penguins_drum'],
+        volume: 0.55,
+        menuVolumeMultiplier: 0.25,
+        fadeSeconds: 0.25
+    },
     cues: {
         [AudioCue.ARP]: { soundId: '15_Arp', volume: 0.6, pitch: 1, loop: false },
         [AudioCue.BONUS]: { soundId: '16_snd_bonus', volume: 0.9, pitch: 1, loop: false },
