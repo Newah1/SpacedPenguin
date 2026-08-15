@@ -39,10 +39,9 @@ export class GameObjectFactory {
             position = { x: properties.x, y: properties.y };
         }
         
-        // Debug logging for problematic objects
         if (!position && [LevelObjectType.BONUS, LevelObjectType.PLANET, LevelObjectType.TARGET]
             .includes(normalizeLevelObjectType(type))) {
-            console.error('Object creation failed: missing position', { 
+            plog.error('Object creation failed: missing position', {
                 type, 
                 position, 
                 properties,
@@ -53,9 +52,6 @@ export class GameObjectFactory {
         
         switch (normalizeLevelObjectType(type)) {
             case LevelObjectType.PLANET:
-                // Temporary debug: Check mass value being passed
-                console.log('GameObjectFactory.create - Planet properties:', properties);
-                console.log('GameObjectFactory.create - Planet mass:', properties.mass);
                 return this.createPlanet(position, properties, assetLoader, gameObjectLookup);
             
             case LevelObjectType.BONUS:
@@ -110,11 +106,9 @@ export class GameObjectFactory {
             planet.id = id;
         }
         
-        // Apply orbital properties if specified (check both old location and new properties location)
+        // Apply normalized orbital properties, when present.
         if (orbit) {
             this.applyOrbitToObject(planet, orbit, gameObjectLookup);
-        } else if (properties.orbit) {
-            this.applyOrbitToObject(planet, properties.orbit, gameObjectLookup);
         }
         
         return planet;
@@ -311,14 +305,6 @@ export class GameObjectFactory {
         }
         
         return arrow;
-    }
-    
-    static createObstacle(position, properties) {
-        // Future extension point for obstacles
-        const { width = 50, height = 50, type = 'static' } = properties;
-        // Would return new Obstacle(position.x, position.y, width, height, type);
-        plog.warn('Obstacle type not yet implemented');
-        return null;
     }
     
     static applyOrbitToObject(object, orbitConfig, gameObjectLookup = null) {

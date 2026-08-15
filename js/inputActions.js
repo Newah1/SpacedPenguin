@@ -163,13 +163,10 @@ export class MenuInputAction extends InputAction {
 
 export class KeyboardInputAction extends InputAction {
     setupListeners() {
-        console.log('KeyboardInputAction: Setting up keydown listener on document');
         this.addListener(document, 'keydown', this.handleKeyDown);
     }
     
     handleKeyDown(e) {
-        console.log('KeyboardInputAction: Key pressed:', e.code, 'Game state:', this.getGameState());
-
         const game = this.getGame();
         if (!game) return;
         
@@ -246,10 +243,7 @@ export class KeyboardInputAction extends InputAction {
         switch (e.code) {
             case 'Space':
             case 'Enter':
-                console.log('InputActionManager: Handling space/enter key for menu');
-                console.log('Event details:', { code: e.code, key: e.key, defaultPrevented: e.defaultPrevented });
                 e.preventDefault();
-                console.log('After preventDefault:', { defaultPrevented: e.defaultPrevented });
                 game.startGame();
                 break;
         }
@@ -477,8 +471,6 @@ export class InputActionManager {
         const gameState = game.state;
         const isLevelEditorActive = game.levelEditor?.active;
         
-        console.log('InputActionManager: Updating active actions for state:', gameState);
-
         // Always active actions
         this.activateAction('keyboard');
         this.activateAction('window');
@@ -494,7 +486,6 @@ export class InputActionManager {
             
             switch (gameState) {
                 case GameState.MENU:
-                    console.log('InputActionManager: Activating menu actions');
                     this.activateAction('menu');
                     this.deactivateAction('gameplay');
                     break;

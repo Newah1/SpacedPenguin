@@ -28,7 +28,7 @@ const {
     stepGameSimulation
 } = await import('../js/gameSimulationAdapter.js');
 const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameObjects.js');
-const { LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
+const { LEVEL_CATALOG_CONFIG, LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
 const { SimulationEventType } = await import('../js/simulationEngine.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
 const {
@@ -413,6 +413,30 @@ test('level-end buttons handle clicks before the screen-wide continue action', (
     assert.equal(handled, true);
     assert.equal(buttonClicks, 1);
     assert.equal(continueCalls, 0);
+});
+
+test('level-end continuation reaches game over at the configured final level', () => {
+    const game = {
+        level: LEVEL_CATALOG_CONFIG.maxGeneratedLevel,
+        state: GameState.SCORING,
+        uiManager: {
+            audioManager: null,
+            playSound() {}
+        },
+        nextLevel: () => assert.fail('final level must not advance')
+    };
+    const screen = createLevelEndScreenFixture({
+        game,
+        uiManager: {
+            playSound() {}
+        },
+        close() {},
+        stopAllLoopingSounds() {}
+    });
+
+    LevelEndScreen.prototype.handleContinue.call(screen);
+
+    assert.equal(game.state, GameState.GAME_OVER);
 });
 
 test('Game validates a level before clearing the current world', () => {

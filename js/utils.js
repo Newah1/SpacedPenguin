@@ -20,11 +20,6 @@ export default class Utils {
         return Math.sqrt(dx * dx + dy * dy);
     }
     
-    // Calculate distance from origin (0,0)
-    static distanceFromOrigin(point) {
-        return Math.sqrt(point.x * point.x + point.y * point.y);
-    }
-    
     // Calculate rotation angle from a vector
     static rotationAngle(vector) {
         if (vector.x === 0) {
@@ -56,41 +51,9 @@ export default class Utils {
                point.y <= rect.y + rect.height;
     }
     
-    // Vector addition
-    static addVectors(v1, v2) {
-        return { x: v1.x + v2.x, y: v1.y + v2.y };
-    }
-    
-    // Vector subtraction
-    static subtractVectors(v1, v2) {
-        return { x: v1.x - v2.x, y: v1.y - v2.y };
-    }
-    
-    // Vector multiplication by scalar
-    static multiplyVector(vector, scalar) {
-        return { x: vector.x * scalar, y: vector.y * scalar };
-    }
-    
     // Vector magnitude
     static vectorMagnitude(vector) {
         return Math.sqrt(vector.x * vector.x + vector.y * vector.y);
-    }
-    
-    // Normalize vector
-    static normalizeVector(vector) {
-        const magnitude = Utils.vectorMagnitude(vector);
-        if (magnitude === 0) return { x: 0, y: 0 };
-        return { x: vector.x / magnitude, y: vector.y / magnitude };
-    }
-    
-    // Clamp value between min and max
-    static clamp(value, min, max) {
-        return Math.min(Math.max(value, min), max);
-    }
-    
-    // Linear interpolation
-    static lerp(start, end, factor) {
-        return start + (end - start) * factor;
     }
     
     // Generate random number between min and max
@@ -103,53 +66,12 @@ export default class Utils {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
     
-    // Check if two circles intersect
-    static circlesIntersect(center1, radius1, center2, radius2) {
-        const distance = Utils.distance(center1, center2);
-        return distance <= radius1 + radius2;
-    }
-    
-    // Check if point is inside circle
-    static pointInCircle(point, center, radius) {
-        const distance = Utils.distance(point, center);
-        return distance <= radius;
-    }
-    
-    // Convert hex color string to RGB object
-    static hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
-    }
-    
-    // Convert RGB object to hex color string
-    static rgbToHex(rgb) {
-        return "#" + ((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1);
-    }
-    
-    // Format number with leading zeros
-    static padNumber(num, length) {
-        return num.toString().padStart(length, '0');
-    }
-    
     // Format score for display
     static formatScore(score) {
         return score.toLocaleString();
     }
     
     // URL parameter utilities
-    static getURLParameters() {
-        const params = new URLSearchParams(window.location.search);
-        const result = {};
-        for (const [key, value] of params) {
-            result[key] = value;
-        }
-        return result;
-    }
-    
     static getURLParameter(name, defaultValue = null) {
         const params = new URLSearchParams(window.location.search);
         return params.get(name) || defaultValue;
@@ -174,42 +96,11 @@ export default class Utils {
     
     // Level validation
     static validateLevel(level, maxLevel = LEVEL_CATALOG_CONFIG.maxGeneratedLevel) {
-        const parsed = parseInt(level);
-        if (isNaN(parsed) || parsed < LEVEL_CATALOG_CONFIG.firstLevel || parsed > maxLevel) {
+        const parsed = Number(level);
+        if (!Number.isInteger(parsed) || parsed < LEVEL_CATALOG_CONFIG.firstLevel || parsed > maxLevel) {
             return null;
         }
         return parsed;
     }
     
-    // Deep clone object
-    static deepClone(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
-    
-    // Debounce function
-    static debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-    
-    // Throttle function
-    static throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
-    }
 }

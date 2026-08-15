@@ -39,6 +39,7 @@ import { EDITOR_CONFIG } from '../js/config/editorConfig.js';
 import { UI_CONFIG } from '../js/config/uiConfig.js';
 import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 import { AssetLoader } from '../js/assetLoader.js';
+import Utils from '../js/utils.js';
 
 test('game configuration is deeply frozen and satisfies core invariants', () => {
     for (const config of [
@@ -111,6 +112,13 @@ test('legacy constant exports are views of domain configuration', () => {
     assert.equal(DEFAULT_GRAVITATIONAL_REACH, PHYSICS_CONFIG.defaultGravitationalReach);
     assert.deepEqual(DEFAULT_STAGE_BOUNDS, { x: 0, y: 0, ...WORLD_CONFIG.stage });
     assert.deepEqual(DEFAULT_FLIGHT_BOUNDS, WORLD_CONFIG.flightBounds);
+});
+
+test('level URL validation accepts only complete integer levels', () => {
+    assert.equal(Utils.validateLevel('5'), 5);
+    assert.equal(Utils.validateLevel('5abc'), null);
+    assert.equal(Utils.validateLevel('5.5'), null);
+    assert.equal(Utils.validateLevel('0'), null);
 });
 
 test('omitted level values compile from shared entity and world defaults', () => {

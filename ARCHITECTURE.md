@@ -4,7 +4,7 @@
 
 **Audience:** Software architects, maintainers, game/system developers, and level-tooling developers
 
-**Last verified:** 2026-08-01 against the repository source
+**Last verified:** 2026-08-14 against the repository source
 
 **Scope:** The browser-based HTML5 rewrite. `OldSource/` is reference material, not a runtime dependency.
 
@@ -40,8 +40,8 @@ flowchart LR
 |---|---|---|---|
 | Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputActionManager`, `Game`, `UIManager`, `FullscreenManager` | Input actions are activated by game/editor state. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
-| Level definitions | `levels/level1.json` through `level19.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
-| URL level selector | `?level=N` | `GameManager` / `Utils` | The shared catalog configuration distinguishes 19 shipped levels from procedural fallback through level 25. |
+| Level definitions | `levels/level1.json` through `level20.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
+| URL level selector | `?level=N` | `GameManager` / `Utils` | The shared catalog configuration distinguishes 20 shipped levels from procedural fallback through level 25. |
 | Prior high score | `localStorage.spacedPenguinHighScore` | `Game` | Only durable gameplay state in the current rewrite. |
 
 ### Outputs
@@ -292,7 +292,7 @@ stateDiagram-v2
 
 `Game.setState` is the preferred transition operation because it immediately refreshes active input listeners. A few loader, editor, and end-screen paths assign `game.state` directly; those paths rely on the next frame's `InputActionManager.updateActiveActions()` to reconcile listeners.
 
-The end screen contains an intended final-level branch, but `LevelRules` never defines the `isLastLevel` flag it checks. Current continuation therefore advances beyond level 19 and uses generated fallback levels instead of reaching that final-level `GAME_OVER` path.
+The end screen derives its terminal branch from the configured maximum generated level. The first 20 levels are shipped JSON definitions; levels 21–25 use the procedural fallback generator, and completion of level 25 enters `GAME_OVER`.
 
 ### Penguin state
 
@@ -644,7 +644,7 @@ flowchart TB
     Core --> Headless
 ```
 
-Verified limitations as of 2026-08-01:
+Verified limitations as of 2026-08-14:
 
 - The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
 - Worker count is capped at four. `auto` remains single-threaded below 5,000 candidates to avoid paying worker startup and duplicate-timeline costs on small sweeps.
@@ -665,15 +665,104 @@ Recommended quality direction, in order:
 | Medium | `Game` is a large coordinator and mutable data store. | High change coupling and difficult isolated tests. | Gradually separate session/level state, simulation, rendering, and persistence behind explicit interfaces. |
 | Medium | Globals and circular module relationships (`Game`/loader/end screen/editor). | Initialization sensitivity and limited reuse. | Introduce a composition root/context and dependency inversion for transitions. |
 | Medium | Level rules advertise unimplemented `timeLimit` and `customBehaviors`. | Authoring expectations differ from runtime. | Implement or reject them explicitly during validation. |
-| Medium | UIManager pointer coordinates do not scale from CSS pixels to the logical canvas in the same way gameplay input does. | Canvas UI hit targets can diverge from visuals under responsive/fullscreen scaling. | Centralize screen-to-canvas conversion and use it for every input surface. |
 | Medium | Manifest-fetch failure does not call the asset completion callback; individual media failures do. | A missing/invalid manifest can leave bootstrap stuck while other packaging errors degrade silently. | Model bootstrap failure explicitly and surface a terminal retry/error UI. |
 | Medium | Asset eager/on-demand cache shapes are inconsistent. | Consumers can receive wrappers, images, or SVG text under similar keys. | Define a single resource record contract. |
-| Low | Object pooling methods reference `_objectPools`, which is not initialized and are currently unused. | Future callers would fail. | Remove until needed or initialize/test a documented pool. |
-| Low | URL validation accepts levels through 25 while only 19 are shipped. | Requests 20–25 produce generated fallback levels unexpectedly. | Validate against `TOTAL_LEVELS` or explicitly document generated levels. |
-| Low | Final-level detection checks a rule flag that is never populated. | Continue after level 19 generates further random levels instead of reaching the intended final game-over branch. | Derive finality from `TOTAL_LEVELS` and cover the terminal transition. |
-| Low | Verbose console logging is present in factory/input hot paths. | Debug noise and possible performance cost. | Route all diagnostics through logger levels. |
 
-## 18. Modernization seams
+## 18. Remaining larger work
+
+These items are intentionally separate from the completed low-risk cleanup. They affect public behavior, ownership boundaries, or authoring contracts and should be handled as small, test-backed migrations rather than broad rewrites.
+
+### 18.1 Split the `Game` aggregate
+
+**Current state.** `js/game.js` is both the runtime aggregate and the main coordinator. It owns level and attempt counters, score persistence, entity collections, physics registration, simulation adaptation, rendering, input-facing compatibility methods, UI transitions, editor entry points, fullscreen callbacks, and export logic. The deterministic simulation boundary reduces gameplay coupling, but most browser-side state still converges on `Game`.
+
+**Why it matters.** A change to level loading, rendering, scoring, editor behavior, or input can require knowledge of unrelated state. Tests therefore need increasingly large fixtures, and it is easy for two subsystems to mutate the same collection or counter with different assumptions. The existing `_gameObjectsChanged` cache flag and parallel collections (`gameObjects`, `planets`, `bonuses`, singleton references, and physics registries) are symptoms of this coordination load.
+
+**Target shape.** Move toward explicit browser-side boundaries:
+
+| Boundary | Owns | Must not own |
+|---|---|---|
+| `GameSession` or session state module | Level number, attempts, score, high score, level metadata, state transitions | Canvas drawing, DOM listeners, entity construction |
+| Runtime world/context | Entity collections, singleton lookup, add/remove registration, render-cache invalidation | Score policy and browser persistence |
+| Renderer | Canvas transforms, draw ordering, trails, starfield, visual snapshots | Simulation mutation, level loading, input decisions |
+| Effects/UI coordinator | Audio, popups, end screen, messages, browser-only feedback | Authoritative gameplay state |
+| `Game` facade | Composition and compatibility delegation | New domain policy that belongs in one of the boundaries above |
+
+**Migration path.** First extract session transitions and scoring behind a narrow interface while leaving `Game` as the facade. Next introduce a runtime-world API and route every entity mutation through it. Then make rendering consume a read-only snapshot and move visual caches out of the aggregate. Finally move editor/export and browser effects to injected collaborators. Each step should preserve the current `Game` public methods until callers migrate.
+
+**Completion criteria.** Level loading, one simulation frame, rendering, score calculation, and editor mutation can each be tested with focused fixtures. `Game` remains a thin composition layer, and no subsystem needs to know the storage layout of another subsystem's collections.
+
+### 18.2 Remove module cycles and implicit global dependencies
+
+**Current state.** Several modules import the `GameState` enum from `game.js`, while `Game` imports those modules directly or indirectly. Current examples include `LevelLoader`, `LevelEndScreen`, `LevelEditor`, and `InputActionManager`. Browser-only collaborators also reach through `window.game` or `window.gameManager` for coordination.
+
+**Why it matters.** Importing a seemingly small module can initialize a large portion of the browser runtime. Construction order becomes significant, Node tests need shims, and dependencies are hidden in global lookups rather than visible in constructors. This makes reuse of the loader, end screen, and editor harder than their APIs suggest.
+
+**Target shape.** Move state vocabulary into a dependency-free `gameState.js` module. Create an explicit composition context from `main.js` containing the game facade, input manager, asset/audio services, and browser callbacks. Pass required collaborators into constructors instead of resolving them from `window`; retain `window.game` and `window.gameManager` only as compatibility/public debugging handles.
+
+**Migration path.** Extract `GameState` first and update imports without changing behavior. Add context parameters with defaults only at the composition root. Replace each `window` lookup with an injected callback or service, then remove the fallback once all production callers use the context. Use import-graph checks or a small dependency test to prevent new cycles.
+
+**Completion criteria.** Core level loading, validation, simulation adaptation, and UI construction can be imported in a browser-free test without installing unrelated globals. The composition root is the only place that assembles concrete browser services.
+
+### 18.3 Decide and implement the level-rule contract
+
+**Current state.** `LevelRules` parses and retains `timeLimit` and `customBehaviors`; the schema and export paths partially acknowledge them. The simulation state has no elapsed-time rule event, and no runtime dispatcher consumes custom behaviors. This means a level can appear to author these features successfully while the game silently ignores them.
+
+**Decision required.** Each rule needs one of two explicit outcomes:
+
+- **Implemented rule:** define its normalized type, state inputs, deterministic simulation event, browser effect, headless behavior, editor exposure, and export round-trip.
+- **Rejected rule:** validate it as unsupported with a machine-readable diagnostic and remove it from normalized/exported output where appropriate.
+
+**Recommended implementation boundary.** A `timeLimit` can be implemented safely in the deterministic core as elapsed simulation time plus a `RULE_FAILURE` event. It must use fixed simulation time rather than wall-clock time so browser and headless outcomes match. `customBehaviors` should not execute arbitrary code from JSON; if retained, it should become a registry of named, versioned behaviors with serializable parameters and explicit handlers.
+
+**Completion criteria.** Every accepted rule is represented in the shared schema, normalized definition, simulation state or rules evaluator, browser adapter, headless runner, editor export, and tests. Invalid or unsupported rules fail validation instead of becoming no-ops.
+
+### 18.4 Normalize asset loading and bootstrap failure behavior
+
+**Current state.** `AssetLoader` supports manifest loading, eager loading, on-demand loading, generated visual fallbacks, and optional media degradation. The manifest failure path can leave bootstrap without the normal completion signal, and cached values differ by resource path: callers may receive an image, SVG text, audio object, or wrapper depending on how the resource was loaded.
+
+**Why it matters.** Consumers must know which loading path produced a resource, and bootstrap can become stuck on a packaging/configuration failure. This is especially difficult to diagnose in static hosting, where a missing manifest and a missing optional sound have very different consequences.
+
+**Target shape.** Define one internal resource record, for example `{ status, kind, value, source, error }`, and make eager and on-demand loading converge on it. Separate required bootstrap failure from optional asset failure. The bootstrap coordinator should receive a resolved success/failure result exactly once and show a retryable error state for a missing or invalid manifest.
+
+**Migration path.** Inventory current consumers and normalize the loader behind a compatibility accessor. Add tests for manifest rejection, malformed manifest data, required visual fallback, optional audio failure, and repeated on-demand requests. Migrate callers to inspect the record rather than the concrete resource wrapper, then remove shape-specific branches.
+
+### 18.5 Retire internal legacy compatibility layers deliberately
+
+**Current state.** Some compatibility is part of the level contract and should remain: object-type aliases, exported `penguin` definitions, zero gravitational-reach normalization, and `globalConstants.js` views. Other compatibility is internal and appears to have no current production caller, including the deprecated `Game.setupEventListeners()` and `UIManager.setupEventListeners()` paths. `Physics` also retains registry, trace, and helper APIs even though the shared simulation engine is authoritative for gameplay movement.
+
+**Why it matters.** Compatibility code is useful only when its supported caller and removal condition are known. Otherwise it preserves duplicate behavior, increases the surface area for new features, and makes it unclear which path is authoritative.
+
+**Migration path.** Classify each compatibility method as external contract, editor/file-format contract, or internal shim. Add a comment or documentation reference for the first two categories. For internal shims, record repository callers, route any remaining caller to the authoritative path, add a deprecation warning only where useful, and remove the shim in a separate change. Do not remove file-format compatibility without a migration path for existing level JSON.
+
+**Completion criteria.** Every retained compatibility surface has a named reason and test coverage. Internal wrappers no longer contain independent gameplay behavior, and the authoritative simulation/adapter path is obvious from the component model.
+
+### 18.6 Establish lint, coverage, schema, and golden-behavior gates
+
+**Current state.** The project has strong regression and browser smoke coverage, but no configured linting, coverage threshold, generated JSON Schema, or recorded golden trajectories. Syntax checks catch parse failures but not unused locals, unreachable branches, inconsistent naming, or accidental API drift.
+
+**Recommended sequence.**
+
+1. Add a minimal ESLint configuration focused on `no-unused-vars`, unreachable code, accidental globals, consistent errors, and browser/Node environment boundaries. Record intentional compatibility exceptions explicitly.
+2. Add coverage reporting with a modest baseline threshold, then raise thresholds only after unstable or browser-only areas are separated from deterministic core code.
+3. Generate a JSON Schema or equivalent editor contract from the shared level vocabulary and validate representative exported files in CI.
+4. Record golden trajectories for a small set of shipped levels, including success, bonus requirements, collision recovery, and terminal-level transitions. Review fixture changes as gameplay-balance changes.
+
+**Completion criteria.** CI reports actionable static-analysis and coverage failures, level tooling can consume the same contract as runtime validation, and intentional simulation changes require an explicit fixture update.
+
+### 18.7 Suggested sequencing
+
+The safest order is to establish observability before moving ownership:
+
+| Phase | Work | Reason |
+|---|---|---|
+| 1. Guardrails | Lint baseline, focused coverage, golden trajectories, terminal-transition tests | Makes later structural changes measurable and protects gameplay fidelity. |
+| 2. Contracts | Extract `GameState`, formalize level-rule decisions, normalize resource records | Removes ambiguity before moving code between modules. |
+| 3. Boundaries | Introduce composition context, runtime-world API, and persistence/effects interfaces | Reduces hidden coupling while keeping `Game` as a compatibility facade. |
+| 4. Extraction | Split session, renderer, effects, and editor coordination from `Game` | Lowers change coupling after the seams are exercised. |
+| 5. Retirement | Remove internal compatibility shims and stale fallback branches | Avoids deleting compatibility before its callers and contracts are understood. |
+
+## 19. Modernization seams
 
 The safest incremental boundaries are:
 
@@ -686,7 +775,7 @@ The safest incremental boundaries are:
 
 These seams support better tests and eventual TypeScript or framework adoption without requiring a rewrite of game behavior.
 
-## 19. Repository and documentation map
+## 20. Repository and documentation map
 
 | Path | Purpose | Authority |
 |---|---|---|
@@ -700,7 +789,7 @@ These seams support better tests and eventual TypeScript or framework adoption w
 | `SpacedPenguin_Documentation.md` | Original Shockwave behavior and porting provenance | Historical, not current runtime architecture |
 | `OldSource/` | Decompiled Director/Lingo and extracted assets | Reference only; excluded from deployment |
 
-## 20. Architect verification checklist
+## 21. Architect verification checklist
 
 Before accepting a cross-cutting change, verify:
 

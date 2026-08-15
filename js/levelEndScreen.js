@@ -377,7 +377,7 @@ export class LevelEndScreen extends UIScreen {
         this.close();
         
         // Return to game for next level or end game
-        if (this.game.levelRules && this.game.levelRules.isLastLevel) {
+        if (this.game.level >= LEVEL_CATALOG_CONFIG.maxGeneratedLevel) {
             this.game.state = GameState.GAME_OVER;
         } else {
             this.game.nextLevel();

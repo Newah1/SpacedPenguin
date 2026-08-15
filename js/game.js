@@ -644,10 +644,7 @@ class Game {
                 // Only allow spacebar to start game on desktop
                 // But don't interfere if InputActionManager already handled it
                 if (this.state === GameState.MENU && !this.isMobileDevice() && !e.defaultPrevented) {
-                    console.log('Game class: Handling space key for menu');
                     this.startGame();
-                } else if (this.state === GameState.MENU && e.defaultPrevented) {
-                    console.log('Game class: Space key already handled by InputActionManager');
                 }
                 break;
             default:
@@ -1105,24 +1102,6 @@ class Game {
             this._gameObjectsChanged = true;
         }
     }
-    
-    // Object pool management
-    getPooledObject(type) {
-        const pool = this._objectPools[type];
-        if (pool && pool.length > 0) {
-            return pool.pop();
-        }
-        return null;
-    }
-    
-    returnToPool(obj, type) {
-        const pool = this._objectPools[type];
-        if (pool && pool.length < 10) { // Limit pool size
-            obj.reset?.(); // Reset object state if method exists
-            pool.push(obj);
-        }
-    }
-
     
     render() {
         this.beginFrame();
