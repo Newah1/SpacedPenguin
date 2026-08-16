@@ -124,23 +124,40 @@ export class AssetLoader {
 
     async loadAllAssets() {
         plog.info(`Loading ${this.totalCount} assets...`);
+
+        // Start every independent request immediately. Promise.all still keeps
+        // startup blocked until the complete eager set has either loaded or
+        // received its fallback.
+        await Promise.all(this.assetsToLoad.map(asset => this.loadAsset(asset)));
+
+        const failedCount = this.totalCount - Object.keys(this.resources).length;
+        if (failedCount > 0) {
+            plog.warn(`Asset loading completed with ${failedCount} failures`);
+        } else {
+            plog.success('All assets loaded successfully');
+        }
+
+        if (this.onComplete) {
+            await this.onComplete(this);
+        }
+    }
+
+    async loadAsset(asset) {
+        // Skip if already attempted and failed.
+        if (this.loadAttempts.has(asset.name)) {
+            this.loadedCount++;
+            return;
+        }
         
-        for (const asset of this.assetsToLoad) {
-            // Skip if already attempted and failed
-            if (this.loadAttempts.has(asset.name)) {
-                this.loadedCount++;
-                continue;
-            }
+        // Skip if already loaded.
+        if (this.resources[asset.name]) {
+            this.loadedCount++;
+            return;
+        }
             
-            // Skip if already loaded
-            if (this.resources[asset.name]) {
-                this.loadedCount++;
-                continue;
-            }
+        this.loadAttempts.set(asset.name, true);
             
-            this.loadAttempts.set(asset.name, true);
-            
-            try {
+        try {
                 if (asset.type === 'texture') {
                     // Load regular images
                     const img = new Image();
@@ -181,7 +198,7 @@ export class AssetLoader {
                     this.onProgress(progress, asset.name);
                 }
                 
-            } catch (error) {
+        } catch (error) {
                 plog.warn(`Failed to load asset ${asset.name}: ${error.message}`);
                 
                 // For essential assets, provide fallbacks
@@ -196,18 +213,6 @@ export class AssetLoader {
                 if (this.onProgress) {
                     this.onProgress(progress, asset.name + ' (fallback)');
                 }
-            }
-        }
-        
-        const failedCount = this.totalCount - Object.keys(this.resources).length;
-        if (failedCount > 0) {
-            plog.warn(`Asset loading completed with ${failedCount} failures`);
-        } else {
-            plog.success('All assets loaded successfully');
-        }
-        
-        if (this.onComplete) {
-            await this.onComplete(this);
         }
     }
 
