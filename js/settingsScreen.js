@@ -3,9 +3,20 @@ import { createButton } from './buttonFramework.js';
 
 const controlRenderers = new Map();
 
-function formatValue(definition, value) {
+export function formatValue(definition, value) {
     if (definition.format === 'percent') return `${Math.round(value * 100)}%`;
     return String(value);
+}
+
+export async function resolveNumberSettingChange(definition, requestedValue, onChange) {
+    const nextValue = await onChange(requestedValue);
+    const normalizedValue = Number.isFinite(Number(nextValue))
+        ? Number(nextValue)
+        : requestedValue;
+    return {
+        value: normalizedValue,
+        display: formatValue(definition, normalizedValue)
+    };
 }
 
 controlRenderers.set(SettingType.BOOLEAN, ({ definition, value, onChange }) => {
@@ -37,9 +48,14 @@ controlRenderers.set(SettingType.NUMBER, ({ definition, value, onChange }) => {
     const output = document.createElement('output');
     output.value = formatValue(definition, value);
     output.textContent = output.value;
-    input.addEventListener('input', () => {
-        const nextValue = onChange(Number(input.value));
-        output.value = formatValue(definition, nextValue);
+    let changeVersion = 0;
+    input.addEventListener('input', async () => {
+        const version = ++changeVersion;
+        const requestedValue = Number(input.value);
+        const result = await resolveNumberSettingChange(definition, requestedValue, onChange);
+        if (version !== changeVersion) return;
+        input.value = String(result.value);
+        output.value = result.display;
         output.textContent = output.value;
     });
     wrapper.append(input, output);

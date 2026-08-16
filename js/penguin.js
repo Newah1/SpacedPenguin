@@ -713,6 +713,9 @@ export class Penguin {
     
     // Draw method for canvas 2D context (required by Game class)
     draw(ctx) {
+        // A successful target hit consumes the penguin into the ship.
+        if (this.state === 'hitTarget') return;
+
         // Draw trail first
         this.drawTrailCanvas(ctx);
         

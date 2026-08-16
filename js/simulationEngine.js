@@ -374,20 +374,30 @@ export function calculateLevelScore({
     previousLevelContribution = 0,
     multiplier = 1
 }) {
-    const safeTries = Math.max(1, tries);
-    const levelScore = Math.floor(distance * level / safeTries);
-    const scoreBeforeLevel = totalScore - previousLevelContribution;
-    const scoreBeforeMultiplier = scoreBeforeLevel + levelScore + attemptBonus;
-    const candidateTotalScore = multiplier === 1
+    const safeDistance = Number.isFinite(distance) ? distance : 0;
+    // Built-in levels use numeric indexes; custom/cloud levels may use opaque
+    // identifiers, so scoring uses a neutral level factor for those records.
+    const safeLevel = Number.isFinite(level) ? level : 1;
+    const safeTries = Math.max(1, Number.isFinite(tries) ? tries : 1);
+    const safeAttemptBonus = Number.isFinite(attemptBonus) ? attemptBonus : 0;
+    const safeTotalScore = Number.isFinite(totalScore) ? totalScore : 0;
+    const safePreviousLevelContribution = Number.isFinite(previousLevelContribution)
+        ? previousLevelContribution
+        : 0;
+    const safeMultiplier = Number.isFinite(multiplier) ? multiplier : 1;
+    const levelScore = Math.floor(safeDistance * safeLevel / safeTries);
+    const scoreBeforeLevel = safeTotalScore - safePreviousLevelContribution;
+    const scoreBeforeMultiplier = scoreBeforeLevel + levelScore + safeAttemptBonus;
+    const candidateTotalScore = safeMultiplier === 1
         ? scoreBeforeMultiplier
-        : Math.floor(scoreBeforeMultiplier * multiplier);
+        : Math.floor(scoreBeforeMultiplier * safeMultiplier);
     const candidateLevelContribution = candidateTotalScore - scoreBeforeLevel;
-    const levelContribution = Math.max(previousLevelContribution, candidateLevelContribution);
+    const levelContribution = Math.max(safePreviousLevelContribution, candidateLevelContribution);
 
     return {
         levelScore,
         levelContribution,
-        scoreImprovement: levelContribution - previousLevelContribution,
+        scoreImprovement: levelContribution - safePreviousLevelContribution,
         totalScore: scoreBeforeLevel + levelContribution
     };
 }

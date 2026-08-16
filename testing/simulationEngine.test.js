@@ -448,6 +448,25 @@ test('launch and scoring calculations are shared deterministic functions', () =>
     });
 });
 
+test('opaque custom level IDs use a finite neutral scoring factor', () => {
+    const result = calculateLevelScore({
+        distance: 240,
+        level: 'custom-1755298123456-ab12cd',
+        tries: 2,
+        attemptBonus: 25,
+        totalScore: 0,
+        multiplier: 1
+    });
+
+    assert.deepEqual(result, {
+        levelScore: 120,
+        levelContribution: 145,
+        scoreImprovement: 145,
+        totalScore: 145
+    });
+    assert.equal(Number.isFinite(result.totalScore), true);
+});
+
 test('headless runner is a thin consumer of the same deterministic steps', () => {
     const level = levelWith([]);
     level.objects[1].position = { x: 300, y: 0 };

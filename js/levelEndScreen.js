@@ -7,7 +7,7 @@ import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
 import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
 import { UI_CONFIG } from './config/uiConfig.js';
 
-function isCustomLevel(game) {
+export function isCustomLevel(game) {
     return Boolean(game.levelMetadata?.saveId) || typeof game.level !== 'number';
 }
 
@@ -15,7 +15,7 @@ function getLevelScoreValue(game) {
     return Number.isFinite(game.level) ? game.level : 1;
 }
 
-function getCompletionTitle(game, totalLevels) {
+export function getCompletionTitle(game, totalLevels) {
     if (isCustomLevel(game)) {
         return `${game.levelMetadata?.name || 'Custom Level'} Complete!`;
     }

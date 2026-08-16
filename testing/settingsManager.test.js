@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const { SETTINGS_CONFIG } = await import('../js/config/settingsConfig.js');
 const { SettingsManager } = await import('../js/settingsManager.js');
 const { LocalSettingsStore, MemorySettingsStore } = await import('../js/settingsStore.js');
+const { resolveNumberSettingChange } = await import('../js/settingsScreen.js');
 
 test('settings load defaults, persist changes, and invoke configured effects', () => {
     const store = new MemorySettingsStore();
@@ -64,4 +65,12 @@ test('local settings storage isolates unavailable or malformed browser storage',
 
     assert.deepEqual(store.load(), {});
     assert.equal(store.save({ soundEnabled: false }), false);
+});
+
+test('async numeric settings resolve before percent display formatting', async () => {
+    const definition = SETTINGS_CONFIG.settings.find(setting => setting.key === 'masterVolume');
+    const result = await resolveNumberSettingChange(definition, 0.35, async value => value);
+
+    assert.deepEqual(result, { value: 0.35, display: '35%' });
+    assert.equal(result.display.includes('NaN'), false);
 });

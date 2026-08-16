@@ -388,7 +388,7 @@ class LevelEditor {
         
         this.updatePropertiesPanel();
         this.updateObjectList(); // Refresh list to show selection
-        this.toolbarView.updateContextActions(obj);
+        this.toolbarView?.updateContextActions?.(obj);
     }
     
     updatePropertiesPanel() {

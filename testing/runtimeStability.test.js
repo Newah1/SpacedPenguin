@@ -19,9 +19,10 @@ const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
 const Console = (await import('../js/console.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
-const { LevelEndScreen } = await import('../js/levelEndScreen.js');
+const { LevelEndScreen, getCompletionTitle } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
 const LevelEditorToolbarView = (await import('../js/levelEditor/toolbarView.js')).default;
+const LevelEditorCanvasInputController = (await import('../js/levelEditor/canvasInputController.js')).default;
 const { Penguin } = await import('../js/penguin.js');
 const { UIManager } = await import('../js/uiManager.js');
 const {
@@ -115,6 +116,57 @@ test('level editor toolbar minimizes to a restore control', () => {
     assert.equal(view.toolbarControls[0].style.display, '');
     assert.equal(view.minimizeButton.textContent, '−');
     assert.equal(view.didResize, true);
+});
+
+test('level editor toolbar only exposes valid selection actions', () => {
+    const attributeTarget = () => ({
+        hidden: false,
+        setAttribute(name, value) { this[name] = value; }
+    });
+    const view = Object.create(LevelEditorToolbarView.prototype);
+    view.editor = { selectedObject: null };
+    view.deleteButton = attributeTarget();
+    view.cloneButton = attributeTarget();
+
+    view.updateContextActions(null);
+    assert.equal(view.deleteButton.hidden, true);
+    assert.equal(view.cloneButton.hidden, true);
+
+    view.updateContextActions({ constructor: { name: 'Planet' } });
+    assert.equal(view.deleteButton.hidden, false);
+    assert.equal(view.cloneButton.hidden, false);
+
+    view.updateContextActions({ constructor: { name: 'Target' } });
+    assert.equal(view.deleteButton.hidden, false);
+    assert.equal(view.cloneButton.hidden, true);
+
+    view.updateContextActions({ isLevelSettings: true, constructor: { name: 'Object' } });
+    assert.equal(view.deleteButton.hidden, true);
+    assert.equal(view.cloneButton.hidden, true);
+});
+
+test('level editor drag ignores pointer events from non-owning pointers', () => {
+    const calls = [];
+    const editor = {
+        active: true,
+        mode: 'edit',
+        dragging: true,
+        draggingOrbitCenter: false,
+        gravitySculptController: { state: { drawing: false } },
+        updateDragging: (x, y) => calls.push(['move', x, y]),
+        stopDragging: () => calls.push(['stop']),
+        stopOrbitCenterDragging() {}
+    };
+    const controller = new LevelEditorCanvasInputController(editor);
+    controller.activePointerId = 7;
+    controller.getEventCoordinates = event => ({ x: event.clientX, y: event.clientY });
+
+    controller.handlePointerMove({ pointerId: 8, clientX: 50, clientY: 60, preventDefault() {} });
+    controller.handlePointerUp({ pointerId: 8, preventDefault() {} });
+    assert.deepEqual(calls, []);
+
+    controller.handlePointerMove({ pointerId: 7, clientX: 70, clientY: 80, preventDefault() {} });
+    assert.deepEqual(calls, [['move', 70, 80]]);
 });
 
 test('level editor root settings update metadata, positions, and live gravity', () => {
@@ -457,6 +509,57 @@ test('level-end continuation reaches game over at the configured final level', (
     assert.equal(endGameCalls, 1);
 });
 
+test('custom level completion uses its friendly name and browses instead of advancing', () => {
+    const calls = [];
+    const game = {
+        level: 'custom-1755298123456-ab12cd',
+        levelMetadata: { name: 'Orbit Practice', saveId: 'local-1' },
+        levelLoader: { maximumSelectableLevel: 25 },
+        showLevelBrowser: () => calls.push('browse'),
+        nextLevel: () => calls.push('next'),
+        endGame: () => calls.push('end')
+    };
+    const screen = createLevelEndScreenFixture({
+        game,
+        uiManager: { playSound() {} },
+        close: () => calls.push('close'),
+        stopAllLoopingSounds() {}
+    });
+
+    assert.equal(getCompletionTitle(game, 25), 'Orbit Practice Complete!');
+    LevelEndScreen.prototype.handleContinue.call(screen);
+    assert.deepEqual(calls, ['close', 'browse']);
+});
+
+test('playing a saved level exits an active editor session', () => {
+    const calls = [];
+    const game = {
+        levelEditor: {
+            active: true,
+            exit() { calls.push('exit-editor'); this.active = false; },
+            enter: () => calls.push('enter-editor')
+        },
+        uiManager: { closeAllScreens: () => calls.push('close-screens') },
+        loadLevel: definition => calls.push(['load', definition.name]),
+        setState: state => calls.push(['state', state])
+    };
+    const record = {
+        id: 'local-1',
+        name: 'Saved Level',
+        description: '',
+        level: { name: 'Saved Level', objects: [] }
+    };
+
+    assert.equal(Game.prototype.loadSavedLevel.call(game, record), true);
+    assert.deepEqual(calls, [
+        'exit-editor',
+        'close-screens',
+        ['load', 'Saved Level'],
+        ['state', GameState.PLAYING]
+    ]);
+    assert.equal(game.levelMetadata.saveId, 'local-1');
+});
+
 test('Game validates a level before clearing the current world', () => {
     const sentinel = { id: 'existing-world' };
     const validationError = new Error('invalid level');
@@ -718,6 +821,22 @@ test('real Penguin rendering draws a preprocessed frame without pixel-buffer wor
         ['drawImage', cachedFrame, 0, 0],
         ['restore']
     ]);
+});
+
+test('a penguin that hits the target is not rendered', () => {
+    const penguin = Object.assign(Object.create(Penguin.prototype), {
+        state: 'hitTarget'
+    });
+    let drawCalls = 0;
+    const context = new Proxy({}, {
+        get() {
+            drawCalls += 1;
+            return () => {};
+        }
+    });
+
+    penguin.draw(context);
+    assert.equal(drawCalls, 0);
 });
 
 test('confirmation modal defaults to cancel and supports keyboard selection', () => {
