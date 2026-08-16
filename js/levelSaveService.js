@@ -63,6 +63,8 @@ export class LevelSaveService {
     }
 
     async save(level, { thumbnail = '', id = null } = {}) {
+        const now = new Date().toISOString();
+        const existing = id ? this.repository.load(id) : null;
         const record = {
             id: id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             source: 'local',
@@ -71,7 +73,8 @@ export class LevelSaveService {
             description: level.description || '',
             thumbnail,
             level: clone(level),
-            updatedAt: new Date().toISOString()
+            createdAt: existing?.createdAt || now,
+            updatedAt: now
         };
         await this.onSave.run({ record, level: record.level, repository: this.repository });
         if (!this.repository.save(record)) throw new Error('Browser storage is unavailable.');
@@ -88,6 +91,10 @@ export class LevelSaveService {
 
     canEdit(record) {
         return record?.capabilities?.edit !== false;
+    }
+
+    canPlay(record) {
+        return record?.capabilities?.play !== false;
     }
 }
 

@@ -45,6 +45,8 @@ import { HighScoreStore } from './highScoreStore.js';
 import { HighScoresScreen } from './highScoresScreen.js';
 import { LevelBrowserScreen } from './levelBrowserScreen.js';
 import { LevelSaveService, captureLevelThumbnail } from './levelSaveService.js';
+import { LevelCatalogService, LocalLevelCatalogSource } from './levelCatalogService.js';
+import { assertValidLevelDefinition } from './levelValidation.js';
 import { createButton, registerButton } from './buttonFramework.js';
 import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
@@ -68,7 +70,7 @@ const GameState = {
 const FAST_FORWARD_UNLOCK_SECONDS = 5;
 
 class Game {
-    constructor(canvas, assetLoader, audioManager) {
+    constructor(canvas, assetLoader, audioManager, options = {}) {
         plog.info('Game constructor called');
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -122,7 +124,10 @@ class Game {
         this.highScoreStore = new HighScoreStore(
             typeof localStorage === 'undefined' ? null : localStorage
         );
-        this.levelSaveService = new LevelSaveService();
+        this.levelSaveService = options.levelSaveService || new LevelSaveService();
+        this.levelCatalogService = options.levelCatalogService || new LevelCatalogService({
+            sources: [new LocalLevelCatalogSource(this.levelSaveService.repository)]
+        });
         this.currentRunScoreSaved = false;
         this.planetCollisions = 0; // Track planet collisions for rules
         
@@ -1745,6 +1750,18 @@ class Game {
         return record;
     }
 
+    async loadCatalogLevel(reference, { edit = false } = {}) {
+        const definition = await this.levelCatalogService.getDefinition(reference);
+        assertValidLevelDefinition(definition, `catalog level ${reference?.id || reference}`);
+        const record = typeof reference === 'string'
+            ? { id: reference, source: this.levelCatalogService.defaultSource }
+            : reference;
+        return this.loadSavedLevel({
+            ...record,
+            level: definition
+        }, { edit });
+    }
+
     loadSavedLevel(record, { edit = false } = {}) {
         if (!record?.level) return false;
         // The level browser can be opened from inside the editor. Selecting a
@@ -1757,7 +1774,13 @@ class Game {
         // LevelLoader refreshes runtime metadata while constructing the world;
         // restore the repository identity afterward so editor saves update the
         // selected browser card.
-        this.levelMetadata = { name: record.name, description: record.description, saveId: record.id };
+        const source = record.source || 'local';
+        this.levelMetadata = {
+            name: record.name,
+            description: record.description,
+            saveId: source === 'local' ? record.id : undefined,
+            catalogReference: { id: record.id, source }
+        };
         this.score = 0;
         if (edit) this.levelEditor.enter();
         else this.setState(GameState.PLAYING);

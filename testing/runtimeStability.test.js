@@ -560,6 +560,36 @@ test('playing a saved level exits an active editor session', () => {
     assert.equal(game.levelMetadata.saveId, 'local-1');
 });
 
+test('catalog levels are fetched and validated before the active UI is closed', async () => {
+    const calls = [];
+    const summary = { id: 'cloud-1', source: 'cloud', name: 'Cloud Level', description: '' };
+    const game = {
+        levelCatalogService: {
+            getDefinition: async reference => {
+                calls.push(['fetch', reference.id]);
+                return { name: 'Cloud Level', objects: [] };
+            }
+        },
+        loadSavedLevel: (record, options) => {
+            calls.push(['load', record.id, options.edit]);
+            return true;
+        }
+    };
+
+    assert.equal(await Game.prototype.loadCatalogLevel.call(game, summary, { edit: true }), true);
+    assert.deepEqual(calls, [
+        ['fetch', 'cloud-1'],
+        ['load', 'cloud-1', true]
+    ]);
+
+    game.levelCatalogService.getDefinition = async () => ({ name: 'Invalid' });
+    await assert.rejects(
+        Game.prototype.loadCatalogLevel.call(game, summary),
+        /objects.*must be an array/s
+    );
+    assert.equal(calls.length, 2);
+});
+
 test('Game validates a level before clearing the current world', () => {
     const sentinel = { id: 'existing-world' };
     const validationError = new Error('invalid level');

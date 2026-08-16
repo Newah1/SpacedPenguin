@@ -9,10 +9,10 @@ A browser-native rewrite of the classic Shockwave gravity-slingshot game, implem
 - Circular, elliptical, figure-8, and gravity-driven object orbits
 - Manifest-driven images, sprite sheets, SVGs, and WAV audio with visual fallbacks
 - Mouse, touch, keyboard, responsive-canvas, and fullscreen support
-- Embedded live level editor with JSON download/export
+- Embedded live level editor with local saves, searchable/paginated browsing, details, play/edit actions, and JSON download/export
 - Local browser high-score persistence with all-time and today views, including an optional top-ten name/region entry
 
-The current runtime does not implement obstacle entities, online leaderboards, editor file import/server persistence, time-limit enforcement, or custom rule dispatch. Scores are stored locally in the browser; there is no network submission. Editor structural changes, canvas moves, object properties, and level settings have in-session undo/redo; Ctrl+S downloads the canonical level JSON.
+The current runtime does not implement obstacle entities, online leaderboards, editor file import/server persistence, time-limit enforcement, or custom rule dispatch. Scores and saved editor levels are stored locally in the browser; there is no network submission. The level browser uses an asynchronous catalog-source contract so a future cloud source can provide server search, opaque cursor pagination, details, and on-demand definitions. Editor structural changes, canvas moves, object properties, and level settings have in-session undo/redo; JSON Export downloads the canonical definition.
 
 ## Run locally
 

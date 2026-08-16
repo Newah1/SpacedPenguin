@@ -100,6 +100,52 @@ test('start, launch, cancel the menu confirmation, render, and finish a level', 
     expect(renderedPixelCount).toBeGreaterThan(0);
 });
 
+test('level browser searches cursor pages, opens details, and safely plays a result', async ({ page }) => {
+    await page.addInitScript(level => {
+        const records = Array.from({ length: 26 }, (_, index) => ({
+            id: `local-${index + 1}`,
+            source: 'local',
+            capabilities: { play: true, edit: index !== 25 },
+            name: `Catalog Level ${index + 1}`,
+            description: index === 25 ? 'The searchable outer-rim challenge' : 'A saved local level',
+            thumbnail: '',
+            level: {
+                ...level,
+                name: `Catalog Level ${index + 1}`,
+                description: index === 25 ? 'The searchable outer-rim challenge' : 'A saved local level'
+            },
+            updatedAt: new Date(2026, 0, index + 1).toISOString()
+        }));
+        localStorage.setItem('spacedPenguinSavedLevels', JSON.stringify(records));
+    }, deterministicLevel);
+    await page.goto('/');
+    await waitForGame(page);
+    await page.evaluate(() => window.game.showLevelBrowser());
+
+    const browser = page.getByRole('dialog', { name: 'LEVEL BROWSER' });
+    await expect(browser).toBeVisible();
+    await expect(browser.locator('.level-card')).toHaveCount(24);
+    await expect(browser.getByRole('status')).toContainText('24 of 26');
+    await browser.getByRole('button', { name: 'LOAD MORE' }).click();
+    await expect(browser.locator('.level-card')).toHaveCount(26);
+
+    const search = browser.getByRole('searchbox', { name: 'Search levels' });
+    await search.fill('outer-rim');
+    await expect(browser.locator('.level-card')).toHaveCount(1);
+    await expect(browser).toContainText('Catalog Level 26');
+    await expect(browser.getByRole('button', { name: 'EDIT' })).toHaveCount(0);
+
+    await browser.getByRole('button', { name: 'DETAILS' }).click();
+    await expect(browser.getByRole('heading', { name: 'Catalog Level 26', level: 3 })).toBeVisible();
+    await expect(browser).toContainText('0 objects');
+    await page.keyboard.press('Escape');
+    await expect(browser.getByRole('heading', { name: 'Catalog Level 26', level: 3 })).toHaveCount(0);
+
+    await browser.getByRole('button', { name: 'PLAY' }).click();
+    await expect(browser).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('playing');
+});
+
 test('numeric selector loads the default original ports and manual prefix loads the archived catalog', async ({ page }) => {
     await page.goto('/?level=2');
     await waitForGame(page, 'playing');

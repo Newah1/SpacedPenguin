@@ -41,6 +41,7 @@ flowchart LR
 | Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputActionManager`, `Game`, `UIManager`, `FullscreenManager` | Input actions are activated by game/editor state. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
 | Level definitions | `levels/level01.json` through `level25.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
+| Saved-level catalog | `localStorage.spacedPenguinSavedLevels` through `LocalLevelCatalogSource` | `LevelCatalogService`, `LevelBrowserScreen` | Queried asynchronously as summary pages; details and playable definitions resolve separately. Additional cloud sources can implement the same cursor contract. |
 | URL level selector | `?level=N` | `GameManager` / `Utils` | Numeric selectors address the 25-level shipped catalog; `manual:N` selects the archived 20-level catalog. |
 | High scores | `localStorage.spacedPenguinHighScores` plus legacy best-score key | `HighScoreStore` / `Game` | Local all-time and today top-ten entries; no network submission. |
 
@@ -51,6 +52,7 @@ flowchart LR
 | Game and editor graphics | Canvas 2D plus DOM overlays | The stage remains 800 x 600 while the backing buffer follows the display resolution. |
 | Sound | Web Audio API destination | Decoded WAV buffers are played through per-sound gain nodes. |
 | High score | Browser `localStorage` | No online leaderboard or remote score submission exists in the rewrite. |
+| Saved editor levels | Browser `localStorage` | Local records contain metadata, a thumbnail, and the authored definition. Catalog consumers receive only summaries until details or playable data are requested. |
 | Exported level | Downloaded JSON | Export and Ctrl+S are client-side JSON downloads; there is no server persistence. |
 | Diagnostics | Browser console and in-game console/logger | `window.game` and `window.gameManager` expose debugging entry points. |
 
@@ -131,6 +133,9 @@ flowchart TB
 | `LevelSchema` | Shared level-format vocabulary and runtime capability configuration | Validator, loader, editor | Owns canonical object/orbit types, aliases, normalization, and orbit lookup target types. |
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
+| `LevelCatalogService` | Source-neutral discovery, cursor paging, search, detail lookup, and definition lookup | Local or future cloud catalog sources | Keeps card summaries separate from rich details and playable JSON; source cursors are opaque to the UI. |
+| `LevelBrowserScreen` | Async saved-level discovery and selection UI | `LevelCatalogService`, `Game`, `UIManager` | Owns query/loading/error/detail state, debounced search, incremental pages, capability-based actions, focus containment, and lazy thumbnails. |
+| `LevelSaveService` | Create or update locally owned editor records | `LocalLevelRepository`, save strategy pipeline | Persists local definitions and metadata; read/discovery behavior belongs to the catalog boundary. |
 | `GameObjectFactory` | Validated JSON-to-runtime entity mapping and orbit configuration | Entity constructors, `LevelSchema` | Supports canonical types plus configured text/arrow aliases; exported penguin state is intentionally ignored. |
 | `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
@@ -358,6 +363,18 @@ The two-pass construction design remains an important invariant. Object-referenc
 ```
 
 The loader accepts object coordinates at `position`, or as fallback `properties.x` and `properties.y`. Prefer top-level `position` for human-authored definitions and treat editor-exported extra properties as implementation detail.
+
+### Saved-level discovery contract
+
+The level browser does not read storage directly. `LevelCatalogService` routes each request to a source implementing three asynchronous operations:
+
+- `query({ text, cursor, pageSize, signal })` returns lightweight summaries, an opaque `nextCursor`, and an optional total.
+- `getDetails(id, { signal })` returns richer display metadata without the playable definition.
+- `getDefinition(id, { signal })` returns the level JSON only when Play or Edit is selected.
+
+Summaries carry `{ id, source, name, description, thumbnail, author, tags, capabilities, createdAt, updatedAt }`. Source and ID form the stable catalog reference. The current local adapter searches name, description, author, and tags and uses offset cursors internally; callers must not interpret cursor values. A future HTTP source can use server-issued cursors without changing the screen.
+
+Search resets the result set and cancels the prior request. Pagination appends one bounded page, while images use native lazy loading. Detail and definition requests are also cancellable. Play/Edit fetches and validates a definition before closing the browser or exiting an active editor session, so network or validation failures leave recovery controls visible.
 
 ### Supported object types
 
