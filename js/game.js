@@ -40,8 +40,11 @@ import { SETTINGS_CONFIG } from './config/settingsConfig.js';
 import { LocalSettingsStore } from './settingsStore.js';
 import { SettingsManager } from './settingsManager.js';
 import { SettingsScreen } from './settingsScreen.js';
+import { StellarTrackStore } from './stellarTrackStore.js';
 import { HighScoreStore } from './highScoreStore.js';
 import { HighScoresScreen } from './highScoresScreen.js';
+import { LevelBrowserScreen } from './levelBrowserScreen.js';
+import { LevelSaveService, captureLevelThumbnail } from './levelSaveService.js';
 import { createButton, registerButton } from './buttonFramework.js';
 import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
@@ -72,6 +75,7 @@ class Game {
         this.physics = new Physics();
         this.assetLoader = assetLoader;
         this.audioManager = audioManager;
+        this.stellarTrackStore = new StellarTrackStore();
         this.settingsManager = new SettingsManager(
             SETTINGS_CONFIG,
             new LocalSettingsStore(SETTINGS_CONFIG.storageKey),
@@ -84,6 +88,7 @@ class Game {
                 }
             }
         );
+        this.restoreStellarMode();
         const menuSettingsButton = document.getElementById('menuSettingsButton');
         registerButton(menuSettingsButton, event => {
             event.stopPropagation();
@@ -117,6 +122,7 @@ class Game {
         this.highScoreStore = new HighScoreStore(
             typeof localStorage === 'undefined' ? null : localStorage
         );
+        this.levelSaveService = new LevelSaveService();
         this.currentRunScoreSaved = false;
         this.planetCollisions = 0; // Track planet collisions for rules
         
@@ -1086,6 +1092,15 @@ class Game {
     }
     
     loadLevel(level) {
+        // Built-in levels use numeric selectors. Editor and saved levels are
+        // already materialized definitions, so register them with the loader
+        // before asking it to validate and construct the world.
+        if (level && typeof level === 'object') {
+            const customLevelKey = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            this.levelLoader.levels.set(customLevelKey, level);
+            this.level = customLevelKey;
+            level = customLevelKey;
+        }
         // Validate before clearing the current world so a bad definition cannot
         // leave the game half-loaded.
         this.levelLoader.assertLevelValid(level);
@@ -1557,6 +1572,7 @@ class Game {
 
         if (!value) {
             this.audioManager?.clearStellarTrack();
+            await this.stellarTrackStore.clear();
             return this.settingsManager.set(definition.key, false);
         }
 
@@ -1566,7 +1582,21 @@ class Game {
             this.showMessage('We need a Stellar MP3 to continue.');
             return this.settingsManager.set(definition.key, false);
         }
+        if (!await this.stellarTrackStore.save(file)) {
+            this.audioManager?.clearStellarTrack();
+            this.showMessage('We could not save that Stellar MP3. Please check that browser storage is available.');
+            return this.settingsManager.set(definition.key, false);
+        }
         return this.settingsManager.set(definition.key, true);
+    }
+
+    async restoreStellarMode() {
+        if (!this.settingsManager.get('stellarModeEnabled')) return false;
+        const file = await this.stellarTrackStore.load();
+        const loaded = file && await this.audioManager?.loadStellarTrack(file);
+        if (loaded) return true;
+        this.settingsManager.set('stellarModeEnabled', false);
+        return false;
     }
 
     selectStellarMp3() {
@@ -1590,8 +1620,19 @@ class Game {
     }
     
     showMessage(message) {
-        // Simple alert for now - could be enhanced with UI overlay
-        alert(message);
+        if (this.messageScreen && this.uiManager.activeScreens.includes(this.messageScreen)) {
+            return this.messageScreen;
+        }
+        this.messageScreen = this.uiManager.showModal({
+            title: 'MESSAGE',
+            message: String(message),
+            actions: [{
+                label: 'OK',
+                role: 'cancel',
+                onSelect: () => { this.messageScreen = null; }
+            }]
+        });
+        return this.messageScreen;
     }
     
     startGame() {
@@ -1669,6 +1710,58 @@ class Game {
 
     showHighScores(options = {}) {
         return this.uiManager.showScreen(HighScoresScreen, this, options);
+    }
+
+    showLevelBrowser() {
+        return this.uiManager.showScreen(LevelBrowserScreen, this);
+    }
+
+    openLevelEditor() {
+        this.uiManager.closeAllScreens();
+        this.level = 'editor-starter';
+        this.levelMetadata = { name: 'Untitled Level', description: '' };
+        this.loadLevel({
+            name: this.levelMetadata.name,
+            description: this.levelMetadata.description,
+            startPosition: { x: 640, y: 450 },
+            targetPosition: { x: 180, y: 170 },
+            objects: [
+                { type: 'slingshot', position: { x: 640, y: 450 }, properties: { id: 'slingshot', anchorPosition: { x: 595, y: 450 }, launchModel: 'director', maxPullback: 100, minPullback: 10 } },
+                { type: 'planet', position: { x: 410, y: 290 }, properties: { id: 'planet-1', name: 'Planet 1', radius: 42, mass: 100, gravitationalReach: 5000, planetType: 'planet_grey' } },
+                { type: 'target', position: { x: 180, y: 170 }, properties: { id: 'target', width: 80, height: 58, collisionRadius: 55 } }
+            ]
+        });
+        this.levelEditor.enter();
+    }
+
+    async saveEditedLevel() {
+        const level = this.exportCurrentLevel();
+        const record = await this.levelSaveService.save(level, {
+            id: this.levelMetadata?.saveId,
+            thumbnail: captureLevelThumbnail(this.canvas)
+        });
+        this.levelMetadata.saveId = record.id;
+        this.showMessage(`Saved “${record.name}” to this browser.`);
+        return record;
+    }
+
+    loadSavedLevel(record, { edit = false } = {}) {
+        if (!record?.level) return false;
+        // The level browser can be opened from inside the editor. Selecting a
+        // playable level must remove the editor overlay and its input context;
+        // selecting Edit below will create a fresh editor session afterward.
+        if (this.levelEditor?.active) this.levelEditor.exit();
+        this.uiManager.closeAllScreens();
+        this.level = record.id;
+        this.loadLevel(record.level);
+        // LevelLoader refreshes runtime metadata while constructing the world;
+        // restore the repository identity afterward so editor saves update the
+        // selected browser card.
+        this.levelMetadata = { name: record.name, description: record.description, saveId: record.id };
+        this.score = 0;
+        if (edit) this.levelEditor.enter();
+        else this.setState(GameState.PLAYING);
+        return true;
     }
 
     recordHighScore(name, region) {

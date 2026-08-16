@@ -28,19 +28,19 @@ test('settings load defaults, persist changes, and invoke configured effects', (
         aimAssistEnabled: false,
         soundEnabled: false,
         experimentalBackgroundMusic: false,
+        stellarModeEnabled: false,
         masterVolume: 0.35
     });
     assert.deepEqual(effects.slice(-2), [['enabled', false], ['volume', 0.35]]);
 });
 
-test('session-only settings neither restore nor persist without their required local file', () => {
+test('Stellar Mode setting persists alongside its separately stored local file', () => {
     const store = new MemorySettingsStore({ stellarModeEnabled: true, soundEnabled: false });
     const manager = new SettingsManager(SETTINGS_CONFIG, store);
 
-    assert.equal(manager.get('stellarModeEnabled'), false);
-    manager.set('stellarModeEnabled', true);
     assert.equal(manager.get('stellarModeEnabled'), true);
-    assert.equal(store.load().stellarModeEnabled, undefined);
+    manager.set('stellarModeEnabled', false);
+    assert.equal(store.load().stellarModeEnabled, false);
 });
 
 test('settings normalize invalid stored values and clamp numeric changes', () => {

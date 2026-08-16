@@ -9,12 +9,15 @@ export class LevelEditorCanvasInputController {
         this.touchStart = null;
         this.longPressTimer = null;
         this.indicator = null;
+        this.activePointerId = null;
     }
 
     handlePointerDown(event) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         event.preventDefault();
+        if (this.activePointerId !== null) return;
+        this.activePointerId = Number.isInteger(event.pointerId) ? event.pointerId : null;
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
         const position = this.getEventCoordinates(event);
         if (editor.gravitySculptController.state.drawing) {
@@ -38,6 +41,7 @@ export class LevelEditorCanvasInputController {
     handlePointerMove(event) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
+        if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
         const position = this.getEventCoordinates(event);
         if (editor.gravitySculptController.state.drawing) {
             event.preventDefault();
@@ -56,11 +60,13 @@ export class LevelEditorCanvasInputController {
     handlePointerUp(event) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
+        if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
         event.preventDefault();
         this.cancelLongPress();
         if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
         }
+        this.activePointerId = null;
         if (editor.gravitySculptController.state.drawing) {
             return;
         }
@@ -74,6 +80,13 @@ export class LevelEditorCanvasInputController {
         event.preventDefault();
         const position = this.getEventCoordinates(event);
         editor.showContextMenu(position.x, position.y);
+    }
+
+    cancelPointer() {
+        this.activePointerId = null;
+        this.editor.stopDragging();
+        this.editor.stopOrbitCenterDragging();
+        this.cancelLongPress();
     }
 
     startLongPress(position) {

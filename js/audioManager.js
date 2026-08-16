@@ -13,6 +13,7 @@ export class AudioManager {
         this.soundEffectsEnabled = true;
         this.backgroundMusicEnabled = false;
         this.backgroundMusicDimmed = false;
+        this.backgroundMusicSuppressed = false;
         this.backgroundMusicSource = null;
         this.backgroundMusicGain = null;
         this.backgroundMusicQueue = [];
@@ -204,11 +205,12 @@ export class AudioManager {
 
     getBackgroundMusicVolume() {
         const config = AUDIO_CONFIG.backgroundMusic;
+        if (this.backgroundMusicSuppressed) return 0;
         const multiplier = this.backgroundMusicDimmed ? config.menuVolumeMultiplier : 1;
         return config.volume * multiplier * this.masterVolume;
     }
 
-    updateBackgroundMusicVolume(animate = true) {
+    updateBackgroundMusicVolume(animate = true, fadeSeconds = AUDIO_CONFIG.backgroundMusic.fadeSeconds) {
         const gain = this.backgroundMusicGain?.gain;
         if (!gain) return;
         const volume = this.getBackgroundMusicVolume();
@@ -216,12 +218,19 @@ export class AudioManager {
         gain.cancelScheduledValues?.(now);
         gain.setValueAtTime?.(gain.value, now);
         if (animate && gain.linearRampToValueAtTime) {
-            gain.linearRampToValueAtTime(volume, now + AUDIO_CONFIG.backgroundMusic.fadeSeconds);
+            gain.linearRampToValueAtTime(volume, now + fadeSeconds);
         } else if (gain.setValueAtTime) {
             gain.setValueAtTime(volume, now);
         } else {
             gain.value = volume;
         }
+    }
+
+    setBackgroundMusicSuppressed(suppressed) {
+        const nextValue = Boolean(suppressed);
+        if (this.backgroundMusicSuppressed === nextValue) return;
+        this.backgroundMusicSuppressed = nextValue;
+        this.updateBackgroundMusicVolume(true, AUDIO_CONFIG.stellarMusic.fadeSeconds);
     }
 
     refillBackgroundMusicQueue() {
@@ -326,12 +335,14 @@ export class AudioManager {
             };
             this.stellarMusicSource = source;
             this.stellarMusicGain = gainNode;
+            this.setBackgroundMusicSuppressed(true);
             source.start(0);
             plog.audio('Playing Stellar Mode music');
             return true;
         } catch (error) {
             this.stellarMusicSource = null;
             this.stellarMusicGain = null;
+            this.setBackgroundMusicSuppressed(false);
             plog.error('Failed to play Stellar Mode music:', error);
             return false;
         }
@@ -357,6 +368,7 @@ export class AudioManager {
         const source = this.stellarMusicSource;
         this.stellarMusicSource = null;
         this.stellarMusicGain = null;
+        this.setBackgroundMusicSuppressed(false);
         if (!source) return;
         source.onended = null;
         this.stopSound(source);

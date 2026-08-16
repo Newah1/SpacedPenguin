@@ -7,6 +7,21 @@ import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
 import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
 import { UI_CONFIG } from './config/uiConfig.js';
 
+function isCustomLevel(game) {
+    return Boolean(game.levelMetadata?.saveId) || typeof game.level !== 'number';
+}
+
+function getLevelScoreValue(game) {
+    return Number.isFinite(game.level) ? game.level : 1;
+}
+
+function getCompletionTitle(game, totalLevels) {
+    if (isCustomLevel(game)) {
+        return `${game.levelMetadata?.name || 'Custom Level'} Complete!`;
+    }
+    return `Level ${game.level} of ${totalLevels} Complete!`;
+}
+
 export class LevelEndScreen extends UIScreen {
     constructor(uiManager, game) {
         super(uiManager);
@@ -34,7 +49,7 @@ export class LevelEndScreen extends UIScreen {
         // pScoreList[4] = [tempScore, integer(sqrt(tempScore)) * 5, 60, "arp"]
         
         const distance = Math.floor(this.game.distance);
-        const level = this.game.level;
+        const level = getLevelScoreValue(this.game);
         const tries = this.game.tries;
         const calculatedScore = Math.floor(distance * level / tries);
         
@@ -97,7 +112,7 @@ export class LevelEndScreen extends UIScreen {
         const totalLevels = this.game.levelLoader.maximumSelectableLevel;
         this.titleText = this.addElement(new TextElement(
             panelX + panelWidth / 2, panelY + config.titleOffsetY,
-            `Level ${this.game.level} of ${totalLevels} Complete!`,
+            getCompletionTitle(this.game, totalLevels),
             {
                 fontSize: 20,
                 fontFamily: UI_CONFIG.fonts.primary,
@@ -221,7 +236,7 @@ export class LevelEndScreen extends UIScreen {
         this.continueButton = this.addElement(new Button(
             buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - config.button.offsetBottom,
             buttonWidth, buttonHeight,
-            'Continue',
+            isCustomLevel(this.game) ? 'Browse Levels' : 'Continue',
             () => this.handleContinue(),
             {
                 fontSize: 14,
@@ -235,7 +250,7 @@ export class LevelEndScreen extends UIScreen {
         ));
         this.continueButton.visible = false;
     }
-    
+
     startAnimation() {
         this.isAnimating = true;
         this.currentStep = 0;
@@ -376,6 +391,11 @@ export class LevelEndScreen extends UIScreen {
         this.stopAllLoopingSounds(); // Clean up any remaining sounds
         this.uiManager.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
         this.close();
+
+        if (isCustomLevel(this.game)) {
+            this.game.showLevelBrowser();
+            return;
+        }
         
         // Return to game for next level or end game
         if (this.game.level >= this.game.levelLoader.maximumSelectableLevel) {

@@ -325,6 +325,10 @@ class GameManager {
         return {
             highScores: originalButton(40, 517, 166, 54, 'High Scores',
                 () => this.showMenuHighScores(), 20),
+            levelEditor: originalButton(220, 517, 166, 54, 'Level Editor',
+                () => this.game?.openLevelEditor(), 17),
+            loadLevel: originalButton(397, 517, 156, 54, 'Load Level',
+                () => this.game?.showLevelBrowser(), 17),
             tips: originalButton(683, 351, 80, 50, 'Tips!',
                 () => this.showMenuTips(), 19),
             start: new CanvasButton(563, 464, 184, 96, 'Start',
@@ -670,6 +674,8 @@ class GameManager {
         this.drawHowToPlayCard(ctx);
         this.drawTryItVignette(ctx, time);
         this.menuButtons.highScores.render(ctx);
+        this.menuButtons.levelEditor.render(ctx);
+        this.menuButtons.loadLevel.render(ctx);
         this.drawStartButton(ctx, time);
 
         if (this.game.highScore > 0) {

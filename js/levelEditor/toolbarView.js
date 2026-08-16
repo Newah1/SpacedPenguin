@@ -1,6 +1,7 @@
 import { isCompactEditorViewport } from '../config/inputConfig.js';
 import { makeDraggablePanel } from './draggablePanel.js';
 import { createButton } from '../buttonFramework.js';
+import { getEditorObjectDefinition } from '../editorObjectRegistry.js';
 
 function button(label, background, action) {
     const element = createButton(label, action, {
@@ -37,6 +38,9 @@ export class LevelEditorToolbarView {
         this.deleteButton = button('Delete Selected', '#f44336', () => this.editor.deleteSelectedObject());
         this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
         this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
+        this.saveButton = button('Save', '#2e8b57', () => this.editor.saveLevel());
+        this.loadButton = button('Load', '#3d74b8', () => this.editor.loadLevel());
+        this.menuButton = button('Main Menu', '#704c3b', () => this.editor.exitToMenu());
         this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
         this.minimizeButton = button('−', '#555', event => {
             event.stopPropagation();
@@ -59,7 +63,8 @@ export class LevelEditorToolbarView {
         this.section.appendChild(this.addButtonContainer);
         this.toolbarControls = [
             this.modeButton, this.toggleButton, this.deleteButton,
-            this.cloneButton, this.sculptButton, this.exportButton
+            this.cloneButton, this.sculptButton, this.exportButton,
+            this.saveButton, this.loadButton, this.menuButton
         ];
         this.toolbar.append(...this.toolbarControls, this.minimizeButton);
         this.wrapper.append(this.toolbar, this.section);
@@ -67,6 +72,7 @@ export class LevelEditorToolbarView {
         this.toolbarDrag = makeDraggablePanel(this.toolbar);
         this.sectionDrag = makeDraggablePanel(this.section);
         this.mobileToolbarDrag = makeDraggablePanel(this.mobileToolbar);
+        this.updateContextActions();
         return {
             toolbarWrapper: this.wrapper,
             toolbar: this.toolbar,
@@ -78,10 +84,29 @@ export class LevelEditorToolbarView {
             deleteButton: this.deleteButton,
             cloneButton: this.cloneButton,
             exportButton: this.exportButton,
+            saveButton: this.saveButton,
+            loadButton: this.loadButton,
+            menuButton: this.menuButton,
             sculptButton: this.sculptButton,
             minimizeButton: this.minimizeButton,
             addButtons: this.addButtons
         };
+    }
+
+    updateContextActions(selection = this.editor.selectedObject) {
+        const className = selection?.constructor?.name;
+        const definition = className ? getEditorObjectDefinition(className) : null;
+        const canEditObject = Boolean(selection && !selection.isLevelSettings && definition?.editable);
+        const canCloneObject = canEditObject && !definition.singleton;
+
+        if (this.deleteButton) {
+            this.deleteButton.hidden = !canEditObject;
+            this.deleteButton.setAttribute('aria-hidden', String(!canEditObject));
+        }
+        if (this.cloneButton) {
+            this.cloneButton.hidden = !canCloneObject;
+            this.cloneButton.setAttribute('aria-hidden', String(!canCloneObject));
+        }
     }
 
     createMobileToolbar() {

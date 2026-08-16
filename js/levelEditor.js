@@ -129,7 +129,20 @@ class LevelEditor {
     }
     
     saveLevel() {
-        this.exportLevel();
+        this.game.saveEditedLevel().catch(error => {
+            plog.error('Failed to save level:', error);
+            this.game.showMessage(error.message || 'Unable to save this level.');
+        });
+    }
+
+    loadLevel() {
+        this.game.showLevelBrowser();
+    }
+
+    exitToMenu() {
+        this.game.uiManager.closeAllScreens();
+        this.exit();
+        this.game.returnToMenu();
     }
     
     undo() {
@@ -375,6 +388,7 @@ class LevelEditor {
         
         this.updatePropertiesPanel();
         this.updateObjectList(); // Refresh list to show selection
+        this.toolbarView.updateContextActions(obj);
     }
     
     updatePropertiesPanel() {

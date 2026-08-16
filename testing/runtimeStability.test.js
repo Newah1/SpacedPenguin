@@ -14,6 +14,8 @@ import {
 
 const { integratePlanetGravity } = await import('../js/simulation.js');
 const { Game, GameState } = await import('../js/game.js');
+const { AudioManager } = await import('../js/audioManager.js');
+const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
 const Console = (await import('../js/console.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputActionManager } = await import('../js/inputActions.js');
@@ -1019,6 +1021,36 @@ test('Stellar Mode starts at the fast-forward unlock and stops with the attempt'
     assert.equal(starts, 1);
     game.resetSimulationSpeedControl();
     assert.equal(stops, 1);
+});
+
+test('Stellar music crossfades the regular background music out and back in', () => {
+    const ramps = [];
+    const gain = {
+        value: 0.4,
+        cancelScheduledValues() {},
+        setValueAtTime(value) { this.value = value; },
+        linearRampToValueAtTime(value, time) { ramps.push({ value, time }); }
+    };
+    const audio = Object.create(AudioManager.prototype);
+    Object.assign(audio, {
+        audioContext: { currentTime: 10 },
+        backgroundMusicGain: { gain },
+        backgroundMusicSuppressed: false,
+        backgroundMusicDimmed: false,
+        masterVolume: AUDIO_CONFIG.defaultMasterVolume
+    });
+
+    audio.setBackgroundMusicSuppressed(true);
+    assert.deepEqual(ramps.at(-1), {
+        value: 0,
+        time: 10 + AUDIO_CONFIG.stellarMusic.fadeSeconds
+    });
+
+    audio.setBackgroundMusicSuppressed(false);
+    assert.deepEqual(ramps.at(-1), {
+        value: AUDIO_CONFIG.backgroundMusic.volume * AUDIO_CONFIG.defaultMasterVolume,
+        time: 10 + AUDIO_CONFIG.stellarMusic.fadeSeconds
+    });
 });
 
 test('GameManager double speed runs two fixed simulation steps per display interval', () => {

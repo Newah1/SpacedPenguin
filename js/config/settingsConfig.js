@@ -39,8 +39,7 @@ export const SETTINGS_CONFIG = deepFreeze({
             type: SettingType.BOOLEAN,
             label: 'Stellar Mode',
             description: 'Fade in your MP3 when a flight lasts long enough to unlock 2× speed.',
-            defaultValue: false,
-            persistent: false
+            defaultValue: false
         },
         {
             key: 'masterVolume',
