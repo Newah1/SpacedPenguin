@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const roots = ['js', 'testing', 'e2e'];
+const roots = ['js', 'server', 'testing', 'e2e'];
 
 function findJavaScriptFiles(directory) {
     return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {

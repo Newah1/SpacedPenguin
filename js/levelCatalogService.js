@@ -50,7 +50,10 @@ export function createLevelSummary(record, source = record?.source || 'local') {
             edit: record.capabilities?.edit !== false
         },
         createdAt: record.createdAt || null,
-        updatedAt: record.updatedAt || null
+        updatedAt: record.updatedAt || null,
+        objectCount: Number.isInteger(record.objectCount) ? record.objectCount : undefined,
+        publishedAt: record.publishedAt || null,
+        definitionHash: record.definitionHash || null
     };
 }
 

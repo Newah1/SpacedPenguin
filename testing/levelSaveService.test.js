@@ -8,6 +8,12 @@ import {
     LevelCatalogService,
     LocalLevelCatalogSource
 } from '../js/levelCatalogService.js';
+import { readAppConfig } from '../js/appConfig.js';
+import {
+    RemoteLevelCatalogError,
+    RemoteLevelCatalogSource
+} from '../js/remoteLevelCatalogSource.js';
+import { createConfiguredLevelCatalog } from '../js/levelCatalogComposition.js';
 
 function createStorage() {
     const values = new Map();
@@ -114,4 +120,156 @@ test('saving an existing local level preserves its creation timestamp', async ()
 
     assert.equal(updated.createdAt, original.createdAt);
     assert.equal(service.canPlay({ capabilities: { play: false } }), false);
+});
+
+test('app configuration defaults to local-only and rejects unsafe server URLs', () => {
+    assert.equal(readAppConfig(undefined, { location: { href: 'https://game.example/' } }).levelServer.baseUrl, null);
+
+    const configured = readAppConfig({
+        levelServer: { baseUrl: '/levels-api/', requestTimeoutMs: 2500 }
+    }, { location: { href: 'https://game.example/play' } });
+    assert.deepEqual(configured.levelServer, { baseUrl: '/levels-api', requestTimeoutMs: 2500 });
+
+    const errors = [];
+    const invalid = readAppConfig({ levelServer: { baseUrl: 'http://levels.example' } }, {
+        location: { href: 'https://game.example/' },
+        logger: { error: message => errors.push(message) }
+    });
+    assert.equal(invalid.levelServer.baseUrl, null);
+    assert.match(errors[0], /using local levels only/i);
+});
+
+test('configured catalog stays local-only without a URL and adds remote without probing it', async () => {
+    let fetchCalls = 0;
+    const repository = new LocalLevelRepository(createStorage());
+    const localOnly = createConfiguredLevelCatalog(repository, {
+        appConfig: { levelServer: { baseUrl: null } },
+        fetchImpl: async () => { fetchCalls++; }
+    });
+    assert.deepEqual(localOnly.getSources(), [{ id: 'local', label: 'My Levels' }]);
+    assert.equal(fetchCalls, 0);
+
+    const configured = createConfiguredLevelCatalog(repository, {
+        appConfig: { levelServer: { baseUrl: 'https://levels.example', requestTimeoutMs: 3000 } },
+        fetchImpl: async () => { fetchCalls++; }
+    });
+    assert.deepEqual(configured.getSources().map(source => source.id), ['local', 'community']);
+    assert.equal(configured.defaultSource, 'local');
+    assert.equal(fetchCalls, 0);
+});
+
+test('remote catalog maps list, details, and immutable definitions', async () => {
+    const requests = [];
+    const fetchImpl = async (url, options) => {
+        requests.push({ url, options });
+        const body = url.includes('cursor=next')
+            ? { items: [], nextCursor: null }
+            : url.endsWith('/levels/level%2Fone')
+                ? {
+                    id: 'level/one',
+                    name: 'Server Orbit',
+                    description: 'Remote challenge',
+                    objectCount: 3,
+                    publishedAt: '2026-08-16T12:00:00.000Z',
+                    definitionHash: 'abc123',
+                    definition: { name: 'Server Orbit', objects: [] }
+                }
+                : {
+                    items: [{
+                        id: 'level/one',
+                        name: 'Server Orbit',
+                        objectCount: 3,
+                        publishedAt: '2026-08-16T12:00:00.000Z',
+                        definitionHash: 'abc123'
+                    }],
+                    nextCursor: 'next'
+                };
+        return { ok: true, status: 200, json: async () => body };
+    };
+    const remote = new RemoteLevelCatalogSource({
+        baseUrl: 'https://levels.example/api', requestTimeoutMs: 1000, fetchImpl
+    });
+    const catalog = new LevelCatalogService({
+        sources: [new LocalLevelCatalogSource(new LocalLevelRepository(createStorage())), remote],
+        defaultSource: 'local'
+    });
+
+    assert.deepEqual(catalog.getSources(), [
+        { id: 'local', label: 'My Levels' },
+        { id: 'community', label: 'Community Levels' }
+    ]);
+    const page = await catalog.query({
+        source: 'community', text: 'orbit & moon', cursor: null, pageSize: 500, sort: 'name'
+    });
+    assert.equal(page.items[0].source, 'community');
+    assert.equal(page.items[0].capabilities.edit, false);
+    assert.equal(page.items[0].objectCount, 3);
+    assert.equal(page.items[0].definitionHash, 'abc123');
+    assert.match(requests[0].url, /^https:\/\/levels\.example\/api\/v1\/levels\?/);
+    assert.match(requests[0].url, /q=orbit\+%26\+moon/);
+    assert.match(requests[0].url, /limit=100/);
+
+    const details = await catalog.getDetails({ source: 'community', id: 'level/one' });
+    const definition = await catalog.getDefinition({ source: 'community', id: 'level/one' });
+    assert.equal(details.updatedAt, details.publishedAt);
+    assert.equal(details.capabilities.edit, false);
+    assert.deepEqual(definition, { name: 'Server Orbit', objects: [] });
+    definition.name = 'Changed client copy';
+    assert.equal((await catalog.getDefinition({ source: 'community', id: 'level/one' })).name, 'Server Orbit');
+});
+
+test('remote catalog invokes browser fetch with the global receiver', async () => {
+    let receiver;
+    const remote = new RemoteLevelCatalogSource({
+        baseUrl: '/api',
+        fetchImpl: function () {
+            receiver = this;
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({ items: [], nextCursor: null })
+            };
+        }
+    });
+
+    await remote.query();
+
+    assert.equal(receiver, globalThis);
+});
+
+test('remote catalog preserves API errors and isolates local browsing from remote failures', async () => {
+    const repository = new LocalLevelRepository(createStorage());
+    repository.save({ id: 'safe-local', name: 'Safe Local', level: { name: 'Safe Local', objects: [] } });
+    const remote = new RemoteLevelCatalogSource({
+        baseUrl: '/api',
+        fetchImpl: async () => ({
+            ok: false,
+            status: 429,
+            json: async () => ({ error: { code: 'RATE_LIMITED', message: 'Try again later.', details: { retry: 10 } } })
+        })
+    });
+    const catalog = new LevelCatalogService({
+        sources: [new LocalLevelCatalogSource(repository), remote]
+    });
+
+    await assert.rejects(
+        catalog.query({ source: 'community' }),
+        error => error instanceof RemoteLevelCatalogError &&
+            error.code === 'RATE_LIMITED' && error.status === 429 && error.details.retry === 10
+    );
+    assert.deepEqual((await catalog.query({ source: 'local' })).items.map(item => item.id), ['safe-local']);
+});
+
+test('remote catalog distinguishes timeout from caller cancellation', async () => {
+    const neverFetches = (url, { signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+    const timed = new RemoteLevelCatalogSource({ baseUrl: '/api', requestTimeoutMs: 5, fetchImpl: neverFetches });
+    await assert.rejects(timed.query(), error => error.code === 'REQUEST_TIMEOUT');
+
+    const cancelled = new RemoteLevelCatalogSource({ baseUrl: '/api', requestTimeoutMs: 1000, fetchImpl: neverFetches });
+    const controller = new AbortController();
+    const pending = cancelled.query({ signal: controller.signal });
+    controller.abort();
+    await assert.rejects(pending, error => error.name === 'AbortError');
 });

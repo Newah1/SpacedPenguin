@@ -476,6 +476,40 @@ test('manual harness index and repository-relative modules remain available', as
     await expect(page.locator('#orbitCanvas')).toBeVisible();
 });
 
+test('level thumbnails render the real playfield without replacing the active world', async ({ page }) => {
+    await page.goto('/');
+    await waitForGame(page);
+
+    const result = await page.evaluate(async () => {
+        const { createLevelThumbnail } = await import('/js/levelThumbnailRenderer.js');
+        const game = window.game;
+        const activeObjects = game.gameObjects;
+        const definition = game.levelLoader.levels.get(1);
+        const source = createLevelThumbnail(definition, {
+            assetLoader: game.assetLoader,
+            stars: game.stars
+        });
+        const image = new Image();
+        image.src = source;
+        await image.decode();
+        return {
+            prefix: source.slice(0, 22),
+            bytes: source.length,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+            activeWorldPreserved: game.gameObjects === activeObjects
+        };
+    });
+
+    expect(result).toMatchObject({
+        prefix: 'data:image/png;base64,',
+        width: 240,
+        height: 160,
+        activeWorldPreserved: true
+    });
+    expect(result.bytes).toBeGreaterThan(1000);
+});
+
 test('editor exports a valid normalized level document', async ({ page }) => {
     await useDeterministicLevel(page);
     await page.goto('/');

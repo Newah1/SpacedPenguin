@@ -350,7 +350,7 @@ test('target reports a blocked outcome when required bonuses remain', () => {
     assert.equal(result.state.penguin.state, 'crashed');
 });
 
-test('attempt reset restores world state while preserving aggregate attempt counters', () => {
+test('attempt reset preserves moving world state and aggregate attempt counters', () => {
     const initial = createSimulationStateFromLevel(levelWith([
         { type: 'bonus', position: { x: 50, y: 0 }, properties: { id: 'bonus', value: 100 } }
     ]));
@@ -359,6 +359,9 @@ test('attempt reset restores world state while preserving aggregate attempt coun
     current.counters.planetCollisions = 2;
     current.counters.currentAttemptScore = 100;
     current.bonuses[0].collected = true;
+    current.time = 4;
+    current.runTick = 240;
+    current.bonuses[0].position.x = 75;
     current.penguin.position = { x: 500, y: 500 };
     const reset = resetSimulationAttempt(initial, current);
 
@@ -367,6 +370,9 @@ test('attempt reset restores world state while preserving aggregate attempt coun
     assert.equal(reset.counters.currentAttemptScore, 0);
     assert.equal(reset.counters.tries, 3);
     assert.equal(reset.counters.planetCollisions, 2);
+    assert.equal(reset.time, 4);
+    assert.equal(reset.runTick, 240);
+    assert.equal(reset.bonuses[0].position.x, 75);
 });
 
 test('launch and scoring calculations are shared deterministic functions', () => {

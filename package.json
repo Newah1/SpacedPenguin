@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "scripts": {
     "serve": "node testing/staticServer.js",
-    "test": "npm run test:unit && npm run test:policy && npm run test:levels && npm run test:original-levels && npm run test:syntax && npm run test:e2e",
-    "test:unit": "node --test testing/aimAssist.test.js testing/config.test.js testing/gravitySculptor.test.js testing/highScoreStore.test.js testing/inputActions.test.js testing/levelSaveService.test.js testing/levelValidation.test.js testing/liveLevelMutator.test.js testing/runtimeGameConfig.test.js testing/runtimeStability.test.js testing/settingsManager.test.js testing/simulationEngine.test.js testing/viewport.test.js",
+    "serve:levels": "node server/index.js",
+    "serve:community": "node server/local.js",
+    "test": "npm run test:unit && npm run test:server && npm run test:policy && npm run test:levels && npm run test:original-levels && npm run test:syntax && npm run test:e2e",
+    "test:unit": "node --test testing/aimAssist.test.js testing/communityGameIntegration.test.js testing/communityLevelClient.test.js testing/config.test.js testing/gravitySculptor.test.js testing/highScoreStore.test.js testing/inputActions.test.js testing/levelSaveService.test.js testing/levelValidation.test.js testing/liveLevelMutator.test.js testing/runReplay.test.js testing/runtimeGameConfig.test.js testing/runtimeStability.test.js testing/settingsManager.test.js testing/simulationEngine.test.js testing/staticServer.test.js testing/viewport.test.js",
+    "test:server": "node --test server/testing/cors.test.js server/testing/router.test.js server/testing/server.test.js server/testing/realReplay.test.js",
     "test:policy": "node --test testing/configurationPolicy.test.js",
     "test:levels": "node testing/validateLevels.js",
     "test:original-levels": "node testing/verifyOriginalLevelPorts.js",

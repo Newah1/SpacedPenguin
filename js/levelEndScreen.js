@@ -6,6 +6,7 @@ import { GameState } from './game.js';
 import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
 import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
 import { UI_CONFIG } from './config/uiConfig.js';
+import { CommunityScoreUploadScreen } from './communityScoreUploadScreen.js';
 
 export function isCustomLevel(game) {
     return Boolean(game.levelMetadata?.saveId) || typeof game.level !== 'number';
@@ -213,7 +214,9 @@ export class LevelEndScreen extends UIScreen {
         const buttonWidth = config.button.width;
         const buttonHeight = config.button.height;
         const buttonSpacing = config.button.spacing;
-        const totalButtonWidth = (buttonWidth * 2) + buttonSpacing;
+        const showScoreUpload = this.game.isCommunityLevel?.() && this.game.completedRun;
+        const buttonCount = showScoreUpload ? 3 : 2;
+        const totalButtonWidth = (buttonWidth * buttonCount) + (buttonSpacing * (buttonCount - 1));
         const buttonStartX = panelX + (panelWidth - totalButtonWidth) / 2;
         
         this.retryButton = this.addElement(new Button(
@@ -233,8 +236,27 @@ export class LevelEndScreen extends UIScreen {
         ));
         this.retryButton.visible = false;
         
+        if (showScoreUpload) {
+            this.scoreUploadButton = this.addElement(new Button(
+                buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - config.button.offsetBottom,
+                buttonWidth, buttonHeight,
+                'Upload Score',
+                () => this.handleScoreUpload(),
+                {
+                    fontSize: 13,
+                    fontFamily: UI_CONFIG.fonts.primary,
+                    backgroundColor: '#5f3d91',
+                    hoverColor: '#7950b5',
+                    activeColor: '#4b2f75',
+                    borderColor: config.accentColor,
+                    textColor: '#ffffff'
+                }
+            ));
+            this.scoreUploadButton.visible = false;
+        }
+
         this.continueButton = this.addElement(new Button(
-            buttonStartX + buttonWidth + buttonSpacing, panelY + panelHeight - config.button.offsetBottom,
+            buttonStartX + (buttonWidth + buttonSpacing) * (buttonCount - 1), panelY + panelHeight - config.button.offsetBottom,
             buttonWidth, buttonHeight,
             isCustomLevel(this.game) ? 'Browse Levels' : 'Continue',
             () => this.handleContinue(),
@@ -362,6 +384,7 @@ export class LevelEndScreen extends UIScreen {
         this.isAnimating = false;
         this.continueButton.visible = true;
         this.retryButton.visible = true;
+        if (this.scoreUploadButton) this.scoreUploadButton.visible = true;
         this.skipText.visible = false; // Hide skip text when animation is done
         
         // Stop any looping sounds
@@ -412,6 +435,16 @@ export class LevelEndScreen extends UIScreen {
         
         // Reset the current level to retry it
         this.game.resetLevel();
+    }
+
+    handleScoreUpload() {
+        if (!this.scoreUploadButton || this.scoreUploadButton.disabled) return;
+        this.uiManager.showScreen(CommunityScoreUploadScreen, this.game, {
+            onUploaded: () => {
+                this.scoreUploadButton.text = 'Uploaded';
+                this.scoreUploadButton.disabled = true;
+            }
+        });
     }
     
     // Override close to ensure cleanup

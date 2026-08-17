@@ -128,11 +128,34 @@ class LevelEditor {
         plog.success(`Successfully deleted ${className}`);
     }
     
-    saveLevel() {
-        this.game.saveEditedLevel().catch(error => {
+    async saveLevel() {
+        if (this.saveButton.disabled) return;
+        this.saveButton.disabled = true;
+        this.toolbarView.showStatus('Saving…', 'pending');
+        try {
+            const record = await this.game.saveEditedLevel();
+            this.toolbarView.showStatus(`Saved “${record.name}” to this browser.`);
+        } catch (error) {
             plog.error('Failed to save level:', error);
-            this.game.showMessage(error.message || 'Unable to save this level.');
-        });
+            this.toolbarView.showStatus(error.message || 'Unable to save this level.', 'error');
+        } finally {
+            this.saveButton.disabled = false;
+        }
+    }
+
+    async publishLevel() {
+        if (this.publishButton.disabled) return;
+        this.publishButton.disabled = true;
+        this.toolbarView.showStatus('Publishing…', 'pending');
+        try {
+            const published = await this.game.publishEditedLevel();
+            this.toolbarView.showStatus(`Published “${published.name || this.game.levelMetadata?.name}” to Community Levels.`);
+        } catch (error) {
+            plog.error('Failed to publish level:', error);
+            this.toolbarView.showStatus(error.message || 'Unable to publish this level.', 'error');
+        } finally {
+            this.updatePublishAvailability();
+        }
     }
 
     loadLevel() {
@@ -241,12 +264,23 @@ class LevelEditor {
     
     toggleMode() {
         if (this.mode === 'edit') {
-        this.gravitySculptController.close();
+            this.gravitySculptController.close();
+            const definition = this.game.exportCurrentLevel();
+            const metadata = structuredClone(this.game.levelMetadata || {});
+            this.game.loadLevel(definition);
+            this.game.levelMetadata = { ...metadata, name: definition.name, description: definition.description };
             this.mode = 'play';
             this.game?.invalidateSimulationState?.();
             this.selectObject(null); // Clear selection when entering play mode
             this.stopDragging(); // Stop any ongoing drag operation
         } else {
+            const definition = this.game.completedRun?.level || this.game.loadedLevelDefinition;
+            if (definition) {
+                const metadata = structuredClone(this.game.levelMetadata || {});
+                this.game.loadLevel(structuredClone(definition));
+                this.game.levelMetadata = metadata;
+                this.game.invalidateRecordedRun();
+            }
             this.mode = 'edit';
         }
         this.updateModeButton();
@@ -255,6 +289,11 @@ class LevelEditor {
     
     updateModeButton() {
         this.toolbarView.updateMode(this.mode);
+        this.updatePublishAvailability();
+    }
+
+    updatePublishAvailability() {
+        this.toolbarView.updatePublishAvailability();
     }
     
     populateObjectButtons() {

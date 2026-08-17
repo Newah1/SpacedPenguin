@@ -1,5 +1,10 @@
 import { cloneOrbitState } from './orbitSimulation.js';
-import { stepSimulationMutable, SimulationEventType } from './simulationEngine.js';
+import {
+    FIXED_TICK_SECONDS,
+    stepSimulationMutable,
+    stepSimulationTickMutable,
+    SimulationEventType
+} from './simulationEngine.js';
 import { effectiveGravitationalReach } from './globalConstants.js';
 import { LevelOrbitType } from './levelSchema.js';
 import { LEVEL_DEFAULTS } from './config/gameConfig.js';
@@ -41,6 +46,7 @@ export function captureGameSimulationState(game) {
     const bonusIds = game.bonuses.map((bonus, index) => bonus.id || `__bonus_${index + 1}`);
     return {
         time: game.simulationTime || 0,
+        runTick: game.runTick || 0,
         penguin: {
             position: { x: game.penguin.x, y: game.penguin.y },
             velocity: { x: game.penguin.vx, y: game.penguin.vy },
@@ -108,6 +114,7 @@ export function captureGameSimulationState(game) {
 
 export function applyGameSimulationState(game, state) {
     game.simulationTime = state.time;
+    game.runTick = state.runTick ?? game.runTick ?? 0;
     game.penguin.x = state.penguin.position.x;
     game.penguin.y = state.penguin.position.y;
     game.penguin.vx = state.penguin.velocity.x;
@@ -152,7 +159,9 @@ export function stepGameSimulation(game, deltaTime) {
         state.penguin.state = game.penguin.state;
         state.penguin.crashFramesRemaining = game.penguin.crashedFrameCount || 0;
     }
-    const result = stepSimulationMutable(state, deltaTime);
+    const result = Math.abs(deltaTime - FIXED_TICK_SECONDS) < Number.EPSILON
+        ? stepSimulationTickMutable(state)
+        : stepSimulationMutable(state, deltaTime);
     applyGameSimulationState(game, state);
     return result;
 }
@@ -180,7 +189,7 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                 game.endRecordingShotPath();
                 game.preserveCrashedPenguin();
-                game.tryAgain();
+                game.tryAgain({ recordAction: false });
                 break;
             }
             case SimulationEventType.PLANET_BOUNCE:
@@ -199,7 +208,7 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 game.endRecordingShotPath();
                 break;
             case SimulationEventType.ATTEMPT_RESET_REQUIRED:
-                game.tryAgain();
+                game.tryAgain({ recordAction: false });
                 break;
             case SimulationEventType.RULE_FAILURE:
                 game.showMessage(event.reason);

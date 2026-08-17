@@ -98,6 +98,7 @@ test('level editor toolbar minimizes to a restore control', () => {
         setAttribute(name, value) { this[name] = value; }
     };
     view.toolbar = { style: {}, dataset: {} };
+    view.status = { style: {} };
     view.section = { style: {} };
     view.toggleButton = {};
     view.toolbarDrag = { clampToViewport() {} };
@@ -143,6 +144,58 @@ test('level editor toolbar only exposes valid selection actions', () => {
     view.updateContextActions({ isLevelSettings: true, constructor: { name: 'Object' } });
     assert.equal(view.deleteButton.hidden, true);
     assert.equal(view.cloneButton.hidden, true);
+});
+
+test('level editor publish is disabled until the current level is completed', () => {
+    const attributes = {};
+    const publishButton = {
+        disabled: false,
+        setAttribute(name, value) { attributes[name] = value; }
+    };
+    const game = { communityLevelClient: {}, completedRun: null };
+    const view = Object.create(LevelEditorToolbarView.prototype);
+    view.editor = { game };
+    view.publishButton = publishButton;
+
+    view.updatePublishAvailability();
+    assert.equal(publishButton.disabled, true);
+    assert.match(publishButton.title, /Complete this level/);
+
+    game.completedRun = { level: {}, proof: {} };
+    view.updatePublishAvailability();
+    assert.equal(publishButton.disabled, false);
+    assert.match(publishButton.title, /Publish this completed level/);
+});
+
+test('successful level editor play-tests unlock publishing without opening the end screen', () => {
+    const timers = createTimeoutFixture();
+    let publishUpdates = 0;
+    let sounds = 0;
+    const game = {
+        state: GameState.LEVEL_EDITOR,
+        levelEditor: {
+            active: true,
+            updatePublishAvailability: () => { publishUpdates++; }
+        },
+        runTranscriptRecorder: {
+            actions: [{ type: 'launch' }],
+            freeze: () => ({ actions: [{ type: 'launch' }] })
+        },
+        recordedRunLevel: { name: 'Completed editor level' },
+        completeRecordedRun: Game.prototype.completeRecordedRun,
+        playSound: () => { sounds++; },
+        target: { isHit: true, hitFrameCount: 3 }
+    };
+
+    withGlobalOverrides({ setTimeout: timers.setTimeout }, () => {
+        Game.prototype.handleTargetHit.call(game);
+    });
+
+    assert.equal(sounds, 1);
+    assert.equal(publishUpdates, 1);
+    assert.equal(game.completedRun.level.name, 'Completed editor level');
+    assert.equal(timers.scheduled.length, 0);
+    assert.equal(game.target.isHit, true);
 });
 
 test('level editor drag ignores pointer events from non-owning pointers', () => {

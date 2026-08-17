@@ -178,6 +178,14 @@
             touch-action: manipulation;
         }
 
+        #menuSettingsButton .button-icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 18px;
+            line-height: 0;
+            vertical-align: -1px;
+        }
+
         body.is-menu #menuSettingsButton { display: block; }
 
         body:has(.high-scores-overlay) #menuSettingsButton { display: none; }
@@ -294,7 +302,7 @@
 </head>
 <body>
     <div id="gameContainer">
-        <button id="menuSettingsButton" class="spaced-button" type="button">SETTINGS</button>
+        <button id="menuSettingsButton" class="spaced-button" type="button"><span class="button-icon" aria-hidden="true">⚙</span>SETTINGS</button>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="ui">
             <div>Level: <span id="level">1</span></div>
@@ -307,6 +315,7 @@
     </div>
     
     <!-- Game JavaScript files -->
+    <script src="app-config.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

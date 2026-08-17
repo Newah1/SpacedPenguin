@@ -45,7 +45,11 @@ import { HighScoreStore } from './highScoreStore.js';
 import { HighScoresScreen } from './highScoresScreen.js';
 import { LevelBrowserScreen } from './levelBrowserScreen.js';
 import { LevelSaveService, captureLevelThumbnail } from './levelSaveService.js';
-import { LevelCatalogService, LocalLevelCatalogSource } from './levelCatalogService.js';
+import { createConfiguredLevelCatalog } from './levelCatalogComposition.js';
+import { readAppConfig } from './appConfig.js';
+import { CommunityLevelClient, createIdempotencyKey } from './communityLevelClient.js';
+import { calculateCommunityScore } from './communityScore.js';
+import { RunTranscriptRecorder } from './runTranscript.js';
 import { assertValidLevelDefinition } from './levelValidation.js';
 import { createButton, registerButton } from './buttonFramework.js';
 import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
@@ -125,9 +129,27 @@ class Game {
             typeof localStorage === 'undefined' ? null : localStorage
         );
         this.levelSaveService = options.levelSaveService || new LevelSaveService();
-        this.levelCatalogService = options.levelCatalogService || new LevelCatalogService({
-            sources: [new LocalLevelCatalogSource(this.levelSaveService.repository)]
-        });
+        this.appConfig = readAppConfig(options.appConfig);
+        if (options.levelCatalogService) {
+            this.levelCatalogService = options.levelCatalogService;
+        } else {
+            this.levelCatalogService = createConfiguredLevelCatalog(this.levelSaveService.repository, {
+                appConfig: this.appConfig
+            });
+        }
+        this.communityLevelClient = options.communityLevelClient || (
+            this.appConfig.levelServer.baseUrl
+                ? new CommunityLevelClient({
+                    baseUrl: this.appConfig.levelServer.baseUrl,
+                    requestTimeoutMs: this.appConfig.levelServer.requestTimeoutMs
+                })
+                : null
+        );
+        this.runTick = 0;
+        this.runTranscriptRecorder = null;
+        this.completedRun = null;
+        this.recordedRunLevel = null;
+        this.pendingCommunityScoreSubmission = null;
         this.currentRunScoreSaved = false;
         this.planetCollisions = 0; // Track planet collisions for rules
         
@@ -688,6 +710,7 @@ class Game {
 
         if (launch) {
             this.launches.push({ angle: launch.angle, power: launch.power });
+            this.recordRunLaunch(launch.angle, launch.power);
         }
         if (launch && this.slingshot.launchModel === 'director') {
             const position = calculateLaunchPosition(launch.angle, launch.power, {
@@ -994,7 +1017,14 @@ class Game {
     }
     
     handleTargetHit() {
+        this.completeRecordedRun();
         this.playSound(getAudioCue(AudioCue.ENTER_SHIP).soundId);
+
+        // A successful editor play-test is the publish gate. Keep the editor
+        // visible so the newly enabled Publish button is immediately usable.
+        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor?.active) {
+            return;
+        }
         
         // Stop the target's hit timer so ship stays closed during scoring
         if (this.target && this.target.isHit) {
@@ -1062,6 +1092,18 @@ class Game {
     }
     
     resetLevel() {
+        if (this.loadedLevelDefinition) {
+            const levelIdentity = this.level;
+            const metadata = structuredClone(this.levelMetadata || {});
+            if (Number.isFinite(levelIdentity)) this.loadLevel(levelIdentity);
+            else {
+                this.loadLevel(structuredClone(this.loadedLevelDefinition));
+                this.level = levelIdentity;
+                this.levelMetadata = metadata;
+            }
+            this.setState(GameState.PLAYING);
+            return;
+        }
         this.resetSimulationSpeedControl();
         this.tries = 0;
         this.launches = [];
@@ -1076,6 +1118,7 @@ class Game {
         this.clearAlphaMasks();
         this.arrow.visible = false; // Reset arrow visibility
         this.setState(GameState.PLAYING);
+        this.beginRecordedRun();
     }
     
     resetPenguin() {
@@ -1147,6 +1190,8 @@ class Game {
         
         // Force render cache update since we added objects
         this._gameObjectsChanged = true;
+        this.loadedLevelDefinition = this.exportCurrentLevel();
+        this.beginRecordedRun(this.loadedLevelDefinition);
         
         return result;
     }
@@ -1746,7 +1791,6 @@ class Game {
             thumbnail: captureLevelThumbnail(this.canvas)
         });
         this.levelMetadata.saveId = record.id;
-        this.showMessage(`Saved “${record.name}” to this browser.`);
         return record;
     }
 
@@ -1845,8 +1889,9 @@ class Game {
     }
     
     // Add tryAgain method (matching original GPS script)
-    tryAgain() {
+    tryAgain({ recordAction = true } = {}) {
         plog.waddle('tryAgain called - immediately resetting penguin and bonuses');
+        if (recordAction) this.recordRunRetry();
         this.resetSimulationSpeedControl();
         this.endRecordingShotPath();
         this.resetPenguinToSlingshot();
@@ -1865,6 +1910,122 @@ class Game {
         }
         
         this.updateUI();
+    }
+
+    beginRecordedRun(levelDefinition = null) {
+        this.runTick = 0;
+        this.runTranscriptRecorder = new RunTranscriptRecorder();
+        this.completedRun = null;
+        this.pendingCommunityScoreSubmission = null;
+        const definition = levelDefinition || (this.penguin && this.target && this.slingshot
+            ? this.exportCurrentLevel()
+            : null);
+        this.recordedRunLevel = definition ? structuredClone(definition) : null;
+        this.levelEditor?.updatePublishAvailability?.();
+        this.invalidateSimulationState();
+    }
+
+    invalidateRecordedRun() {
+        this.runTranscriptRecorder = null;
+        this.completedRun = null;
+        this.recordedRunLevel = null;
+        this.pendingCommunityScoreSubmission = null;
+        this.levelEditor?.updatePublishAvailability?.();
+    }
+
+    recordRunLaunch(angle, power) {
+        if (!this.runTranscriptRecorder) this.beginRecordedRun();
+        try {
+            this.runTranscriptRecorder.recordLaunch(this.runTick, angle, power);
+        } catch (error) {
+            plog.warn('This run cannot be submitted as a deterministic proof:', error.message);
+            this.invalidateRecordedRun();
+        }
+    }
+
+    recordRunRetry() {
+        if (!this.runTranscriptRecorder || this.runTranscriptRecorder.actions.length === 0) return;
+        try {
+            this.runTranscriptRecorder.recordRetry(this.runTick);
+        } catch (error) {
+            plog.warn('This retry invalidated the deterministic run proof:', error.message);
+            this.invalidateRecordedRun();
+        }
+    }
+
+    completeRecordedRun() {
+        if (!this.runTranscriptRecorder || this.runTranscriptRecorder.actions.length === 0) return null;
+        try {
+            this.completedRun = {
+                proof: this.runTranscriptRecorder.freeze(),
+                level: structuredClone(this.recordedRunLevel || this.exportCurrentLevel())
+            };
+            this.levelEditor?.updatePublishAvailability?.();
+            return this.completedRun;
+        } catch (error) {
+            plog.warn('Unable to freeze the completed run proof:', error.message);
+            this.invalidateRecordedRun();
+            return null;
+        }
+    }
+
+    isCommunityLevel() {
+        return this.levelMetadata?.catalogReference?.source === 'community';
+    }
+
+    currentCommunityScore() {
+        return calculateCommunityScore({
+            distance: this.distance,
+            tries: this.tries,
+            bonusScore: this.currentAttemptScore,
+            multiplier: this.levelRules?.scoreMultiplier ?? 1
+        });
+    }
+
+    async publishEditedLevel() {
+        if (!this.communityLevelClient) throw new Error('No community level server is configured.');
+        if (!this.completedRun) throw new Error('Complete this exact level in Play Mode before publishing it.');
+        const level = this.levelEditor?.mode === 'play'
+            ? structuredClone(this.completedRun.level)
+            : this.exportCurrentLevel();
+        if (JSON.stringify(level) !== JSON.stringify(this.completedRun.level)) {
+            this.completedRun = null;
+            throw new Error('The level changed after it was completed. Complete it again before publishing.');
+        }
+        const result = await this.communityLevelClient.publishLevel(level, this.completedRun.proof);
+        const published = result.item || result;
+        this.levelMetadata.catalogReference = { id: published.id, source: 'community' };
+        return published;
+    }
+
+    getCommunityScoreInitials() {
+        const storage = typeof localStorage === 'undefined' ? null : localStorage;
+        return storage?.getItem('spacedPenguinCommunityInitials') || '';
+    }
+
+    async offerCommunityScoreUpload(initials) {
+        if (!this.communityLevelClient || !this.isCommunityLevel() || !this.completedRun) return null;
+        const storage = typeof localStorage === 'undefined' ? null : localStorage;
+        const normalizedInitials = String(initials || '').trim().toUpperCase();
+        if (!/^[A-Z]{3}$/.test(normalizedInitials)) throw new Error('Initials must be exactly three letters.');
+        storage?.setItem('spacedPenguinCommunityInitials', normalizedInitials);
+        const score = this.currentCommunityScore();
+        this.pendingCommunityScoreSubmission = {
+            levelId: this.levelMetadata.catalogReference.id,
+            initials: normalizedInitials,
+            claimedScore: score.score,
+            proof: this.completedRun.proof,
+            idempotencyKey: createIdempotencyKey()
+        };
+        return this.submitPendingCommunityScore();
+    }
+
+    async submitPendingCommunityScore() {
+        const submission = this.pendingCommunityScoreSubmission;
+        if (!submission || !this.communityLevelClient) return null;
+        const response = await this.communityLevelClient.submitScore(submission.levelId, submission);
+        this.pendingCommunityScoreSubmission = null;
+        return response;
     }
     
     // Level Editor Methods

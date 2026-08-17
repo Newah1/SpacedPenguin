@@ -16,6 +16,9 @@ export const SimulationEventType = Object.freeze({
     RULE_FAILURE: 'rule_failure'
 });
 
+export const FIXED_TICK_RATE = 60;
+export const FIXED_TICK_SECONDS = 1 / FIXED_TICK_RATE;
+
 const compiledOrbitGraphs = new WeakMap();
 
 export function calculateLaunchScale(normalizedDistance) {
@@ -118,6 +121,14 @@ export function stepSimulationMutable(state, deltaTime, options = {}) {
     }
     if (deltaTime <= 0) appendFailureEvent(state, events);
     return { state, events };
+}
+
+/** Advance exactly one authoritative proof/gameplay tick. */
+export function stepSimulationTickMutable(state, options = {}) {
+    const tick = state.runTick ?? 0;
+    const result = stepSimulationMutable(state, FIXED_TICK_SECONDS, options);
+    state.runTick = tick + 1;
+    return result;
 }
 
 function stepSimulationSlice(state, deltaTime, events, options) {

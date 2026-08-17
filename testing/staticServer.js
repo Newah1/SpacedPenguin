@@ -27,7 +27,26 @@ function resolveRequestPath(requestUrl, host, port) {
     return requestedPath;
 }
 
-export function createStaticServer({ host = defaultHost, port = defaultPort } = {}) {
+function sendAppConfig(request, response, levelServerBaseUrl, requestTimeoutMs) {
+    const source = `globalThis.__SPACED_PENGUIN_APP_CONFIG__ = ${JSON.stringify({
+        levelServer: { baseUrl: levelServerBaseUrl, requestTimeoutMs }
+    }, null, 4)};\n`;
+    const payload = Buffer.from(source);
+    response.writeHead(200, {
+        'Cache-Control': 'no-store',
+        'Content-Length': payload.length,
+        'Content-Type': 'text/javascript; charset=utf-8'
+    });
+    if (request.method === 'HEAD') response.end();
+    else response.end(payload);
+}
+
+export function createStaticServer({
+    host = defaultHost,
+    port = defaultPort,
+    levelServerBaseUrl = null,
+    requestTimeoutMs = 8000
+} = {}) {
     return createServer((request, response) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') {
             response.writeHead(405, { Allow: 'GET, HEAD' });
@@ -35,7 +54,14 @@ export function createStaticServer({ host = defaultHost, port = defaultPort } = 
             return;
         }
 
-        const requestedPath = resolveRequestPath(request.url || '/', host, port);
+        const requestUrl = request.url || '/';
+        const pathname = new URL(requestUrl, `http://${host}:${port}`).pathname;
+        if (levelServerBaseUrl && pathname === '/app-config.js') {
+            sendAppConfig(request, response, levelServerBaseUrl, requestTimeoutMs);
+            return;
+        }
+
+        const requestedPath = resolveRequestPath(requestUrl, host, port);
         if (!requestedPath) {
             response.writeHead(403);
             response.end('Forbidden');
@@ -64,7 +90,7 @@ export function createStaticServer({ host = defaultHost, port = defaultPort } = 
 export async function startStaticServer(options = {}) {
     const host = options.host || defaultHost;
     const port = options.port || defaultPort;
-    const server = createStaticServer({ host, port });
+    const server = createStaticServer({ ...options, host, port });
     await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(port, host, resolve);

@@ -11,8 +11,9 @@ A browser-native rewrite of the classic Shockwave gravity-slingshot game, implem
 - Mouse, touch, keyboard, responsive-canvas, and fullscreen support
 - Embedded live level editor with local saves, searchable/paginated browsing, details, play/edit actions, and JSON download/export
 - Local browser high-score persistence with all-time and today views, including an optional top-ten name/region entry
+- Optional Node.js/SQLite community server with immutable verified publications and replay-validated per-level leaderboards
 
-The current runtime does not implement obstacle entities, online leaderboards, editor file import/server persistence, time-limit enforcement, or custom rule dispatch. Scores and saved editor levels are stored locally in the browser; there is no network submission. The level browser uses an asynchronous catalog-source contract so a future cloud source can provide server search, opaque cursor pagination, details, and on-demand definitions. Editor structural changes, canvas moves, object properties, and level settings have in-session undo/redo; JSON Export downloads the canonical definition.
+The current runtime does not implement obstacle entities, editor file import, time-limit enforcement, custom rule dispatch, or user accounts. Local saves remain in the browser. When a level server is configured, completed editor levels can be published once as immutable definitions and community-level scores can be submitted voluntarily with three-letter initials. Editor structural changes, canvas moves, object properties, and level settings have in-session undo/redo; JSON Export downloads the canonical definition.
 
 ## Run locally
 
@@ -25,6 +26,42 @@ python -m http.server 8000
 Then open `http://localhost:8000`. Select a default ported level with `http://localhost:8000/?level=5`. The previous hand-authored campaign is archived under the `manual` catalog and can be loaded with `http://localhost:8000/?level=manual:5`; advancing keeps that catalog active. Add `level_editor` to boot the selected level directly into the editor, for example `http://localhost:8000/?level=manual:5&level_editor` (or `?level_editor` for default level 1).
 
 There is no build or install step for the game itself.
+
+## Optional community level server
+
+The server requires Node.js 22.13 or newer and uses Node's built-in SQLite support. Start it with:
+
+```powershell
+npm run serve:community
+```
+
+This starts the game at `http://127.0.0.1:4173` and the community API at
+`http://127.0.0.1:3000`. The local launcher injects the API URL while serving
+`app-config.js`, so no tracked files need to be edited. Both `127.0.0.1` and
+`localhost` browser origins are accepted locally. Press Ctrl+C to stop both.
+
+Use `npm run serve:levels` when running only the API for a separate deployment.
+
+Environment variables:
+
+- `LEVEL_SERVER_HOST`, default `127.0.0.1`
+- `LEVEL_SERVER_PORT`, default `3000`
+- `LEVEL_SERVER_DATABASE`, default `spaced-penguin-levels.sqlite`
+- `LEVEL_SERVER_CORS_ORIGIN`, optional exact browser origin for split-origin deployments
+
+For a separate deployment, enable it in the browser through the deployment-owned
+`app-config.js`:
+
+```js
+globalThis.__SPACED_PENGUIN_APP_CONFIG__ = {
+    levelServer: {
+        baseUrl: 'http://127.0.0.1:3000',
+        requestTimeoutMs: 8000
+    }
+};
+```
+
+Leave `baseUrl` as `null` for the original local-only behavior. A configured server outage does not prevent local saves, browsing, editing, or play. Public deployments should use HTTPS, a persistent host-local volume for the SQLite database, and SQLite-aware backups.
 
 ## Architecture at a glance
 
@@ -59,6 +96,7 @@ js/                        Production ES modules
 assets/                    Manifest, images, SVGs, audio, animation metadata
 levels/                    Twenty-five default ports, archived manual catalog, and authoring guide
 testing/                   Node tests, trajectory CLI, and organized manual harnesses
+server/                    Optional Node HTTP API, SQLite repository, replay workers, and server tests
 e2e/                       Automated Playwright browser smoke tests
 OldSource/                 Decompiled Shockwave source and extracted references
 ARCHITECTURE.md             Current architect-oriented reference
@@ -97,7 +135,7 @@ npx playwright install chromium
 npm test
 ```
 
-Individual gates are available as `npm run test:unit`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
+Individual gates are available as `npm run test:unit`, `npm run test:server`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
 
 The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic, so headless launch commands reproduce independently of display refresh rate.
 

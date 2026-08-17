@@ -1,5 +1,6 @@
 import { UIScreen } from './uiManager.js';
 import { createButton } from './buttonFramework.js';
+import { createLevelThumbnail } from './levelThumbnailRenderer.js';
 
 const STYLE_ID = 'spaced-penguin-level-browser-style';
 const SEARCH_DELAY_MS = 250;
@@ -33,6 +34,8 @@ function ensureStyles() {
         .level-browser-details h3 { margin:0 0 8px; color:#ffd98c; }
         .level-browser-details p { white-space:pre-wrap; color:#e4d8bd; }
         .level-browser-details-meta { display:flex; flex-wrap:wrap; gap:8px 18px; margin:12px 0; color:#cbbda2; }
+        .level-browser-leaderboard { margin:8px 0 18px; padding-left:28px; color:#e4d8bd; }
+        .level-browser-leaderboard li { display:flex; justify-content:space-between; gap:20px; max-width:280px; padding:3px 0; }
         .level-browser-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         @media (max-width:600px) { .level-browser-overlay { padding:8px; } .level-browser-panel { padding:14px; } .level-browser-toolbar { grid-template-columns:1fr auto; } .level-browser-source { grid-column:1 / -1; grid-row:1; } }
     `;
@@ -69,6 +72,7 @@ export class LevelBrowserScreen extends UIScreen {
         this.searchTimer = null;
         this.previousFocus = document.activeElement;
         this.browserId = nextBrowserId++;
+        this.thumbnailCache = new Map();
         ensureStyles();
         this.build();
         this.loadFirstPage();
@@ -283,6 +287,7 @@ export class LevelBrowserScreen extends UIScreen {
         image.loading = 'lazy';
         image.decoding = 'async';
         if (summary.thumbnail) image.src = summary.thumbnail;
+        else if (summary.source === 'community') this.generateCommunityThumbnail(summary, image);
         const name = document.createElement('strong');
         name.textContent = summary.name;
         const description = document.createElement('small');
@@ -290,6 +295,31 @@ export class LevelBrowserScreen extends UIScreen {
         const actions = this.createLevelActions(summary, { includeDetails: true });
         card.append(image, name, description, actions);
         return card;
+    }
+
+    async generateCommunityThumbnail(summary, image) {
+        const cacheKey = summary.definitionHash || summary.id;
+        const cached = this.thumbnailCache.get(cacheKey);
+        if (cached) {
+            image.src = cached;
+            image.alt = `${summary.name} thumbnail`;
+            return;
+        }
+        const version = this.queryVersion;
+        try {
+            const definition = await this.catalog.getDefinition(summary, { signal: this.queryAbort?.signal });
+            if (version !== this.queryVersion || !image.isConnected) return;
+            const thumbnail = createLevelThumbnail(definition, {
+                assetLoader: this.game.assetLoader,
+                stars: this.game.stars
+            });
+            if (!thumbnail) return;
+            this.thumbnailCache.set(cacheKey, thumbnail);
+            image.src = thumbnail;
+            image.alt = `${summary.name} thumbnail`;
+        } catch (error) {
+            if (error?.name !== 'AbortError') console.warn('Unable to generate community level thumbnail.', error);
+        }
     }
 
     createLevelActions(summary, { includeDetails = false } = {}) {
@@ -318,9 +348,17 @@ export class LevelBrowserScreen extends UIScreen {
         this.details.setAttribute('aria-busy', 'true');
         this.details.textContent = 'Loading details…';
         try {
-            const details = await this.catalog.getDetails(summary, { signal: this.detailsAbort.signal });
+            const [details, scores] = await Promise.all([
+                this.catalog.getDetails(summary, { signal: this.detailsAbort.signal }),
+                summary.source === 'community' && this.game.communityLevelClient
+                    ? this.game.communityLevelClient.getScores(summary.id, {
+                        limit: 10,
+                        signal: this.detailsAbort.signal
+                    })
+                    : Promise.resolve({ items: [] })
+            ]);
             if (version !== this.detailsVersion) return;
-            this.renderDetails(details);
+            this.renderDetails(details, scores.items || []);
         } catch (error) {
             if (error?.name === 'AbortError' || version !== this.detailsVersion) return;
             this.details.textContent = error?.message || 'Unable to load level details.';
@@ -329,7 +367,7 @@ export class LevelBrowserScreen extends UIScreen {
         }
     }
 
-    renderDetails(details) {
+    renderDetails(details, scores = []) {
         this.details.replaceChildren();
         const title = document.createElement('h3');
         title.textContent = details.name;
@@ -351,7 +389,30 @@ export class LevelBrowserScreen extends UIScreen {
         const actions = this.createLevelActions(details);
         const close = createButton('CLOSE DETAILS', () => this.closeDetails(), actionColors('neutral'));
         actions.prepend(close);
-        this.details.append(title, description, metadata, actions);
+        this.details.append(title, description, metadata);
+        if (details.source === 'community') {
+            const leaderboardTitle = document.createElement('h4');
+            leaderboardTitle.textContent = 'Top Scores';
+            const leaderboard = document.createElement('ol');
+            leaderboard.className = 'level-browser-leaderboard';
+            if (scores.length === 0) {
+                const empty = document.createElement('li');
+                empty.textContent = 'No scores yet';
+                leaderboard.appendChild(empty);
+            } else {
+                for (const score of scores) {
+                    const row = document.createElement('li');
+                    const initials = document.createElement('strong');
+                    initials.textContent = score.initials;
+                    const value = document.createElement('span');
+                    value.textContent = String(score.score);
+                    row.append(initials, value);
+                    leaderboard.appendChild(row);
+                }
+            }
+            this.details.append(leaderboardTitle, leaderboard);
+        }
+        this.details.append(actions);
         title.tabIndex = -1;
         title.focus();
     }

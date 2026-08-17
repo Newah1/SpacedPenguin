@@ -105,6 +105,9 @@ export function createSimulationStateFromLevel(level, options = {}) {
 
     return {
         time: 0,
+        // Monotonic proof-protocol clock. Unlike `time`, this is preserved
+        // across attempts and is advanced only by fixed simulation ticks.
+        runTick: options.runTick ?? 0,
         penguin: {
             position: clonePoint(startPosition),
             velocity: { x: 0, y: 0 },
@@ -182,9 +185,16 @@ export function cloneSimulationState(state) {
 }
 
 export function resetSimulationAttempt(initialState, currentState = initialState) {
-    const reset = cloneSimulationState(initialState);
-    reset.counters.tries = currentState.counters.tries;
-    reset.counters.planetCollisions = currentState.counters.planetCollisions;
-    reset.time = 0;
+    // Browser retries reset the player-owned attempt state while the world
+    // keeps moving. Preserve orbit phase/positions and aggregate counters.
+    const reset = cloneSimulationState(currentState);
+    const initial = cloneSimulationState(initialState);
+    reset.penguin = initial.penguin;
+    reset.slingshot = initial.slingshot;
+    reset.bonuses.forEach((bonus, index) => {
+        bonus.collected = initialState.bonuses[index]?.collected ?? false;
+    });
+    reset.counters.currentAttemptScore = 0;
+    reset.counters.distance = 0;
     return reset;
 }

@@ -39,6 +39,9 @@ export class LevelEditorToolbarView {
         this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
         this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
         this.saveButton = button('Save', '#2e8b57', () => this.editor.saveLevel());
+        this.publishButton = button('Publish', '#7b4bb7', () => this.editor.publishLevel());
+        this.publishButton.hidden = !this.editor.game.communityLevelClient;
+        this.updatePublishAvailability();
         this.loadButton = button('Load', '#3d74b8', () => this.editor.loadLevel());
         this.menuButton = button('Main Menu', '#704c3b', () => this.editor.exitToMenu());
         this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
@@ -64,9 +67,13 @@ export class LevelEditorToolbarView {
         this.toolbarControls = [
             this.modeButton, this.toggleButton, this.deleteButton,
             this.cloneButton, this.sculptButton, this.exportButton,
-            this.saveButton, this.loadButton, this.menuButton
+            this.saveButton, this.publishButton, this.loadButton, this.menuButton
         ];
-        this.toolbar.append(...this.toolbarControls, this.minimizeButton);
+        this.status = document.createElement('span');
+        this.status.setAttribute('role', 'status');
+        this.status.setAttribute('aria-live', 'polite');
+        this.status.style.cssText = 'min-height:20px; margin:0 6px; color:#b8f5c5; font-weight:700; flex:1 1 180px;';
+        this.toolbar.append(...this.toolbarControls, this.status, this.minimizeButton);
         this.wrapper.append(this.toolbar, this.section);
         this.mobileToolbar = this.createMobileToolbar();
         this.toolbarDrag = makeDraggablePanel(this.toolbar);
@@ -85,12 +92,20 @@ export class LevelEditorToolbarView {
             cloneButton: this.cloneButton,
             exportButton: this.exportButton,
             saveButton: this.saveButton,
+            publishButton: this.publishButton,
             loadButton: this.loadButton,
             menuButton: this.menuButton,
             sculptButton: this.sculptButton,
             minimizeButton: this.minimizeButton,
-            addButtons: this.addButtons
+            addButtons: this.addButtons,
+            editorStatus: this.status
         };
+    }
+
+    showStatus(message, kind = 'success') {
+        this.status.textContent = message;
+        this.status.dataset.kind = kind;
+        this.status.style.color = kind === 'error' ? '#ff9a85' : kind === 'pending' ? '#ffe49b' : '#b8f5c5';
     }
 
     updateContextActions(selection = this.editor.selectedObject) {
@@ -107,6 +122,19 @@ export class LevelEditorToolbarView {
             this.cloneButton.hidden = !canCloneObject;
             this.cloneButton.setAttribute('aria-hidden', String(!canCloneObject));
         }
+    }
+
+    updatePublishAvailability() {
+        if (!this.publishButton) return;
+        const canPublish = Boolean(
+            this.editor.game.communityLevelClient &&
+            this.editor.game.completedRun
+        );
+        this.publishButton.disabled = !canPublish;
+        this.publishButton.title = canPublish
+            ? 'Publish this completed level'
+            : 'Complete this level in Play Mode to enable publishing';
+        this.publishButton.setAttribute('aria-label', this.publishButton.title);
     }
 
     createMobileToolbar() {
@@ -160,6 +188,7 @@ export class LevelEditorToolbarView {
         for (const control of this.toolbarControls) {
             control.style.display = minimized ? 'none' : '';
         }
+        this.status.style.display = minimized ? 'none' : '';
         if (minimized) this.close();
         this.minimizeButton.textContent = minimized ? '+' : '−';
         this.minimizeButton.title = minimized ? 'Restore editor toolbar' : 'Minimize editor toolbar';

@@ -313,24 +313,22 @@ class GameManager {
     }
 
     createMenuButtons() {
-        const originalButton = (x, y, width, height, label, action, fontSize) =>
+        const originalButton = (x, y, width, height, label, action, fontSize, icon) =>
             new CanvasButton(x, y, width, height, label, action, {
                 hitTest: (pointX, pointY) => pointX >= x && pointX <= x + width &&
                     pointY >= y && pointY <= y + height,
                 renderButton: (ctx, button) => this.drawOriginalMenuButton(
-                    ctx, x, y, width, height, button.text, fontSize, button
+                    ctx, x, y, width, height, button.text, fontSize, icon, button
                 )
             });
 
         return {
             highScores: originalButton(40, 517, 166, 54, 'High Scores',
-                () => this.showMenuHighScores(), 20),
+                () => this.showMenuHighScores(), 18, 'trophy'),
             levelEditor: originalButton(220, 517, 166, 54, 'Level Editor',
-                () => this.game?.openLevelEditor(), 17),
-            loadLevel: originalButton(397, 517, 156, 54, 'Load Level',
-                () => this.game?.showLevelBrowser(), 17),
-            tips: originalButton(683, 351, 80, 50, 'Tips!',
-                () => this.showMenuTips(), 19),
+                () => this.game?.openLevelEditor(), 16, 'pencil'),
+            loadLevel: originalButton(397, 517, 156, 54, 'Level Browser',
+                () => this.game?.showLevelBrowser(), 15, 'folder'),
             start: new CanvasButton(563, 464, 184, 96, 'Start',
                 () => this.startGame(), {
                     hitTest: (pointX, pointY) => {
@@ -345,14 +343,6 @@ class GameManager {
 
     showMenuHighScores() {
         this.game?.showHighScores();
-    }
-
-    showMenuTips() {
-        this.game?.uiManager.showModal({
-            title: 'TIPS',
-            message: 'Pull Kevin back from the ship, then release to launch.\nUse nearby planets to bend the flight path toward the target.',
-            actions: [{ label: 'BACK', role: 'cancel' }]
-        });
     }
 
     updateMenuButtonHover(point) {
@@ -522,7 +512,7 @@ class GameManager {
         }
         
         // Create mobile start button
-        const startButton = createButton('TAP TO LAUNCH', () => this.startGame(), {
+        const startButton = createButton('▶  TAP TO LAUNCH', () => this.startGame(), {
             backgroundColor: '#fff3bb',
             hoverColor: '#fff9d7',
             activeColor: '#f5df91',
@@ -724,7 +714,7 @@ class GameManager {
         ctx.fillText('Kevin in the right direction.', x + 20, y + 291);
         ctx.font = '900 15px Arial, sans-serif';
         ctx.fillText('Good luck!', x + 62, y + 322);
-        this.menuButtons.tips.render(ctx);
+        this.drawTipsBadge(ctx, x + width - 85, y + height - 41);
     }
 
     drawTryItVignette(ctx, time) {
@@ -791,7 +781,7 @@ class GameManager {
         ctx.restore();
     }
 
-    drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize, button = {}) {
+    drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize, icon, button = {}) {
         this.roundedRectPath(ctx, x, y, width, height, 8);
         ctx.fillStyle = button.isPressed ? '#e46d12' : button.isHovered ? '#ffb24d' : '#f79433';
         ctx.fill();
@@ -801,7 +791,79 @@ class GameManager {
         ctx.fillStyle = '#f47b20';
         ctx.font = `900 ${fontSize}px Arial, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(text, x + width / 2, y + height / 2 + fontSize * 0.34);
+        const iconX = x + 19;
+        this.drawMenuIcon(ctx, icon, iconX, y + height / 2, 15);
+        ctx.fillText(text, x + 31 + (width - 31) / 2, y + height / 2 + fontSize * 0.34);
+    }
+
+    drawTipsBadge(ctx, x, y) {
+        ctx.save();
+        ctx.fillStyle = '#fff3bb';
+        ctx.beginPath();
+        ctx.arc(x + 14, y + 14, 14, 0, Math.PI * 2);
+        ctx.fill();
+        this.drawMenuIcon(ctx, 'bulb', x + 14, y + 14, 14);
+        ctx.fillStyle = '#2e2419';
+        ctx.font = '900 15px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('TIPS', x + 33, y + 19);
+        ctx.restore();
+    }
+
+    drawMenuIcon(ctx, icon, x, y, size) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = '#f47b20';
+        ctx.fillStyle = '#f47b20';
+        ctx.lineWidth = Math.max(2, size * 0.14);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        if (icon === 'trophy') {
+            ctx.strokeRect(-size * 0.32, -size * 0.45, size * 0.64, size * 0.48);
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.32, -size * 0.3);
+            ctx.quadraticCurveTo(-size * 0.72, -size * 0.3, -size * 0.48, size * 0.08);
+            ctx.moveTo(size * 0.32, -size * 0.3);
+            ctx.quadraticCurveTo(size * 0.72, -size * 0.3, size * 0.48, size * 0.08);
+            ctx.moveTo(0, size * 0.03);
+            ctx.lineTo(0, size * 0.36);
+            ctx.moveTo(-size * 0.3, size * 0.46);
+            ctx.lineTo(size * 0.3, size * 0.46);
+            ctx.stroke();
+        } else if (icon === 'pencil') {
+            ctx.rotate(-0.72);
+            ctx.strokeRect(-size * 0.14, -size * 0.5, size * 0.28, size * 0.78);
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.14, -size * 0.5);
+            ctx.lineTo(0, -size * 0.72);
+            ctx.lineTo(size * 0.14, -size * 0.5);
+            ctx.moveTo(-size * 0.14, size * 0.34);
+            ctx.lineTo(size * 0.14, size * 0.34);
+            ctx.stroke();
+        } else if (icon === 'folder') {
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.55, -size * 0.34);
+            ctx.lineTo(-size * 0.12, -size * 0.34);
+            ctx.lineTo(size * 0.03, -size * 0.15);
+            ctx.lineTo(size * 0.55, -size * 0.15);
+            ctx.lineTo(size * 0.46, size * 0.4);
+            ctx.lineTo(-size * 0.46, size * 0.4);
+            ctx.closePath();
+            ctx.stroke();
+        } else if (icon === 'bulb') {
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.12, size * 0.34, Math.PI * 0.78, Math.PI * 0.22);
+            ctx.quadraticCurveTo(size * 0.2, size * 0.24, size * 0.16, size * 0.34);
+            ctx.lineTo(-size * 0.16, size * 0.34);
+            ctx.quadraticCurveTo(-size * 0.2, size * 0.24, -size * 0.24, size * 0.16);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.14, size * 0.5);
+            ctx.lineTo(size * 0.14, size * 0.5);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     drawStartButton(ctx, time) {
@@ -838,7 +900,13 @@ class GameManager {
         ctx.fillStyle = '#f47b20';
         ctx.font = '900 39px Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Start', 0, 13);
+        ctx.beginPath();
+        ctx.moveTo(-58, -13);
+        ctx.lineTo(-58, 13);
+        ctx.lineTo(-38, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillText('Start', 18, 13);
         ctx.restore();
     }
 
