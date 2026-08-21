@@ -41,8 +41,23 @@ export class LevelEditorToolbarView {
         this.saveButton = button('Save', '#2e8b57', () => this.editor.saveLevel());
         this.publishButton = button('Publish', '#7b4bb7', () => this.editor.publishLevel());
         this.publishButton.hidden = !this.editor.game.communityLevelClient;
+        this.publishHint = document.createElement('span');
+        this.publishHint.textContent = 'Play-test first';
+        this.publishHint.title = 'Complete this level in Play Mode to unlock Publish';
+        this.publishHint.setAttribute('aria-label', this.publishHint.title);
+        this.publishHint.style.cssText = `
+            padding: 3px 6px; border: 1px solid rgba(255, 228, 155, .35);
+            border-radius: 999px; color: #ffe49b; background: rgba(80, 61, 24, .58);
+            font-size: 10px; line-height: 1; white-space: nowrap;
+        `;
+        this.publishControl = document.createElement('span');
+        this.publishControl.style.cssText = `
+            display: inline-flex; flex-direction: column; align-items: center;
+            gap: 2px; flex-shrink: 0;
+        `;
+        this.publishControl.append(this.publishButton, this.publishHint);
         this.updatePublishAvailability();
-        this.loadButton = button('Load', '#3d74b8', () => this.editor.loadLevel());
+        this.loadButton = button('Open Level…', '#3d74b8', () => this.editor.loadLevel());
         this.menuButton = button('Main Menu', '#704c3b', () => this.editor.exitToMenu());
         this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
         this.minimizeButton = button('−', '#555', event => {
@@ -67,7 +82,8 @@ export class LevelEditorToolbarView {
         this.toolbarControls = [
             this.modeButton, this.toggleButton, this.deleteButton,
             this.cloneButton, this.sculptButton, this.exportButton,
-            this.saveButton, this.publishButton, this.loadButton, this.menuButton
+            this.saveButton, this.publishControl,
+            this.loadButton, this.menuButton
         ];
         this.status = document.createElement('span');
         this.status.setAttribute('role', 'status');
@@ -131,6 +147,9 @@ export class LevelEditorToolbarView {
             this.editor.game.completedRun
         );
         this.publishButton.disabled = !canPublish;
+        this.publishButton.textContent = canPublish ? 'Publish' : '🔒 Publish';
+        if (this.publishHint) this.publishHint.hidden = this.publishButton.hidden || canPublish;
+        if (this.publishControl) this.publishControl.hidden = this.publishButton.hidden;
         this.publishButton.title = canPublish
             ? 'Publish this completed level'
             : 'Complete this level in Play Mode to enable publishing';

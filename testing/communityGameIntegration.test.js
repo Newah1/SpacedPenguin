@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { Game } from '../js/game.js';
+import { CommunityScoreUploadScreen } from '../js/communityScoreUploadScreen.js';
 
 function gameFixture(overrides = {}) {
     return Object.assign(Object.create(Game.prototype), {
@@ -104,4 +105,28 @@ test('score upload rejects invalid native-UI initials before creating a submissi
 
     await assert.rejects(game.offerCommunityScoreUpload('K1'), /exactly three letters/);
     assert.equal(game.pendingCommunityScoreSubmission, undefined);
+});
+
+test('score upload view loads the current community leaderboard', async () => {
+    const renders = [];
+    const screen = Object.assign(Object.create(CommunityScoreUploadScreen.prototype), {
+        game: {
+            levelMetadata: { catalogReference: { source: 'community', id: 'level-1' } },
+            communityLevelClient: {
+                async getScores(levelId, options) {
+                    assert.equal(levelId, 'level-1');
+                    assert.equal(options.limit, 10);
+                    assert.equal(options.signal.aborted, false);
+                    return { items: [{ initials: 'KEV', score: 4200 }] };
+                }
+            }
+        },
+        renderLeaderboard: (scores, options = {}) => renders.push({ scores, options })
+    });
+
+    const scores = await screen.refreshLeaderboard();
+
+    assert.deepEqual(scores, [{ initials: 'KEV', score: 4200 }]);
+    assert.equal(renders[0].options.loading, true);
+    assert.deepEqual(renders.at(-1).scores, scores);
 });

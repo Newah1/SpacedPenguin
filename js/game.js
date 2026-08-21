@@ -128,12 +128,14 @@ class Game {
         this.highScoreStore = new HighScoreStore(
             typeof localStorage === 'undefined' ? null : localStorage
         );
+        this.levelLoader = new LevelLoader(assetLoader);
         this.levelSaveService = options.levelSaveService || new LevelSaveService();
         this.appConfig = readAppConfig(options.appConfig);
         if (options.levelCatalogService) {
             this.levelCatalogService = options.levelCatalogService;
         } else {
             this.levelCatalogService = createConfiguredLevelCatalog(this.levelSaveService.repository, {
+                levelLoader: this.levelLoader,
                 appConfig: this.appConfig
             });
         }
@@ -154,7 +156,6 @@ class Game {
         this.planetCollisions = 0; // Track planet collisions for rules
         
         // Level system
-        this.levelLoader = new LevelLoader(assetLoader);
         this.levelRules = null;
         this.levelMetadata = {
             name: 'Custom Level 1',
@@ -1023,6 +1024,7 @@ class Game {
         // A successful editor play-test is the publish gate. Keep the editor
         // visible so the newly enabled Publish button is immediately usable.
         if (this.state === GameState.LEVEL_EDITOR && this.levelEditor?.active) {
+            this.levelEditor.onPlayTestCompleted?.();
             return;
         }
         
@@ -1065,6 +1067,13 @@ class Game {
     }
     
     showLevelEndScreen() {
+        // A delayed campaign completion callback can race with entering the
+        // editor. Never put campaign navigation in front of an editor session.
+        if (this.levelEditor?.active) {
+            this.setState(GameState.LEVEL_EDITOR);
+            this.levelEditor.onPlayTestCompleted?.();
+            return null;
+        }
         if (this.state === GameState.SCORING) return null;
         this.setState(GameState.SCORING);
         this.calculateFinalScore();
@@ -1762,8 +1771,8 @@ class Game {
         return this.uiManager.showScreen(HighScoresScreen, this, options);
     }
 
-    showLevelBrowser() {
-        return this.uiManager.showScreen(LevelBrowserScreen, this);
+    showLevelBrowser(options = {}) {
+        return this.uiManager.showScreen(LevelBrowserScreen, this, options);
     }
 
     openLevelEditor() {
@@ -1800,6 +1809,9 @@ class Game {
         const record = typeof reference === 'string'
             ? { id: reference, source: this.levelCatalogService.defaultSource }
             : reference;
+        if (record.source === 'official' && this.levelLoader.activeCollection !== 'shipped') {
+            await this.levelLoader.loadCollection('shipped');
+        }
         return this.loadSavedLevel({
             ...record,
             level: definition
@@ -1813,12 +1825,13 @@ class Game {
         // selecting Edit below will create a fresh editor session afterward.
         if (this.levelEditor?.active) this.levelEditor.exit();
         this.uiManager.closeAllScreens();
-        this.level = record.id;
-        this.loadLevel(record.level);
+        const source = record.source || 'local';
+        this.level = source === 'official' ? Number(record.id) : record.id;
+        if (source === 'official') this.levelLoader.levels.set(this.level, record.level);
+        this.loadLevel(source === 'official' ? this.level : record.level);
         // LevelLoader refreshes runtime metadata while constructing the world;
         // restore the repository identity afterward so editor saves update the
         // selected browser card.
-        const source = record.source || 'local';
         this.levelMetadata = {
             name: record.name,
             description: record.description,
@@ -1827,7 +1840,10 @@ class Game {
         };
         this.score = 0;
         if (edit) this.levelEditor.enter();
-        else this.setState(GameState.PLAYING);
+        else {
+            this.setState(GameState.PLAYING);
+            if (source === 'official') Utils.setURLParameter('level', String(this.level));
+        }
         return true;
     }
 

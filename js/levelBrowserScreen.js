@@ -1,5 +1,6 @@
 import { UIScreen } from './uiManager.js';
 import { createButton } from './buttonFramework.js';
+import { createCommunityLeaderboard } from './communityLeaderboardView.js';
 import { createLevelThumbnail } from './levelThumbnailRenderer.js';
 
 const STYLE_ID = 'spaced-penguin-level-browser-style';
@@ -12,11 +13,15 @@ function ensureStyles() {
     style.id = STYLE_ID;
     style.textContent = `
         .level-browser-overlay { position:absolute; inset:0; z-index:330; box-sizing:border-box; overflow:auto; padding:24px; background:rgba(0,0,0,.9); color:#fff6d6; pointer-events:auto; touch-action:manipulation; }
-        .level-browser-panel { box-sizing:border-box; width:min(920px,100%); min-height:100%; margin:auto; padding:24px; border:4px solid #cb7928; border-radius:14px; background:#211b18; box-shadow:0 18px 60px rgba(0,0,0,.7); }
+        .level-browser-panel { position:relative; box-sizing:border-box; width:min(920px,100%); min-height:100%; margin:auto; padding:24px; border:4px solid #cb7928; border-radius:14px; background:#211b18; box-shadow:0 18px 60px rgba(0,0,0,.7); }
         .level-browser-panel h2 { margin:0 0 18px; color:#f5e4aa; text-align:center; letter-spacing:.12em; }
-        .level-browser-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; margin-bottom:14px; }
-        .level-browser-toolbar input, .level-browser-toolbar select { box-sizing:border-box; min-width:0; padding:10px; border:2px solid #8b684b; border-radius:6px; background:#130f0d; color:#fff6d6; font:inherit; }
-        .level-browser-toolbar input:focus-visible, .level-browser-toolbar select:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+        .level-browser-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; margin-bottom:14px; }
+        .level-browser-toolbar input { box-sizing:border-box; min-width:0; padding:10px; border:2px solid #8b684b; border-radius:6px; background:#130f0d; color:#fff6d6; font:inherit; }
+        .level-browser-toolbar input:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+        .level-browser-sources { display:flex; grid-column:1 / -1; justify-content:center; gap:6px; padding:4px; border:1px solid #6d4a35; border-radius:10px; background:#130f0d; }
+        .level-browser-source-tab { flex:1 1 0; max-width:220px; padding:9px 14px; border:2px solid transparent; border-radius:7px; background:transparent; color:#d3c5a9; font:inherit; font-weight:700; cursor:pointer; }
+        .level-browser-source-tab[aria-selected="true"] { border-color:#f79433; background:#5b351f; color:#fff6d6; }
+        .level-browser-source-tab:focus-visible { outline:3px solid #fff; outline-offset:2px; }
         .level-browser-status { min-height:1.5em; margin:0 0 12px; color:#d3c5a9; }
         .level-browser-status.is-error { color:#ffad9f; }
         .level-browser-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
@@ -27,6 +32,7 @@ function ensureStyles() {
         .level-card-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
         .level-card-actions button { flex:1 1 64px; padding:8px 6px; }
         .level-browser-empty { padding:34px; text-align:center; color:#d3c5a9; }
+        .level-browser-empty button { margin-top:16px; }
         .level-browser-pagination, .level-browser-actions { display:flex; justify-content:center; gap:10px; margin-top:20px; }
         .level-browser-pagination button, .level-browser-actions button, .level-browser-toolbar button { padding:10px 18px; }
         .level-browser-details { margin:0 0 18px; padding:18px; border:2px solid #8b684b; border-radius:10px; background:#2b211c; }
@@ -34,10 +40,12 @@ function ensureStyles() {
         .level-browser-details h3 { margin:0 0 8px; color:#ffd98c; }
         .level-browser-details p { white-space:pre-wrap; color:#e4d8bd; }
         .level-browser-details-meta { display:flex; flex-wrap:wrap; gap:8px 18px; margin:12px 0; color:#cbbda2; }
-        .level-browser-leaderboard { margin:8px 0 18px; padding-left:28px; color:#e4d8bd; }
-        .level-browser-leaderboard li { display:flex; justify-content:space-between; gap:20px; max-width:280px; padding:3px 0; }
+        .level-browser-confirmation { position:absolute; inset:0; z-index:2; display:grid; place-items:center; padding:24px; background:rgba(0,0,0,.78); }
+        .level-browser-confirmation-card { width:min(520px,100%); padding:22px; border:3px solid #f79433; border-radius:12px; background:#2b211c; box-shadow:0 18px 60px #000; }
+        .level-browser-confirmation-card h3 { margin-top:0; color:#ffd98c; }
+        .level-browser-confirmation-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-top:20px; }
         .level-browser-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        @media (max-width:600px) { .level-browser-overlay { padding:8px; } .level-browser-panel { padding:14px; } .level-browser-toolbar { grid-template-columns:1fr auto; } .level-browser-source { grid-column:1 / -1; grid-row:1; } }
+        @media (max-width:600px) { .level-browser-overlay { padding:8px; } .level-browser-panel { padding:14px; } .level-browser-source-tab { padding-inline:7px; font-size:13px; } }
     `;
     document.head.appendChild(style);
 }
@@ -59,10 +67,12 @@ function actionColors(kind) {
 }
 
 export class LevelBrowserScreen extends UIScreen {
-    constructor(uiManager, game) {
+    constructor(uiManager, game, options = {}) {
         super(uiManager);
         this.game = game;
         this.catalog = game.levelCatalogService;
+        this.mode = options.mode === 'open' ? 'open' : 'browse';
+        this.initialSource = options.initialSource || null;
         this.items = [];
         this.nextCursor = null;
         this.total = null;
@@ -73,6 +83,8 @@ export class LevelBrowserScreen extends UIScreen {
         this.previousFocus = document.activeElement;
         this.browserId = nextBrowserId++;
         this.thumbnailCache = new Map();
+        this.inertEditor = Boolean(game.levelEditor?.active && game.levelEditor.container);
+        if (this.inertEditor) game.levelEditor.container.inert = true;
         ensureStyles();
         this.build();
         this.loadFirstPage();
@@ -89,7 +101,7 @@ export class LevelBrowserScreen extends UIScreen {
         this.panel.className = 'level-browser-panel';
         const title = document.createElement('h2');
         title.id = `level-browser-title-${this.browserId}`;
-        title.textContent = 'LEVEL BROWSER';
+        title.textContent = this.mode === 'open' ? 'OPEN LEVEL' : 'BROWSE LEVELS';
 
         this.toolbar = document.createElement('form');
         this.toolbar.className = 'level-browser-toolbar';
@@ -100,23 +112,39 @@ export class LevelBrowserScreen extends UIScreen {
         this.searchInput = document.createElement('input');
         this.searchInput.id = searchLabel.htmlFor;
         this.searchInput.type = 'search';
-        this.searchInput.placeholder = 'Search levels';
+        this.searchInput.placeholder = 'Search this source';
         this.searchInput.autocomplete = 'off';
         const searchButton = createButton('SEARCH', () => {}, actionColors('neutral'));
         searchButton.type = 'submit';
 
         const sources = this.catalog?.getSources?.() || [];
-        this.sourceSelect = document.createElement('select');
-        this.sourceSelect.className = 'level-browser-source';
-        this.sourceSelect.setAttribute('aria-label', 'Level source');
+        this.sourceTabs = document.createElement('div');
+        this.sourceTabs.className = 'level-browser-sources';
+        this.sourceTabs.setAttribute('role', 'tablist');
+        this.sourceTabs.setAttribute('aria-label', 'Level source');
+        this.sourceButtons = new Map();
+        const rememberedSource = this.game.levelBrowserSources?.[this.mode];
+        const preferredSource = this.initialSource || rememberedSource ||
+            (this.mode === 'open' ? 'local' : this.catalog?.defaultSource);
+        this.selectedSourceId = sources.some(source => source.id === preferredSource)
+            ? preferredSource
+            : sources[0]?.id;
         for (const source of sources) {
-            const option = document.createElement('option');
-            option.value = source.id;
-            option.textContent = source.label;
-            this.sourceSelect.appendChild(option);
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'level-browser-source-tab';
+            tab.dataset.source = source.id;
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', String(source.id === this.selectedSourceId));
+            tab.tabIndex = source.id === this.selectedSourceId ? 0 : -1;
+            tab.textContent = source.label;
+            tab.addEventListener('click', () => this.selectSource(source.id));
+            tab.addEventListener('keydown', event => this.handleSourceKey(event, source.id));
+            this.sourceButtons.set(source.id, tab);
+            this.sourceTabs.appendChild(tab);
         }
-        this.sourceSelect.hidden = sources.length <= 1;
-        this.toolbar.append(searchLabel, this.searchInput, this.sourceSelect, searchButton);
+        this.sourceTabs.hidden = sources.length <= 1;
+        this.toolbar.append(this.sourceTabs, searchLabel, this.searchInput, searchButton);
 
         this.status = document.createElement('p');
         this.status.className = 'level-browser-status';
@@ -157,9 +185,15 @@ export class LevelBrowserScreen extends UIScreen {
             this.cancelSearchTimer();
             this.searchTimer = setTimeout(() => this.loadFirstPage(), SEARCH_DELAY_MS);
         });
-        this.sourceSelect.addEventListener('change', () => this.loadFirstPage());
         this.overlay.addEventListener('keydown', event => {
             event.stopPropagation();
+            if (this.confirmationElement) {
+                if (event.code === 'Escape') {
+                    event.preventDefault();
+                    this.resolveReplacementPrompt?.('cancel');
+                }
+                return;
+            }
             if (event.code === 'Tab') {
                 const focusable = [...this.overlay.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')]
                     .filter(element => !element.hidden && element.getClientRects().length > 0);
@@ -190,7 +224,33 @@ export class LevelBrowserScreen extends UIScreen {
     }
 
     selectedSource() {
-        return this.sourceSelect.value || this.catalog?.defaultSource;
+        return this.selectedSourceId || this.catalog?.defaultSource;
+    }
+
+    selectSource(sourceId) {
+        if (!this.sourceButtons.has(sourceId) || sourceId === this.selectedSourceId) return;
+        this.selectedSourceId = sourceId;
+        for (const [id, button] of this.sourceButtons) {
+            button.setAttribute('aria-selected', String(id === sourceId));
+            button.tabIndex = id === sourceId ? 0 : -1;
+        }
+        this.game.levelBrowserSources = { ...(this.game.levelBrowserSources || {}), [this.mode]: sourceId };
+        this.loadFirstPage();
+    }
+
+    handleSourceKey(event, sourceId) {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.code)) return;
+        event.preventDefault();
+        const ids = [...this.sourceButtons.keys()];
+        const index = ids.indexOf(sourceId);
+        const direction = event.code === 'ArrowRight' ? 1 : -1;
+        const nextId = ids[(index + direction + ids.length) % ids.length];
+        this.selectSource(nextId);
+        this.sourceButtons.get(nextId)?.focus();
+    }
+
+    sourceLabel() {
+        return this.catalog?.getSources?.().find(source => source.id === this.selectedSource())?.label || 'Levels';
     }
 
     setStatus(message, { error = false } = {}) {
@@ -264,17 +324,31 @@ export class LevelBrowserScreen extends UIScreen {
         if (!this.items.length) {
             const empty = document.createElement('div');
             empty.className = 'level-browser-empty';
+            const source = this.selectedSource();
             empty.textContent = this.searchInput.value.trim()
-                ? 'No levels match this search.'
-                : 'No saved levels yet. Create one in the Level Editor.';
+                ? `No ${this.sourceLabel().toLocaleLowerCase()} match this search.`
+                : source === 'local'
+                    ? (this.mode === 'open'
+                        ? 'No saved levels yet. Save this level to make it available here.'
+                        : 'No saved levels yet. Create one in the Level Editor.')
+                    : source === 'community'
+                        ? 'No community levels are available yet.'
+                        : 'No official levels are available.';
+            if (source === 'local' && this.mode === 'browse') {
+                const create = createButton('CREATE NEW LEVEL', () => {
+                    this.close();
+                    this.game.openLevelEditor();
+                }, actionColors('edit'));
+                empty.append(document.createElement('br'), create);
+            }
             this.grid.appendChild(empty);
         } else {
             for (const summary of this.items) this.grid.appendChild(this.createCard(summary));
         }
         const count = this.items.length;
         this.setStatus(this.total == null
-            ? `${count} level${count === 1 ? '' : 's'} loaded.`
-            : `${count} of ${this.total} level${this.total === 1 ? '' : 's'} loaded.`);
+            ? `${this.sourceLabel()}: ${count} level${count === 1 ? '' : 's'} loaded.`
+            : `${this.sourceLabel()}: ${count} of ${this.total} level${this.total === 1 ? '' : 's'} loaded.`);
         this.loadMoreButton.textContent = 'LOAD MORE';
         this.loadMoreButton.hidden = !this.nextCursor;
     }
@@ -287,7 +361,7 @@ export class LevelBrowserScreen extends UIScreen {
         image.loading = 'lazy';
         image.decoding = 'async';
         if (summary.thumbnail) image.src = summary.thumbnail;
-        else if (summary.source === 'community') this.generateCommunityThumbnail(summary, image);
+        else this.generateDefinitionThumbnail(summary, image);
         const name = document.createElement('strong');
         name.textContent = summary.name;
         const description = document.createElement('small');
@@ -297,8 +371,8 @@ export class LevelBrowserScreen extends UIScreen {
         return card;
     }
 
-    async generateCommunityThumbnail(summary, image) {
-        const cacheKey = summary.definitionHash || summary.id;
+    async generateDefinitionThumbnail(summary, image) {
+        const cacheKey = `${summary.source}:${summary.definitionHash || summary.id}`;
         const cached = this.thumbnailCache.get(cacheKey);
         if (cached) {
             image.src = cached;
@@ -330,11 +404,19 @@ export class LevelBrowserScreen extends UIScreen {
                 this.showDetails(summary, event.currentTarget);
             }, actionColors('neutral')));
         }
-        if (summary.capabilities?.play !== false) {
-            actions.appendChild(createButton('PLAY', () => this.activateLevel(summary), actionColors('play')));
-        }
-        if (summary.capabilities?.edit !== false) {
-            actions.appendChild(createButton('EDIT', () => this.activateLevel(summary, { edit: true }), actionColors('edit')));
+        if (this.mode === 'open') {
+            if (summary.source !== 'local' || summary.capabilities?.edit !== false) {
+                const label = summary.source === 'local' ? 'OPEN' : 'OPEN A COPY';
+                actions.appendChild(createButton(label, () => this.activateLevel(summary, { edit: true }), actionColors('edit')));
+            }
+        } else {
+            if (summary.capabilities?.play !== false) {
+                actions.appendChild(createButton('PLAY', () => this.activateLevel(summary), actionColors('play')));
+            }
+            if (summary.source !== 'local' || summary.capabilities?.edit !== false) {
+                const label = summary.source === 'local' ? 'EDIT' : 'EDIT A COPY';
+                actions.appendChild(createButton(label, () => this.activateLevel(summary, { edit: true }), actionColors('edit')));
+            }
         }
         return actions;
     }
@@ -391,26 +473,7 @@ export class LevelBrowserScreen extends UIScreen {
         actions.prepend(close);
         this.details.append(title, description, metadata);
         if (details.source === 'community') {
-            const leaderboardTitle = document.createElement('h4');
-            leaderboardTitle.textContent = 'Top Scores';
-            const leaderboard = document.createElement('ol');
-            leaderboard.className = 'level-browser-leaderboard';
-            if (scores.length === 0) {
-                const empty = document.createElement('li');
-                empty.textContent = 'No scores yet';
-                leaderboard.appendChild(empty);
-            } else {
-                for (const score of scores) {
-                    const row = document.createElement('li');
-                    const initials = document.createElement('strong');
-                    initials.textContent = score.initials;
-                    const value = document.createElement('span');
-                    value.textContent = String(score.score);
-                    row.append(initials, value);
-                    leaderboard.appendChild(row);
-                }
-            }
-            this.details.append(leaderboardTitle, leaderboard);
+            this.details.append(createCommunityLeaderboard(scores));
         }
         this.details.append(actions);
         title.tabIndex = -1;
@@ -428,6 +491,11 @@ export class LevelBrowserScreen extends UIScreen {
     }
 
     async activateLevel(summary, { edit = false } = {}) {
+        if (this.mode === 'open' && this.game.levelEditor?.isDirty?.()) {
+            const choice = await this.promptForUnsavedChanges(summary.name);
+            if (choice === 'cancel') return;
+            if (choice === 'save' && !await this.game.levelEditor.saveLevel()) return;
+        }
         this.setStatus(`${edit ? 'Opening' : 'Loading'} ${summary.name}…`);
         const buttons = [...this.overlay.querySelectorAll('button')];
         buttons.forEach(button => { button.disabled = true; });
@@ -438,6 +506,47 @@ export class LevelBrowserScreen extends UIScreen {
             buttons.forEach(button => { button.disabled = false; });
             this.searchInput.focus();
         }
+    }
+
+    promptForUnsavedChanges(levelName) {
+        return new Promise(resolve => {
+            this.confirmationElement?.remove();
+            const overlay = document.createElement('div');
+            overlay.className = 'level-browser-confirmation';
+            overlay.setAttribute('role', 'alertdialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-labelledby', `level-browser-confirm-title-${this.browserId}`);
+            const card = document.createElement('section');
+            card.className = 'level-browser-confirmation-card';
+            const title = document.createElement('h3');
+            title.id = `level-browser-confirm-title-${this.browserId}`;
+            title.textContent = 'UNSAVED CHANGES';
+            const message = document.createElement('p');
+            message.textContent = `Save your changes before opening “${levelName}”?`;
+            const actions = document.createElement('div');
+            actions.className = 'level-browser-confirmation-actions';
+            const finish = choice => {
+                for (const element of this.confirmationBackground || []) element.inert = false;
+                this.confirmationBackground = null;
+                overlay.remove();
+                this.confirmationElement = null;
+                this.resolveReplacementPrompt = null;
+                resolve(choice);
+            };
+            this.resolveReplacementPrompt = finish;
+            actions.append(
+                createButton('SAVE & OPEN', () => finish('save'), actionColors('play')),
+                createButton('DISCARD', () => finish('discard'), actionColors('neutral')),
+                createButton('CANCEL', () => finish('cancel'), actionColors('neutral'))
+            );
+            card.append(title, message, actions);
+            overlay.appendChild(card);
+            this.confirmationBackground = [...this.panel.children];
+            for (const element of this.confirmationBackground) element.inert = true;
+            this.panel.appendChild(overlay);
+            this.confirmationElement = overlay;
+            actions.querySelector('button')?.focus();
+        });
     }
 
     handleClick() { return true; }
@@ -454,7 +563,9 @@ export class LevelBrowserScreen extends UIScreen {
         this.cancelSearchTimer();
         this.queryAbort?.abort();
         this.detailsAbort?.abort();
+        this.resolveReplacementPrompt?.('cancel');
         this.overlay?.remove();
+        if (this.inertEditor && this.game.levelEditor?.container) this.game.levelEditor.container.inert = false;
         if (this.previousFocus?.isConnected) this.previousFocus.focus();
     }
 }

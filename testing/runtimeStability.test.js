@@ -46,6 +46,68 @@ const {
     selectDiverseAsciiResults
 } = await import('./levelTester.js');
 
+test('main menu Start label ignores an inherited canvas text baseline', () => {
+    let renderedText = null;
+    const context = {
+        textBaseline: 'middle',
+        save() {},
+        restore() {},
+        translate() {},
+        rotate() {},
+        beginPath() {},
+        ellipse() {},
+        fill() {},
+        moveTo() {},
+        lineTo() {},
+        closePath() {},
+        fillText(text, x, y) {
+            renderedText = { text, x, y, textBaseline: this.textBaseline };
+        }
+    };
+
+    GameManager.prototype.drawStartButtonVisual.call({}, context, {
+        isPressed: false,
+        isHovered: false
+    });
+
+    assert.deepEqual(renderedText, {
+        text: 'Start',
+        x: 18,
+        y: 13,
+        textBaseline: 'alphabetic'
+    });
+});
+
+test('main menu button icons have a padded column before their labels', () => {
+    let renderedIcon = null;
+    let renderedText = null;
+    const manager = {
+        roundedRectPath() {},
+        drawMenuIcon(_context, icon, x, y, size) {
+            renderedIcon = { icon, x, y, size };
+        }
+    };
+    const context = {
+        textBaseline: 'alphabetic',
+        fill() {},
+        fillText(text, x, y) {
+            renderedText = { text, x, y, textBaseline: this.textBaseline };
+        }
+    };
+
+    GameManager.prototype.drawOriginalMenuButton.call(
+        manager, context, 40, 517, 166, 54, 'High Scores', 15, 'trophy'
+    );
+
+    assert.deepEqual(renderedIcon, { icon: 'trophy', x: 65, y: 544, size: 16 });
+    assert.deepEqual(renderedText, {
+        text: 'High Scores',
+        x: 140.5,
+        y: 544,
+        textBaseline: 'middle'
+    });
+});
+
 test('level files bypass the browser cache when reloaded', async () => {
     const requests = [];
     const loader = new (await import('../js/levelLoader.js')).LevelLoader(null);
@@ -156,26 +218,86 @@ test('level editor publish is disabled until the current level is completed', ()
     const view = Object.create(LevelEditorToolbarView.prototype);
     view.editor = { game };
     view.publishButton = publishButton;
+    view.publishHint = { hidden: true };
 
     view.updatePublishAvailability();
     assert.equal(publishButton.disabled, true);
+    assert.equal(publishButton.textContent, '🔒 Publish');
+    assert.equal(view.publishHint.hidden, false);
     assert.match(publishButton.title, /Complete this level/);
 
     game.completedRun = { level: {}, proof: {} };
     view.updatePublishAvailability();
     assert.equal(publishButton.disabled, false);
+    assert.equal(publishButton.textContent, 'Publish');
+    assert.equal(view.publishHint.hidden, true);
     assert.match(publishButton.title, /Publish this completed level/);
+});
+
+test('publish confirmation metadata updates the editor and proof-captured definition', () => {
+    const editor = Object.create(LevelEditor.prototype);
+    editor.game = {
+        levelMetadata: { name: 'Draft', description: '' },
+        completedRun: { level: { name: 'Draft', description: '' } },
+        recordedRunLevel: { name: 'Draft', description: '' },
+        loadedLevelDefinition: { name: 'Draft', description: '' }
+    };
+
+    editor.applyPublishMetadata({ name: 'Public Orbit', description: 'Thread the moons.' });
+
+    assert.equal(editor.game.levelMetadata.name, 'Public Orbit');
+    assert.equal(editor.game.levelMetadata.description, 'Thread the moons.');
+    assert.equal(editor.game.completedRun.level.name, 'Public Orbit');
+    assert.equal(editor.game.recordedRunLevel.description, 'Thread the moons.');
+    assert.equal(editor.game.loadedLevelDefinition.name, 'Public Orbit');
+});
+
+test('publishing waits for confirmed metadata and cancellation has no side effects', async () => {
+    const calls = [];
+    const editor = Object.create(LevelEditor.prototype);
+    editor.publishButton = { disabled: false };
+    editor.toolbarView = { showStatus: message => calls.push(['status', message]) };
+    editor.updatePublishAvailability = () => calls.push('availability');
+    editor.applyPublishMetadata = metadata => calls.push(['metadata', metadata]);
+    editor.game = {
+        levelMetadata: { name: 'Draft' },
+        publishEditedLevel: async () => {
+            calls.push('publish');
+            return { name: 'Public Orbit' };
+        }
+    };
+    editor.promptForPublishMetadata = async () => ({
+        name: 'Public Orbit',
+        description: 'Thread the moons.'
+    });
+
+    assert.deepEqual(await editor.publishLevel(), { name: 'Public Orbit' });
+    assert.deepEqual(calls, [
+        ['metadata', { name: 'Public Orbit', description: 'Thread the moons.' }],
+        ['status', 'Publishing…'],
+        'publish',
+        ['status', 'Published “Public Orbit” to Community Levels.'],
+        'availability'
+    ]);
+
+    calls.length = 0;
+    editor.publishButton.disabled = false;
+    editor.promptForPublishMetadata = async () => null;
+    assert.equal(await editor.publishLevel(), null);
+    assert.deepEqual(calls, []);
 });
 
 test('successful level editor play-tests unlock publishing without opening the end screen', () => {
     const timers = createTimeoutFixture();
     let publishUpdates = 0;
+    let completionNotices = 0;
     let sounds = 0;
     const game = {
         state: GameState.LEVEL_EDITOR,
         levelEditor: {
             active: true,
-            updatePublishAvailability: () => { publishUpdates++; }
+            updatePublishAvailability: () => { publishUpdates++; },
+            onPlayTestCompleted: () => { completionNotices++; }
         },
         runTranscriptRecorder: {
             actions: [{ type: 'launch' }],
@@ -193,9 +315,28 @@ test('successful level editor play-tests unlock publishing without opening the e
 
     assert.equal(sounds, 1);
     assert.equal(publishUpdates, 1);
+    assert.equal(completionNotices, 1);
     assert.equal(game.completedRun.level.name, 'Completed editor level');
     assert.equal(timers.scheduled.length, 0);
     assert.equal(game.target.isHit, true);
+});
+
+test('level end screen is suppressed when an editor session is active', () => {
+    const calls = [];
+    const game = {
+        state: GameState.PLAYING,
+        levelEditor: {
+            active: true,
+            onPlayTestCompleted: () => calls.push('completed')
+        },
+        setState: state => { game.state = state; calls.push(['state', state]); },
+        calculateFinalScore: () => calls.push('score'),
+        uiManager: { showScreen: () => calls.push('screen') }
+    };
+
+    assert.equal(Game.prototype.showLevelEndScreen.call(game), null);
+    assert.equal(game.state, GameState.LEVEL_EDITOR);
+    assert.deepEqual(calls, [['state', GameState.LEVEL_EDITOR], 'completed']);
 });
 
 test('level editor drag ignores pointer events from non-owning pointers', () => {
@@ -531,6 +672,20 @@ test('level-end buttons handle clicks before the screen-wide continue action', (
     assert.equal(continueCalls, 0);
 });
 
+test('level-end Main Menu action closes the score card and returns to menu', () => {
+    const calls = [];
+    const screen = createLevelEndScreenFixture({
+        uiManager: { playSound: () => calls.push('sound') },
+        game: { returnToMenu: () => calls.push('menu') },
+        stopAllLoopingSounds: () => calls.push('stop'),
+        close: () => calls.push('close')
+    });
+
+    LevelEndScreen.prototype.handleMainMenu.call(screen);
+
+    assert.deepEqual(calls, ['stop', 'sound', 'close', 'menu']);
+});
+
 test('level-end continuation reaches game over at the configured final level', () => {
     let endGameCalls = 0;
     const game = {
@@ -568,7 +723,7 @@ test('custom level completion uses its friendly name and browses instead of adva
         level: 'custom-1755298123456-ab12cd',
         levelMetadata: { name: 'Orbit Practice', saveId: 'local-1' },
         levelLoader: { maximumSelectableLevel: 25 },
-        showLevelBrowser: () => calls.push('browse'),
+        showLevelBrowser: options => calls.push(['browse', options]),
         nextLevel: () => calls.push('next'),
         endGame: () => calls.push('end')
     };
@@ -581,7 +736,7 @@ test('custom level completion uses its friendly name and browses instead of adva
 
     assert.equal(getCompletionTitle(game, 25), 'Orbit Practice Complete!');
     LevelEndScreen.prototype.handleContinue.call(screen);
-    assert.deepEqual(calls, ['close', 'browse']);
+    assert.deepEqual(calls, ['close', ['browse', { initialSource: 'local' }]]);
 });
 
 test('playing a saved level exits an active editor session', () => {
@@ -613,6 +768,31 @@ test('playing a saved level exits an active editor session', () => {
     assert.equal(game.levelMetadata.saveId, 'local-1');
 });
 
+test('opening an official catalog level preserves its numeric campaign identity', () => {
+    const calls = [];
+    const game = {
+        levelLoader: { levels: new Map() },
+        levelEditor: {
+            active: false,
+            enter: () => calls.push('enter-editor')
+        },
+        uiManager: { closeAllScreens: () => calls.push('close-screens') },
+        loadLevel: selector => calls.push(['load', selector])
+    };
+    const record = {
+        id: '3',
+        source: 'official',
+        name: 'Official Three',
+        description: '',
+        level: { name: 'Official Three', objects: [] }
+    };
+
+    assert.equal(Game.prototype.loadSavedLevel.call(game, record, { edit: true }), true);
+    assert.equal(game.level, 3);
+    assert.deepEqual(calls, ['close-screens', ['load', 3], 'enter-editor']);
+    assert.deepEqual(game.levelMetadata.catalogReference, { id: '3', source: 'official' });
+});
+
 test('catalog levels are fetched and validated before the active UI is closed', async () => {
     const calls = [];
     const summary = { id: 'cloud-1', source: 'cloud', name: 'Cloud Level', description: '' };
@@ -641,6 +821,42 @@ test('catalog levels are fetched and validated before the active UI is closed', 
         /objects.*must be an array/s
     );
     assert.equal(calls.length, 2);
+});
+
+test('editor dirty state follows the current definition and returns clean after undo-equivalent restoration', () => {
+    const definition = { name: 'Draft', objects: [] };
+    const editor = {
+        active: true,
+        mode: 'edit',
+        game: { exportCurrentLevel: () => structuredClone(definition) },
+        currentDocumentDefinition: LevelEditor.prototype.currentDocumentDefinition
+    };
+
+    LevelEditor.prototype.markClean.call(editor);
+    assert.equal(LevelEditor.prototype.isDirty.call(editor), false);
+    definition.name = 'Changed';
+    assert.equal(LevelEditor.prototype.isDirty.call(editor), true);
+    definition.name = 'Draft';
+    assert.equal(LevelEditor.prototype.isDirty.call(editor), false);
+});
+
+test('editor object discovery hides runtime-only helpers', () => {
+    class Planet {}
+    class Target {}
+    class Penguin {}
+    class Arrow {}
+    class BonusPopup {}
+    const planet = new Planet();
+    const target = new Target();
+    const editor = {
+        game: {
+            planets: [planet],
+            bonuses: [],
+            gameObjects: [planet, target, new Penguin(), new Arrow(), new BonusPopup()]
+        }
+    };
+
+    assert.deepEqual(LevelEditor.prototype.getAllGameObjects.call(editor), [planet, target]);
 });
 
 test('Game validates a level before clearing the current world', () => {

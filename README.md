@@ -9,7 +9,7 @@ A browser-native rewrite of the classic Shockwave gravity-slingshot game, implem
 - Circular, elliptical, figure-8, and gravity-driven object orbits
 - Manifest-driven images, sprite sheets, SVGs, and WAV audio with visual fallbacks
 - Mouse, touch, keyboard, responsive-canvas, and fullscreen support
-- Embedded live level editor with local saves, searchable/paginated browsing, details, play/edit actions, and JSON download/export
+- Embedded live level editor with local saves, official/local/community source tabs, searchable/paginated browsing, context-aware play/open-copy actions, unsaved-change protection, and JSON download/export
 - Local browser high-score persistence with all-time and today views, including an optional top-ten name/region entry
 - Optional Node.js/SQLite community server with immutable verified publications and replay-validated per-level leaderboards
 

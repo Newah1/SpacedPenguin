@@ -122,8 +122,11 @@ test('level browser searches cursor pages, opens details, and safely plays a res
     await waitForGame(page);
     await page.evaluate(() => window.game.showLevelBrowser());
 
-    const browser = page.getByRole('dialog', { name: 'LEVEL BROWSER' });
+    const browser = page.getByRole('dialog', { name: 'BROWSE LEVELS' });
     await expect(browser).toBeVisible();
+    await expect(browser.getByRole('tab', { name: 'Official' })).toHaveAttribute('aria-selected', 'true');
+    await browser.getByRole('tab', { name: 'My Levels' }).click();
+    await expect(browser.getByRole('tab', { name: 'My Levels' })).toHaveAttribute('aria-selected', 'true');
     await expect(browser.locator('.level-card')).toHaveCount(24);
     await expect(browser.getByRole('status')).toContainText('24 of 26');
     await browser.getByRole('button', { name: 'LOAD MORE' }).click();

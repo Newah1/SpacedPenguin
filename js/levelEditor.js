@@ -5,7 +5,7 @@ import { STAGE_WIDTH, STAGE_HEIGHT, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
 import { OrbitSystem } from './gameObjects.js';
-import { getEditableClassNames } from './editorObjectRegistry.js';
+import { getEditableClassNames, getEditorObjectDefinition } from './editorObjectRegistry.js';
 import LiveLevelMutator from './liveLevelMutator.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
 import LevelEditorOverlayRenderer from './levelEditor/overlayRenderer.js';
@@ -134,10 +134,13 @@ class LevelEditor {
         this.toolbarView.showStatus('Saving…', 'pending');
         try {
             const record = await this.game.saveEditedLevel();
+            this.markClean();
             this.toolbarView.showStatus(`Saved “${record.name}” to this browser.`);
+            return record;
         } catch (error) {
             plog.error('Failed to save level:', error);
             this.toolbarView.showStatus(error.message || 'Unable to save this level.', 'error');
+            return null;
         } finally {
             this.saveButton.disabled = false;
         }
@@ -145,21 +148,161 @@ class LevelEditor {
 
     async publishLevel() {
         if (this.publishButton.disabled) return;
+        const metadata = await this.promptForPublishMetadata();
+        if (!metadata) return null;
+        this.applyPublishMetadata(metadata);
         this.publishButton.disabled = true;
         this.toolbarView.showStatus('Publishing…', 'pending');
         try {
             const published = await this.game.publishEditedLevel();
             this.toolbarView.showStatus(`Published “${published.name || this.game.levelMetadata?.name}” to Community Levels.`);
+            return published;
         } catch (error) {
             plog.error('Failed to publish level:', error);
             this.toolbarView.showStatus(error.message || 'Unable to publish this level.', 'error');
+            return null;
         } finally {
             this.updatePublishAvailability();
         }
     }
 
+    applyPublishMetadata({ name, description }) {
+        this.game.levelMetadata ||= {};
+        this.game.levelMetadata.name = name;
+        this.game.levelMetadata.description = description;
+        for (const definition of [
+            this.game.completedRun?.level,
+            this.game.recordedRunLevel,
+            this.game.loadedLevelDefinition
+        ]) {
+            if (!definition) continue;
+            definition.name = name;
+            definition.description = description;
+        }
+    }
+
+    promptForPublishMetadata() {
+        if (this.publishPromptPromise) return this.publishPromptPromise;
+        const metadata = this.game.levelMetadata || {};
+        this.publishPromptPromise = new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'level-editor-publish-overlay';
+            overlay.style.cssText = `
+                position: fixed; inset: 0; z-index: 2200; display: grid; place-items: center;
+                padding: 20px; background: rgba(0, 0, 0, .72); pointer-events: auto;
+                font-family: Arial, sans-serif; color: #fff6d6;
+            `;
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-labelledby', 'publish-level-title');
+
+            const form = document.createElement('form');
+            form.style.cssText = `
+                box-sizing: border-box; width: min(460px, 100%); padding: 22px;
+                border: 3px solid #9c6bd0; border-radius: 12px; background: #241d2d;
+                box-shadow: 0 18px 60px rgba(0, 0, 0, .8);
+            `;
+            const title = document.createElement('h2');
+            title.id = 'publish-level-title';
+            title.textContent = 'PUBLISH LEVEL';
+            title.style.cssText = 'margin: 0 0 8px; color: #e7c9ff; font-size: 22px;';
+            const copy = document.createElement('p');
+            copy.textContent = 'Confirm how this level will appear in Community Levels.';
+            copy.style.cssText = 'margin: 0 0 18px; color: #d5c8dc;';
+
+            const makeLabel = (text, control) => {
+                const label = document.createElement('label');
+                label.textContent = text;
+                label.style.cssText = 'display: grid; gap: 6px; margin: 0 0 14px; font-weight: 700;';
+                control.style.cssText = `
+                    box-sizing: border-box; width: 100%; padding: 10px;
+                    border: 2px solid #765a88; border-radius: 6px; background: #120f16;
+                    color: #fff; font: inherit; resize: vertical;
+                `;
+                label.appendChild(control);
+                return label;
+            };
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.required = true;
+            nameInput.maxLength = 80;
+            nameInput.value = metadata.name || '';
+            nameInput.autocomplete = 'off';
+            const descriptionInput = document.createElement('textarea');
+            descriptionInput.rows = 4;
+            descriptionInput.maxLength = 500;
+            descriptionInput.value = metadata.description || '';
+            const error = document.createElement('p');
+            error.setAttribute('role', 'alert');
+            error.style.cssText = 'min-height: 1.2em; margin: 0 0 12px; color: #ffad9f;';
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px;';
+
+            const background = [
+                this.toolbarWrapper,
+                this.propertiesPanel,
+                this.objectListPanel,
+                this.mobileToolbar,
+                this.gravitySculptPanel
+            ].filter(Boolean);
+            for (const element of background) element.inert = true;
+            const finish = result => {
+                for (const element of background) element.inert = false;
+                overlay.remove();
+                this.publishPromptElement = null;
+                this.publishPromptPromise = null;
+                this.resolvePublishPrompt = null;
+                resolve(result);
+            };
+            this.resolvePublishPrompt = finish;
+            const cancel = createButton('CANCEL', () => finish(null), {
+                backgroundColor: '#4b3b32', hoverColor: '#6a5041',
+                textColor: '#fff3bb', borderColor: '#f79433'
+            });
+            cancel.style.cssText += 'padding: 10px 18px;';
+            const publish = createButton('PUBLISH', null, {
+                backgroundColor: '#7b4bb7', hoverColor: '#9564d2',
+                textColor: '#fff', borderColor: '#c6a1ef', type: 'submit'
+            });
+            publish.type = 'submit';
+            publish.style.cssText += 'padding: 10px 18px;';
+            actions.append(cancel, publish);
+            form.append(
+                title,
+                copy,
+                makeLabel('Level name', nameInput),
+                makeLabel('Description', descriptionInput),
+                error,
+                actions
+            );
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                const name = nameInput.value.trim();
+                if (!name) {
+                    error.textContent = 'Enter a level name before publishing.';
+                    nameInput.focus();
+                    return;
+                }
+                finish({ name, description: descriptionInput.value.trim() });
+            });
+            overlay.addEventListener('keydown', event => {
+                event.stopPropagation();
+                if (event.code === 'Escape') {
+                    event.preventDefault();
+                    finish(null);
+                }
+            });
+            overlay.appendChild(form);
+            this.container.appendChild(overlay);
+            this.publishPromptElement = overlay;
+            nameInput.focus();
+            nameInput.select();
+        });
+        return this.publishPromptPromise;
+    }
+
     loadLevel() {
-        this.game.showLevelBrowser();
+        this.game.showLevelBrowser({ mode: 'open' });
     }
 
     exitToMenu() {
@@ -209,6 +352,7 @@ class LevelEditor {
         this.assignNamesToExistingObjects();
         
         this.updateObjectList();
+        this.markClean();
         
         // Notify fullscreen manager about level editor state change
         if (this.game.fullscreenManager) {
@@ -237,6 +381,7 @@ class LevelEditor {
     
     exit() {
         if (!this.active) return;
+        this.resolvePublishPrompt?.(null);
         this.gravitySculptController.close();
         this.active = false;
         this.container.style.display = 'none';
@@ -294,6 +439,15 @@ class LevelEditor {
 
     updatePublishAvailability() {
         this.toolbarView.updatePublishAvailability();
+    }
+
+    onPlayTestCompleted() {
+        this.updatePublishAvailability();
+        this.toolbarView.showStatus(
+            this.game.communityLevelClient
+                ? 'Play-test complete. Publishing is unlocked.'
+                : 'Play-test complete. You can keep editing or save this level.'
+        );
     }
     
     populateObjectButtons() {
@@ -2155,7 +2309,23 @@ class LevelEditor {
             }
         }
         
-        return allObjects;
+        return allObjects.filter(object => getEditorObjectDefinition(object?.constructor?.name).editable);
+    }
+
+    currentDocumentDefinition() {
+        if (this.mode === 'play' && this.game.loadedLevelDefinition) {
+            return structuredClone(this.game.completedRun?.level || this.game.loadedLevelDefinition);
+        }
+        return this.game.exportCurrentLevel();
+    }
+
+    markClean() {
+        this.cleanDocumentSnapshot = JSON.stringify(this.currentDocumentDefinition());
+    }
+
+    isDirty() {
+        if (!this.active || !this.cleanDocumentSnapshot) return false;
+        return JSON.stringify(this.currentDocumentDefinition()) !== this.cleanDocumentSnapshot;
     }
     
     selectObjectFromList(index) {

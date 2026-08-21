@@ -322,12 +322,15 @@ class GameManager {
                 )
             });
 
+        const buttonsStartX = -30;
+        const gap = 40;
+
         return {
-            highScores: originalButton(40, 517, 166, 54, 'High Scores',
-                () => this.showMenuHighScores(), 18, 'trophy'),
-            levelEditor: originalButton(220, 517, 166, 54, 'Level Editor',
-                () => this.game?.openLevelEditor(), 16, 'pencil'),
-            loadLevel: originalButton(397, 517, 156, 54, 'Level Browser',
+            highScores: originalButton(buttonsStartX + 40, 517, 186, 54, 'High Scores',
+                () => this.showMenuHighScores(), 15, 'trophy'),
+            levelEditor: originalButton(buttonsStartX + 200 + gap, 517, 176, 54, 'Level Editor',
+                () => this.game?.openLevelEditor(), 15, 'pencil'),
+            loadLevel: originalButton(buttonsStartX + 390 + gap, 517, 156, 54, 'Browse Levels',
                 () => this.game?.showLevelBrowser(), 15, 'folder'),
             start: new CanvasButton(563, 464, 184, 96, 'Start',
                 () => this.startGame(), {
@@ -791,9 +794,13 @@ class GameManager {
         ctx.fillStyle = '#f47b20';
         ctx.font = `900 ${fontSize}px Arial, sans-serif`;
         ctx.textAlign = 'center';
-        const iconX = x + 19;
-        this.drawMenuIcon(ctx, icon, iconX, y + height / 2, 15);
-        ctx.fillText(text, x + 31 + (width - 31) / 2, y + height / 2 + fontSize * 0.34);
+        ctx.textBaseline = 'middle';
+        const centerY = y + height / 2;
+        const iconX = x + 25;
+        this.drawMenuIcon(ctx, icon, iconX, centerY, 16);
+        const labelStartX = x + 43;
+        const labelEndX = x + width - 8;
+        ctx.fillText(text, (labelStartX + labelEndX) / 2, centerY);
     }
 
     drawTipsBadge(ctx, x, y) {
@@ -810,11 +817,12 @@ class GameManager {
         ctx.restore();
     }
 
-    drawMenuIcon(ctx, icon, x, y, size) {
+    drawMenuIcon(ctx, icon, x, y, size, options = {}) {
         ctx.save();
         ctx.translate(x, y);
-        ctx.strokeStyle = '#f47b20';
-        ctx.fillStyle = '#f47b20';
+        const color = options.color || '#f47b20';
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
         ctx.lineWidth = Math.max(2, size * 0.14);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -833,13 +841,16 @@ class GameManager {
             ctx.stroke();
         } else if (icon === 'pencil') {
             ctx.rotate(-0.72);
-            ctx.strokeRect(-size * 0.14, -size * 0.5, size * 0.28, size * 0.78);
+            // Center the full pencil silhouette (including its tip), rather than
+            // rotating a top-heavy rectangle around an unrelated origin.
+            ctx.translate(0, size * 0.1);
+            ctx.strokeRect(-size * 0.15, -size * 0.42, size * 0.3, size * 0.84);
             ctx.beginPath();
-            ctx.moveTo(-size * 0.14, -size * 0.5);
-            ctx.lineTo(0, -size * 0.72);
-            ctx.lineTo(size * 0.14, -size * 0.5);
-            ctx.moveTo(-size * 0.14, size * 0.34);
-            ctx.lineTo(size * 0.14, size * 0.34);
+            ctx.moveTo(-size * 0.15, -size * 0.42);
+            ctx.lineTo(0, -size * 0.65);
+            ctx.lineTo(size * 0.15, -size * 0.42);
+            ctx.moveTo(-size * 0.15, size * 0.28);
+            ctx.lineTo(size * 0.15, size * 0.28);
             ctx.stroke();
         } else if (icon === 'folder') {
             ctx.beginPath();
@@ -900,6 +911,9 @@ class GameManager {
         ctx.fillStyle = '#f47b20';
         ctx.font = '900 39px Arial, sans-serif';
         ctx.textAlign = 'center';
+        // Canvas text state is shared across screens. Keep this label's baseline
+        // explicit so gameplay/editor rendering cannot shift it between frames.
+        ctx.textBaseline = 'alphabetic';
         ctx.beginPath();
         ctx.moveTo(-58, -13);
         ctx.lineTo(-58, 13);

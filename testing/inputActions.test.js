@@ -4,6 +4,7 @@ import './nodeShims.js';
 import { createKeyboardEventFixture } from './testFixtures.js';
 
 const { KeyboardInputAction, UIInputAction } = await import('../js/inputActions.js');
+const { CommunityScoreUploadScreen } = await import('../js/communityScoreUploadScreen.js');
 
 test('blocking canvas screens stop clicks before menu handling', () => {
     let canvasClickStopped = false;
@@ -72,6 +73,22 @@ test('active modal input does not leak into gameplay shortcuts', () => {
 
     assert.equal(event.defaultPrevented, true);
     assert.equal(quitDialogCalls, 0);
+});
+
+test('community score initials allow native input and form submission keys', () => {
+    const screen = Object.create(CommunityScoreUploadScreen.prototype);
+    const game = {
+        state: 'levelEnd',
+        uiManager: { handleKeyPress: event => screen.handleKeyPress(event) }
+    };
+    const action = new KeyboardInputAction({ game });
+    const inputTarget = { matches: selector => selector.includes('input') };
+
+    for (const code of ['KeyK', 'Enter']) {
+        const event = createKeyboardEventFixture(code, { target: inputTarget });
+        action.handleKeyDown(event);
+        assert.equal(event.defaultPrevented, false, `${code} should reach the initials input`);
+    }
 });
 
 test('Backquote toggles the console while playing regardless of key value', () => {

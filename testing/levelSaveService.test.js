@@ -14,6 +14,7 @@ import {
     RemoteLevelCatalogSource
 } from '../js/remoteLevelCatalogSource.js';
 import { createConfiguredLevelCatalog } from '../js/levelCatalogComposition.js';
+import { OfficialLevelCatalogSource } from '../js/officialLevelCatalogSource.js';
 
 function createStorage() {
     const values = new Map();
@@ -156,6 +157,44 @@ test('configured catalog stays local-only without a URL and adds remote without 
     assert.deepEqual(configured.getSources().map(source => source.id), ['local', 'community']);
     assert.equal(configured.defaultSource, 'local');
     assert.equal(fetchCalls, 0);
+});
+
+test('configured game catalog exposes official levels before owned and community sources', () => {
+    const repository = new LocalLevelRepository(createStorage());
+    const levelLoader = {
+        activeCollection: 'shipped',
+        levels: new Map([[1, { name: 'Official One', description: 'Campaign', objects: [] }]])
+    };
+    const catalog = createConfiguredLevelCatalog(repository, {
+        levelLoader,
+        appConfig: { levelServer: { baseUrl: 'https://levels.example' } },
+        fetchImpl: async () => assert.fail('source discovery must not fetch')
+    });
+
+    assert.deepEqual(catalog.getSources().map(source => source.id), ['official', 'local', 'community']);
+    assert.equal(catalog.defaultSource, 'official');
+});
+
+test('official catalog resolves loaded campaign summaries and cloned definitions', async () => {
+    const definition = { name: 'Official One', description: 'Campaign', objects: [{ type: 'planet' }] };
+    const source = new OfficialLevelCatalogSource({
+        activeCollection: 'shipped',
+        levels: new Map([[1, definition]])
+    });
+    source.definitions.set(2, { name: 'Outer Orbit', description: 'Searchable', objects: [] });
+    for (let level = 3; level <= 25; level++) {
+        source.definitions.set(level, { name: `Official ${level}`, description: '', objects: [] });
+    }
+
+    const page = await source.query({ text: 'outer', pageSize: 24 });
+    assert.deepEqual(page.items.map(item => item.id), ['2']);
+    assert.equal(page.items[0].source, 'official');
+    assert.equal(page.items[0].capabilities.edit, false);
+
+    const loaded = await source.getDefinition('1');
+    loaded.name = 'Changed';
+    assert.equal((await source.getDefinition('1')).name, 'Official One');
+    await assert.rejects(source.getDefinition('26'), /not found/i);
 });
 
 test('remote catalog maps list, details, and immutable definitions', async () => {

@@ -28,6 +28,8 @@ The Spaced Penguin Level Editor is an in-game tool for creating, modifying, prev
 - **Robust Object Management**: Advanced deletion system with automatic cleanup from all game systems
 - **Sprite Selection**: Real-time sprite changing with dropdown menus for planets and targets
 - **Play Mode Testing**: Switch between edit and play modes to test levels immediately
+- **Editor-native Completion**: Completing a play-test stays in the editor, reports success in the toolbar, and unlocks publishing when a community server is configured
+- **Publish Confirmation**: Publishing opens a compact form to confirm the public level name and description before upload
 - **Visual Indicators**: Shows orbit centers, arrow targets, and selection highlights
 
 ## Getting Started
@@ -35,9 +37,7 @@ The Spaced Penguin Level Editor is an in-game tool for creating, modifying, prev
 ### Accessing the Level Editor
 
 1. **Launch the Game**: Start Spaced Penguin in your browser
-2. **Open Console**: Press the **backtick key (`)** to open the game console
-3. **Start Editor**: Type `/level_editor` and press Enter
-4. **Close Console**: Press backtick again to close the console
+2. **Start Editor**: Choose **Level Editor** from the main menu. The `/level_editor` console command remains available for debugging.
 
 The level editor will now be active, indicated by the green "EDIT MODE" text in the top-right corner.
 
@@ -51,7 +51,7 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 5. **Delete Objects**: Select object and press **Delete** key or use Delete button
 6. **Change Sprites**: Use dropdown menus in properties panel for visual appearance
 7. **Test Level**: Use the editor mode toggle button
-8. **Export Level**: Use the Export button or console command `/export [filename]`
+8. **Open or Export**: Use **Open Level…** to open a saved level or editable copy, and **Export Level** to download JSON.
 
 #### Mobile (Touch)
 1. **Create Objects**: Use the **+** button in the mobile toolbar
@@ -302,6 +302,10 @@ Animated arrows that point to specific locations.
 2. **Download**: The browser creates and downloads a JSON file.
 3. **Review**: Inspect authored positions, IDs, orbit relationships, rules, and any state changed during play preview.
 4. **Promote manually**: Rename/copy the reviewed file to `levels/levelN.json`, then reload the game over HTTP.
+
+### Opening and browsing levels
+
+The level browser uses visible source tabs for **Official**, **My Levels**, and, when configured, **Community** levels. From the main menu it offers Play and Edit-a-Copy actions. From inside the editor, **Open Level…** offers Open for owned local saves and Open a Copy for immutable sources. Replacing a changed editor document requires Save & Open, Discard, or Cancel.
 
 ### Export Format
 

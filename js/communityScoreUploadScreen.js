@@ -1,5 +1,6 @@
 import { UIScreen } from './uiManager.js';
 import { createButton } from './buttonFramework.js';
+import { createCommunityLeaderboard } from './communityLeaderboardView.js';
 import Utils from './utils.js';
 
 const STYLE_ID = 'spaced-penguin-score-upload-style';
@@ -11,7 +12,7 @@ function ensureStyles() {
     style.textContent = `
         .score-upload-overlay { position:absolute; inset:0; z-index:340; display:grid; place-items:center;
             padding:18px; background:rgba(0,0,0,.82); color:#fff3bb; pointer-events:auto; }
-        .score-upload-panel { width:min(430px,94%); padding:24px; border:5px solid #cb7928;
+        .score-upload-panel { width:min(480px,94%); max-height:90%; overflow:auto; padding:24px; border:5px solid #cb7928;
             border-radius:14px; background:#211b18; box-shadow:0 20px 70px #000;
             font-family:Arial,sans-serif; text-align:center; }
         .score-upload-panel h2 { margin:0 0 10px; color:#f5e4aa; font-size:27px; }
@@ -85,10 +86,44 @@ export class CommunityScoreUploadScreen extends UIScreen {
             event.preventDefault();
             this.submit();
         });
-        panel.append(title, summary, this.form);
+        this.leaderboardHost = document.createElement('div');
+        panel.append(title, summary, this.form, this.leaderboardHost);
         this.overlay.appendChild(panel);
         this.uiManager.canvas.parentElement.appendChild(this.overlay);
+        this.refreshLeaderboard();
         queueMicrotask(() => this.initialsInput?.focus());
+    }
+
+    renderLeaderboard(scores = [], options = {}) {
+        this.leaderboardHost?.replaceChildren(createCommunityLeaderboard(scores, options));
+    }
+
+    async refreshLeaderboard() {
+        const reference = this.game.levelMetadata?.catalogReference;
+        const client = this.game.communityLevelClient;
+        if (!client || reference?.source !== 'community' || !reference.id) {
+            this.renderLeaderboard([]);
+            return [];
+        }
+
+        this.leaderboardAbort?.abort();
+        const controller = new AbortController();
+        this.leaderboardAbort = controller;
+        this.renderLeaderboard([], { loading: true });
+        try {
+            const response = await client.getScores(reference.id, {
+                limit: 10,
+                signal: controller.signal
+            });
+            if (controller !== this.leaderboardAbort) return [];
+            const scores = response?.items || [];
+            this.renderLeaderboard(scores);
+            return scores;
+        } catch (error) {
+            if (error?.name === 'AbortError' || controller !== this.leaderboardAbort) return [];
+            this.renderLeaderboard([], { error: 'High scores are unavailable right now.' });
+            return [];
+        }
     }
 
     async submit() {
@@ -115,6 +150,7 @@ export class CommunityScoreUploadScreen extends UIScreen {
             this.status.textContent = `Score ${Utils.formatScore(score)} uploaded.${rank}`;
             this.uploadButton.hidden = true;
             this.closeButton.textContent = 'DONE';
+            await this.refreshLeaderboard();
             this.options.onUploaded?.(response);
         } catch (error) {
             this.status.dataset.kind = 'error';
@@ -128,11 +164,19 @@ export class CommunityScoreUploadScreen extends UIScreen {
     handleClick() { return true; }
 
     handleKeyPress(event) {
-        if (event.code === 'Escape') this.close();
+        const isTextInput = event.target?.matches?.('input, textarea, select');
+        if (event.code === 'Escape') {
+            this.close();
+            return true;
+        }
+        // Let the browser deliver typing and Enter to the native form control.
+        // Returning true here makes the global keyboard handler preventDefault().
+        if (isTextInput) return false;
         return true;
     }
 
     destroy() {
+        this.leaderboardAbort?.abort();
         this.overlay?.remove();
     }
 }

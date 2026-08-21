@@ -210,7 +210,8 @@ export class LevelEndScreen extends UIScreen {
             align: 'right'
         }));
         
-        // Continue and Retry buttons (initially hidden, centered together)
+        // Primary actions share one row. Main Menu stays on its own compact row
+        // so community score upload never crowds the panel horizontally.
         const buttonWidth = config.button.width;
         const buttonHeight = config.button.height;
         const buttonSpacing = config.button.spacing;
@@ -271,6 +272,24 @@ export class LevelEndScreen extends UIScreen {
             }
         ));
         this.continueButton.visible = false;
+
+        this.mainMenuButton = this.addElement(new Button(
+            panelX + (panelWidth - 120) / 2,
+            panelY + panelHeight - 34,
+            120, 26,
+            'Main Menu',
+            () => this.handleMainMenu(),
+            {
+                fontSize: 12,
+                fontFamily: UI_CONFIG.fonts.primary,
+                backgroundColor: '#6e5845',
+                hoverColor: '#8a7059',
+                activeColor: '#594638',
+                borderColor: config.accentColor,
+                textColor: '#ffffff'
+            }
+        ));
+        this.mainMenuButton.visible = false;
     }
 
     startAnimation() {
@@ -384,6 +403,7 @@ export class LevelEndScreen extends UIScreen {
         this.isAnimating = false;
         this.continueButton.visible = true;
         this.retryButton.visible = true;
+        this.mainMenuButton.visible = true;
         if (this.scoreUploadButton) this.scoreUploadButton.visible = true;
         this.skipText.visible = false; // Hide skip text when animation is done
         
@@ -415,8 +435,19 @@ export class LevelEndScreen extends UIScreen {
         this.uiManager.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
         this.close();
 
+        // Defensive fallback for a completion screen that was already queued
+        // when the user entered the editor. Continuing must not navigate away.
+        if (this.game.levelEditor?.active) {
+            this.game.setState(GameState.LEVEL_EDITOR);
+            this.game.levelEditor.onPlayTestCompleted?.();
+            return;
+        }
+
         if (isCustomLevel(this.game)) {
-            this.game.showLevelBrowser();
+            this.game.showLevelBrowser({
+                initialSource: this.game.levelMetadata?.catalogReference?.source ||
+                    (this.game.levelMetadata?.saveId ? 'local' : undefined)
+            });
             return;
         }
         
@@ -435,6 +466,13 @@ export class LevelEndScreen extends UIScreen {
         
         // Reset the current level to retry it
         this.game.resetLevel();
+    }
+
+    handleMainMenu() {
+        this.stopAllLoopingSounds();
+        this.uiManager.playSound(getAudioCue(AudioCue.LAUNCH).soundId);
+        this.close();
+        this.game.returnToMenu();
     }
 
     handleScoreUpload() {
@@ -476,7 +514,7 @@ export class LevelEndScreen extends UIScreen {
             return true;
         }
 
-        // Give Retry and Continue first refusal. The previous screen-wide
+        // Give explicit buttons first refusal. The previous screen-wide
         // handler advanced the level before either button saw the click.
         if (super.handleClick(x, y)) {
             return true;
