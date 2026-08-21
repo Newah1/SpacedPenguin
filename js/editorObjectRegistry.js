@@ -27,6 +27,10 @@ const DEFINITIONS = {
         editable: true,
         collections: ['pointingArrows']
     },
+    Portal: {
+        editable: true,
+        collections: ['portals']
+    },
     Penguin: {
         editable: false,
         singleton: 'penguin'

@@ -1,6 +1,5 @@
 import { EDITOR_CONFIG } from '../config/editorConfig.js';
 import { LevelOrbitType } from '../levelSchema.js';
-import { STAGE_HEIGHT, STAGE_WIDTH } from '../viewport.js';
 
 export class LevelEditorOverlayRenderer {
     constructor(editor) {
@@ -10,10 +9,12 @@ export class LevelEditorOverlayRenderer {
     render(ctx) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
+        this.drawBounds(ctx);
         this.drawGrid(ctx);
         this.drawGravitySculpt(ctx);
         this.drawAllOrbitCenters(ctx);
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
+            this.drawPortalPairLine(ctx, editor.selectedObject);
             this.drawSelectionHighlight(ctx, editor.selectedObject);
             this.drawArrowTarget(ctx, editor.selectedObject);
         }
@@ -90,7 +91,41 @@ export class LevelEditorOverlayRenderer {
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
-        ctx.arc(position.x, position.y, radius + 10, 0, Math.PI * 2);
+        if (object.constructor.name === 'Portal') {
+            ctx.ellipse(
+                position.x,
+                position.y,
+                object.width / 2 + 10,
+                object.height / 2 + 10,
+                (object.rotation || 0) * Math.PI / 180,
+                0,
+                Math.PI * 2
+            );
+        } else {
+            ctx.arc(position.x, position.y, radius + 10, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawPortalPairLine(ctx, object) {
+        if (object.constructor.name !== 'Portal') return;
+        const pair = (this.editor.game.portals || []).find(portal => portal.id === object.pairedPortalId);
+        if (!pair) return;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(180, 210, 255, 0.55)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(object.position.x, object.position.y);
+        ctx.lineTo(pair.position.x, pair.position.y);
+        ctx.stroke();
+        const angle = (object.rotation || 0) * Math.PI / 180;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = object.tint;
+        ctx.beginPath();
+        ctx.moveTo(object.position.x, object.position.y);
+        ctx.lineTo(object.position.x + Math.cos(angle) * 30, object.position.y + Math.sin(angle) * 30);
         ctx.stroke();
         ctx.restore();
     }
@@ -221,21 +256,51 @@ export class LevelEditorOverlayRenderer {
     }
 
     drawGrid(ctx) {
+        const stage = this.editor.game.stageRect;
+        const view = this.editor.editorCamera?.viewRect || stage;
+        const gridSize = EDITOR_CONFIG.overlay.gridSize;
+        const majorEvery = gridSize * 5;
+        const startX = Math.max(stage.x, Math.floor(view.x / gridSize) * gridSize);
+        const endX = Math.min(stage.x + stage.width, view.x + view.width);
+        const startY = Math.max(stage.y, Math.floor(view.y / gridSize) * gridSize);
+        const endY = Math.min(stage.y + stage.height, view.y + view.height);
+        const inverseScale = 1 / (this.editor.editorCamera?.scale || 1);
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x <= STAGE_WIDTH; x += EDITOR_CONFIG.overlay.gridSize) {
+        ctx.lineWidth = inverseScale;
+        for (let x = startX; x <= endX; x += gridSize) {
+            ctx.strokeStyle = x % majorEvery === 0
+                ? 'rgba(100, 220, 255, 0.24)'
+                : 'rgba(255, 255, 255, 0.09)';
             ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, STAGE_HEIGHT);
+            ctx.moveTo(x, Math.max(stage.y, view.y));
+            ctx.lineTo(x, Math.min(stage.y + stage.height, view.y + view.height));
             ctx.stroke();
         }
-        for (let y = 0; y <= STAGE_HEIGHT; y += EDITOR_CONFIG.overlay.gridSize) {
+        for (let y = startY; y <= endY; y += gridSize) {
+            ctx.strokeStyle = y % majorEvery === 0
+                ? 'rgba(100, 220, 255, 0.24)'
+                : 'rgba(255, 255, 255, 0.09)';
             ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(STAGE_WIDTH, y);
+            ctx.moveTo(Math.max(stage.x, view.x), y);
+            ctx.lineTo(Math.min(stage.x + stage.width, view.x + view.width), y);
             ctx.stroke();
         }
+        ctx.restore();
+    }
+
+    drawBounds(ctx) {
+        const stage = this.editor.game.stageRect;
+        const flight = this.editor.game.flightRect;
+        const inverseScale = 1 / (this.editor.editorCamera?.scale || 1);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 180, 55, 0.75)';
+        ctx.lineWidth = 2 * inverseScale;
+        ctx.setLineDash([10 * inverseScale, 7 * inverseScale]);
+        ctx.strokeRect(flight.x, flight.y, flight.width, flight.height);
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(81, 239, 255, 0.9)';
+        ctx.lineWidth = 3 * inverseScale;
+        ctx.strokeRect(stage.x, stage.y, stage.width, stage.height);
         ctx.restore();
     }
 }

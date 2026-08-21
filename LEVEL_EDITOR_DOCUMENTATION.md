@@ -50,6 +50,20 @@ The level editor will now be active, indicated by the green "EDIT MODE" text in 
 4. **Move Objects**: Drag selected objects to reposition them
 5. **Delete Objects**: Select object and press **Delete** key or use Delete button
 6. **Change Sprites**: Use dropdown menus in properties panel for visual appearance
+
+### Expanded playfields and camera
+
+Select **Level Settings** to edit Playfield Width, Playfield Height, Gameplay Camera, and Follow Zoom. Changing either playfield dimension enables a fit camera for a legacy level and derives a natural loss boundary 200 world units beyond each playfield edge. Choose `fit` to show the complete level or `follow` for a smoothly tracking gameplay camera. `legacy` preserves the original fixed 800 x 600 framing.
+
+The editor has an independent, non-exported camera:
+
+- Mouse wheel zooms around the pointer.
+- Hold Space and drag, or use the middle mouse button, to pan.
+- Drag empty space on touch devices to pan.
+- Press `F` to fit the complete playfield.
+- Press `Home` to return to the slingshot.
+
+The cyan border marks the playable stage, the amber dashed border marks the loss boundary, and the grid covers the authored playfield. Selecting an off-screen object from the object list reveals it automatically.
 7. **Test Level**: Use the editor mode toggle button
 8. **Open or Export**: Use **Open Level…** to open a saved level or editable copy, and **Export Level** to download JSON.
 
@@ -95,6 +109,7 @@ The desktop add-button row and mobile **+** menu expose these types:
 - Slingshot
 - TextObject
 - PointingArrow
+- Portal (creates a complete red/blue pair)
 
 ## Creating Objects
 
@@ -115,6 +130,9 @@ The desktop add-button row and mobile **+** menu expose these types:
 | **Slingshot** | Standard stretch limit and velocity |
 | **TextObject** | "Sample Text", 16px font, left-aligned |
 | **PointingArrow** | Cyan color, 20px base width |
+| **Portal** | Reciprocal red/blue pair, opposing default directions, woosh enabled |
+
+Portal endpoints can be dragged and rotated independently. Selecting either endpoint shows a thin dashed line to its partner and a direction indicator. Adding, deleting, undoing, redoing, or cloning a portal operates on the complete pair so exported levels cannot be left with an orphan endpoint. The inspector exposes aperture size, direction, and the optional teleport woosh.
 
 ## Editing Objects
 

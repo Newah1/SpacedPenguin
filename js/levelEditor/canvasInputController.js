@@ -19,6 +19,10 @@ export class LevelEditorCanvasInputController {
         if (this.activePointerId !== null) return;
         this.activePointerId = Number.isInteger(event.pointerId) ? event.pointerId : null;
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
+        if (event.button === 1 || editor.spacePan) {
+            editor.startPanning(event.clientX, event.clientY);
+            return;
+        }
         const position = this.getEventCoordinates(event);
         if (editor.gravitySculptController.state.drawing) {
             editor.gravitySculptController.addWaypoint(position);
@@ -35,6 +39,7 @@ export class LevelEditorCanvasInputController {
             editor.startDragging(position.x, position.y);
         } else {
             editor.selectObject(null);
+            if (event.pointerType === 'touch') editor.startPanning(event.clientX, event.clientY);
         }
     }
 
@@ -43,6 +48,15 @@ export class LevelEditorCanvasInputController {
         if (!editor.active || editor.mode !== 'edit') return;
         if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
         const position = this.getEventCoordinates(event);
+        if (editor.panning) {
+            event.preventDefault();
+            editor.updatePanning(event.clientX, event.clientY);
+            const distance = this.touchStart
+                ? Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y)
+                : 0;
+            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
+            return;
+        }
         if (editor.gravitySculptController.state.drawing) {
             event.preventDefault();
             return;
@@ -67,6 +81,7 @@ export class LevelEditorCanvasInputController {
             event.currentTarget.releasePointerCapture(event.pointerId);
         }
         this.activePointerId = null;
+        editor.stopPanning();
         if (editor.gravitySculptController.state.drawing) {
             return;
         }
@@ -86,6 +101,7 @@ export class LevelEditorCanvasInputController {
         this.activePointerId = null;
         this.editor.stopDragging();
         this.editor.stopOrbitCenterDragging();
+        this.editor.stopPanning();
         this.cancelLongPress();
     }
 
@@ -111,7 +127,13 @@ export class LevelEditorCanvasInputController {
 
     showIndicator(position) {
         this.indicator?.remove();
-        const screen = stageToScreen(this.editor.game.canvas, this.editor.game.viewport, position.x, position.y);
+        const screen = stageToScreen(
+            this.editor.game.canvas,
+            this.editor.game.viewport,
+            position.x,
+            position.y,
+            this.editor.editorCamera
+        );
         this.indicator = document.createElement('div');
         this.indicator.style.cssText = `
             position: fixed; width: 60px; height: 60px; border: 3px solid #00ff00;
@@ -127,7 +149,8 @@ export class LevelEditorCanvasInputController {
             this.editor.game.canvas,
             this.editor.game.viewport,
             pointer.clientX,
-            pointer.clientY
+            pointer.clientY,
+            this.editor.editorCamera
         );
     }
 }

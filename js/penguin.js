@@ -719,6 +719,10 @@ export class Penguin {
         // Draw trail first
         this.drawTrailCanvas(ctx);
         
+        this.drawBody(ctx);
+    }
+
+    drawBody(ctx) {
         // If real sprites are loaded, draw them
         if (this.realSpritesLoaded && this.spriteSheets && this.spriteSheets[this.currentAnimationType]) {
             this.drawRealSprite(ctx);
@@ -726,6 +730,16 @@ export class Penguin {
             // Fallback to simple drawing
             this.drawFallbackSprite(ctx);
         }
+    }
+
+    drawBodyAt(ctx, x, y) {
+        const originalX = this.x;
+        const originalY = this.y;
+        this.x = x;
+        this.y = y;
+        this.drawBody(ctx);
+        this.x = originalX;
+        this.y = originalY;
     }
     
     drawRealSprite(ctx) {

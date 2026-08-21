@@ -56,3 +56,21 @@ test('aim assist horizon is tunable and stops at a predicted collision', () => {
     assert.ok(shortPath.length < longPath.length);
     assert.ok(longPath.length < 121, 'collision should terminate the two-second preview early');
 });
+
+test('aim assist marks portal jumps as disconnected path segments', () => {
+    const state = createState([
+        { type: 'portal', position: { x: 150, y: 300 }, properties: {
+            id: 'red', pairedPortalId: 'blue', color: 'red', rotation: 0
+        } },
+        { type: 'portal', position: { x: 400, y: 300 }, properties: {
+            id: 'blue', pairedPortalId: 'red', color: 'blue', rotation: 180
+        } }
+    ]);
+    const points = predictAimAssistTrajectory(state, { x: 6000, y: 0 }, {
+        previewSeconds: 1 / 60,
+        timeStep: 1 / 60,
+        sampleEverySteps: 1
+    });
+
+    assert.equal(points.some(point => point.move === true), true);
+});

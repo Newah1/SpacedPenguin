@@ -523,3 +523,42 @@ test('bounded worker sweeps preserve sequential candidate results', async () => 
     assert.equal(resolveTrajectoryWorkerCount(999, 1000) <= MAX_TRAJECTORY_WORKERS, true);
     assert.equal(resolveTrajectoryWorkerCount('auto', 100), 1);
 });
+
+test('swept portals preserve speed and exclude the teleport gap from distance', () => {
+    const level = levelWith([
+        { type: 'portal', position: { x: 50, y: 0 }, properties: {
+            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 0
+        } },
+        { type: 'portal', position: { x: 300, y: 0 }, properties: {
+            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 180
+        } }
+    ], { gravitationalConstant: 0 });
+    let state = createSimulationStateFromLevel(level);
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 6000, y: 0 };
+
+    const result = stepSimulation(state, 1 / 60);
+    const teleport = result.events.find(event => event.type === SimulationEventType.PORTAL_TELEPORTED);
+    assert.ok(teleport);
+    assert.ok(result.state.penguin.position.x > 300);
+    assert.ok(Math.abs(Math.hypot(result.state.penguin.velocity.x, result.state.penguin.velocity.y) - 6000) < 1e-8);
+    assert.ok(Math.abs(result.state.counters.distance - 100) < 1e-8);
+});
+
+test('portal orientation rotates heading while preserving momentum magnitude', () => {
+    const level = levelWith([
+        { type: 'portal', position: { x: 50, y: 0 }, properties: {
+            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 0
+        } },
+        { type: 'portal', position: { x: 300, y: 200 }, properties: {
+            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 270
+        } }
+    ], { gravitationalConstant: 0 });
+    let state = createSimulationStateFromLevel(level);
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 6000, y: 0 };
+
+    const result = stepSimulation(state, 1 / 60);
+    assert.ok(Math.abs(result.state.penguin.velocity.x) < 1e-8);
+    assert.ok(Math.abs(result.state.penguin.velocity.y - 6000) < 1e-8);
+});

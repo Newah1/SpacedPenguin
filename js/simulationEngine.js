@@ -9,6 +9,7 @@ export const SimulationEventType = Object.freeze({
     BONUS_COLLECTED: 'bonus_collected',
     PLANET_COLLISION: 'planet_collision',
     PLANET_BOUNCE: 'planet_bounce',
+    PORTAL_TELEPORTED: 'portal_teleported',
     TARGET_HIT: 'target_hit',
     TARGET_BLOCKED: 'target_blocked',
     OUT_OF_BOUNDS: 'out_of_bounds',
@@ -209,7 +210,8 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     );
     state.penguin.position = gravity.position;
     state.penguin.velocity = gravity.velocity;
-    const traveled = distance(previousPosition, state.penguin.position);
+    applyPortalTeleports(state, previousPosition, events);
+    const traveled = distance(previousPosition, gravity.position);
     state.counters.distance += traveled;
     if (options.emitMovementEvents !== false) {
         events.push({
@@ -251,6 +253,114 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
             position: clonePoint(state.penguin.position)
         });
     }
+}
+
+function toPortalLocal(point, portal) {
+    const rotation = -(portal.rotation || 0) * Math.PI / 180;
+    const dx = point.x - portal.position.x;
+    const dy = point.y - portal.position.y;
+    return {
+        x: dx * Math.cos(rotation) - dy * Math.sin(rotation),
+        y: dx * Math.sin(rotation) + dy * Math.cos(rotation)
+    };
+}
+
+function pointInsidePortal(point, portal, padding = 0) {
+    const local = toPortalLocal(point, portal);
+    const rx = portal.width / 2 + padding;
+    const ry = portal.height / 2 + padding;
+    return (local.x * local.x) / (rx * rx) + (local.y * local.y) / (ry * ry) <= 1;
+}
+
+function segmentPortalEntry(start, end, portal, padding) {
+    if (pointInsidePortal(start, portal, padding)) return null;
+    const a = toPortalLocal(start, portal);
+    const b = toPortalLocal(end, portal);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const rx = portal.width / 2 + padding;
+    const ry = portal.height / 2 + padding;
+    const qa = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+    if (qa <= Number.EPSILON) return null;
+    const qb = 2 * ((a.x * dx) / (rx * rx) + (a.y * dy) / (ry * ry));
+    const qc = (a.x * a.x) / (rx * rx) + (a.y * a.y) / (ry * ry) - 1;
+    const discriminant = qb * qb - 4 * qa * qc;
+    if (discriminant < 0) return null;
+    const root = Math.sqrt(discriminant);
+    const candidates = [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]
+        .filter(value => value >= 0 && value <= 1);
+    return candidates.length ? Math.min(...candidates) : null;
+}
+
+function rotateVector(vector, radians) {
+    return {
+        x: vector.x * Math.cos(radians) - vector.y * Math.sin(radians),
+        y: vector.x * Math.sin(radians) + vector.y * Math.cos(radians)
+    };
+}
+
+function portalBoundaryDistance(portal, direction, padding) {
+    const rotation = -(portal.rotation || 0) * Math.PI / 180;
+    const local = rotateVector(direction, rotation);
+    const rx = portal.width / 2 + padding;
+    const ry = portal.height / 2 + padding;
+    const denominator = Math.sqrt((local.x * local.x) / (rx * rx) + (local.y * local.y) / (ry * ry));
+    return denominator > Number.EPSILON ? 1 / denominator : Math.max(rx, ry);
+}
+
+function applyPortalTeleports(state, originalStart, events) {
+    const portals = state.portals || [];
+    if (portals.length < 2) return;
+    const locked = portals.find(portal => portal.id === state.penguin.portalLockId);
+    if (locked && !pointInsidePortal(originalStart, locked, state.penguin.radius + 1)) {
+        state.penguin.portalLockId = null;
+    }
+
+    let start = clonePoint(originalStart);
+    let end = clonePoint(state.penguin.position);
+    for (let transit = 0; transit < 4; transit++) {
+        let hit = null;
+        for (const portal of portals) {
+            if (portal.id === state.penguin.portalLockId) continue;
+            const pair = portals.find(candidate => candidate.id === portal.pairedPortalId);
+            if (!pair) continue;
+            const fraction = segmentPortalEntry(start, end, portal, state.penguin.radius);
+            if (fraction !== null && (!hit || fraction < hit.fraction)) hit = { portal, pair, fraction };
+        }
+        if (!hit) break;
+
+        const impact = {
+            x: start.x + (end.x - start.x) * hit.fraction,
+            y: start.y + (end.y - start.y) * hit.fraction
+        };
+        const incomingVelocity = clonePoint(state.penguin.velocity);
+        const turn = ((hit.pair.rotation || 0) - (hit.portal.rotation || 0) + 180) * Math.PI / 180;
+        const remaining = rotateVector({ x: end.x - impact.x, y: end.y - impact.y }, turn);
+        state.penguin.velocity = rotateVector(state.penguin.velocity, turn);
+        const speed = Math.hypot(state.penguin.velocity.x, state.penguin.velocity.y);
+        const direction = speed > Number.EPSILON
+            ? { x: state.penguin.velocity.x / speed, y: state.penguin.velocity.y / speed }
+            : rotateVector({ x: 1, y: 0 }, (hit.pair.rotation || 0) * Math.PI / 180);
+        const clearance = portalBoundaryDistance(hit.pair, direction, state.penguin.radius + 1);
+        const exit = {
+            x: hit.pair.position.x + direction.x * clearance,
+            y: hit.pair.position.y + direction.y * clearance
+        };
+        events.push({
+            type: SimulationEventType.PORTAL_TELEPORTED,
+            sourcePortalId: hit.portal.id,
+            destinationPortalId: hit.pair.id,
+            entryPosition: impact,
+            exitPosition: clonePoint(exit),
+            incomingVelocity,
+            velocity: clonePoint(state.penguin.velocity),
+            playSound: hit.portal.playSound !== false && hit.pair.playSound !== false
+        });
+        state.penguin.portalLockId = hit.pair.id;
+        start = exit;
+        end = { x: exit.x + remaining.x, y: exit.y + remaining.y };
+    }
+    state.penguin.position = end;
 }
 
 function stepCrashedPenguin(state, deltaTime, events, options) {

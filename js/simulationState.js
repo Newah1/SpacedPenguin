@@ -60,6 +60,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
 
     const planets = [];
     const bonuses = [];
+    const portals = [];
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
         const properties = definition.properties || {};
@@ -84,6 +85,17 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 collected: properties.collected === true || properties.state === 'Hit',
                 collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + width / 2,
                 orbit: orbitFromDefinition(definition)
+            });
+        } else if (type === LevelObjectType.PORTAL) {
+            portals.push({
+                id: nextId(type, properties.id),
+                position: clonePoint(objectPosition(definition)),
+                width: properties.width ?? LEVEL_DEFAULTS.portal.width,
+                height: properties.height ?? LEVEL_DEFAULTS.portal.height,
+                rotation: properties.rotation ?? 0,
+                color: properties.color ?? LEVEL_DEFAULTS.portal.color,
+                pairedPortalId: properties.pairedPortalId,
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.portal.playSound
             });
         }
     }
@@ -113,10 +125,12 @@ export function createSimulationStateFromLevel(level, options = {}) {
             velocity: { x: 0, y: 0 },
             radius: options.penguinRadius ?? LEVEL_DEFAULTS.penguin.radius,
             state: 'idle',
-            crashFramesRemaining: 0
+            crashFramesRemaining: 0,
+            portalLockId: null
         },
         planets,
         bonuses,
+        portals,
         target,
         slingshot: {
             position: clonePoint(startPosition),
@@ -167,6 +181,10 @@ export function cloneSimulationState(state) {
             ...bonus,
             position: clonePoint(bonus.position),
             orbit: cloneOrbitState(bonus.orbit)
+        })),
+        portals: (state.portals || []).map(portal => ({
+            ...portal,
+            position: clonePoint(portal.position)
         })),
         target: {
             ...state.target,

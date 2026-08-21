@@ -81,6 +81,14 @@ export class LevelEditorObjectListView {
         const object = this.objects[index];
         if (!object) return;
         this.editor.selectObject(object);
+        const position = this.editor.getObjectPosition(object);
+        const view = this.editor.editorCamera?.viewRect;
+        if (position && view && (
+            position.x < view.x || position.x > view.x + view.width ||
+            position.y < view.y || position.y > view.y + view.height
+        )) {
+            this.editor.centerEditorOn(position);
+        }
         navigator.vibrate?.(INPUT_CONFIG.hapticsMs.objectListSelection);
         plog.debug('Selected from list:', object.constructor.name);
     }

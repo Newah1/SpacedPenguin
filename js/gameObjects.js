@@ -393,6 +393,73 @@ class GameObject {
     }
 }
 
+class Portal extends GameObject {
+    constructor(x, y, options = {}) {
+        super(
+            x,
+            y,
+            options.width ?? LEVEL_DEFAULTS.portal.width,
+            options.height ?? LEVEL_DEFAULTS.portal.height
+        );
+        this.color = options.color ?? LEVEL_DEFAULTS.portal.color;
+        this.pairedPortalId = options.pairedPortalId ?? null;
+        this.playSound = options.playSound ?? LEVEL_DEFAULTS.portal.playSound;
+        this.rotation = options.rotation ?? 0;
+        this.renderOrder = RENDER_CONFIG.layers.portal;
+    }
+
+    get tint() {
+        return RENDER_CONFIG.entities.portal[this.color] ?? RENDER_CONFIG.entities.portal.blue;
+    }
+
+    drawSprite(ctx) {
+        const config = RENDER_CONFIG.entities.portal;
+        const rx = this.width / 2;
+        const ry = this.height / 2;
+        ctx.shadowColor = this.tint;
+        ctx.shadowBlur = config.glowBlur;
+        ctx.fillStyle = config.aperture;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = this.tint;
+        ctx.lineWidth = config.rimWidth;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const time = globalThis.performance?.now?.() ?? 0;
+        const seed = [...String(this.id || this.color)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+        ctx.fillStyle = this.tint;
+        for (let index = 0; index < config.particleCount; index++) {
+            const phase = time * 0.0015 + seed * 0.013 + index * (Math.PI * 2 / config.particleCount);
+            const orbit = 0.78 + 0.16 * Math.sin(phase * 1.7 + index);
+            const px = Math.cos(phase) * rx * orbit;
+            const py = Math.sin(phase) * ry * orbit;
+            ctx.globalAlpha = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin(phase * 2.3));
+            ctx.beginPath();
+            ctx.arc(px, py, config.particleRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    drawForeground(ctx) {
+        if (!this.visible) return;
+        const config = RENDER_CONFIG.entities.portal;
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.rotate(Utils.toRadians(this.rotation));
+        ctx.strokeStyle = this.tint;
+        ctx.lineWidth = config.rimWidth + 1;
+        ctx.shadowColor = this.tint;
+        ctx.shadowBlur = config.glowBlur * 0.65;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
 // Penguin class moved to penguin.js
 
 class PenguinOld extends GameObject {
@@ -1718,4 +1785,4 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow };
+export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal };

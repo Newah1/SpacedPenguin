@@ -1,6 +1,6 @@
 import { LevelLoader } from './levelLoader.js';
 import { Physics } from './physics.js';
-import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
+import { applyCameraTransform, createWorldCamera, STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
 
 const THUMBNAIL_WIDTH = 240;
 const THUMBNAIL_HEIGHT = 160;
@@ -11,6 +11,7 @@ function createRenderWorld(assetLoader) {
         gameObjects: [],
         planets: [],
         bonuses: [],
+        portals: [],
         textObjects: [],
         pointingArrows: [],
         arrow: null,
@@ -67,9 +68,13 @@ export function createLevelThumbnail(level, {
     loader.loadLevel(key, world);
 
     drawStarfield(stageContext, stars);
+    const camera = createWorldCamera(world.stageRect, level.camera || { mode: 'fit' });
+    stageContext.save();
+    applyCameraTransform(stageContext, camera);
     const objects = [...world.gameObjects].sort((left, right) =>
         (left.renderOrder || 0) - (right.renderOrder || 0));
     for (const object of objects) object.draw(stageContext);
+    stageContext.restore();
 
     const thumbnail = document.createElement('canvas');
     thumbnail.width = width;

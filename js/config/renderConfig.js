@@ -1,11 +1,20 @@
 import { deepFreeze } from './configUtils.js';
 
 export const RENDER_CONFIG = deepFreeze({
+    camera: {
+        deadZoneRatio: 0.6,
+        easing: 7,
+        lookAheadSeconds: 0.18,
+        maximumLookAhead: 100,
+        playfieldBorderColor: 'rgba(81, 239, 255, 0.65)',
+        playfieldBorderWidth: 2
+    },
     layers: {
         bonus: 1,
         planet: 2,
         slingshot: 3,
         target: 4,
+        portal: 4.5,
         penguin: 5,
         arrow: 6,
         popup: 7,
@@ -56,6 +65,16 @@ export const RENDER_CONFIG = deepFreeze({
             shaftWidth: 8,
             headLength: 12,
             headWidth: 12
+        },
+        portal: {
+            red: '#ff3b4f',
+            blue: '#2f8cff',
+            aperture: '#050814',
+            glowBlur: 14,
+            rimWidth: 3,
+            particleCount: 9,
+            particleRadius: 1.6,
+            transitionSeconds: 0.14
         },
         slingshot: {
             size: 100,

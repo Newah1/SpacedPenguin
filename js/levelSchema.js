@@ -9,6 +9,7 @@ export const LevelObjectType = Object.freeze({
     SLINGSHOT: 'slingshot',
     TEXT: 'textobject',
     POINTING_ARROW: 'pointingarrow',
+    PORTAL: 'portal',
     PENGUIN: 'penguin'
 });
 
@@ -30,6 +31,7 @@ export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze({
     Slingshot: LevelObjectType.SLINGSHOT,
     TextObject: LevelObjectType.TEXT,
     PointingArrow: LevelObjectType.POINTING_ARROW,
+    Portal: LevelObjectType.PORTAL,
     Penguin: LevelObjectType.PENGUIN
 });
 
@@ -43,6 +45,13 @@ export const LevelOrbitType = Object.freeze({
 });
 
 export const LEVEL_ORBIT_TYPES = Object.freeze(Object.values(LevelOrbitType));
+
+export const LevelCameraMode = Object.freeze({
+    FIT: 'fit',
+    FOLLOW: 'follow'
+});
+
+export const LEVEL_CAMERA_MODES = Object.freeze(Object.values(LevelCameraMode));
 
 // The current runtime injects ID lookup only into these object implementations.
 export const ORBIT_LOOKUP_TARGET_TYPES = Object.freeze([
@@ -113,6 +122,8 @@ export function getLevelObjectPropertyDefaults(type) {
             return { ...LEVEL_DEFAULTS.text };
         case LevelObjectType.POINTING_ARROW:
             return { ...LEVEL_DEFAULTS.pointingArrow };
+        case LevelObjectType.PORTAL:
+            return { ...LEVEL_DEFAULTS.portal };
         default:
             return {};
     }
@@ -150,6 +161,14 @@ export function normalizeLevelObjectDefinition(definition = {}) {
 export function normalizeLevelDefinition(level = {}) {
     return {
         ...level,
+        ...(level.camera ? {
+            camera: {
+                mode: typeof level.camera.mode === 'string'
+                    ? level.camera.mode.trim().toLowerCase()
+                    : LevelCameraMode.FIT,
+                ...(level.camera.zoom == null ? {} : { zoom: level.camera.zoom })
+            }
+        } : {}),
         startPosition: { ...(level.startPosition ?? WORLD_CONFIG.defaultStartPosition) },
         targetPosition: { ...(level.targetPosition ?? WORLD_CONFIG.defaultTargetPosition) },
         objects: Array.isArray(level.objects)

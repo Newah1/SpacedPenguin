@@ -140,6 +140,12 @@ export const LEVEL_DEFAULTS = deepFreeze({
         height: 43,
         collectionPadding: 8
     },
+    portal: {
+        width: 48,
+        height: 18,
+        color: 'red',
+        playSound: true
+    },
     target: {
         width: 60,
         height: 60,

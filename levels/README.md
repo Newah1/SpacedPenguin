@@ -14,6 +14,11 @@ For system-wide context and architectural limitations, see [`../ARCHITECTURE.md`
   "description": "Optional description",
   "startPosition": { "x": 100, "y": 300 },
   "targetPosition": { "x": 700, "y": 300 },
+  "bounds": {
+    "stage": { "x": 0, "y": 0, "width": 2400, "height": 1800 },
+    "flight": { "x": -200, "y": -200, "width": 2800, "height": 2200 }
+  },
+  "camera": { "mode": "follow", "zoom": 1 },
   "objects": [],
   "rules": {}
 }
@@ -21,9 +26,20 @@ For system-wide context and architectural limitations, see [`../ARCHITECTURE.md`
 
 - `startPosition` creates the penguin and, when no slingshot object is present, the default slingshot.
 - `targetPosition` is used only when no target object is present.
-- Positions are logical 800 x 600 canvas coordinates, regardless of CSS/display scaling.
+- Positions are world coordinates, regardless of CSS/display scaling. Levels without `camera` retain the legacy fixed 800 x 600 view.
 - `description` is preserved in the loaded definition but is not consumed by gameplay.
 - A missing authored level is procedurally generated when requested.
+
+## Playfield and camera
+
+`bounds.stage` is the authored playfield. `bounds.flight` is the larger terminal boundary; Kevin may fly beyond the visible playfield before becoming lost. The editor derives a 200-unit buffer on each side when the playfield size is changed, while preserving explicitly loaded flight bounds until then.
+
+`camera` is optional. Omitting it is the compatibility contract for shipped and historical levels: the world is rendered through the original fixed 800 x 600 camera. Expanded levels support:
+
+- `{ "mode": "fit" }` to show the complete playfield in one shot.
+- `{ "mode": "follow", "zoom": 1 }` to follow Kevin with a dead zone, easing, and playfield-edge clamping.
+
+Follow zoom must be greater than zero. The runtime raises an undersized zoom just enough to ensure the camera view can remain wholly inside the playfield.
 
 ## Object envelope
 
@@ -143,6 +159,26 @@ enabled, the rendered background can shrink to its content while retaining this 
 ### Pointing arrow
 
 Both `arrow` and `pointingarrow` create the tutorial `PointingArrow`. The separate off-screen flight arrow is runtime-owned and is not authored in level JSON.
+
+### Portals
+
+Portals are reciprocal red/blue endpoint pairs. Each endpoint requires a unique `id` and a `pairedPortalId` pointing back to the other endpoint. `rotation` is expressed in degrees; momentum is rotated from the entrance frame into the exit frame without changing speed. `playSound` defaults to `true`.
+
+```json
+{
+  "type": "portal",
+  "position": { "x": 260, "y": 220 },
+  "properties": {
+    "id": "portal_pair_1_red",
+    "pairedPortalId": "portal_pair_1_blue",
+    "color": "red",
+    "width": 48,
+    "height": 18,
+    "rotation": 0,
+    "playSound": true
+  }
+}
+```
 
 ```json
 {

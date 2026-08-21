@@ -523,6 +523,7 @@ class GameManager {
             borderColor: '#f79433'
         });
         startButton.id = 'mobileStartButton';
+        startButton.setAttribute('aria-label', 'TAP TO LAUNCH');
         startButton.style.cssText += `
             position: absolute;
             top: 82%;

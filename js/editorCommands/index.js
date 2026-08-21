@@ -7,6 +7,7 @@ import RemoveObjectCommand from './removeObjectCommand.js';
 import SetLevelSettingCommand from './setLevelSettingCommand.js';
 import SetObjectPropertyCommand from './setObjectPropertyCommand.js';
 import AdjustPlanetsCommand from './adjustPlanetsCommand.js';
+import ObjectGroupCommand from './objectGroupCommand.js';
 
 export const LiveEditCommandType = Object.freeze({
     ADD_OBJECT: AddObjectCommand.type,
@@ -15,7 +16,8 @@ export const LiveEditCommandType = Object.freeze({
     MOVE_ORBIT_CENTER: MoveOrbitCenterCommand.type,
     SET_OBJECT_PROPERTY: SetObjectPropertyCommand.type,
     SET_LEVEL_SETTING: SetLevelSettingCommand.type,
-    ADJUST_PLANETS: AdjustPlanetsCommand.type
+    ADJUST_PLANETS: AdjustPlanetsCommand.type,
+    OBJECT_GROUP: ObjectGroupCommand.type
 });
 
 export const liveEditCommandRegistry = new CommandRegistry([
@@ -25,7 +27,8 @@ export const liveEditCommandRegistry = new CommandRegistry([
     MoveOrbitCenterCommand,
     SetObjectPropertyCommand,
     SetLevelSettingCommand,
-    AdjustPlanetsCommand
+    AdjustPlanetsCommand,
+    ObjectGroupCommand
 ]);
 
 export function createLiveEditHistory(context, limit) {
@@ -41,5 +44,6 @@ export {
     RemoveObjectCommand,
     SetLevelSettingCommand,
     SetObjectPropertyCommand,
-    AdjustPlanetsCommand
+    AdjustPlanetsCommand,
+    ObjectGroupCommand
 };

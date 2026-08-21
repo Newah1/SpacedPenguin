@@ -1,7 +1,7 @@
 // Level Loading System for Spaced Penguin
 // Supports JSON-based level definitions with object factories and custom rules
 
-import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow } from './gameObjects.js';
+import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow, Portal } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
 import plog from './penguinLogger.js';
@@ -42,7 +42,7 @@ export class GameObjectFactory {
             position = { x: properties.x, y: properties.y };
         }
         
-        if (!position && [LevelObjectType.BONUS, LevelObjectType.PLANET, LevelObjectType.TARGET]
+        if (!position && [LevelObjectType.BONUS, LevelObjectType.PLANET, LevelObjectType.TARGET, LevelObjectType.PORTAL]
             .includes(normalizeLevelObjectType(type))) {
             plog.error('Object creation failed: missing position', {
                 type, 
@@ -71,6 +71,9 @@ export class GameObjectFactory {
             
             case LevelObjectType.POINTING_ARROW:
                 return this.createPointingArrow(position, properties, gameObjectLookup);
+
+            case LevelObjectType.PORTAL:
+                return this.createPortal(position, properties);
             
             case LevelObjectType.PENGUIN:
                 return null; // Exported penguin state is not a separately loaded object.
@@ -115,6 +118,14 @@ export class GameObjectFactory {
         }
         
         return planet;
+    }
+
+    static createPortal(position, properties) {
+        if (!position) return null;
+        const portal = new Portal(position.x, position.y, properties);
+        portal.id = properties.id ?? null;
+        portal.name = properties.name ?? '';
+        return portal;
     }
     
     static createBonus(position, properties, assetLoader, gameObjectLookup = null) {
@@ -564,12 +575,17 @@ export class LevelLoader {
             x: 0, y: 0, width: WORLD_CONFIG.stage.width, height: WORLD_CONFIG.stage.height
         }) };
         game.flightRect = { ...(levelDefinition.bounds?.flight || WORLD_CONFIG.flightBounds) };
+        game.cameraConfig = levelDefinition.camera ? {
+            ...levelDefinition.camera,
+            mode: levelDefinition.camera.mode.trim().toLowerCase()
+        } : null;
         game.arrow?.setFlightRect(game.flightRect);
         
         // Clear existing game state
         game.gameObjects = [];
         game.planets = [];
         game.bonuses = [];
+        game.portals = [];
         game.textObjects = game.textObjects || [];
         game.pointingArrows = game.pointingArrows || [];
         game.physics.clear();
@@ -677,6 +693,8 @@ export class LevelLoader {
                     game.textObjects.push(gameObject);
                 } else if (gameObject instanceof PointingArrow) {
                     game.pointingArrows.push(gameObject);
+                } else if (gameObject instanceof Portal) {
+                    game.portals.push(gameObject);
                 }
             }
         }
@@ -704,6 +722,7 @@ export class LevelLoader {
         game.distance = 0;
         if (typeof game.setState === 'function') game.setState(GameState.PLAYING);
         else game.state = GameState.PLAYING;
+        game.resetWorldCamera?.();
         
         plog.level(`Level ${levelNumber} loaded: ${game.planets.length} planets, ${game.bonuses.length} bonuses`);
         return levelDefinition;

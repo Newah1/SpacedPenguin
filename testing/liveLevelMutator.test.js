@@ -15,12 +15,14 @@ import { LevelEditorInputAction } from '../js/inputActions.js';
 class Planet {}
 class Bonus {}
 class Target {}
+class Portal {}
 
 function createGame() {
     return {
         gameObjects: [],
         planets: [],
         bonuses: [],
+        portals: [],
         textObjects: [],
         pointingArrows: [],
         target: null,
@@ -109,7 +111,8 @@ test('editor input uses one pointer event stream and no synthetic click pass', (
         'pointermove',
         'pointerup',
         'pointercancel',
-        'contextmenu'
+        'contextmenu',
+        'wheel'
     ]);
     assert.equal(events.includes('click'), false);
     assert.equal(events.includes('mousedown'), false);
@@ -171,6 +174,26 @@ test('typed command strategies replay against the same live runtime object', () 
     history.redo();
     assert.deepEqual(planet.position, { x: 30, y: 40 });
     assert.equal(selections.at(-1), planet);
+});
+
+test('portal endpoint groups add, undo, and redo atomically', () => {
+    const game = createGame();
+    const history = createLiveEditHistory({
+        mutator: new LiveLevelMutator(game),
+        refresh() {},
+        updateOrbitSystem() {}
+    });
+    const red = new Portal();
+    const blue = new Portal();
+
+    assert.equal(history.execute(LiveEditCommandType.OBJECT_GROUP, {
+        objects: [red, blue], operation: 'add'
+    }), true);
+    assert.deepEqual(game.portals, [red, blue]);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(game.portals, []);
+    assert.equal(history.redo(), true);
+    assert.deepEqual(game.portals, [red, blue]);
 });
 
 test('every registered strategy implements the do/undo command contract', () => {

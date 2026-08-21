@@ -1,6 +1,16 @@
 import { deepFreeze } from './configUtils.js';
 
 export const EDITOR_CONFIG = deepFreeze({
+    playfield: {
+        lossBufferX: 200,
+        lossBufferY: 200,
+        minimumWidth: 400,
+        minimumHeight: 300,
+        maximumDimension: 20000,
+        minimumZoom: 0.01,
+        maximumZoom: 4,
+        wheelZoomFactor: 1.12
+    },
     authoringDefaults: {
         planet: {
             radius: 50,

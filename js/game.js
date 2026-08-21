@@ -1,7 +1,7 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow } from './gameObjects.js';
+import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { Physics } from './physics.js';
 import Utils from './utils.js';
@@ -56,10 +56,13 @@ import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
+    applyCameraTransform,
     applyViewportTransform,
     clearViewport,
+    createWorldCamera,
     createViewport,
-    screenToStage
+    screenToStage,
+    updateFollowCamera
 } from './viewport.js';
 
 const GameState = {
@@ -165,8 +168,10 @@ class Game {
         // Bounds system (matching original game's pFlightRect/pStageRect)
         this.stageRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
         this.flightRect = { ...WORLD_CONFIG.flightBounds };
+        this.cameraConfig = null;
         this.viewport = canvas.viewport || createViewport(STAGE_WIDTH, STAGE_HEIGHT, 1);
-        this.viewRect = this.viewport.viewRect;
+        this.worldCamera = createWorldCamera(this.stageRect);
+        this.viewRect = this.worldCamera.viewRect;
         
         // Game objects
         this.penguin = null;
@@ -176,6 +181,7 @@ class Game {
         this.target = null;
         this.planets = [];
         this.bonuses = [];
+        this.portals = [];
         this.textObjects = [];
         this.pointingArrows = [];
         this.gameObjects = [];
@@ -219,13 +225,15 @@ class Game {
             Arrow,
             Slingshot,
             TextObject,
-            PointingArrow
+            PointingArrow,
+            Portal
         };
         
         // Shot path tracing system (like original game)
         this.shotPaths = []; // Array of complete shot paths
         this.currentShotPath = []; // Current shot being recorded
         this.currentShotRenderPath = null;
+        this.portalTransition = null;
         this.aimAssistPoints = [];
         this.shotColors = RENDER_CONFIG.shotTrails.colors;
         this.currentColorIndex = 0;
@@ -508,7 +516,7 @@ class Game {
     }
     
     getMousePosition(e) {
-        return screenToStage(this.canvas, this.viewport, e.clientX, e.clientY);
+        return screenToStage(this.canvas, this.viewport, e.clientX, e.clientY, this.getActiveCamera());
     }
     
     setCanvasScale(scaleX, scaleY) {
@@ -518,10 +526,38 @@ class Game {
 
     setViewport(viewport) {
         this.viewport = viewport;
-        this.viewRect = viewport.viewRect;
         this.canvasScaleX = viewport.scale;
         this.canvasScaleY = viewport.scale;
+        this.viewRect = this.getActiveCamera().viewRect;
         this.arrow?.setStageRect(this.viewRect);
+    }
+
+    getActiveCamera() {
+        return this.levelEditor?.active && this.levelEditor.mode === 'edit' && this.levelEditor.editorCamera
+            ? this.levelEditor.editorCamera
+            : this.worldCamera;
+    }
+
+    resetWorldCamera() {
+        const focus = this.slingshot?.position || (this.penguin
+            ? { x: this.penguin.x, y: this.penguin.y }
+            : null);
+        this.worldCamera = createWorldCamera(this.stageRect, this.cameraConfig, focus);
+        this.viewRect = this.worldCamera.viewRect;
+        this.arrow?.setStageRect(this.viewRect);
+    }
+
+    updateWorldCamera(deltaTime) {
+        if (this.worldCamera?.mode !== 'follow' || !this.penguin) return;
+        this.worldCamera = updateFollowCamera(this.worldCamera, {
+            x: this.penguin.x,
+            y: this.penguin.y,
+            velocity: this.penguin.velocity
+        }, deltaTime, RENDER_CONFIG.camera);
+        if (!(this.levelEditor?.active && this.levelEditor.mode === 'edit')) {
+            this.viewRect = this.worldCamera.viewRect;
+            this.arrow?.setStageRect(this.viewRect);
+        }
     }
 
     beginFrame() {
@@ -794,6 +830,13 @@ class Game {
         }
         this.currentShotPath.push({ x, y });
     }
+
+    recordPortalTransit(entryPosition, exitPosition) {
+        if (!this.isRecordingPath) return;
+        this.recordPathPoint(entryPosition.x, entryPosition.y);
+        this.currentShotRenderPath?.moveTo(exitPosition.x, exitPosition.y);
+        this.currentShotPath.push({ x: exitPosition.x, y: exitPosition.y, move: true });
+    }
     
     endRecordingShotPath() {
         if (this.isRecordingPath && this.currentShotPath.length > 1) {
@@ -847,7 +890,9 @@ class Game {
             } else {
                 ctx.moveTo(shotPath.points[0].x, shotPath.points[0].y);
                 for (let i = 1; i < shotPath.points.length; i++) {
-                    ctx.lineTo(shotPath.points[i].x, shotPath.points[i].y);
+                    const point = shotPath.points[i];
+                    if (point.move) ctx.moveTo(point.x, point.y);
+                    else ctx.lineTo(point.x, point.y);
                 }
                 ctx.stroke();
             }
@@ -869,7 +914,9 @@ class Game {
             } else {
                 ctx.moveTo(this.currentShotPath[0].x, this.currentShotPath[0].y);
                 for (let i = 1; i < this.currentShotPath.length; i++) {
-                    ctx.lineTo(this.currentShotPath[i].x, this.currentShotPath[i].y);
+                    const point = this.currentShotPath[i];
+                    if (point.move) ctx.moveTo(point.x, point.y);
+                    else ctx.lineTo(point.x, point.y);
                 }
                 ctx.stroke();
             }
@@ -916,6 +963,7 @@ class Game {
         const simulationResult = this.updateSimulation(deltaTime);
         this.updateCrashedPenguins?.(deltaTime);
         this.updateSimulationSpeedControl?.(deltaTime);
+        this.updateWorldCamera?.(deltaTime);
         this.updateGameObjects(deltaTime, { updateOrbit: false });
         applyGameSimulationEvents(this, simulationResult.events, deltaTime);
     }
@@ -1168,6 +1216,8 @@ class Game {
         this.gameObjects = [];
         this.planets = [];
         this.bonuses = [];
+        this.portals = [];
+        this.portalTransition = null;
         this.crashedPenguins = [];
         this.physics.clear();
         this.planetCollisions = 0;
@@ -1221,6 +1271,11 @@ class Game {
     
     render() {
         this.beginFrame();
+        const camera = this.getActiveCamera();
+        this.viewRect = camera.viewRect;
+        this.arrow?.setStageRect(this.viewRect);
+        this.ctx.save();
+        applyCameraTransform(this.ctx, camera);
         
         // Draw background stars (cached)
         this.drawStars();
@@ -1244,6 +1299,7 @@ class Game {
             const object = this._cachedSortedObjects[i];
             if (object === this.penguin) {
                 this.drawPenguinInPlayfield();
+                for (const portal of this.portals || []) portal.drawForeground?.(this.ctx);
             } else {
                 object.draw(this.ctx);
             }
@@ -1251,21 +1307,30 @@ class Game {
 
         if (this.levelEditor?.gravitySculptController?.isTesting()) {
             this.levelEditor.gravitySculptController.onTestTargetHit();
+            this.ctx.restore();
             return;
         }
 
-        // Keep this tied to Arrow.visible so both off-screen indicators always
-        // appear and disappear together.
-        this.drawKevinCam();
-        
-        // Draw UI overlays
-        this.drawUI();
-        
-        // Draw UI Manager screens on top
-        this.uiManager.render();
-        
         // Draw level editor overlay
         this.levelEditor.render(this.ctx);
+
+        this.drawPlayfieldBorder();
+        this.ctx.restore();
+
+        // These overlays live on the fixed logical display surface.
+        this.drawKevinCam();
+        this.drawUI();
+        this.uiManager.render();
+    }
+
+    drawPlayfieldBorder() {
+        if (!this.cameraConfig) return;
+        const config = RENDER_CONFIG.camera;
+        this.ctx.save();
+        this.ctx.strokeStyle = config.playfieldBorderColor;
+        this.ctx.lineWidth = config.playfieldBorderWidth / this.getActiveCamera().scale;
+        this.ctx.strokeRect(this.stageRect.x, this.stageRect.y, this.stageRect.width, this.stageRect.height);
+        this.ctx.restore();
     }
 
     drawPlayfieldTraces() {
@@ -1344,7 +1409,9 @@ class Game {
         ctx.beginPath();
         ctx.moveTo(this.aimAssistPoints[0].x, this.aimAssistPoints[0].y);
         for (let index = 1; index < this.aimAssistPoints.length; index++) {
-            ctx.lineTo(this.aimAssistPoints[index].x, this.aimAssistPoints[index].y);
+            const point = this.aimAssistPoints[index];
+            if (point.move) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
         }
         ctx.stroke();
         ctx.restore();
@@ -1369,8 +1436,63 @@ class Game {
         for (const crashedPenguin of this.crashedPenguins || []) {
             crashedPenguin.draw(this.ctx);
         }
-        this.penguin.draw(this.ctx);
+        if (!this.drawPortalTransition?.(this.ctx)) this.penguin.draw(this.ctx);
         this.ctx.restore();
+    }
+
+    beginPortalTransition(event) {
+        this.portalTransition = {
+            ...event,
+            startedAt: globalThis.performance?.now?.() ?? Date.now()
+        };
+    }
+
+    drawPortalTransition(ctx) {
+        const transition = this.portalTransition;
+        if (!transition || !this.penguin) return false;
+        const now = globalThis.performance?.now?.() ?? Date.now();
+        const durationMs = RENDER_CONFIG.entities.portal.transitionSeconds * 1000;
+        const progress = Math.min(1, (now - transition.startedAt) / durationMs);
+        if (progress >= 1) {
+            this.portalTransition = null;
+            return false;
+        }
+        const source = this.portals.find(portal => portal.id === transition.sourcePortalId);
+        const destination = this.portals.find(portal => portal.id === transition.destinationPortalId);
+        if (!source || !destination) return false;
+        const unit = velocity => {
+            const length = Math.hypot(velocity?.x || 0, velocity?.y || 0) || 1;
+            return { x: (velocity?.x || 1) / length, y: (velocity?.y || 0) / length };
+        };
+        const incoming = unit(transition.incomingVelocity);
+        const entryDistance = this.penguin.radius * 2.2 * (1 - progress);
+        const entry = {
+            x: transition.entryPosition.x - incoming.x * entryDistance,
+            y: transition.entryPosition.y - incoming.y * entryDistance
+        };
+        const exit = {
+            x: destination.position.x + (transition.exitPosition.x - destination.position.x) * progress,
+            y: destination.position.y + (transition.exitPosition.y - destination.position.y) * progress
+        };
+        const drawInsideAperture = (portal, position) => {
+            ctx.save();
+            ctx.translate(portal.position.x, portal.position.y);
+            ctx.rotate(Utils.toRadians(portal.rotation));
+            ctx.beginPath();
+            ctx.ellipse(0, 0, portal.width / 2, portal.height / 2, 0, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.rotate(-Utils.toRadians(portal.rotation));
+            ctx.translate(-portal.position.x, -portal.position.y);
+            this.penguin.drawBodyAt(ctx, position.x, position.y);
+            ctx.restore();
+        };
+        // The entering copy disappears into the aperture. The exiting copy is
+        // deliberately drawn in ordinary world space: the destination's front
+        // lip is rendered immediately afterward, which makes Kevin cross the
+        // rim instead of looking trapped behind an aperture-shaped mask.
+        drawInsideAperture(source, entry);
+        this.penguin.drawBodyAt(ctx, exit.x, exit.y);
+        return true;
     }
 
     drawKevinCam() {
@@ -1379,12 +1501,7 @@ class Game {
         }
 
         const config = { ...RENDER_CONFIG.kevinCam, ...this.kevinCam };
-        const viewRect = this.viewRect || this.stageRect || {
-            x: 0,
-            y: 0,
-            width: STAGE_WIDTH,
-            height: STAGE_HEIGHT
-        };
+        const viewRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
         const width = Math.max(
             config.minWidth,
             Math.min(viewRect.width * config.widthRatio, config.maxWidth)
@@ -1490,23 +1607,37 @@ class Game {
     }
     
     drawStars() {
-        // The playfield camera is static, so its stars drift independently of
-        // Kevin. Each size is a depth layer: larger/nearer stars move faster.
+        // Repeat the deterministic 800 x 600 star tile across expanded worlds.
+        // Each size is a depth layer: larger/nearer stars drift faster.
         const elapsed = this.starfieldTime || 0;
         const drift = this.starDriftSpeed || RENDER_CONFIG.starfield.drift;
+        const stage = this.stageRect || { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
+        const view = this.getActiveCamera?.().viewRect || this.viewRect || stage;
+        const firstTileX = Math.floor(view.x / STAGE_WIDTH);
+        const lastTileX = Math.floor((view.x + view.width - 1e-9) / STAGE_WIDTH);
+        const firstTileY = Math.floor(view.y / STAGE_HEIGHT);
+        const lastTileY = Math.floor((view.y + view.height - 1e-9) / STAGE_HEIGHT);
 
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(stage.x, stage.y, stage.width, stage.height);
+        this.ctx.clip();
         this.ctx.fillStyle = RENDER_CONFIG.starfield.color;
-        for (const star of this.stars) {
-            const rawX = star.x + elapsed * drift.x * star.size;
-            const rawY = star.y + elapsed * drift.y * star.size;
-            const x = ((rawX % STAGE_WIDTH) + STAGE_WIDTH) % STAGE_WIDTH;
-            const y = ((rawY % STAGE_HEIGHT) + STAGE_HEIGHT) % STAGE_HEIGHT;
-
-            this.ctx.globalAlpha = RENDER_CONFIG.starfield.baseAlpha +
-                star.size * RENDER_CONFIG.starfield.sizeAlpha;
-            this.ctx.fillRect(x, y, star.size, star.size);
+        for (let tileY = firstTileY; tileY <= lastTileY; tileY++) {
+            for (let tileX = firstTileX; tileX <= lastTileX; tileX++) {
+                for (const star of this.stars) {
+                    const rawX = star.x + elapsed * drift.x * star.size;
+                    const rawY = star.y + elapsed * drift.y * star.size;
+                    const x = tileX * STAGE_WIDTH + ((rawX % STAGE_WIDTH) + STAGE_WIDTH) % STAGE_WIDTH;
+                    const y = tileY * STAGE_HEIGHT + ((rawY % STAGE_HEIGHT) + STAGE_HEIGHT) % STAGE_HEIGHT;
+                    this.ctx.globalAlpha = RENDER_CONFIG.starfield.baseAlpha +
+                        star.size * RENDER_CONFIG.starfield.sizeAlpha;
+                    this.ctx.fillRect(x, y, star.size, star.size);
+                }
+            }
         }
         this.ctx.globalAlpha = 1.0;
+        this.ctx.restore();
     }
     
     drawUI() {
@@ -2074,6 +2205,11 @@ class Game {
             targetPosition: this.target
                 ? { x: this.target.position.x, y: this.target.position.y }
                 : { ...WORLD_CONFIG.defaultTargetPosition },
+            bounds: {
+                stage: { ...this.stageRect },
+                flight: { ...this.flightRect }
+            },
+            ...(this.cameraConfig ? { camera: { ...this.cameraConfig } } : {}),
             objects: [],
             rules: this.levelRules ? this.exportLevelRules() : {
                 maxTries: null,
@@ -2113,6 +2249,7 @@ class Game {
         // Add from specific arrays (in case something's missing from gameObjects)
         this.planets.forEach(obj => allObjects.add(obj));
         this.bonuses.forEach(obj => allObjects.add(obj));
+        this.portals.forEach(obj => allObjects.add(obj));
         this.textObjects.forEach(obj => allObjects.add(obj));
         this.pointingArrows.forEach(obj => allObjects.add(obj));
         
@@ -2195,6 +2332,7 @@ class Game {
             'Slingshot': ['anchorX', 'anchorY', 'stretchLimit', 'velocityMultiplier'],
             'TextObject': ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'padding', 'autoSize'], // content not textContent
             'PointingArrow': ['color', 'glowColor', 'baseWidth', 'scaleWithDistance', 'minWidth', 'maxWidth', 'pulseSpeed'],
+            'Portal': ['pairedPortalId', 'color', 'playSound'],
             'Penguin': ['state'] // Penguin shouldn't really be exported in levels
         };
         

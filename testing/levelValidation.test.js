@@ -10,6 +10,7 @@ import {
 import {
     LEVEL_OBJECT_TYPE_NAMES,
     LEVEL_ORBIT_TYPES,
+    LEVEL_CAMERA_MODES,
     LevelObjectType,
     LevelOrbitType,
     isLevelObjectType,
@@ -111,9 +112,29 @@ test('shared schema owns aliases and supported orbit vocabulary', () => {
     assert.equal(levelObjectTypeFromClassName('BonusPopup'), null);
     assert.equal(LEVEL_OBJECT_TYPE_NAMES.includes('penguin'), true);
     assert.deepEqual(LEVEL_ORBIT_TYPES, ['circular', 'elliptical', 'figure8', 'gravity', 'director-gravity', 'custom']);
+    assert.deepEqual(LEVEL_CAMERA_MODES, ['fit', 'follow']);
     assert.equal(normalizeLevelOrbitType(' GRAVITY '), LevelOrbitType.GRAVITY);
     assert.equal(isLevelOrbitType('Circular'), true);
     assert.equal(normalizeOrbitDefinition({ type: 'ELLIPTICAL' }).type, LevelOrbitType.ELLIPTICAL);
+});
+
+test('expanded playfield camera settings validate and normalize without affecting legacy levels', () => {
+    const expanded = {
+        objects: [object('slingshot', 100, 100), object('target', 2200, 1600)],
+        bounds: {
+            stage: { x: 0, y: 0, width: 2400, height: 1800 },
+            flight: { x: -200, y: -200, width: 2800, height: 2200 }
+        },
+        camera: { mode: 'FOLLOW', zoom: 1.25 }
+    };
+    assert.equal(validateLevelDefinition(expanded).valid, true);
+    assert.deepEqual(normalizeLevelDefinition(expanded).camera, { mode: 'follow', zoom: 1.25 });
+    assert.equal('camera' in normalizeLevelDefinition({ objects: [] }), false);
+
+    const invalid = validateLevelDefinition({ ...expanded, camera: { mode: 'orbit', zoom: 0 } });
+    assert.equal(invalid.valid, false);
+    assert.equal(invalid.errors.some(error => error.code === 'CAMERA_MODE'), true);
+    assert.equal(invalid.errors.some(error => error.path === '$.camera.zoom'), true);
 });
 
 test('validation and normalization use the same case-insensitive schema vocabulary', () => {
@@ -153,4 +174,23 @@ test('level normalization applies shared defaults while preserving explicit zero
     assert.deepEqual(normalized.targetPosition, { x: 700, y: 300 });
     assert.equal(normalized.rules.scoreMultiplier, 1);
     assert.equal(normalized.rules.gravitationalConstant, 3);
+});
+
+test('portal pairs require reciprocal red and blue endpoints', () => {
+    const valid = {
+        objects: [
+            object('slingshot', 0, 0),
+            object('target', 700, 300),
+            object('portal', 100, 100, { id: 'red', pairedPortalId: 'blue', color: 'red' }),
+            object('portal', 300, 100, { id: 'blue', pairedPortalId: 'red', color: 'blue' })
+        ]
+    };
+    assert.equal(validateLevelDefinition(valid).valid, true);
+
+    const broken = structuredClone(valid);
+    broken.objects[3].properties.pairedPortalId = 'missing';
+    const validation = validateLevelDefinition(broken);
+    assert.equal(validation.valid, false);
+    assert.equal(validation.errors.some(error => error.code === 'PORTAL_PAIR_NOT_RECIPROCAL'), true);
+    assert.equal(validation.errors.some(error => error.code === 'PORTAL_PAIR_UNKNOWN'), true);
 });

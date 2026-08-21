@@ -72,6 +72,16 @@ export function captureGameSimulationState(game) {
             collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + bonus.width / 2,
             orbit: orbitFromRuntime(bonus.orbitSystem)
         })),
+        portals: (game.portals || []).map((portal, index) => ({
+            id: portal.id || `__portal_${index + 1}`,
+            position: { ...portal.position },
+            width: portal.width,
+            height: portal.height,
+            rotation: portal.rotation,
+            color: portal.color,
+            pairedPortalId: portal.pairedPortalId,
+            playSound: portal.playSound
+        })),
         target: {
             id: game.target.id || '__target_1',
             position: { ...game.target.position },
@@ -194,6 +204,11 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
             }
             case SimulationEventType.PLANET_BOUNCE:
                 game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
+                break;
+            case SimulationEventType.PORTAL_TELEPORTED:
+                if (event.playSound) game.playSound(getAudioCue(AudioCue.PORTAL_WOOSH).soundId);
+                game.beginPortalTransition?.(event);
+                game.recordPortalTransit?.(event.entryPosition, event.exitPosition);
                 break;
             case SimulationEventType.TARGET_HIT:
                 game.endRecordingShotPath();

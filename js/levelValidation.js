@@ -4,6 +4,7 @@
 import {
     LevelObjectType,
     LevelOrbitType,
+    LEVEL_CAMERA_MODES,
     ORBIT_LOOKUP_TARGET_TYPES,
     ORBIT_SOURCE_TYPES,
     isLevelObjectType,
@@ -90,6 +91,17 @@ function validateRect(value, path, collector) {
     validateOptionalNumber(value.height, `${path}.height`, collector, { exclusiveMin: 0 });
 }
 
+function validateCamera(camera, collector) {
+    if (!isRecord(camera)) {
+        collector.error('CAMERA_TYPE', '$.camera', 'must be an object');
+        return;
+    }
+    if (typeof camera.mode !== 'string' || !LEVEL_CAMERA_MODES.includes(camera.mode.trim().toLowerCase())) {
+        collector.error('CAMERA_MODE', '$.camera.mode', `must be one of: ${LEVEL_CAMERA_MODES.join(', ')}`);
+    }
+    validateOptionalNumber(camera.zoom, '$.camera.zoom', collector, { exclusiveMin: 0 });
+}
+
 function validateOptionalNumber(value, path, collector, constraints = {}) {
     if (value === undefined || value === null) return;
     if (!isFiniteNumber(value)) {
@@ -161,6 +173,51 @@ function validateTypeSpecificProperties(type, properties, objectPath, collector)
         }
         validateOptionalNumber(properties.sourceFrameRate, `${propertyPath}.sourceFrameRate`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.coordinateScale, `${propertyPath}.coordinateScale`, collector, { exclusiveMin: 0 });
+    } else if (type === LevelObjectType.PORTAL) {
+        validateOptionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
+        validateOptionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
+        validateOptionalNumber(properties.rotation, `${propertyPath}.rotation`, collector);
+        if (properties.color !== undefined && !['red', 'blue'].includes(properties.color)) {
+            collector.error('PORTAL_COLOR', `${propertyPath}.color`, 'must be "red" or "blue"');
+        }
+        if (properties.pairedPortalId !== undefined &&
+            (typeof properties.pairedPortalId !== 'string' || properties.pairedPortalId.trim() === '')) {
+            collector.error('PORTAL_PAIR_ID', `${propertyPath}.pairedPortalId`, 'must be a non-empty string');
+        }
+        if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
+            collector.error('PORTAL_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
+        }
+    }
+}
+
+function validatePortalPairs(objects, identifiers, collector) {
+    const portals = objects.filter(entry => entry.type === LevelObjectType.PORTAL);
+    for (const portal of portals) {
+        const id = portal.properties.id;
+        const pairId = portal.properties.pairedPortalId;
+        if (typeof id !== 'string' || id.trim() === '') {
+            collector.error('PORTAL_ID_REQUIRED', `${portal.path}.properties.id`, 'portal endpoints require a unique ID');
+            continue;
+        }
+        if (typeof pairId !== 'string' || pairId.trim() === '') {
+            collector.error('PORTAL_PAIR_REQUIRED', `${portal.path}.properties.pairedPortalId`, 'portal endpoints require a pairedPortalId');
+            continue;
+        }
+        if (pairId === id) {
+            collector.error('PORTAL_PAIR_SELF', `${portal.path}.properties.pairedPortalId`, 'cannot reference the same portal');
+            continue;
+        }
+        const pair = identifiers.get(pairId);
+        if (!pair || pair.type !== LevelObjectType.PORTAL) {
+            collector.error('PORTAL_PAIR_UNKNOWN', `${portal.path}.properties.pairedPortalId`, `does not reference a portal ("${pairId}")`);
+            continue;
+        }
+        if (pair.properties.pairedPortalId !== id) {
+            collector.error('PORTAL_PAIR_NOT_RECIPROCAL', `${portal.path}.properties.pairedPortalId`, `portal "${pairId}" must pair back to "${id}"`);
+        }
+        if (pair.properties.color === portal.properties.color) {
+            collector.error('PORTAL_PAIR_COLOR', `${portal.path}.properties.color`, 'paired endpoints must use different colors');
+        }
     }
 }
 
@@ -378,9 +435,11 @@ export function validateLevelDefinition(level) {
             validateRect(level.bounds.flight, '$.bounds.flight', collector);
         }
     }
+    if (level.camera !== undefined) validateCamera(level.camera, collector);
     validateComposition(level, objects, collector);
     const identifiers = collectIdentifiers(objects, collector);
     validateOrbits(objects, identifiers, collector);
+    validatePortalPairs(objects, identifiers, collector);
     validateRules(level.rules, objects.filter(entry => entry.type === LevelObjectType.BONUS).length, collector);
     return collector.result();
 }

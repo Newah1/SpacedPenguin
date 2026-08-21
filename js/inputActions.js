@@ -296,7 +296,9 @@ export class LevelEditorInputAction extends InputAction {
         this.addListener(canvas, 'pointerup', this.handlePointerUp);
         this.addListener(canvas, 'pointercancel', this.handlePointerUp);
         this.addListener(canvas, 'contextmenu', this.handleContextMenu);
+        this.addListener(canvas, 'wheel', this.handleWheel, { passive: false });
         this.addListener(document, 'keydown', this.handleKeyDown);
+        this.addListener(document, 'keyup', this.handleKeyUp);
     }
     
     handlePointerDown(e) {
@@ -343,6 +345,13 @@ export class LevelEditorInputAction extends InputAction {
         if (!game || !this.isLevelEditorActive()) return;
         if (game.levelEditor.mode === 'edit') game.levelEditor.handleRightClick(e);
     }
+
+    handleWheel(e) {
+        const game = this.getGame();
+        if (!game || !this.isLevelEditorActive() || game.levelEditor.mode !== 'edit') return;
+        e.preventDefault();
+        game.levelEditor.zoomEditorAt(e.clientX, e.clientY, e.deltaY);
+    }
     
     handleKeyDown(e) {
         const game = this.getGame();
@@ -353,8 +362,23 @@ export class LevelEditorInputAction extends InputAction {
             // Delegate to game's handlers in play mode
             game.handleKeyDown(e);
         } else {
+            const editingField = e.target?.matches?.('input, textarea, select, [contenteditable="true"]');
+            if (editingField && !(e.ctrlKey || e.metaKey)) return;
             // Use level editor handlers in edit mode
             switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    game.levelEditor.spacePan = true;
+                    game.canvas.style.cursor = 'grab';
+                    break;
+                case 'KeyF':
+                    e.preventDefault();
+                    game.levelEditor.fitEditorCamera();
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    game.levelEditor.centerEditorOn(game.slingshot?.position || game.penguin?.position);
+                    break;
                 case 'Delete':
                     e.preventDefault();
                     game.levelEditor.deleteSelectedObject();
@@ -377,6 +401,13 @@ export class LevelEditorInputAction extends InputAction {
                     break;
             }
         }
+    }
+
+    handleKeyUp(e) {
+        const game = this.getGame();
+        if (!game || !this.isLevelEditorActive() || e.code !== 'Space') return;
+        game.levelEditor.spacePan = false;
+        if (!game.levelEditor.panning) game.canvas.style.cursor = '';
     }
 }
 

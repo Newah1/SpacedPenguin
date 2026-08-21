@@ -1,7 +1,7 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
 import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
-import { STAGE_WIDTH, STAGE_HEIGHT, stageToScreen } from './viewport.js';
+import { STAGE_WIDTH, STAGE_HEIGHT, createWorldCamera, screenToStage, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
 import { OrbitSystem } from './gameObjects.js';
@@ -28,7 +28,7 @@ const EDITABLE_STATE_PROPERTIES = Object.freeze([
     'rotationSpeed', 'state', 'spriteType', 'maxPullback', 'stretchLimit',
     'velocityMultiplier', 'content', 'fontSize', 'fontFamily', 'textAlign',
     'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth',
-    'glowColor', 'scaleWithDistance'
+    'glowColor', 'scaleWithDistance', 'playSound', 'pairedPortalId'
 ]);
 const ORBIT_EDITOR_PROPERTIES = new Set([
     'orbitTargetType', 'orbitTargetId', 'orbitCenterX', 'orbitCenterY',
@@ -67,6 +67,10 @@ class LevelEditor {
         this.dragging = false;
         this.dragOffset = { x: 0, y: 0 };
         this.dragStartPosition = null;
+        this.editorCamera = null;
+        this.panning = false;
+        this.panStart = null;
+        this.spacePan = false;
         this.propertiesPanel = null;
         
         // Orbit center drag support
@@ -104,10 +108,9 @@ class LevelEditor {
 
     showMobileAddMenu() {
         if (this.mode !== 'edit') return;
-        
-        // Show context menu at center of screen
-        const centerX = STAGE_WIDTH / 2;
-        const centerY = STAGE_HEIGHT / 2;
+        const view = this.editorCamera?.viewRect || this.game.stageRect;
+        const centerX = view.x + view.width / 2;
+        const centerY = view.y + view.height / 2;
         this.showContextMenu(centerX, centerY);
     }
     
@@ -120,6 +123,15 @@ class LevelEditor {
         
         const obj = this.selectedObject;
         const className = obj.constructor.name;
+
+        if (className === 'Portal') {
+            const pair = this.game.portals.find(portal => portal.id === obj.pairedPortalId);
+            this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
+                objects: pair ? [obj, pair] : [obj],
+                operation: 'remove'
+            });
+            return;
+        }
         
         plog.debug(`Deleting ${className}...`);
         
@@ -336,6 +348,91 @@ class LevelEditor {
     handleRightClick(event) { this.canvasInput.handleContextMenu(event); }
     cancelLongPress() { this.canvasInput.cancelLongPress(); }
 
+    getPlayfieldCenter() {
+        const stage = this.game.stageRect;
+        return { x: stage.x + stage.width / 2, y: stage.y + stage.height / 2 };
+    }
+
+    fitEditorCamera() {
+        this.editorCamera = createWorldCamera(this.game.stageRect, { mode: 'fit' });
+        if (this.active && this.mode === 'edit') {
+            this.game.viewRect = this.editorCamera.viewRect;
+            this.game.arrow?.setStageRect(this.editorCamera.viewRect);
+        }
+    }
+
+    setEditorCamera(center, zoom = this.editorCamera?.scale || 1) {
+        const limits = EDITOR_CONFIG.playfield;
+        const clampedZoom = Math.max(limits.minimumZoom, Math.min(zoom, limits.maximumZoom));
+        this.editorCamera = createWorldCamera(
+            this.game.stageRect,
+            { mode: 'follow', zoom: clampedZoom },
+            center
+        );
+        this.game.viewRect = this.editorCamera.viewRect;
+        this.game.arrow?.setStageRect(this.editorCamera.viewRect);
+    }
+
+    centerEditorOn(position) {
+        if (!position) return;
+        this.setEditorCamera(position, this.editorCamera?.scale || 1);
+    }
+
+    startPanning(screenX, screenY) {
+        const camera = this.editorCamera;
+        if (!camera) this.fitEditorCamera();
+        const view = this.editorCamera.viewRect;
+        this.panning = true;
+        this.panStart = {
+            screen: { x: screenX, y: screenY },
+            center: { x: view.x + view.width / 2, y: view.y + view.height / 2 },
+            zoom: this.editorCamera.scale
+        };
+        this.game.canvas.style.cursor = 'grabbing';
+    }
+
+    updatePanning(screenX, screenY) {
+        if (!this.panning || !this.panStart) return;
+        const rect = this.game.canvas.getBoundingClientRect();
+        const logicalDeltaX = (screenX - this.panStart.screen.x) *
+            (this.game.viewport.backingWidth / rect.width) / this.game.viewport.scale;
+        const logicalDeltaY = (screenY - this.panStart.screen.y) *
+            (this.game.viewport.backingHeight / rect.height) / this.game.viewport.scale;
+        this.setEditorCamera({
+            x: this.panStart.center.x - logicalDeltaX / this.panStart.zoom,
+            y: this.panStart.center.y - logicalDeltaY / this.panStart.zoom
+        }, this.panStart.zoom);
+    }
+
+    stopPanning() {
+        this.panning = false;
+        this.panStart = null;
+        this.game.canvas.style.cursor = '';
+    }
+
+    zoomEditorAt(screenX, screenY, direction) {
+        if (!this.editorCamera) this.fitEditorCamera();
+        const world = screenToStage(
+            this.game.canvas,
+            this.game.viewport,
+            screenX,
+            screenY,
+            this.editorCamera
+        );
+        const logical = screenToStage(this.game.canvas, this.game.viewport, screenX, screenY);
+        const factor = direction < 0
+            ? EDITOR_CONFIG.playfield.wheelZoomFactor
+            : 1 / EDITOR_CONFIG.playfield.wheelZoomFactor;
+        const zoom = Math.max(
+            EDITOR_CONFIG.playfield.minimumZoom,
+            Math.min(this.editorCamera.scale * factor, EDITOR_CONFIG.playfield.maximumZoom)
+        );
+        this.setEditorCamera({
+            x: world.x + (STAGE_WIDTH / 2 - logical.x) / zoom,
+            y: world.y + (STAGE_HEIGHT / 2 - logical.y) / zoom
+        }, zoom);
+    }
+
     enter() {
         if (this.active) return;
         this.previousGameState = this.game.state;
@@ -345,6 +442,7 @@ class LevelEditor {
         if (typeof this.game.setState === 'function') this.game.setState(GameState.LEVEL_EDITOR);
         else this.game.state = GameState.LEVEL_EDITOR;
         this.mode = 'edit';
+        this.fitEditorCamera();
         this.updateModeButton();
         this.populateObjectButtons();
         
@@ -427,6 +525,7 @@ class LevelEditor {
                 this.game.invalidateRecordedRun();
             }
             this.mode = 'edit';
+            this.fitEditorCamera();
         }
         this.updateModeButton();
         plog.info('Level editor mode changed to:', this.mode);
@@ -648,6 +747,10 @@ class LevelEditor {
         return [
             { label: 'Level Name', key: 'levelName', value: metadata.name || '', type: 'text' },
             { label: 'Description', key: 'levelDescription', value: metadata.description || '', type: 'text' },
+            { label: 'Playfield Width', key: 'playfieldWidth', value: this.game.stageRect.width, type: 'number', min: EDITOR_CONFIG.playfield.minimumWidth, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
+            { label: 'Playfield Height', key: 'playfieldHeight', value: this.game.stageRect.height, type: 'number', min: EDITOR_CONFIG.playfield.minimumHeight, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
+            { label: 'Gameplay Camera', key: 'cameraMode', value: this.game.cameraConfig?.mode || 'legacy', type: 'select', options: ['legacy', 'fit', 'follow'] },
+            { label: 'Follow Zoom', key: 'cameraZoom', value: this.game.cameraConfig?.zoom ?? 1, type: 'number', min: EDITOR_CONFIG.playfield.minimumZoom, max: EDITOR_CONFIG.playfield.maximumZoom, step: 0.05 },
             { label: 'Start X', key: 'startX', value: start.x, type: 'number' },
             { label: 'Start Y', key: 'startY', value: start.y, type: 'number' },
             { label: 'Target X', key: 'targetX', value: target.x, type: 'number' },
@@ -743,6 +846,11 @@ class LevelEditor {
                 { key: 'baseWidth', label: 'Base Width', type: 'number', min: 10 },
                 { key: 'scaleWithDistance', label: 'Scale with Distance', type: 'checkbox' },
                 { key: 'visible', label: 'Visible', type: 'checkbox' }
+            ],
+            'Portal': [
+                { key: 'width', label: 'Width', type: 'number', min: 8 },
+                { key: 'height', label: 'Height', type: 'number', min: 6 },
+                { key: 'playSound', label: 'Play Woosh Sound', type: 'checkbox' }
             ]
         };
         
@@ -896,8 +1004,8 @@ class LevelEditor {
     
     centerSelectedObjectOnCanvas() {
         if (!this.selectedObject || !this.game || !this.game.canvas) return;
-        const centerX = STAGE_WIDTH / 2;
-        const centerY = STAGE_HEIGHT / 2;
+        const centerX = this.game.stageRect.x + this.game.stageRect.width / 2;
+        const centerY = this.game.stageRect.y + this.game.stageRect.height / 2;
         const object = this.selectedObject;
         const before = this.getObjectPosition(object);
 
@@ -1024,6 +1132,29 @@ class LevelEditor {
             this.game.levelMetadata.name = value;
         } else if (property === 'levelDescription') {
             this.game.levelMetadata.description = value;
+        } else if (property === 'playfieldWidth' || property === 'playfieldHeight') {
+            const dimension = property === 'playfieldWidth' ? 'width' : 'height';
+            this.game.stageRect[dimension] = value;
+            const bufferX = EDITOR_CONFIG.playfield.lossBufferX;
+            const bufferY = EDITOR_CONFIG.playfield.lossBufferY;
+            this.game.flightRect = {
+                x: this.game.stageRect.x - bufferX,
+                y: this.game.stageRect.y - bufferY,
+                width: this.game.stageRect.width + bufferX * 2,
+                height: this.game.stageRect.height + bufferY * 2
+            };
+            if (!this.game.cameraConfig) this.game.cameraConfig = { mode: 'fit' };
+            this.game.arrow?.setFlightRect(this.game.flightRect);
+            this.game.resetWorldCamera();
+            this.fitEditorCamera();
+        } else if (property === 'cameraMode') {
+            this.game.cameraConfig = value === 'legacy'
+                ? null
+                : { ...(this.game.cameraConfig || {}), mode: value };
+            this.game.resetWorldCamera();
+        } else if (property === 'cameraZoom') {
+            this.game.cameraConfig = { ...(this.game.cameraConfig || {}), mode: this.game.cameraConfig?.mode || 'follow', zoom: value };
+            this.game.resetWorldCamera();
         } else if (property === 'startX' || property === 'startY') {
             const axis = property === 'startX' ? 'x' : 'y';
             if (this.game.slingshot?.position) this.game.slingshot.position[axis] = value;
@@ -1095,7 +1226,10 @@ class LevelEditor {
                 ? { x: this.game.penguin.x, y: this.game.penguin.y }
                 : null,
             targetPosition: cloneEditValue(this.game.target?.position),
-            gravitationalConstant: this.game.physics?.gravitationalConstant
+            gravitationalConstant: this.game.physics?.gravitationalConstant,
+            stageRect: cloneEditValue(this.game.stageRect),
+            flightRect: cloneEditValue(this.game.flightRect),
+            cameraConfig: cloneEditValue(this.game.cameraConfig)
         };
     }
 
@@ -1114,6 +1248,12 @@ class LevelEditor {
         if (this.game.physics && state.gravitationalConstant !== undefined) {
             this.game.physics.gravitationalConstant = state.gravitationalConstant;
         }
+        if (state.stageRect) this.game.stageRect = cloneEditValue(state.stageRect);
+        if (state.flightRect) this.game.flightRect = cloneEditValue(state.flightRect);
+        this.game.cameraConfig = cloneEditValue(state.cameraConfig);
+        this.game.arrow?.setFlightRect(this.game.flightRect);
+        this.game.resetWorldCamera?.();
+        if (this.game.stageRect) this.fitEditorCamera();
         this.game?.invalidateSimulationState?.();
     }
 
@@ -1331,10 +1471,7 @@ class LevelEditor {
         let center = obj.orbitSystem.getResolvedCenter();
         if (!center) {
             // Default to canvas center if no center is defined
-            const canvasCenter = {
-                x: STAGE_WIDTH / 2,
-                y: STAGE_HEIGHT / 2
-            };
+            const canvasCenter = this.getPlayfieldCenter();
             obj.orbitSystem.orbitCenter = canvasCenter;
             obj.orbitSystem.orbitTargetId = null;
             center = canvasCenter;
@@ -1482,23 +1619,24 @@ class LevelEditor {
     }
     
     validateAndFixObjectValues(obj) {
+        const center = this.getPlayfieldCenter();
         // Fix position values
         if (typeof obj.x === 'number') {
             if (isNaN(obj.x) || !isFinite(obj.x)) {
-                obj.x = STAGE_WIDTH / 2;
+                obj.x = center.x;
                 plog.warn('Fixed invalid x position');
             }
             if (isNaN(obj.y) || !isFinite(obj.y)) {
-                obj.y = STAGE_HEIGHT / 2;
+                obj.y = center.y;
                 plog.warn('Fixed invalid y position');
             }
         } else if (obj.position) {
             if (isNaN(obj.position.x) || !isFinite(obj.position.x)) {
-                obj.position.x = STAGE_WIDTH / 2;
+                obj.position.x = center.x;
                 plog.warn('Fixed invalid position.x');
             }
             if (isNaN(obj.position.y) || !isFinite(obj.position.y)) {
-                obj.position.y = STAGE_HEIGHT / 2;
+                obj.position.y = center.y;
                 plog.warn('Fixed invalid position.y');
             }
         }
@@ -1523,11 +1661,11 @@ class LevelEditor {
             
             if (obj.orbitSystem.orbitCenter) {
                 if (isNaN(obj.orbitSystem.orbitCenter.x) || !isFinite(obj.orbitSystem.orbitCenter.x)) {
-                    obj.orbitSystem.orbitCenter.x = STAGE_WIDTH / 2;
+                    obj.orbitSystem.orbitCenter.x = center.x;
                     plog.warn('Fixed invalid orbit center x');
                 }
                 if (isNaN(obj.orbitSystem.orbitCenter.y) || !isFinite(obj.orbitSystem.orbitCenter.y)) {
-                    obj.orbitSystem.orbitCenter.y = STAGE_HEIGHT / 2;
+                    obj.orbitSystem.orbitCenter.y = center.y;
                     plog.warn('Fixed invalid orbit center y');
                 }
             }
@@ -1535,12 +1673,13 @@ class LevelEditor {
     }
     
     getDefaultValue(property) {
+        const center = this.getPlayfieldCenter();
         const defaults = {
             // Position properties
-            'x': STAGE_WIDTH / 2,
-            'y': STAGE_HEIGHT / 2,
-            'position.x': STAGE_WIDTH / 2,
-            'position.y': STAGE_HEIGHT / 2,
+            'x': center.x,
+            'y': center.y,
+            'position.x': center.x,
+            'position.y': center.y,
             
             // Size properties
             'radius': LEVEL_DEFAULTS.planet.radius,
@@ -1554,8 +1693,8 @@ class LevelEditor {
             'orbitRadius': EDITOR_CONFIG.authoringDefaults.orbit.radius,
             'orbitSpeed': EDITOR_CONFIG.authoringDefaults.orbit.speed,
             'orbitAngle': 0,
-            'orbitCenterX': STAGE_WIDTH / 2,
-            'orbitCenterY': STAGE_HEIGHT / 2,
+            'orbitCenterX': center.x,
+            'orbitCenterY': center.y,
             'gravityStrength': EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength,
             'velocityX': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.x,
             'velocityY': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.y,
@@ -1765,8 +1904,13 @@ class LevelEditor {
     }
     
     addObject(className) {
-        const centerX = STAGE_WIDTH / 2;
-        const centerY = STAGE_HEIGHT / 2;
+        const view = this.editorCamera?.viewRect || this.game.stageRect;
+        const centerX = view.x + view.width / 2;
+        const centerY = view.y + view.height / 2;
+        if (className === 'Portal') {
+            this.addPortalPairAt(centerX, centerY);
+            return;
+        }
         
         if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
             plog.error('Unknown class:', className);
@@ -1823,7 +1967,8 @@ class LevelEditor {
                 fontSize: LEVEL_DEFAULTS.text.fontSize,
                 color: LEVEL_DEFAULTS.text.color
             }],
-            'PointingArrow': [x, y, { baseWidth: LEVEL_DEFAULTS.pointingArrow.baseWidth }]
+            'PointingArrow': [x, y, { baseWidth: LEVEL_DEFAULTS.pointingArrow.baseWidth }],
+            'Portal': [x, y, { ...LEVEL_DEFAULTS.portal }]
         };
         
         const params = defaults[className] || [x, y];
@@ -1933,7 +2078,7 @@ class LevelEditor {
         `;
         
         // Convert canvas coordinates to screen coordinates
-        const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y);
+        const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y, this.editorCamera);
         const screenX = screenPoint.x;
         const screenY = screenPoint.y;
         
@@ -1984,6 +2129,10 @@ class LevelEditor {
     }
     
     addObjectAtPosition(className, x, y) {
+        if (className === 'Portal') {
+            this.addPortalPairAt(x, y);
+            return;
+        }
         if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
             console.error('Unknown class:', className);
             return;
@@ -2013,6 +2162,71 @@ class LevelEditor {
         }
     }
 
+    addPortalPairAt(x, y) {
+        const PortalConstructor = this.gameObjectClasses?.Portal;
+        if (!PortalConstructor) return false;
+        const usedIds = new Set((this.game.portals || []).map(portal => portal.id));
+        let number = 1;
+        while (usedIds.has(`portal_pair_${number}_red`) || usedIds.has(`portal_pair_${number}_blue`)) number++;
+        const redId = `portal_pair_${number}_red`;
+        const blueId = `portal_pair_${number}_blue`;
+        const offset = Math.max(55, LEVEL_DEFAULTS.portal.width * 1.5);
+        const red = new PortalConstructor(x - offset, y, {
+            ...LEVEL_DEFAULTS.portal,
+            color: 'red', pairedPortalId: blueId, rotation: 0
+        });
+        const blue = new PortalConstructor(x + offset, y, {
+            ...LEVEL_DEFAULTS.portal,
+            color: 'blue', pairedPortalId: redId, rotation: 180
+        });
+        red.id = redId;
+        blue.id = blueId;
+        red.name = `Portal Pair ${number} Red`;
+        blue.name = `Portal Pair ${number} Blue`;
+        const added = this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
+            objects: [red, blue], operation: 'add'
+        });
+        if (added) this.selectObject(red);
+        return added;
+    }
+
+    clonePortalPair(selected) {
+        const pair = (this.game.portals || []).find(portal => portal.id === selected.pairedPortalId);
+        const PortalConstructor = this.gameObjectClasses?.Portal;
+        if (!pair || !PortalConstructor) return false;
+        const redSource = selected.color === 'red' ? selected : pair;
+        const blueSource = selected.color === 'blue' ? selected : pair;
+        const usedIds = new Set(this.game.portals.map(portal => portal.id));
+        let number = 1;
+        while (usedIds.has(`portal_pair_${number}_red`) || usedIds.has(`portal_pair_${number}_blue`)) number++;
+        const redId = `portal_pair_${number}_red`;
+        const blueId = `portal_pair_${number}_blue`;
+        const cloneEndpoint = (source, id, pairedPortalId) => {
+            const clone = new PortalConstructor(
+                source.position.x + EDITOR_CONFIG.cloneOffset.x,
+                source.position.y + EDITOR_CONFIG.cloneOffset.y,
+                {
+                    width: source.width,
+                    height: source.height,
+                    rotation: source.rotation,
+                    color: source.color,
+                    playSound: source.playSound,
+                    pairedPortalId
+                }
+            );
+            clone.id = id;
+            clone.name = `Portal Pair ${number} ${source.color === 'red' ? 'Red' : 'Blue'}`;
+            return clone;
+        };
+        const red = cloneEndpoint(redSource, redId, blueId);
+        const blue = cloneEndpoint(blueSource, blueId, redId);
+        const added = this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
+            objects: [red, blue], operation: 'add'
+        });
+        if (added) this.selectObject(red);
+        return added;
+    }
+
     exportLevel() {
         const levelData = this.game.exportCurrentLevel();
         const filename = `custom_level_${Date.now()}.json`;
@@ -2035,6 +2249,10 @@ class LevelEditor {
         }
         if (this.selectedObject.isLevelSettings) {
             plog.warn('Level Settings cannot be cloned');
+            return;
+        }
+        if (this.selectedObject.constructor.name === 'Portal') {
+            this.clonePortalPair(this.selectedObject);
             return;
         }
         const selectedClassName = this.selectedObject.constructor.name;
@@ -2106,7 +2324,7 @@ class LevelEditor {
         };
         
         // Serialize basic properties including name
-        const basicProps = ['name', 'x', 'y', 'width', 'height', 'radius', 'mass', 'rotation', 'alpha', 'visible'];
+        const basicProps = ['id', 'name', 'x', 'y', 'width', 'height', 'radius', 'mass', 'rotation', 'alpha', 'visible'];
         basicProps.forEach(prop => {
             if (obj[prop] !== undefined) {
                 data.properties[prop] = obj[prop];
@@ -2154,6 +2372,11 @@ class LevelEditor {
                             data.properties[prop] = obj[prop];
                         }
                     }
+                });
+                break;
+            case 'Portal':
+                ['pairedPortalId', 'color', 'playSound'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
                 });
                 break;
         }
@@ -2252,6 +2475,20 @@ class LevelEditor {
                 if (props.pointingAt) {
                     clonedObject.pointingAt = { x: props.pointingAt.x, y: props.pointingAt.y };
                 }
+                break;
+            case 'Portal':
+                clonedObject = new ClassConstructor(
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    {
+                        width: props.width,
+                        height: props.height,
+                        rotation: props.rotation,
+                        color: props.color,
+                        pairedPortalId: props.pairedPortalId,
+                        playSound: props.playSound
+                    }
+                );
                 break;
             default:
                 // Generic fallback

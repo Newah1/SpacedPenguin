@@ -389,6 +389,30 @@ test('level editor root settings update metadata, positions, and live gravity', 
     assert.equal(editor.game.physics.gravitationalConstant, 2.5);
 });
 
+test('level editor expansion derives loss buffers and opts legacy levels into fit framing', () => {
+    const calls = [];
+    const editor = Object.create(LevelEditor.prototype);
+    editor.fitEditorCamera = () => calls.push('fit editor');
+    editor.game = {
+        levelMetadata: {},
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        flightRect: { x: -400, y: -400, width: 2400, height: 2200 },
+        cameraConfig: null,
+        arrow: { setFlightRect: rect => calls.push(['flight', { ...rect }]) },
+        resetWorldCamera: () => calls.push('reset gameplay'),
+        invalidateSimulationState: () => calls.push('invalidate')
+    };
+
+    editor.updateLevelSetting('playfieldWidth', 2400);
+    editor.updateLevelSetting('playfieldHeight', 1800);
+
+    assert.deepEqual(editor.game.stageRect, { x: 0, y: 0, width: 2400, height: 1800 });
+    assert.deepEqual(editor.game.flightRect, { x: -200, y: -200, width: 2800, height: 2200 });
+    assert.deepEqual(editor.game.cameraConfig, { mode: 'fit' });
+    assert.equal(calls.filter(call => call === 'fit editor').length, 2);
+    assert.equal(calls.filter(call => call === 'reset gameplay').length, 2);
+});
+
 test('level export uses editor-authored root metadata', () => {
     const game = {
         level: 1,
@@ -397,6 +421,9 @@ test('level export uses editor-authored root metadata', () => {
         slingshot: { position: { x: 100, y: 200 } },
         penguin: null,
         target: { position: { x: 700, y: 300 } },
+        stageRect: { x: 0, y: 0, width: 2400, height: 1800 },
+        flightRect: { x: -200, y: -200, width: 2800, height: 2200 },
+        cameraConfig: { mode: 'follow', zoom: 1 },
         getAllObjectsForExport: () => []
     };
 
@@ -404,6 +431,9 @@ test('level export uses editor-authored root metadata', () => {
 
     assert.equal(exported.name, 'Root settings test');
     assert.equal(exported.description, 'Saved from the editor');
+    assert.deepEqual(exported.bounds.stage, game.stageRect);
+    assert.deepEqual(exported.bounds.flight, game.flightRect);
+    assert.deepEqual(exported.camera, game.cameraConfig);
 });
 
 test('text factory restores an explicitly exported wrap limit', () => {

@@ -1,5 +1,5 @@
 import { SIMULATION_CONFIG } from './config/gameConfig.js';
-import { stepSimulationMutable } from './simulationEngine.js';
+import { SimulationEventType, stepSimulationMutable } from './simulationEngine.js';
 import { cloneSimulationState } from './simulationState.js';
 
 export function predictAimAssistTrajectory(stateInput, velocity, options = {}) {
@@ -15,7 +15,13 @@ export function predictAimAssistTrajectory(stateInput, velocity, options = {}) {
     const sampleEverySteps = Math.max(1, Math.round(config.sampleEverySteps));
 
     for (let step = 1; step <= totalSteps; step++) {
-        stepSimulationMutable(state, config.timeStep, { emitMovementEvents: false });
+        const result = stepSimulationMutable(state, config.timeStep, { emitMovementEvents: false });
+        for (const event of result.events) {
+            if (event.type === SimulationEventType.PORTAL_TELEPORTED) {
+                points.push({ ...event.entryPosition });
+                points.push({ ...event.exitPosition, move: true });
+            }
+        }
         const terminal = state.penguin.state !== 'soaring';
         if (terminal || step % sampleEverySteps === 0 || step === totalSteps) {
             points.push({ ...state.penguin.position });
