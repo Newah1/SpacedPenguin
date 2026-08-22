@@ -49,7 +49,7 @@ The browser calls the immutable `stepSimulation()` API. Headless sweeps use the 
 3. Gameplay changes enter through the shared simulation kernel. Visual objects must not independently advance flight or orbit physics during normal game frames.
 4. Level validation occurs before the current world is cleared or mutated.
 5. Shared object/orbit vocabulary belongs in `levelSchema.js`, not in individual loaders or tools.
-6. Object-referenced orbits require unique IDs and an acyclic reference graph. Only planets and bonuses may be orbit targets; planet, bonus, and target objects may be orbit sources.
+6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, and bonuses may be orbit targets; planets, black holes, bonuses, and targets may be orbit sources.
 7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
 8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
 9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.

@@ -360,7 +360,11 @@ function collectBonuses(state, events) {
 }
 
 function findPlanetCollision(position, planets, penguinRadius = 0) {
-    return planets.findIndex(planet => circlesOverlap(position, penguinRadius, planet.position, planet.collisionRadius));
+    return planets.findIndex(planet =>
+        planet.collidable !== false &&
+        planet.collisionRadius > 0 &&
+        circlesOverlap(position, penguinRadius, planet.position, planet.collisionRadius)
+    );
 }
 
 export function resolvePlanetBounce(position, velocity, planet, penguinRadius = 0) {

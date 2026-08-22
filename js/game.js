@@ -2,6 +2,7 @@
 // Based on the original game loop and GPS scripts
 
 import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal } from './gameObjects.js';
+import { BlackHole } from './blackHole.js';
 import { Penguin } from './penguin.js';
 import { Physics } from './physics.js';
 import Utils from './utils.js';
@@ -219,6 +220,7 @@ class Game {
         // Pass ALL class references to level editor for object creation
         this.levelEditor.gameObjectClasses = {
             Planet,
+            BlackHole,
             Bonus,
             BonusPopup,
             Target,
@@ -2327,6 +2329,7 @@ class Game {
         // Define properties to extract for each class type
         const propertyMaps = {
             'Planet': ['radius', 'mass', 'collisionRadius', 'gravitationalReach', 'color', 'planetType'],
+            'BlackHole': ['radius', 'mass', 'gravitationalReach'],
             'Bonus': ['value', 'rotationSpeed', 'state', 'collectedRotationSpeed'],
             'Target': ['width', 'height', 'spriteType'], // Target uses width/height, not radius
             'Slingshot': ['anchorX', 'anchorY', 'stretchLimit', 'velocityMultiplier'],
