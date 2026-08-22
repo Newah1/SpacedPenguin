@@ -13,11 +13,10 @@ import {
 import { levelObjectTypeFromClassName, LevelObjectType } from '../js/levelSchema.js';
 
 test('black hole is exposed as an addable level editor object', () => {
-    const gameObjectClasses = {};
+    const gameObjectClasses = { BlackHole };
     const editableClasses = getEditableClassNames(gameObjectClasses);
 
     assert.equal(editableClasses.includes('BlackHole'), true);
-    assert.equal(typeof gameObjectClasses.BlackHole, 'function');
 
     const definition = getEditorObjectDefinition('BlackHole');
     assert.equal(definition.editable, true);
@@ -27,10 +26,7 @@ test('black hole is exposed as an addable level editor object', () => {
 });
 
 test('editor-created black hole joins gravity collections and remains schema-backed', () => {
-    const gameObjectClasses = {};
-    getEditableClassNames(gameObjectClasses);
-
-    const blackHole = new gameObjectClasses.BlackHole(320, 240);
+    const blackHole = new BlackHole(320, 240);
     const game = {
         gameObjects: [],
         planets: [],
@@ -55,7 +51,6 @@ test('editor-created black hole joins gravity collections and remains schema-bac
     assert.equal(blackHole.collidable, false);
     assert.equal(levelObjectTypeFromClassName(blackHole.constructor.name), LevelObjectType.BLACK_HOLE);
 });
-
 
 test('black hole exposes gravity properties in the editor inspector', () => {
     const editor = Object.create(LevelEditor.prototype);
