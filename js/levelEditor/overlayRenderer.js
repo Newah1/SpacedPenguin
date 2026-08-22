@@ -1,9 +1,11 @@
 import { EDITOR_CONFIG } from '../config/editorConfig.js';
 import { LevelOrbitType } from '../levelSchema.js';
+import EditorRuntimeController from './editorRuntimeController.js';
 
 export class LevelEditorOverlayRenderer {
     constructor(editor) {
         this.editor = editor;
+        this.runtimeController = new EditorRuntimeController(editor);
     }
 
     render(ctx) {
@@ -13,6 +15,7 @@ export class LevelEditorOverlayRenderer {
         this.drawGrid(ctx);
         this.drawGravitySculpt(ctx);
         this.drawAllOrbitCenters(ctx);
+        this.runtimeController.draw(ctx);
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
             this.drawPortalPairLine(ctx, editor.selectedObject);
             this.drawSelectionHighlight(ctx, editor.selectedObject);
