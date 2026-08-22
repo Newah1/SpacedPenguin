@@ -1,9 +1,23 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
-import { LEVEL_ORBIT_TYPES, LevelOrbitType } from './levelSchema.js';
+import { LevelOrbitType } from './levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, createWorldCamera, screenToStage, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
+import {
+    BASIC_SERIALIZED_OBJECT_PROPERTIES,
+    CLASS_SERIALIZED_OBJECT_PROPERTIES,
+    COMMON_OBJECT_PROPERTY_FIELDS,
+    EDITABLE_STATE_PROPERTIES,
+    EDITOR_INSPECTOR_DEFAULTS,
+    EDITOR_NUMERIC_FALLBACKS,
+    EDITOR_OBJECT_SPRITE_DEFAULTS,
+    EDITOR_SPRITE_OPTIONS,
+    LEVEL_SETTING_FIELDS,
+    OBJECT_PROPERTY_FIELDS,
+    ORBIT_EDITOR_PROPERTY_KEYS,
+    ORBIT_PROPERTY_FIELDS
+} from './config/editorInspectorConfig.js';
 import { OrbitSystem } from './gameObjects.js';
 import { getEditableClassNames, getEditorObjectDefinition } from './editorObjectRegistry.js';
 import LiveLevelMutator from './liveLevelMutator.js';
@@ -22,19 +36,7 @@ import {
     isTouchViewport
 } from './config/inputConfig.js';
 
-const EDITABLE_STATE_PROPERTIES = Object.freeze([
-    'name', 'rotation', 'alpha', 'visible', 'radius', 'width', 'height', 'mass',
-    'collisionRadius', 'gravitationalReach', 'color', 'planetType', 'value',
-    'rotationSpeed', 'state', 'spriteType', 'maxPullback', 'stretchLimit',
-    'velocityMultiplier', 'content', 'fontSize', 'fontFamily', 'textAlign',
-    'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth',
-    'glowColor', 'scaleWithDistance', 'playSound', 'pairedPortalId'
-]);
-const ORBIT_EDITOR_PROPERTIES = new Set([
-    'orbitTargetType', 'orbitTargetId', 'orbitCenterX', 'orbitCenterY',
-    'orbitRadius', 'orbitSpeed', 'orbitType', 'gravityStrength',
-    'velocityX', 'velocityY', 'validateObject'
-]);
+const ORBIT_EDITOR_PROPERTIES = new Set(ORBIT_EDITOR_PROPERTY_KEYS);
 
 function cloneEditValue(value) {
     return value === undefined ? undefined : structuredClone(value);
@@ -690,13 +692,10 @@ class LevelEditor {
     getEditableProperties(obj) {
         const properties = [];
         const className = obj.constructor.name;
-        
-        // Name property (always first)
-        properties.push({ 
-            label: 'Name', 
-            key: 'name', 
-            value: obj.name || this.generateObjectName(obj, className), 
-            type: 'text' 
+
+        properties.push({
+            ...COMMON_OBJECT_PROPERTY_FIELDS.name,
+            value: obj.name || this.generateObjectName(obj, className)
         });
         
         // Position properties (handled specially due to different coordinate systems)
@@ -710,19 +709,18 @@ class LevelEditor {
         }
         
         if (objX !== undefined) {
-            properties.push({ label: 'X Position', key: 'x', value: objX, type: 'number' });
-            properties.push({ label: 'Y Position', key: 'y', value: objY, type: 'number' });
+            properties.push({ ...COMMON_OBJECT_PROPERTY_FIELDS.x, value: objX });
+            properties.push({ ...COMMON_OBJECT_PROPERTY_FIELDS.y, value: objY });
         }
         
-        // Common GameObject properties
         if (obj.rotation !== undefined) {
-            properties.push({ label: 'Rotation', key: 'rotation', value: obj.rotation, type: 'number' });
+            properties.push({ ...COMMON_OBJECT_PROPERTY_FIELDS.rotation, value: obj.rotation });
         }
         if (obj.alpha !== undefined) {
-            properties.push({ label: 'Alpha', key: 'alpha', value: obj.alpha, type: 'number', min: 0, max: 1, step: 0.1 });
+            properties.push({ ...COMMON_OBJECT_PROPERTY_FIELDS.alpha, value: obj.alpha });
         }
         if (obj.visible !== undefined) {
-            properties.push({ label: 'Visible', key: 'visible', value: obj.visible, type: 'checkbox' });
+            properties.push({ ...COMMON_OBJECT_PROPERTY_FIELDS.visible, value: obj.visible });
         }
         
         // Class-specific properties using reflection
@@ -743,25 +741,30 @@ class LevelEditor {
         const rules = this.game.levelRules || {};
         const start = this.game.slingshot?.position || this.game.penguin || { x: 0, y: 0 };
         const target = this.game.target?.position || { x: 0, y: 0 };
+        const values = {
+            levelName: metadata.name || '',
+            levelDescription: metadata.description || '',
+            playfieldWidth: this.game.stageRect.width,
+            playfieldHeight: this.game.stageRect.height,
+            cameraMode: this.game.cameraConfig?.mode || EDITOR_INSPECTOR_DEFAULTS.cameraMode,
+            cameraZoom: this.game.cameraConfig?.zoom ?? EDITOR_INSPECTOR_DEFAULTS.cameraZoom,
+            startX: start.x,
+            startY: start.y,
+            targetX: target.x,
+            targetY: target.y,
+            maxTries: rules.maxTries,
+            timeLimit: rules.timeLimit,
+            scoreMultiplier: rules.scoreMultiplier ?? EDITOR_INSPECTOR_DEFAULTS.scoreMultiplier,
+            requiredBonuses: rules.requiredBonuses,
+            allowedMisses: rules.allowedMisses,
+            gravitationalConstant: rules.gravitationalConstant ?? EDITOR_INSPECTOR_DEFAULTS.gravitationalConstant
+        };
 
-        return [
-            { label: 'Level Name', key: 'levelName', value: metadata.name || '', type: 'text' },
-            { label: 'Description', key: 'levelDescription', value: metadata.description || '', type: 'text' },
-            { label: 'Playfield Width', key: 'playfieldWidth', value: this.game.stageRect.width, type: 'number', min: EDITOR_CONFIG.playfield.minimumWidth, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
-            { label: 'Playfield Height', key: 'playfieldHeight', value: this.game.stageRect.height, type: 'number', min: EDITOR_CONFIG.playfield.minimumHeight, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
-            { label: 'Gameplay Camera', key: 'cameraMode', value: this.game.cameraConfig?.mode || 'legacy', type: 'select', options: ['legacy', 'fit', 'follow'] },
-            { label: 'Follow Zoom', key: 'cameraZoom', value: this.game.cameraConfig?.zoom ?? 1, type: 'number', min: EDITOR_CONFIG.playfield.minimumZoom, max: EDITOR_CONFIG.playfield.maximumZoom, step: 0.05 },
-            { label: 'Start X', key: 'startX', value: start.x, type: 'number' },
-            { label: 'Start Y', key: 'startY', value: start.y, type: 'number' },
-            { label: 'Target X', key: 'targetX', value: target.x, type: 'number' },
-            { label: 'Target Y', key: 'targetY', value: target.y, type: 'number' },
-            { label: 'Max Tries', key: 'maxTries', value: rules.maxTries, type: 'nullableNumber', min: 1, step: 1 },
-            { label: 'Time Limit', key: 'timeLimit', value: rules.timeLimit, type: 'nullableNumber', min: 0.01 },
-            { label: 'Score Multiplier', key: 'scoreMultiplier', value: rules.scoreMultiplier ?? 1, type: 'number', min: 0.01 },
-            { label: 'Required Bonuses', key: 'requiredBonuses', value: rules.requiredBonuses, type: 'nullableNumber', min: 0, max: this.game.bonuses?.length ?? 0, step: 1 },
-            { label: 'Allowed Misses', key: 'allowedMisses', value: rules.allowedMisses, type: 'nullableNumber', min: 0, step: 1 },
-            { label: 'Gravitational Constant', key: 'gravitationalConstant', value: rules.gravitationalConstant ?? 3, type: 'number', min: 0 }
-        ];
+        return LEVEL_SETTING_FIELDS.map(({ dynamicMax, ...field }) => ({
+            ...field,
+            value: values[field.key],
+            ...(dynamicMax === 'bonusCount' ? { max: this.game.bonuses?.length ?? 0 } : {})
+        }));
     }
     
     getAvailableObjectIds() {
@@ -793,75 +796,10 @@ class LevelEditor {
     
     getClassSpecificProperties(obj, className) {
         const properties = [];
-        
-        // Define editable properties for each class
-        const propertyMaps = {
-            'Planet': [
-                { key: 'radius', label: 'Radius', type: 'number', min: 1 },
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'mass', label: 'Mass', type: 'number', min: 0 },
-                { key: 'collisionRadius', label: 'Collision Radius', type: 'number', min: 1 },
-                { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 },
-                { key: 'color', label: 'Color', type: 'color' },
-                { key: 'planetType', label: 'Planet Sprite', type: 'select', options: this.getPlanetSpriteOptions() }
-            ],
-            'BlackHole': [
-                { key: 'radius', label: 'Radius', type: 'number', min: 1 },
-                { key: 'mass', label: 'Mass', type: 'number', min: 0 },
-                { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 }
-            ],
-            'Bonus': [
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'value', label: 'Value', type: 'number', min: 1 },
-                { key: 'rotationSpeed', label: 'Rotation Speed', type: 'number' },
-                { key: 'state', label: 'State', type: 'select', options: ['notHit', 'Hit'] }
-            ],
-            'Target': [
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'spriteType', label: 'Ship Sprite', type: 'select', options: this.getShipSpriteOptions() }
-            ],
-            'Slingshot': [
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'maxPullback', label: 'Max Pullback', type: 'number', min: 10 },
-                { key: 'velocityMultiplier', label: 'Velocity Multiplier', type: 'number', min: 1 }
-            ],
-            'TextObject': [
-                { key: 'content', label: 'Text Content', type: 'text' },
-                { key: 'width', label: 'Width / Wrap Limit', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 72 },
-                { key: 'color', label: 'Color', type: 'color' },
-                { key: 'fontFamily', label: 'Font Family', type: 'text' },
-                { key: 'textAlign', label: 'Text Align', type: 'select', options: ['left', 'center', 'right'] },
-                { key: 'backgroundColor', label: 'Background Color', type: 'color' },
-                { key: 'autoSize', label: 'Auto Size', type: 'checkbox' },
-                { key: 'visible', label: 'Visible', type: 'checkbox' }
-            ],
-            'PointingArrow': [
-                { key: 'pointingAtX', label: 'Target X', type: 'number' },
-                { key: 'pointingAtY', label: 'Target Y', type: 'number' },
-                { key: 'width', label: 'Width', type: 'number', min: 1 },
-                { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'color', label: 'Color', type: 'color' },
-                { key: 'glowColor', label: 'Glow Color', type: 'color' },
-                { key: 'baseWidth', label: 'Base Width', type: 'number', min: 10 },
-                { key: 'scaleWithDistance', label: 'Scale with Distance', type: 'checkbox' },
-                { key: 'visible', label: 'Visible', type: 'checkbox' }
-            ],
-            'Portal': [
-                { key: 'width', label: 'Width', type: 'number', min: 8 },
-                { key: 'height', label: 'Height', type: 'number', min: 6 },
-                { key: 'playSound', label: 'Play Woosh Sound', type: 'checkbox' }
-            ]
-        };
-        
-        const classProps = propertyMaps[className] || [];
+        const classProps = OBJECT_PROPERTY_FIELDS[className] || [];
         
         classProps.forEach(propDef => {
+            const { optionsFrom, ...field } = propDef;
             let value;
             
             // Handle special nested properties
@@ -880,14 +818,11 @@ class LevelEditor {
             }
             
             properties.push({
-                label: propDef.label,
-                key: propDef.key,
-                value: value,
-                type: propDef.type,
-                min: propDef.min,
-                max: propDef.max,
-                step: propDef.step,
-                options: propDef.options
+                ...field,
+                value,
+                options: optionsFrom
+                    ? EDITOR_SPRITE_OPTIONS[optionsFrom]
+                    : propDef.options
             });
         });
         
@@ -899,109 +834,45 @@ class LevelEditor {
         const orbitSystem = obj.orbitSystem;
         
         if (orbitSystem) {
-            // Orbit target selection (object vs fixed position)
-            properties.push({ 
-                label: 'Orbit Target', 
-                key: 'orbitTargetType', 
-                value: orbitSystem.orbitTargetId ? 'object' : 'position', 
-                type: 'select',
-                options: ['none', 'position', 'object']
+            properties.push({
+                ...ORBIT_PROPERTY_FIELDS.targetType,
+                value: orbitSystem.orbitTargetId ? 'object' : 'position'
             });
             
-            // Object target selection
             if (orbitSystem.orbitTargetId) {
-                properties.push({ 
-                    label: 'Target Object ID', 
-                    key: 'orbitTargetId', 
-                    value: orbitSystem.orbitTargetId, 
-                    type: 'select',
+                properties.push({
+                    ...ORBIT_PROPERTY_FIELDS.targetId,
+                    value: orbitSystem.orbitTargetId,
                     options: this.getAvailableObjectIds()
                 });
-            } else if (orbitSystem.orbitCenter) {
-                // Fixed position orbit
-                properties.push({ 
-                    label: 'Orbit Center X', 
-                    key: 'orbitCenterX', 
-                    value: orbitSystem.orbitCenter.x, 
-                    type: 'number' 
-                });
-                properties.push({ 
-                    label: 'Orbit Center Y', 
-                    key: 'orbitCenterY', 
-                    value: orbitSystem.orbitCenter.y, 
-                    type: 'number' 
-                });
             } else {
-                // Default to position mode
-                properties.push({ 
-                    label: 'Orbit Center X', 
-                    key: 'orbitCenterX', 
-                    value: 0, 
-                    type: 'number' 
+                properties.push({
+                    ...ORBIT_PROPERTY_FIELDS.centerX,
+                    value: orbitSystem.orbitCenter?.x ?? 0
                 });
-                properties.push({ 
-                    label: 'Orbit Center Y', 
-                    key: 'orbitCenterY', 
-                    value: 0, 
-                    type: 'number' 
+                properties.push({
+                    ...ORBIT_PROPERTY_FIELDS.centerY,
+                    value: orbitSystem.orbitCenter?.y ?? 0
                 });
             }
             
-            // Orbit properties
-            properties.push({ 
-                label: 'Orbit Radius', 
-                key: 'orbitRadius', 
-                value: orbitSystem.orbitRadius || 0, 
-                type: 'number', 
-                min: 0 
-            });
-            properties.push({ 
-                label: 'Orbit Speed', 
-                key: 'orbitSpeed', 
-                value: orbitSystem.orbitSpeed || 0, 
-                type: 'number' 
-            });
-            properties.push({ 
-                label: 'Orbit Type', 
-                key: 'orbitType', 
-                value: orbitSystem.orbitType || LevelOrbitType.CIRCULAR,
-                type: 'select', 
-                options: LEVEL_ORBIT_TYPES
-            });
-            
-            // Add gravity-specific properties
-            if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
-                properties.push({ 
-                    label: 'Gravity Strength', 
-                    key: 'gravityStrength', 
-                    value: orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
-                    type: 'number',
-                    min: 100,
-                    max: 10000,
-                    step: 100
-                });
-                properties.push({ 
-                    label: 'Initial Velocity X', 
-                    key: 'velocityX', 
-                    value: orbitSystem.velocity?.x || 0, 
-                    type: 'number'
-                });
-                properties.push({ 
-                    label: 'Initial Velocity Y', 
-                    key: 'velocityY', 
-                    value: orbitSystem.velocity?.y || 0, 
-                    type: 'number'
-                });
-                // Reset button added as quick action instead
-            }
-            
-            // Add validation button for all orbit types
+            properties.push({ ...ORBIT_PROPERTY_FIELDS.radius, value: orbitSystem.orbitRadius || 0 });
+            properties.push({ ...ORBIT_PROPERTY_FIELDS.speed, value: orbitSystem.orbitSpeed || 0 });
             properties.push({
-                label: 'Validate & Fix Values',
-                key: 'validateObject',
-                type: 'button',
-                buttonText: 'Fix Invalid Values'
+                ...ORBIT_PROPERTY_FIELDS.type,
+                value: orbitSystem.orbitType || EDITOR_INSPECTOR_DEFAULTS.orbitType
             });
+            
+            if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
+                properties.push({
+                    ...ORBIT_PROPERTY_FIELDS.gravityStrength,
+                    value: orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength
+                });
+                properties.push({ ...ORBIT_PROPERTY_FIELDS.velocityX, value: orbitSystem.velocity?.x || 0 });
+                properties.push({ ...ORBIT_PROPERTY_FIELDS.velocityY, value: orbitSystem.velocity?.y || 0 });
+            }
+            
+            properties.push({ ...ORBIT_PROPERTY_FIELDS.validate });
         }
         
         return properties;
@@ -1679,39 +1550,16 @@ class LevelEditor {
     
     getDefaultValue(property) {
         const center = this.getPlayfieldCenter();
-        const defaults = {
-            // Position properties
-            'x': center.x,
-            'y': center.y,
+        const positionFallbacks = {
+            x: center.x,
+            y: center.y,
             'position.x': center.x,
             'position.y': center.y,
-            
-            // Size properties
-            'radius': LEVEL_DEFAULTS.planet.radius,
-            'mass': LEVEL_DEFAULTS.planet.mass,
-            'gravitationalReach': LEVEL_DEFAULTS.planet.gravitationalReach,
-            'width': LEVEL_DEFAULTS.target.width,
-            'height': LEVEL_DEFAULTS.target.height,
-            'value': LEVEL_DEFAULTS.bonus.value,
-            
-            // Orbit properties
-            'orbitRadius': EDITOR_CONFIG.authoringDefaults.orbit.radius,
-            'orbitSpeed': EDITOR_CONFIG.authoringDefaults.orbit.speed,
-            'orbitAngle': 0,
-            'orbitCenterX': center.x,
-            'orbitCenterY': center.y,
-            'gravityStrength': EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength,
-            'velocityX': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.x,
-            'velocityY': EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.y,
-            
-            // Physics properties
-            'stretchLimit': LEVEL_DEFAULTS.slingshot.maxPullback,
-            'velocityMultiplier': LEVEL_DEFAULTS.slingshot.velocityMultiplier,
-            'fontSize': LEVEL_DEFAULTS.text.fontSize,
-            'padding': LEVEL_DEFAULTS.text.padding
+            orbitCenterX: center.x,
+            orbitCenterY: center.y
         };
-        
-        return defaults[property] !== undefined ? defaults[property] : 0;
+
+        return positionFallbacks[property] ?? EDITOR_NUMERIC_FALLBACKS[property] ?? 0;
     }
     
     updateSpriteProperty(property, value, obj = this.selectedObject) {
@@ -1992,26 +1840,10 @@ class LevelEditor {
     }
     
     setObjectSpriteDefaults(obj, className) {
-        // Set sensible sprite defaults for new objects
-        switch (className) {
-            case 'Planet':
-                if (!obj.planetType) {
-                    obj.planetType = 'planet_grey';
-                }
-                this.refreshPlanetSprite(obj);
-                break;
-                
-            case 'Target':
-                if (!obj.spriteType) {
-                    obj.spriteType = 'ship_open';
-                }
-                this.refreshTargetSprite(obj);
-                break;
-                
-            case 'Bonus':
-                // Bonus sprites are handled automatically by the Bonus class
-                break;
-        }
+        const definition = EDITOR_OBJECT_SPRITE_DEFAULTS[className];
+        if (!definition) return;
+        if (!obj[definition.property]) obj[definition.property] = definition.value;
+        this[definition.refreshMethod](obj);
     }
     
     addObjectToGame(obj, className, { recordHistory = true } = {}) {
@@ -2334,9 +2166,7 @@ class LevelEditor {
             properties: {}
         };
         
-        // Serialize basic properties including name
-        const basicProps = ['id', 'name', 'x', 'y', 'width', 'height', 'radius', 'mass', 'rotation', 'alpha', 'visible'];
-        basicProps.forEach(prop => {
+        BASIC_SERIALIZED_OBJECT_PROPERTIES.forEach(prop => {
             if (obj[prop] !== undefined) {
                 data.properties[prop] = obj[prop];
             }
@@ -2347,54 +2177,12 @@ class LevelEditor {
             data.properties.position = { x: obj.position.x, y: obj.position.y };
         }
         
-        // Handle class-specific properties
-        switch (obj.constructor.name) {
-            case 'Planet':
-                ['planetType', 'collisionRadius', 'gravitationalReach', 'color'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'BlackHole':
-                ['gravitationalReach', 'collisionRadius', 'collidable'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'Bonus':
-                ['value', 'rotationSpeed', 'state'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'Target':
-                ['spriteType'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'Slingshot':
-                ['maxPullback', 'velocityMultiplier', 'anchorX', 'anchorY'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'TextObject':
-                ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'padding', 'maxWidth', 'autoSize'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
-            case 'PointingArrow':
-                ['pointingAt', 'baseWidth', 'color', 'glowColor', 'scaleWithDistance'].forEach(prop => {
-                    if (obj[prop] !== undefined) {
-                        if (prop === 'pointingAt' && obj[prop]) {
-                            data.properties[prop] = { x: obj[prop].x, y: obj[prop].y };
-                        } else {
-                            data.properties[prop] = obj[prop];
-                        }
-                    }
-                });
-                break;
-            case 'Portal':
-                ['pairedPortalId', 'color', 'playSound'].forEach(prop => {
-                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
-                });
-                break;
+        const classProperties = CLASS_SERIALIZED_OBJECT_PROPERTIES[obj.constructor.name] || [];
+        for (const property of classProperties) {
+            if (obj[property] === undefined) continue;
+            data.properties[property] = property === 'pointingAt' && obj[property]
+                ? { x: obj[property].x, y: obj[property].y }
+                : obj[property];
         }
         
         // Handle orbit system
@@ -2604,23 +2392,16 @@ class LevelEditor {
         this.overlayRenderer.render(ctx);
     }
 
-    // Sprite option methods
     getPlanetSpriteOptions() {
-        // Get available planet sprites from the game's asset loader
-        const options = ['planet_grey', 'planet_pink', 'planet_red_gumball', 'planet_saturn', 'planet_sun'];
-        return options;
+        return EDITOR_SPRITE_OPTIONS.planetSprites;
     }
     
     getShipSpriteOptions() {
-        // Get available ship sprites for targets
-        const options = ['ship_closed', 'ship_open'];
-        return options;
+        return EDITOR_SPRITE_OPTIONS.shipSprites;
     }
     
     getBonusSpriteOptions() {
-        // Get available bonus sprites
-        const options = ['bonus', 'bonus_hit'];
-        return options;
+        return EDITOR_SPRITE_OPTIONS.bonusSprites;
     }
 }
 
