@@ -16,6 +16,11 @@ export function pointInRect(point, rect) {
 }
 
 export function circlesOverlap(a, aRadius, b, bRadius = 0) {
+    // In gameplay, a zero-radius destination collider explicitly means
+    // "non-collidable" (used by gravity-only objects such as black holes).
+    // Point-vs-circle checks still work because their destination radius is
+    // positive and only the moving point's radius is zero.
+    if (bRadius <= 0) return false;
     const combinedRadius = aRadius + bRadius;
     return distanceSquared(a, b) < combinedRadius * combinedRadius;
 }
