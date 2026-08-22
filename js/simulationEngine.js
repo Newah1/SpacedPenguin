@@ -144,13 +144,8 @@ function stepSimulationSlice(state, deltaTime, events, options) {
 }
 
 function appendFailureEvent(state, events) {
-    // A successful arrival wins the attempt even when it consumes the last
-    // allowed try. Failure rules describe an unfinished attempt, not a reason
-    // to overwrite an already-completed outcome.
     if (state.penguin.state === 'hitTarget') return;
     const failure = evaluateFailureRules(state);
-    // maxTries limits completed attempts; consuming the last launch must not
-    // end a shot that is still in flight.
     if (failure?.rule === 'maxTries' && state.penguin.state === 'soaring') return;
     if (failure && !events.some(event => event.type === SimulationEventType.RULE_FAILURE && event.rule === failure.rule)) {
         events.push({ type: SimulationEventType.RULE_FAILURE, ...failure });
@@ -168,30 +163,16 @@ function advanceWorldOrbits(state, deltaTime) {
 }
 
 function stepSoaringPenguin(state, deltaTime, events, options) {
-    const collisionIndex = findPlanetCollision(
-        state.penguin.position,
-        state.planets,
-        state.penguin.radius
-    );
+    const collisionIndex = findPlanetCollision(state.penguin.position, state.planets, state.penguin.radius);
     if (collisionIndex >= 0) {
         const planet = state.planets[collisionIndex];
-        const bounce = resolvePlanetBounce(
-            state.penguin.position,
-            state.penguin.velocity,
-            planet,
-            state.penguin.radius
-        );
+        const bounce = resolvePlanetBounce(state.penguin.position, state.penguin.velocity, planet, state.penguin.radius);
         state.penguin.position = bounce.position;
         state.penguin.velocity = bounce.velocity;
         state.penguin.state = 'crashed';
         state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.planetCrashFrames;
         state.counters.planetCollisions += 1;
-        events.push({
-            type: SimulationEventType.PLANET_COLLISION,
-            planetId: planet.id,
-            planetIndex: collisionIndex,
-            position: clonePoint(state.penguin.position)
-        });
+        events.push({ type: SimulationEventType.PLANET_COLLISION, planetId: planet.id, planetIndex: collisionIndex, position: clonePoint(state.penguin.position) });
         return;
     }
 
@@ -199,12 +180,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     const gravity = integratePlanetGravity(
         state.penguin.position,
         state.penguin.velocity,
-        state.planets.map(planet => ({
-            x: planet.position.x,
-            y: planet.position.y,
-            mass: planet.mass,
-            gravitationalReach: planet.gravitationalReach
-        })),
+        state.planets.map(planet => ({ x: planet.position.x, y: planet.position.y, mass: planet.mass, gravitationalReach: planet.gravitationalReach })),
         state.rules.gravitationalConstant,
         deltaTime
     );
@@ -214,13 +190,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     const traveled = distance(previousPosition, gravity.position);
     state.counters.distance += traveled;
     if (options.emitMovementEvents !== false) {
-        events.push({
-            type: SimulationEventType.PENGUIN_MOVED,
-            from: previousPosition,
-            position: clonePoint(state.penguin.position),
-            distance: traveled,
-            deltaTime
-        });
+        events.push({ type: SimulationEventType.PENGUIN_MOVED, from: previousPosition, position: clonePoint(state.penguin.position), distance: traveled, deltaTime });
     }
 
     collectBonuses(state, events);
@@ -229,18 +199,11 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
         if (victoryFailure) {
             state.penguin.state = 'crashed';
             state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.terminalCrashFrames;
-            events.push({
-                type: SimulationEventType.TARGET_BLOCKED,
-                ...victoryFailure,
-                position: clonePoint(state.penguin.position)
-            });
+            events.push({ type: SimulationEventType.TARGET_BLOCKED, ...victoryFailure, position: clonePoint(state.penguin.position) });
         } else {
             state.penguin.state = 'hitTarget';
             state.penguin.velocity = { x: 0, y: 0 };
-            events.push({
-                type: SimulationEventType.TARGET_HIT,
-                position: clonePoint(state.penguin.position)
-            });
+            events.push({ type: SimulationEventType.TARGET_HIT, position: clonePoint(state.penguin.position) });
         }
         return;
     }
@@ -248,10 +211,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     if (!pointInRect(state.penguin.position, state.bounds.flight)) {
         state.penguin.state = 'crashed';
         state.penguin.crashFramesRemaining = SIMULATION_CONFIG.collision.terminalCrashFrames;
-        events.push({
-            type: SimulationEventType.OUT_OF_BOUNDS,
-            position: clonePoint(state.penguin.position)
-        });
+        events.push({ type: SimulationEventType.OUT_OF_BOUNDS, position: clonePoint(state.penguin.position) });
     }
 }
 
@@ -279,10 +239,10 @@ function segmentPortalEntry(start, end, portal, padding) {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
 
-    // Portal rotation points out through the front face (+local X). A valid
-    // entry must approach from that side, moving against the facing normal.
-    // Back-side and tangential crossings simply continue through the aperture.
-    if (dx >= -Number.EPSILON) return null;
+    // Existing authored rotations treat -local X as the front side. Entering
+    // from that side means moving in +local X; reverse/tangential crossings
+    // are back-side passes and do not activate the portal.
+    if (dx <= Number.EPSILON) return null;
 
     const rx = portal.width / 2 + padding;
     const ry = portal.height / 2 + padding;
@@ -295,7 +255,7 @@ function segmentPortalEntry(start, end, portal, padding) {
     const root = Math.sqrt(discriminant);
     const candidates = [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]
         .filter(value => value >= 0 && value <= 1)
-        .filter(value => a.x + dx * value >= -Number.EPSILON);
+        .filter(value => a.x + dx * value <= Number.EPSILON);
     return candidates.length ? Math.min(...candidates) : null;
 }
 
@@ -319,9 +279,7 @@ function applyPortalTeleports(state, originalStart, events) {
     const portals = state.portals || [];
     if (portals.length < 2) return;
     const locked = portals.find(portal => portal.id === state.penguin.portalLockId);
-    if (locked && !pointInsidePortal(originalStart, locked, state.penguin.radius + 1)) {
-        state.penguin.portalLockId = null;
-    }
+    if (locked && !pointInsidePortal(originalStart, locked, state.penguin.radius + 1)) state.penguin.portalLockId = null;
 
     let start = clonePoint(originalStart);
     let end = clonePoint(state.penguin.position);
@@ -336,10 +294,7 @@ function applyPortalTeleports(state, originalStart, events) {
         }
         if (!hit) break;
 
-        const impact = {
-            x: start.x + (end.x - start.x) * hit.fraction,
-            y: start.y + (end.y - start.y) * hit.fraction
-        };
+        const impact = { x: start.x + (end.x - start.x) * hit.fraction, y: start.y + (end.y - start.y) * hit.fraction };
         const incomingVelocity = clonePoint(state.penguin.velocity);
         const turn = ((hit.pair.rotation || 0) - (hit.portal.rotation || 0) + 180) * Math.PI / 180;
         const remaining = rotateVector({ x: end.x - impact.x, y: end.y - impact.y }, turn);
@@ -349,10 +304,7 @@ function applyPortalTeleports(state, originalStart, events) {
             ? { x: state.penguin.velocity.x / speed, y: state.penguin.velocity.y / speed }
             : rotateVector({ x: 1, y: 0 }, (hit.pair.rotation || 0) * Math.PI / 180);
         const clearance = portalBoundaryDistance(hit.pair, direction, state.penguin.radius + 1);
-        const exit = {
-            x: hit.pair.position.x + direction.x * clearance,
-            y: hit.pair.position.y + direction.y * clearance
-        };
+        const exit = { x: hit.pair.position.x + direction.x * clearance, y: hit.pair.position.y + direction.y * clearance };
         events.push({
             type: SimulationEventType.PORTAL_TELEPORTED,
             sourcePortalId: hit.portal.id,
@@ -377,35 +329,16 @@ function stepCrashedPenguin(state, deltaTime, events, options) {
     } else {
         state.penguin.position.x += state.penguin.velocity.x * deltaTime;
         state.penguin.position.y += state.penguin.velocity.y * deltaTime;
-        const collisionIndex = findPlanetCollision(
-            state.penguin.position,
-            state.planets,
-            state.penguin.radius
-        );
+        const collisionIndex = findPlanetCollision(state.penguin.position, state.planets, state.penguin.radius);
         if (collisionIndex >= 0) {
             const planet = state.planets[collisionIndex];
-            const bounce = resolvePlanetBounce(
-                state.penguin.position,
-                state.penguin.velocity,
-                planet,
-                state.penguin.radius
-            );
+            const bounce = resolvePlanetBounce(state.penguin.position, state.penguin.velocity, planet, state.penguin.radius);
             state.penguin.position = bounce.position;
             state.penguin.velocity = bounce.velocity;
-            events.push({
-                type: SimulationEventType.PLANET_BOUNCE,
-                planetId: planet.id,
-                planetIndex: collisionIndex,
-                position: clonePoint(state.penguin.position)
-            });
+            events.push({ type: SimulationEventType.PLANET_BOUNCE, planetId: planet.id, planetIndex: collisionIndex, position: clonePoint(state.penguin.position) });
         }
         if (options.emitMovementEvents !== false) {
-            events.push({
-                type: SimulationEventType.PENGUIN_MOVED,
-                position: clonePoint(state.penguin.position),
-                distance: 0,
-                deltaTime
-            });
+            events.push({ type: SimulationEventType.PENGUIN_MOVED, position: clonePoint(state.penguin.position), distance: 0, deltaTime });
         }
     }
 
@@ -421,21 +354,13 @@ function collectBonuses(state, events) {
         if (circlesOverlap(state.penguin.position, 0, bonus.position, bonus.collectionRadius)) {
             bonus.collected = true;
             state.counters.currentAttemptScore += bonus.value;
-            events.push({
-                type: SimulationEventType.BONUS_COLLECTED,
-                bonusId: bonus.id,
-                bonusIndex: index,
-                value: bonus.value,
-                position: clonePoint(bonus.position)
-            });
+            events.push({ type: SimulationEventType.BONUS_COLLECTED, bonusId: bonus.id, bonusIndex: index, value: bonus.value, position: clonePoint(bonus.position) });
         }
     }
 }
 
 function findPlanetCollision(position, planets, penguinRadius = 0) {
-    return planets.findIndex(planet =>
-        circlesOverlap(position, penguinRadius, planet.position, planet.collisionRadius)
-    );
+    return planets.findIndex(planet => circlesOverlap(position, penguinRadius, planet.position, planet.collisionRadius));
 }
 
 export function resolvePlanetBounce(position, velocity, planet, penguinRadius = 0) {
@@ -455,17 +380,11 @@ export function resolvePlanetBounce(position, velocity, planet, penguinRadius = 
         y: (velocity.y - 2 * dot * ny) * SIMULATION_CONFIG.collision.restitution
     };
     if (Math.hypot(bouncedVelocity.x, bouncedVelocity.y) < SIMULATION_CONFIG.collision.minimumBounceSpeed) {
-        bouncedVelocity = {
-            x: nx * SIMULATION_CONFIG.collision.minimumBounceSpeed,
-            y: ny * SIMULATION_CONFIG.collision.minimumBounceSpeed
-        };
+        bouncedVelocity = { x: nx * SIMULATION_CONFIG.collision.minimumBounceSpeed, y: ny * SIMULATION_CONFIG.collision.minimumBounceSpeed };
     }
     const safeDistance = planet.collisionRadius + penguinRadius + SIMULATION_CONFIG.collision.separationPadding;
     return {
-        position: {
-            x: planet.position.x + nx * Math.max(normalLength, safeDistance),
-            y: planet.position.y + ny * Math.max(normalLength, safeDistance)
-        },
+        position: { x: planet.position.x + nx * Math.max(normalLength, safeDistance), y: planet.position.y + ny * Math.max(normalLength, safeDistance) },
         velocity: bouncedVelocity
     };
 }
@@ -493,39 +412,20 @@ export function evaluateVictoryRules(state) {
     };
 }
 
-export function calculateLevelScore({
-    distance,
-    level,
-    tries,
-    attemptBonus,
-    totalScore,
-    previousLevelContribution = 0,
-    multiplier = 1
-}) {
+export function calculateLevelScore({ distance, level, tries, attemptBonus, totalScore, previousLevelContribution = 0, multiplier = 1 }) {
     const safeDistance = Number.isFinite(distance) ? distance : 0;
-    // Built-in levels use numeric indexes; custom/cloud levels may use opaque
-    // identifiers, so scoring uses a neutral level factor for those records.
     const safeLevel = Number.isFinite(level) ? level : 1;
     const safeTries = Math.max(1, Number.isFinite(tries) ? tries : 1);
     const safeAttemptBonus = Number.isFinite(attemptBonus) ? attemptBonus : 0;
     const safeTotalScore = Number.isFinite(totalScore) ? totalScore : 0;
-    const safePreviousLevelContribution = Number.isFinite(previousLevelContribution)
-        ? previousLevelContribution
-        : 0;
+    const safePreviousLevelContribution = Number.isFinite(previousLevelContribution) ? previousLevelContribution : 0;
     const safeMultiplier = Number.isFinite(multiplier) ? multiplier : 1;
     const levelScore = Math.floor(safeDistance * safeLevel / safeTries);
     const scoreBeforeLevel = safeTotalScore - safePreviousLevelContribution;
     const scoreBeforeMultiplier = scoreBeforeLevel + levelScore + safeAttemptBonus;
-    const candidateTotalScore = safeMultiplier === 1
-        ? scoreBeforeMultiplier
-        : Math.floor(scoreBeforeMultiplier * safeMultiplier);
+    const candidateTotalScore = safeMultiplier === 1 ? scoreBeforeMultiplier : Math.floor(scoreBeforeMultiplier * safeMultiplier);
     const candidateLevelContribution = candidateTotalScore - scoreBeforeLevel;
     const levelContribution = Math.max(safePreviousLevelContribution, candidateLevelContribution);
 
-    return {
-        levelScore,
-        levelContribution,
-        scoreImprovement: levelContribution - safePreviousLevelContribution,
-        totalScore: scoreBeforeLevel + levelContribution
-    };
+    return { levelScore, levelContribution, scoreImprovement: levelContribution - safePreviousLevelContribution, totalScore: scoreBeforeLevel + levelContribution };
 }
