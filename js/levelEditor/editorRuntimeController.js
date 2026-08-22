@@ -60,11 +60,19 @@ export function findOrbitTargetObject(editor, object = editor?.selectedObject) {
     return editor.getAllGameObjects().find(candidate => candidate?.id === targetId) || null;
 }
 
+function isEditableTarget(target) {
+    return Boolean(
+        target?.matches?.('input, textarea, select, [contenteditable="true"]') ||
+        target?.closest?.('[contenteditable="true"]')
+    );
+}
+
 export function shouldSuppressEditorKey(event, editor) {
     return Boolean(
         editor?.active &&
         editor.mode === 'edit' &&
         event?.code === 'KeyR' &&
+        !isEditableTarget(event?.target) &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey
@@ -166,9 +174,9 @@ export class EditorRuntimeController {
         };
 
         // Gameplay and editor keyboard actions are both installed globally.
-        // R is meaningful in gameplay (retry/reset), but in edit mode it must
-        // never leak through and reload/reset the live level underneath the
-        // editor. Capture it before either bubbling keyboard layer sees it.
+        // R is meaningful in gameplay (retry/reset), but on the editor surface
+        // it must never leak through and reload/reset the live level. Editable
+        // controls are exempt so ordinary text entry remains native.
         const documentRef = globalThis.document;
         if (documentRef?.addEventListener) {
             documentRef.addEventListener('keydown', event => {
