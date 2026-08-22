@@ -1,5 +1,13 @@
+import { BlackHole } from './blackHole.js';
+
 const DEFINITIONS = {
     Planet: {
+        editable: true,
+        collections: ['planets'],
+        physicsAdd: 'addPlanet',
+        physicsRemove: 'removePlanet'
+    },
+    BlackHole: {
         editable: true,
         collections: ['planets'],
         physicsAdd: 'addPlanet',
@@ -56,6 +64,11 @@ export function getEditorObjectDefinition(className) {
 }
 
 export function getEditableClassNames(gameObjectClasses = {}) {
+    // BlackHole lives in its own module instead of gameObjects.js. Register it
+    // lazily here so every editor creation surface (toolbar/context menu) sees
+    // the same class without duplicating editor-only wiring in Game.
+    gameObjectClasses.BlackHole ??= BlackHole;
+
     return Object.keys(gameObjectClasses)
         .filter(className => getEditorObjectDefinition(className).editable)
         .sort();
