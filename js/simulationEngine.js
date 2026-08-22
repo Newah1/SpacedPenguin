@@ -278,6 +278,12 @@ function segmentPortalEntry(start, end, portal, padding) {
     const b = toPortalLocal(end, portal);
     const dx = b.x - a.x;
     const dy = b.y - a.y;
+
+    // Portal rotation points out through the front face (+local X). A valid
+    // entry must approach from that side, moving against the facing normal.
+    // Back-side and tangential crossings simply continue through the aperture.
+    if (dx >= -Number.EPSILON) return null;
+
     const rx = portal.width / 2 + padding;
     const ry = portal.height / 2 + padding;
     const qa = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
@@ -288,7 +294,8 @@ function segmentPortalEntry(start, end, portal, padding) {
     if (discriminant < 0) return null;
     const root = Math.sqrt(discriminant);
     const candidates = [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]
-        .filter(value => value >= 0 && value <= 1);
+        .filter(value => value >= 0 && value <= 1)
+        .filter(value => a.x + dx * value >= -Number.EPSILON);
     return candidates.length ? Math.min(...candidates) : null;
 }
 
