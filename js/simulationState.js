@@ -64,13 +64,16 @@ export function createSimulationStateFromLevel(level, options = {}) {
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
         const properties = definition.properties || {};
-        if (type === LevelObjectType.PLANET) {
+        if (type === LevelObjectType.PLANET || type === LevelObjectType.BLACK_HOLE) {
+            const isBlackHole = type === LevelObjectType.BLACK_HOLE;
             planets.push({
                 id: nextId(type, properties.id),
+                type,
                 position: clonePoint(objectPosition(definition)),
                 radius: properties.radius ?? LEVEL_DEFAULTS.planet.radius,
-                collisionRadius: properties.collisionRadius ??
+                collisionRadius: isBlackHole ? 0 : properties.collisionRadius ??
                     (properties.radius ?? LEVEL_DEFAULTS.planet.radius) + LEVEL_DEFAULTS.planet.collisionPadding,
+                collidable: !isBlackHole && properties.collidable !== false,
                 mass: properties.mass ?? LEVEL_DEFAULTS.planet.mass,
                 gravitationalReach: effectiveGravitationalReach(properties.gravitationalReach),
                 orbit: orbitFromDefinition(definition)
