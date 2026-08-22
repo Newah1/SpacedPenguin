@@ -10,7 +10,7 @@ import {
     liveEditCommandRegistry
 } from '../js/editorCommands/index.js';
 import LevelEditor from '../js/levelEditor.js';
-import { LevelEditorInputAction } from '../js/inputActions.js';
+import { EditorInputContext } from '../js/input/contexts/editorInputContext.js';
 
 class Planet {}
 class Bonus {}
@@ -96,17 +96,10 @@ test('editor-generated names and IDs fill gaps without collisions', () => {
     assert.equal(editor.generateObjectId(next, 'Planet'), 'planet_2');
 });
 
-test('editor input uses one pointer event stream and no synthetic click pass', () => {
-    const events = [];
-    const canvas = {
-        addEventListener(event) { events.push(event); },
-        removeEventListener() {}
-    };
-    const action = new LevelEditorInputAction({ canvas, game: {} });
+test('editor context declares one pointer event stream and no synthetic click pass', () => {
+    const context = new EditorInputContext({ game: {} });
 
-    action.setupListeners();
-
-    assert.deepEqual(events, [
+    assert.deepEqual(context.inputTypes.filter(type => type.startsWith('pointer') || type === 'contextmenu' || type === 'wheel'), [
         'pointerdown',
         'pointermove',
         'pointerup',
@@ -114,8 +107,8 @@ test('editor input uses one pointer event stream and no synthetic click pass', (
         'contextmenu',
         'wheel'
     ]);
-    assert.equal(events.includes('click'), false);
-    assert.equal(events.includes('mousedown'), false);
+    assert.equal(context.inputTypes.includes('click'), false);
+    assert.equal(context.inputTypes.includes('mousedown'), false);
 });
 
 test('orbit clone data is restored before deserializeObject returns', () => {

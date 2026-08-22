@@ -42,8 +42,9 @@
     <div id="log"></div>
     
     <script type="module">
-        import { GameState } from './js/game.js';
-        import { InputActionManager } from './js/inputActions.js';
+        import { GameState } from '../../js/game.js';
+        import { InputManager } from '../../js/input/inputManager.js';
+        import { registerDefaultInputContexts } from '../../js/input/registerDefaultInputContexts.js';
         
         // Mock game object for testing
         const mockGame = {
@@ -65,9 +66,8 @@
             resume: () => {}
         };
         
-        // Initialize input action manager
-        const inputManager = new InputActionManager(rootContext);
-        inputManager.updateActiveActions();
+        const inputManager = new InputManager(rootContext);
+        registerDefaultInputContexts(inputManager, rootContext);
         
         // Add some basic event logging
         document.addEventListener('keydown', (e) => {
@@ -92,4 +92,3 @@
     </script>
 </body>
 </html>
-

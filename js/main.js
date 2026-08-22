@@ -2,10 +2,11 @@
 // Initializes the game and runs the game loop
 
 import { Game } from './game.js';
-import { GameState } from './game.js';
+import { GameState } from './gameState.js';
 import { AssetLoader } from './assetLoader.js';
 import { AudioManager } from './audioManager.js';
-import { InputActionManager } from './inputActions.js';
+import { InputManager } from './input/inputManager.js';
+import { registerDefaultInputContexts } from './input/registerDefaultInputContexts.js';
 import { Penguin } from './penguin.js';
 import plog from './penguinLogger.js';
 import Utils from './utils.js';
@@ -31,12 +32,11 @@ class GameManager {
         this.debugMode = false; // Set to true to enable debug logging
         this.lastStartScreenDraw = 0; // Throttle start screen redraws
         this.performanceUtils = new PerformanceUtils();
-        this.inputActionManager = null;
+        this.inputManager = null;
         this.isPageVisible = !document.hidden;
         this.animationFrameId = null;
         this.handlePageVisibilityChange = null;
         this.viewport = null;
-        this.lastInputContextKey = null;
         this.menuKevin = null;
         this.menuSlingshot = this.createMenuSlingshotState();
         this.menuButtons = this.createMenuButtons();
@@ -110,8 +110,9 @@ class GameManager {
         this.game = new Game(this.canvas, assetLoader, audioManager);
         this.menuKevin = new Penguin(assetLoader);
         
-        // Initialize input action manager with root context
-        this.inputActionManager = new InputActionManager({
+        // Input contexts own activation and event policy; the manager only
+        // registers, orders, and dispatches them.
+        const inputRootContext = {
             canvas: this.canvas,
             game: this.game,
             setupResponsiveCanvas: this.setupResponsiveCanvas.bind(this),
@@ -123,10 +124,9 @@ class GameManager {
             handleMenuButtonClick: this.handleMenuButtonClick.bind(this),
             consumeMenuInteraction: this.consumeMenuInteraction.bind(this),
             shouldStartGameFromMenu: this.shouldStartGameFromMenu.bind(this)
-        });
-        
-        // Initialize input actions for the current game state
-        this.inputActionManager.updateActiveActions();
+        };
+        this.inputManager = new InputManager(inputRootContext);
+        registerDefaultInputContexts(this.inputManager, inputRootContext);
 
         // Load levels before starting the game
         plog.info('Loading level definitions...');
@@ -233,19 +233,6 @@ class GameManager {
         
         // Update game with performance optimization
         if (this.game && this.assetsLoaded) {
-            // Update input actions when needed
-            if (this.inputActionManager) {
-                const inputContextKey = [
-                    this.game.state,
-                    this.game.levelEditor?.active ? 'active' : 'inactive',
-                    this.game.levelEditor?.mode || 'none'
-                ].join(':');
-                if (inputContextKey !== this.lastInputContextKey) {
-                    this.lastInputContextKey = inputContextKey;
-                    this.inputActionManager.updateActiveActions();
-                }
-            }
-            
             while (this.simulationAccumulator + Number.EPSILON >= simulationStep) {
                 this.game.update(simulationStep);
                 this.simulationAccumulator -= simulationStep;
@@ -1029,12 +1016,12 @@ class GameManager {
             document.removeEventListener('visibilitychange', this.handlePageVisibilityChange);
             this.handlePageVisibilityChange = null;
         }
-        if (this.inputActionManager) {
-            this.inputActionManager.destroy();
+        if (this.inputManager) {
+            this.inputManager.destroy();
         }
         this.game = null;
         this.assetLoader = null;
-        this.inputActionManager = null;
+        this.inputManager = null;
     }
 }
 
@@ -1045,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.gameManager = gameManager; // Make it globally accessible for debugging
 });
 
-// Page visibility is owned here; window resize/orientation is handled by InputActionManager.
+// Page visibility is owned here; window resize/orientation is handled by InputManager.
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {

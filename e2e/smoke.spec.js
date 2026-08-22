@@ -521,6 +521,18 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     await waitForGame(page, 'playing');
     await page.keyboard.press('F1');
 
+    await page.evaluate(() => {
+        window.__editorResetCalls = 0;
+        const resetLevel = window.game.resetLevel.bind(window.game);
+        window.game.resetLevel = (...args) => {
+            window.__editorResetCalls++;
+            return resetLevel(...args);
+        };
+    });
+    await page.keyboard.press('KeyR');
+    await expect.poll(() => page.evaluate(() => window.__editorResetCalls)).toBe(0);
+    await expect.poll(() => page.evaluate(() => window.game.levelEditor.active)).toBe(true);
+
     await page.evaluate(() => window.game.levelEditor.addObject('Planet'));
     await expect.poll(() => page.evaluate(() => ({
         planets: window.game.planets.length,
@@ -678,11 +690,11 @@ test.describe('mobile viewport', () => {
         await waitForGame(page, 'playing');
         await launchFromSlingshot(page);
 
+        await expect.poll(() => page.evaluate(() => window.game.penguin.x)).toBeGreaterThan(20);
         const position = await page.evaluate(() => ({
             x: window.game.penguin.x,
             y: window.game.penguin.y
         }));
-        expect(position.x).toBeGreaterThan(20);
         expect(Math.abs(position.y - 300)).toBeLessThan(5);
     });
 

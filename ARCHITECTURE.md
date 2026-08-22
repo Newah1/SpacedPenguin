@@ -38,7 +38,7 @@ flowchart LR
 
 | Input | Format | Consumer | Notes |
 |---|---|---|---|
-| Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputActionManager`, `Game`, `UIManager`, `FullscreenManager` | Input actions are activated by game/editor state. |
+| Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputManager`, registered input contexts, `Game`, `UIManager`, `FullscreenManager` | Contexts own activation and handling; the manager only orders and dispatches. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
 | Level definitions | `levels/level01.json` through `level25.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
 | Level discovery catalog | Shipped definitions, `localStorage.spacedPenguinSavedLevels`, and the optional community API | `LevelCatalogService`, `LevelBrowserScreen` | Official, owned, and community sources share asynchronous summary paging while details and playable definitions resolve separately. |
@@ -97,7 +97,7 @@ flowchart TB
     Index[index.html] --> Main[GameManager<br/>main.js]
     Main --> Assets[AssetLoader]
     Assets --> Audio[AudioManager]
-    Main --> Inputs[InputActionManager]
+    Main --> Inputs[InputManager and policy contexts]
     Main --> Game[Game aggregate]
 
     Game --> Loader[LevelLoader and GameObjectFactory]
@@ -125,11 +125,11 @@ flowchart TB
 | Component | Primary responsibility | Important collaborators | Architectural notes |
 |---|---|---|---|
 | `index.html` | DOM shell, HUD, canvas, responsive CSS, module entry | `main.js` | Logical canvas size is declared here. |
-| `GameManager` (`main.js`) | Browser bootstrap, frame scheduling, visibility handling, viewport scaling, start screen | `AssetLoader`, `Game`, `InputActionManager` | Owns the outer lifecycle; published as `window.gameManager`. |
+| `GameManager` (`main.js`) | Browser bootstrap, frame scheduling, visibility handling, viewport scaling, start screen | `AssetLoader`, `Game`, `InputManager` | Owns the outer lifecycle; published as `window.gameManager`. |
 | `Game` (`game.js`) | Runtime aggregate, level/attempt lifecycle, effects, UI coordination, and render pipeline | Nearly all runtime components | Gameplay transition policy is delegated to the simulation core, but `Game` remains the main integration hotspot. |
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
-| `InputActionManager` | Add/remove listeners according to state | `Game`, editor, DOM/window | Always enables keyboard, window, and UI actions; switches menu/gameplay/editor actions. |
+| `InputManager` | Register contexts and dispatch each DOM event in deterministic priority order | Input contexts, DOM/window | Contains no game/editor/UI activation logic. The first claiming context stops routing unless it explicitly returns `PASS`. |
 | `LevelSchema` | Shared level-format vocabulary and runtime capability configuration | Validator, loader, editor | Owns canonical object/orbit types, aliases, normalization, and orbit lookup target types. |
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
@@ -168,7 +168,7 @@ sequenceDiagram
     participant AL as AssetLoader
     participant AM as AudioManager
     participant G as Game
-    participant IA as InputActionManager
+    participant IA as InputManager
     participant LL as LevelLoader
 
     DOM->>GM: DOMContentLoaded
@@ -177,8 +177,8 @@ sequenceDiagram
     AL->>AL: fetch manifest, prepare and load resources
     AL-->>GM: onAssetsLoaded(loader)
     GM->>G: new Game(canvas, loader, audio)
-    GM->>IA: new InputActionManager(context)
-    IA->>IA: activate listeners for MENU
+    GM->>IA: new InputManager(context)
+    GM->>IA: register policy contexts
     GM->>LL: loadDefaultLevels()
     loop levels 1 through 25
         LL->>LL: fetch levels/levelN.json
@@ -203,7 +203,7 @@ Important bootstrap properties:
 sequenceDiagram
     participant RAF as requestAnimationFrame
     participant GM as GameManager
-    participant IA as InputActionManager
+    participant IA as InputManager
     participant G as Game
     participant S as SimulationEngine
     participant A as GameSimulationAdapter
@@ -213,7 +213,7 @@ sequenceDiagram
 
     RAF->>GM: frame(timestamp)
     GM->>GM: cap and accumulate display-frame time
-    GM->>IA: updateActiveActions()
+    Note over IA: Contexts inspect live state only when DOM events arrive
     loop each accumulated 1/60-second tick
         GM->>G: update(1/60)
         G->>UI: update(1/60)
@@ -295,7 +295,7 @@ stateDiagram-v2
     LEVEL_EDITOR --> PLAYING: exit or play-mode transition
 ```
 
-`Game.setState` is the preferred transition operation because it immediately refreshes active input listeners. A few loader, editor, and end-screen paths assign `game.state` directly; those paths rely on the next frame's `InputActionManager.updateActiveActions()` to reconcile listeners.
+`Game.setState` remains the preferred transition operation for state-related effects. Input contexts inspect live state for every event, so direct state changes do not require listener reconciliation on a later frame.
 
 The end screen derives its terminal branch from the configured maximum selectable level. All 25 default-catalog levels are shipped JSON definitions, and completion of level 25 enters `GAME_OVER`. The archived `manual` catalog contains 20 levels and remains within that catalog when advancing.
 
@@ -473,16 +473,15 @@ The logical display surface is always 800 x 600. The canvas backing buffer follo
 
 Input action activation:
 
-| Context | Active actions |
+| Context | Ownership policy |
 |---|---|
-| All states | keyboard, window, UI |
-| Menu | menu; gameplay disabled |
-| Playing | gameplay; menu disabled |
-| Paused | keyboard and UI only; world update returns before entity simulation |
-| Editor active | editor; menu and gameplay disabled |
-| Scoring/game over | state-specific gameplay/menu actions disabled; UI and keyboard remain available |
+| Global | Browser-safe global shortcuts; higher than application modes. |
+| Modal / console / editable target | Claims its event domain without requiring a mapped command; native defaults remain available unless explicitly prevented. |
+| Editor edit mode | Claims editor keyboard and pointer input, including unmapped keys. |
+| Gameplay / editor play mode | Claims gameplay keyboard, mouse, and touch input. |
+| Paused / menu | Claims state-specific keyboard and menu pointer input. |
 
-The code contains compatibility input methods on `Game`, but listener ownership belongs to `InputActionManager`. New input features should extend an action class and rely on action activation/deactivation to avoid duplicate listeners.
+The code contains compatibility input methods on `Game`, but listener ownership belongs to `InputManager`. New input modes should provide a context with an ID, priority, declared input types, activation predicate, and handler. Long-lived modes stay registered; ephemeral UI may register on open and use the returned unregister closure on close.
 
 UI is hybrid:
 
@@ -712,7 +711,7 @@ These items are intentionally separate from the completed low-risk cleanup. They
 
 ### 18.2 Remove module cycles and implicit global dependencies
 
-**Current state.** Several modules import the `GameState` enum from `game.js`, while `Game` imports those modules directly or indirectly. Current examples include `LevelLoader`, `LevelEndScreen`, `LevelEditor`, and `InputActionManager`. Browser-only collaborators also reach through `window.game` or `window.gameManager` for coordination.
+**Current state.** `GameState` now has a dependency-light home in `gameState.js`, and input policy contexts import it there rather than pulling in the `Game` aggregate. Some older modules still import the compatibility re-export from `game.js`. Browser-only collaborators also reach through `window.game` or `window.gameManager` for coordination.
 
 **Why it matters.** Importing a seemingly small module can initialize a large portion of the browser runtime. Construction order becomes significant, Node tests need shims, and dependencies are hidden in global lookups rather than visible in constructors. This makes reuse of the loader, end screen, and editor harder than their APIs suggest.
 

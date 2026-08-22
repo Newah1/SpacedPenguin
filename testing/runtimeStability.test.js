@@ -18,7 +18,8 @@ const { AudioManager } = await import('../js/audioManager.js');
 const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
 const Console = (await import('../js/console.js')).default;
 const { GameManager } = await import('../js/main.js');
-const { InputActionManager } = await import('../js/inputActions.js');
+const { InputManager } = await import('../js/input/inputManager.js');
+const { registerDefaultInputContexts } = await import('../js/input/registerDefaultInputContexts.js');
 const { LevelEndScreen, getCompletionTitle } = await import('../js/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
 const LevelEditorToolbarView = (await import('../js/levelEditor/toolbarView.js')).default;
@@ -1350,8 +1351,7 @@ test('GameManager accumulates high-refresh frames into exact 60 Hz simulation st
             lastTime: 1000,
             simulationAccumulator: 0,
             assetsLoaded: true,
-            inputActionManager: null,
-            lastInputContextKey: null,
+            inputManager: null,
             performanceUtils: { recordFrameTime: () => {} },
             game: {
                 state: GameState.PLAYING,
@@ -1390,8 +1390,7 @@ test('GameManager carries irregular frame remainders without variable simulation
             lastTime: 1000,
             simulationAccumulator: 0,
             assetsLoaded: true,
-            inputActionManager: null,
-            lastInputContextKey: null,
+            inputManager: null,
             performanceUtils: { recordFrameTime: () => {} },
             game: {
                 state: GameState.PLAYING,
@@ -1514,8 +1513,7 @@ test('GameManager double speed runs two fixed simulation steps per display inter
             lastTime: 1000,
             simulationAccumulator: 0,
             assetsLoaded: true,
-            inputActionManager: null,
-            lastInputContextKey: null,
+            inputManager: null,
             performanceUtils: { recordFrameTime: () => {} },
             game: {
                 state: GameState.PLAYING,
@@ -1531,16 +1529,15 @@ test('GameManager double speed runs two fixed simulation steps per display inter
     });
 });
 
-test('paused input context keeps keyboard/UI active but disables gameplay listeners', () => {
+test('paused input policy matches paused events while gameplay declines them', () => {
     const game = { state: GameState.PAUSED, levelEditor: { active: false } };
     const canvas = createEventTargetFixture();
-    const manager = new InputActionManager({ game, canvas });
+    const root = { game, canvas };
+    const manager = new InputManager(root);
+    registerDefaultInputContexts(manager, root);
 
-    manager.updateActiveActions();
-
-    assert.equal(manager.activeActions.has('keyboard'), true);
-    assert.equal(manager.activeActions.has('ui'), true);
-    assert.equal(manager.activeActions.has('gameplay'), false);
+    assert.equal(manager.registrations.get('paused').context.matches(), true);
+    assert.equal(manager.registrations.get('gameplay').context.matches(), false);
 
     manager.destroy();
 });

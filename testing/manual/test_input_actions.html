@@ -47,16 +47,16 @@
 </head>
 <body>
     <div id="testInfo">
-        <h1>Input Actions System Test</h1>
-        <p>This page tests the new InputActionManager system.</p>
+        <h1>Input Context System Test</h1>
+        <p>This page shows registered InputManager policy contexts.</p>
         
         <h2>Active Input Actions:</h2>
         <div id="actionStatus">
             <div class="status" id="gameplay-status">Gameplay: <span>inactive</span></div>
             <div class="status" id="menu-status">Menu: <span>inactive</span></div>
-            <div class="status" id="keyboard-status">Keyboard: <span>inactive</span></div>
-            <div class="status" id="levelEditor-status">Level Editor: <span>inactive</span></div>
-            <div class="status" id="ui-status">UI: <span>inactive</span></div>
+            <div class="status" id="global-status">Global: <span>inactive</span></div>
+            <div class="status" id="editor-status">Level Editor: <span>inactive</span></div>
+            <div class="status" id="modal-status">Modal UI: <span>inactive</span></div>
             <div class="status" id="window-status">Window: <span>inactive</span></div>
         </div>
         
@@ -76,7 +76,8 @@
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     
     <script type="module">
-        import { InputActionManager } from './js/inputActions.js';
+        import { InputManager } from '../../js/input/inputManager.js';
+        import { registerDefaultInputContexts } from '../../js/input/registerDefaultInputContexts.js';
         
         // Create a minimal context for testing
         const testContext = {
@@ -90,16 +91,17 @@
         resume: () => { /* Game resumed */ }
         };
         
-        // Initialize InputActionManager
-        const inputManager = new InputActionManager(testContext);
+        const inputManager = new InputManager(testContext);
+        registerDefaultInputContexts(inputManager, testContext);
         
         // Function to update status display
         function updateStatus() {
-            const actions = ['gameplay', 'menu', 'keyboard', 'levelEditor', 'ui', 'window'];
+            const actions = ['gameplay', 'menu', 'global', 'editor', 'modal', 'window'];
             
             actions.forEach(actionName => {
                 const element = document.getElementById(`${actionName}-status`);
-                const isActive = inputManager.activeActions.has(actionName);
+                const context = inputManager.registrations.get(actionName)?.context;
+                const isActive = context?.matches('keydown', { code: '' }) ?? false;
                 
                 element.className = `status ${isActive ? 'active' : 'inactive'}`;
                 element.querySelector('span').textContent = isActive ? 'active' : 'inactive';
@@ -109,20 +111,17 @@
         }
         
         // Initial update
-        inputManager.updateActiveActions();
         updateStatus();
         
         // Simulate state changes for testing
         window.testStateChange = function(newState) {
             testContext.game.state = newState;
-            inputManager.updateActiveActions();
             updateStatus();
             // State changed (removed console.log)
         };
         
         window.testLevelEditor = function(active) {
             testContext.game.levelEditor.active = active;
-            inputManager.updateActiveActions();
             updateStatus();
             // Level editor status changed (removed console.log)
         };

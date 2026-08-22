@@ -65,15 +65,7 @@ import {
     screenToStage,
     updateFollowCamera
 } from './viewport.js';
-
-const GameState = {
-    MENU: 'menu',
-    PLAYING: 'playing',
-    PAUSED: 'paused',
-    GAME_OVER: 'gameOver',
-    SCORING: 'scoring',
-    LEVEL_EDITOR: 'levelEditor'
-};
+import { GameState } from './gameState.js';
 
 const FAST_FORWARD_UNLOCK_SECONDS = 5;
 
@@ -282,7 +274,7 @@ class Game {
         plog.debug('UI elements found:', this.ui);
         plog.debug('Asset loader available:', !!this.assetLoader);
         
-        // Note: Input handling now managed by InputActionManager
+        // Note: Input handling is managed by InputManager contexts.
         plog.success('Game constructor completed');
         // Don't load level immediately - wait for start
         this.stars = [];
@@ -305,20 +297,18 @@ class Game {
                 this.resetSimulationSpeedControl();
             }
             
-            // Notify InputActionManager of state change if available
-            if (window.gameManager?.inputActionManager) {
-                window.gameManager.inputActionManager.updateActiveActions();
-            }
+            // Input contexts inspect live state when each event is dispatched,
+            // so state transitions do not require listener reconciliation.
         }
     }
     
-    // Input handling methods - called by InputActionManager
+    // Input handling methods - called by input contexts
     // These methods are kept for backwards compatibility but input routing
-    // is now handled by the InputActionManager system
+    // is now handled by the InputManager context system
     
     setupEventListeners() {
-        // This method is now deprecated - input handling managed by InputActionManager
-        console.warn('Game.setupEventListeners() is deprecated - input now managed by InputActionManager');
+        // This method is deprecated; input handling is managed by InputManager.
+        console.warn('Game.setupEventListeners() is deprecated - input now managed by InputManager');
         
         // Still set touch action for mobile compatibility
         this.canvas.style.touchAction = 'none';
@@ -728,7 +718,7 @@ class Game {
                 break;
             case ' ':
                 // Only allow spacebar to start game on desktop
-                // But don't interfere if InputActionManager already handled it
+                // But don't interfere if InputManager already handled it
                 if (this.state === GameState.MENU && !this.isMobileDevice() && !e.defaultPrevented) {
                     this.startGame();
                 }

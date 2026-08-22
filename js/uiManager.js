@@ -22,12 +22,12 @@ export class UIManager {
         this.handleClick = this.handleClick.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
         
-        // Note: Event listeners now managed by InputActionManager
+        // Note: Event listeners are managed by InputManager contexts.
     }
     
     setupEventListeners() {
-        // This method is now deprecated - input handling managed by InputActionManager
-        console.warn('UIManager.setupEventListeners() is deprecated - input now managed by InputActionManager');
+        // This method is now deprecated - input handling managed by InputManager
+        console.warn('UIManager.setupEventListeners() is deprecated - input now managed by InputManager');
         
         // Mobile device detection
         this.isMobile = this.detectMobile();

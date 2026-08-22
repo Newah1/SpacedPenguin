@@ -69,7 +69,7 @@ Leave `baseUrl` as `null` for the original local-only behavior. A configured ser
 flowchart LR
     Browser[index.html / browser] --> Main[GameManager]
     Main --> Assets[AssetLoader + AudioManager]
-    Main --> Input[InputActionManager]
+    Main --> Input[InputManager + policy contexts]
     Main --> Game[Game aggregate]
     Game --> Levels[LevelLoader + JSON factory]
     Game --> Sim[Shared deterministic simulation core]

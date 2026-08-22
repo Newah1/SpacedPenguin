@@ -78,7 +78,7 @@ class LevelEditor {
         this.orbitCenterObject = null; // The object whose orbit center we're dragging
         this.orbitCenterDragStart = null;
         this.createUI();
-        // Note: Event listeners now managed by InputActionManager
+        // Note: Event listeners are managed by InputManager contexts.
     }
     
     createUI() {
