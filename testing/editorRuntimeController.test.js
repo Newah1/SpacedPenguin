@@ -5,7 +5,9 @@ import { LevelOrbitType } from '../js/levelSchema.js';
 import {
     EditorRuntimeController,
     findObjectBodyAtPosition,
-    prepareCloneForInsertion
+    findOrbitTargetObject,
+    prepareCloneForInsertion,
+    shouldSuppressEditorKey
 } from '../js/levelEditor/editorRuntimeController.js';
 
 class FakePlanet {
@@ -128,4 +130,45 @@ test('drag updates invalidate stale simulation and preview state', () => {
     assert.equal(dragCalls, 1);
     assert.equal(editor.game.invalidations, 1);
     assert.equal(controller.signature, null);
+});
+
+test('plain R is suppressed only while actively editing a level', () => {
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR' }, { active: true, mode: 'edit' }), true);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR' }, { active: true, mode: 'play' }), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR' }, { active: false, mode: 'edit' }), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', ctrlKey: true }, { active: true, mode: 'edit' }), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyQ' }, { active: true, mode: 'edit' }), false);
+});
+
+test('plain R remains typeable in editor text controls', () => {
+    const editor = { active: true, mode: 'edit' };
+    const editableTarget = selector => ({
+        matches: query => query.includes(selector),
+        closest: () => null
+    });
+
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('input') }, editor), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('textarea') }, editor), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('[contenteditable="true"]') }, editor), false);
+
+    const nestedContentEditableTarget = {
+        matches: () => false,
+        closest: query => query === '[contenteditable="true"]' ? {} : null
+    };
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: nestedContentEditableTarget }, editor), false);
+});
+
+test('object-target orbit resolves the exact authored target for highlighting', () => {
+    const source = new FakePlanet();
+    source.id = 'planet_source';
+    source.orbitSystem.orbitTargetId = 'planet_target';
+    const target = new FakePlanet();
+    target.id = 'planet_target';
+    const editor = fakeEditor([source, target]);
+    editor.selectedObject = source;
+
+    assert.equal(findOrbitTargetObject(editor), target);
+
+    source.orbitSystem.orbitTargetId = 'missing';
+    assert.equal(findOrbitTargetObject(editor), null);
 });

@@ -54,6 +54,31 @@ export function findObjectBodyAtPosition(editor, x, y) {
     return null;
 }
 
+export function findOrbitTargetObject(editor, object = editor?.selectedObject) {
+    const targetId = object?.orbitSystem?.orbitTargetId;
+    if (!targetId) return null;
+    return editor.getAllGameObjects().find(candidate => candidate?.id === targetId) || null;
+}
+
+function isEditableTarget(target) {
+    return Boolean(
+        target?.matches?.('input, textarea, select, [contenteditable="true"]') ||
+        target?.closest?.('[contenteditable="true"]')
+    );
+}
+
+export function shouldSuppressEditorKey(event, editor) {
+    return Boolean(
+        editor?.active &&
+        editor.mode === 'edit' &&
+        event?.code === 'KeyR' &&
+        !isEditableTarget(event?.target) &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+    );
+}
+
 function isMovingOrbit(orbitSystem) {
     if (!orbitSystem) return false;
     if (orbitSystem.orbitType === LevelOrbitType.DIRECTOR_GRAVITY) {
@@ -147,6 +172,19 @@ export class EditorRuntimeController {
             editor.game?.invalidateSimulationState?.();
             this.invalidatePreview();
         };
+
+        // Gameplay and editor keyboard actions are both installed globally.
+        // R is meaningful in gameplay (retry/reset), but on the editor surface
+        // it must never leak through and reload/reset the live level. Editable
+        // controls are exempt so ordinary text entry remains native.
+        const documentRef = globalThis.document;
+        if (documentRef?.addEventListener) {
+            documentRef.addEventListener('keydown', event => {
+                if (!shouldSuppressEditorKey(event, editor)) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }, true);
+        }
     }
 
     invalidatePreview() {
@@ -242,9 +280,49 @@ export class EditorRuntimeController {
         return entity?.orbit ? clonePoint(entity.position) : null;
     }
 
+    drawOrbitTargetHighlight(ctx) {
+        const editor = this.editor;
+        const source = editor.selectedObject;
+        const target = findOrbitTargetObject(editor, source);
+        const sourcePosition = objectPosition(source);
+        const targetPosition = objectPosition(target);
+        if (!sourcePosition || !targetPosition) return;
+
+        const scale = editor.editorCamera?.scale || 1;
+        const targetRadius = Math.max(target.radius || target.collisionRadius || 18, 18);
+        const ringPadding = 12 / scale;
+
+        ctx.save();
+        ctx.strokeStyle = '#59e6ff';
+        ctx.fillStyle = 'rgba(89, 230, 255, 0.12)';
+        ctx.lineWidth = 3 / scale;
+        ctx.setLineDash([8 / scale, 5 / scale]);
+        ctx.beginPath();
+        ctx.arc(targetPosition.x, targetPosition.y, targetRadius + ringPadding, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.lineWidth = 1.5 / scale;
+        ctx.setLineDash([5 / scale, 6 / scale]);
+        ctx.beginPath();
+        ctx.moveTo(sourcePosition.x, sourcePosition.y);
+        ctx.lineTo(targetPosition.x, targetPosition.y);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.font = `${Math.max(10, 12 / scale)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#bff6ff';
+        ctx.fillText('ORBIT TARGET', targetPosition.x, targetPosition.y - targetRadius - 16 / scale);
+        ctx.restore();
+    }
+
     draw(ctx) {
         this.advancePreview();
         const editor = this.editor;
+        this.drawOrbitTargetHighlight(ctx);
+
         for (const object of this.previewObjects) {
             if (!isMovingOrbit(object.orbitSystem)) continue;
             if (editor.dragging && editor.selectedObject === object) continue;
