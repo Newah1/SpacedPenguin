@@ -104,6 +104,7 @@ Located on the right side of the screen when an object is selected:
 ### Object Creation Controls
 The desktop add-button row and mobile **+** menu expose these types:
 - Planet
+- BlackHole
 - Bonus
 - Target
 - Slingshot
@@ -125,6 +126,7 @@ The desktop add-button row and mobile **+** menu expose these types:
 | Object Type | Default Properties |
 |-------------|-------------------|
 | **Planet** | 50px radius, 1000 mass, planet_grey sprite |
+| **BlackHole** | Planet-style radius/mass/reach, zero collision |
 | **Bonus** | 100 point value, default rotation |
 | **Target** | 60x60 size, ship_open sprite |
 | **Slingshot** | Standard stretch limit and velocity |
@@ -192,6 +194,18 @@ Gravitational bodies that affect penguin movement.
 - **Orbit Radius**: Distance from center
 - **Orbit Speed**: Rotation speed (positive/negative for direction)
 - **Orbit Type**: circular, elliptical, figure8, gravity, custom
+
+### BlackHole
+Gravity-only bodies with an ominous animated event-horizon/accretion visual. They share planet gravity and orbit behavior but never collide with Kevin.
+
+**Core Properties:**
+- **Position**: X, Y coordinates
+- **Radius**: Visual event-horizon size
+- **Mass**: Gravitational strength; `0` disables gravity
+- **Gravitational Reach**: Maximum influence distance
+- **Collision**: Always disabled; collision radius remains `0`
+
+Black holes can be cloned, exported/imported as `blackhole`, and selected by Gravity Sculpt because they participate in the shared gravity-body collection.
 
 ### Bonus
 Collectible items that add to the player's score.

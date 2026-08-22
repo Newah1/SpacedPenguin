@@ -151,11 +151,18 @@ function validateObjectShape(object, index, collector) {
 
 function validateTypeSpecificProperties(type, properties, objectPath, collector) {
     const propertyPath = `${objectPath}.properties`;
-    if (type === LevelObjectType.PLANET) {
+    if (type === LevelObjectType.PLANET || type === LevelObjectType.BLACK_HOLE) {
         validateOptionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.mass, `${propertyPath}.mass`, collector, { min: 0 });
-        validateOptionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
         validateOptionalNumber(properties.gravitationalReach, `${propertyPath}.gravitationalReach`, collector, { min: 0 });
+        if (type === LevelObjectType.PLANET) {
+            validateOptionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
+        } else if (properties.collisionRadius !== undefined && properties.collisionRadius !== 0) {
+            collector.error('BLACK_HOLE_COLLISION_RADIUS', `${propertyPath}.collisionRadius`, 'must be 0 because black holes are non-collidable');
+        }
+        if (type === LevelObjectType.BLACK_HOLE && properties.collidable !== undefined && properties.collidable !== false) {
+            collector.error('BLACK_HOLE_COLLIDABLE', `${propertyPath}.collidable`, 'must be false because black holes are non-collidable');
+        }
     } else if (type === LevelObjectType.BONUS) {
         validateOptionalNumber(properties.value, `${propertyPath}.value`, collector, { min: 0 });
     } else if (type === LevelObjectType.TARGET) {
@@ -281,7 +288,7 @@ function validateOrbits(objects, identifiers, collector) {
                 if (!target) {
                     collector.error('ORBIT_TARGET_MISSING', `${path}.orbitTargetId`, `references unknown object ID "${orbit.targetId}"`);
                 } else if (!ORBIT_LOOKUP_TARGET_TYPES.includes(target.type)) {
-                    collector.error('ORBIT_TARGET_UNAVAILABLE', `${path}.orbitTargetId`, `references ${target.type}, but runtime orbit lookup supports planet and bonus IDs`);
+                    collector.error('ORBIT_TARGET_UNAVAILABLE', `${path}.orbitTargetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, and bonus IDs`);
                 } else if (target === entry) {
                     collector.error('ORBIT_SELF_REFERENCE', `${path}.orbitTargetId`, 'cannot reference the same object');
                 } else if (typeof entry.properties.id !== 'string') {
@@ -312,7 +319,7 @@ function validateOrbits(objects, identifiers, collector) {
                         if (!target) {
                             collector.error('ORBIT_TARGET_MISSING', `${sourcePath}.targetId`, `references unknown object ID "${source.targetId}"`);
                         } else if (!ORBIT_LOOKUP_TARGET_TYPES.includes(target.type)) {
-                            collector.error('ORBIT_TARGET_UNAVAILABLE', `${sourcePath}.targetId`, `references ${target.type}, but runtime orbit lookup supports planet and bonus IDs`);
+                            collector.error('ORBIT_TARGET_UNAVAILABLE', `${sourcePath}.targetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, and bonus IDs`);
                         } else if (target === entry) {
                             collector.error('ORBIT_SELF_REFERENCE', `${sourcePath}.targetId`, 'cannot reference the same object');
                         } else if (typeof entry.properties.id === 'string') {

@@ -800,11 +800,16 @@ class LevelEditor {
                 { key: 'radius', label: 'Radius', type: 'number', min: 1 },
                 { key: 'width', label: 'Width', type: 'number', min: 1 },
                 { key: 'height', label: 'Height', type: 'number', min: 1 },
-                { key: 'mass', label: 'Mass', type: 'number', min: 1 },
+                { key: 'mass', label: 'Mass', type: 'number', min: 0 },
                 { key: 'collisionRadius', label: 'Collision Radius', type: 'number', min: 1 },
                 { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 },
                 { key: 'color', label: 'Color', type: 'color' },
                 { key: 'planetType', label: 'Planet Sprite', type: 'select', options: this.getPlanetSpriteOptions() }
+            ],
+            'BlackHole': [
+                { key: 'radius', label: 'Radius', type: 'number', min: 1 },
+                { key: 'mass', label: 'Mass', type: 'number', min: 0 },
+                { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 }
             ],
             'Bonus': [
                 { key: 'width', label: 'Width', type: 'number', min: 1 },
@@ -1263,9 +1268,9 @@ class LevelEditor {
 
     synchronizeEditedObject(object) {
         this.game?.invalidateSimulationState?.();
-        if (object.constructor.name === 'Planet') {
+        if (object.constructor.name === 'Planet' || object.constructor.name === 'BlackHole') {
             this.game.physics?.refreshPlanet?.(object);
-            this.refreshPlanetSprite(object);
+            if (object.constructor.name === 'Planet') this.refreshPlanetSprite(object);
         } else if (object.constructor.name === 'Target') {
             this.refreshTargetSprite(object);
         }
@@ -1952,6 +1957,12 @@ class LevelEditor {
                 EDITOR_CONFIG.authoringDefaults.planet.planetType,
                 this.game.assetLoader
             ],
+            'BlackHole': [
+                x, y,
+                EDITOR_CONFIG.authoringDefaults.planet.radius,
+                EDITOR_CONFIG.authoringDefaults.planet.mass,
+                EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach
+            ],
             'Bonus': [x, y, EDITOR_CONFIG.authoringDefaults.bonus.value, this.game.assetLoader],
             'Target': [
                 x, y,
@@ -2343,6 +2354,11 @@ class LevelEditor {
                     if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
                 });
                 break;
+            case 'BlackHole':
+                ['gravitationalReach', 'collisionRadius', 'collidable'].forEach(prop => {
+                    if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
+                });
+                break;
             case 'Bonus':
                 ['value', 'rotationSpeed', 'state'].forEach(prop => {
                     if (obj[prop] !== undefined) data.properties[prop] = obj[prop];
@@ -2414,6 +2430,17 @@ class LevelEditor {
                 );
                 clonedObject.collisionRadius = props.collisionRadius ??
                     (clonedObject.radius + LEVEL_DEFAULTS.planet.collisionPadding);
+                break;
+            case 'BlackHole':
+                clonedObject = new ClassConstructor(
+                    props.position?.x ?? props.x ?? 0,
+                    props.position?.y ?? props.y ?? 0,
+                    props.radius ?? EDITOR_CONFIG.authoringDefaults.planet.radius,
+                    props.mass ?? EDITOR_CONFIG.authoringDefaults.planet.mass,
+                    props.gravitationalReach ?? EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach
+                );
+                clonedObject.collisionRadius = 0;
+                clonedObject.collidable = false;
                 break;
             case 'Bonus':
                 clonedObject = new ClassConstructor(

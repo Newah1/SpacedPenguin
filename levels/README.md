@@ -74,6 +74,24 @@ Top-level `position` is preferred. The loader also accepts `properties.x` and `p
 
 Defaults are `radius: 30`, `mass: 100`, and `gravitationalReach: 5000`. For compatibility with shipped editor exports, an omitted, null, or zero `gravitationalReach` also resolves to `5000`; use `mass: 0` when a planet must exert no gravity. Planet types must correspond to manifest-facing names such as `planet_grey`, `planet_pink`, `planet_red_gumball`, `planet_saturn`, or `planet_sun`.
 
+### Black hole
+
+```json
+{
+  "type": "blackhole",
+  "position": { "x": 400, "y": 250 },
+  "properties": {
+    "id": "blackhole_1",
+    "name": "The Void",
+    "radius": 34,
+    "mass": 500,
+    "gravitationalReach": 5000
+  }
+}
+```
+
+Black holes use the same gravity model as planets but never collide with Kevin. Their collision radius is normalized to `0` and `collidable` is always `false`. The editor exposes radius, mass, gravitational reach, and orbit controls; the animated accretion particles are render-only and do not affect deterministic simulation. Black holes may be used anywhere a planet is accepted as an orbit source or orbit target.
+
 ### Bonus
 
 ```json
