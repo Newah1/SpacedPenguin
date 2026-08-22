@@ -5,21 +5,32 @@ export class ObjectGroupCommand extends LiveEditCommand {
 
     do() {
         const { objects, operation = 'add' } = this.payload;
-        const ordered = operation === 'add' ? objects : [...objects].reverse();
-        for (const object of ordered) {
-            const method = operation === 'add' ? 'addObject' : 'removeObject';
-            if (this.context.mutator[method](object, object.constructor.name) === false) return false;
-        }
-        this.context.refresh(operation === 'add' ? objects[0] : null);
-        return true;
+        return this.#apply(operation, objects, operation === 'add' ? objects[0] : null);
     }
 
     undo() {
         const { objects, operation = 'add' } = this.payload;
-        const method = operation === 'add' ? 'removeObject' : 'addObject';
-        const ordered = operation === 'add' ? [...objects].reverse() : objects;
-        for (const object of ordered) this.context.mutator[method](object, object.constructor.name);
-        this.context.refresh(operation === 'add' ? null : objects[0]);
+        const inverseOperation = operation === 'add' ? 'remove' : 'add';
+        return this.#apply(inverseOperation, objects, operation === 'add' ? null : objects[0]);
+    }
+
+    #apply(operation, objects, selection) {
+        const method = operation === 'add' ? 'addObject' : 'removeObject';
+        const rollbackMethod = operation === 'add' ? 'removeObject' : 'addObject';
+        const ordered = operation === 'add' ? objects : [...objects].reverse();
+        const applied = [];
+
+        for (const object of ordered) {
+            if (this.context.mutator[method](object, object.constructor.name) === false) {
+                for (const appliedObject of [...applied].reverse()) {
+                    this.context.mutator[rollbackMethod](appliedObject, appliedObject.constructor.name);
+                }
+                return false;
+            }
+            applied.push(object);
+        }
+
+        this.context.refresh(selection);
         return true;
     }
 }

@@ -33,11 +33,17 @@ jobs:
       - name: Run Node regression tests
         run: npm run test:unit
 
+      - name: Run community server tests
+        run: npm run test:server
+
       - name: Enforce configuration policy
         run: npm run test:policy
 
       - name: Validate shipped levels
         run: npm run test:levels
+
+      - name: Verify original level ports
+        run: npm run test:original-levels
 
       - name: Check JavaScript syntax
         run: npm run test:syntax
