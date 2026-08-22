@@ -140,6 +140,24 @@ test('plain R is suppressed only while actively editing a level', () => {
     assert.equal(shouldSuppressEditorKey({ code: 'KeyQ' }, { active: true, mode: 'edit' }), false);
 });
 
+test('plain R remains typeable in editor text controls', () => {
+    const editor = { active: true, mode: 'edit' };
+    const editableTarget = selector => ({
+        matches: query => query.includes(selector),
+        closest: () => null
+    });
+
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('input') }, editor), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('textarea') }, editor), false);
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: editableTarget('[contenteditable="true"]') }, editor), false);
+
+    const nestedContentEditableTarget = {
+        matches: () => false,
+        closest: query => query === '[contenteditable="true"]' ? {} : null
+    };
+    assert.equal(shouldSuppressEditorKey({ code: 'KeyR', target: nestedContentEditableTarget }, editor), false);
+});
+
 test('object-target orbit resolves the exact authored target for highlighting', () => {
     const source = new FakePlanet();
     source.id = 'planet_source';
