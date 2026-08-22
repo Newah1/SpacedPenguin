@@ -4,6 +4,7 @@ import { LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfi
 
 export const LevelObjectType = Object.freeze({
     PLANET: 'planet',
+    BLACK_HOLE: 'blackhole',
     BONUS: 'bonus',
     TARGET: 'target',
     SLINGSHOT: 'slingshot',
@@ -15,7 +16,8 @@ export const LevelObjectType = Object.freeze({
 
 export const LEVEL_OBJECT_TYPE_ALIASES = Object.freeze({
     text: LevelObjectType.TEXT,
-    arrow: LevelObjectType.POINTING_ARROW
+    arrow: LevelObjectType.POINTING_ARROW,
+    black_hole: LevelObjectType.BLACK_HOLE
 });
 
 export const LEVEL_OBJECT_TYPES = Object.freeze(Object.values(LevelObjectType));
@@ -26,6 +28,7 @@ export const LEVEL_OBJECT_TYPE_NAMES = Object.freeze([
 
 export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze({
     Planet: LevelObjectType.PLANET,
+    BlackHole: LevelObjectType.BLACK_HOLE,
     Bonus: LevelObjectType.BONUS,
     Target: LevelObjectType.TARGET,
     Slingshot: LevelObjectType.SLINGSHOT,
@@ -56,11 +59,13 @@ export const LEVEL_CAMERA_MODES = Object.freeze(Object.values(LevelCameraMode));
 // The current runtime injects ID lookup only into these object implementations.
 export const ORBIT_LOOKUP_TARGET_TYPES = Object.freeze([
     LevelObjectType.PLANET,
+    LevelObjectType.BLACK_HOLE,
     LevelObjectType.BONUS
 ]);
 
 export const ORBIT_SOURCE_TYPES = Object.freeze([
     LevelObjectType.PLANET,
+    LevelObjectType.BLACK_HOLE,
     LevelObjectType.BONUS,
     LevelObjectType.TARGET
 ]);
@@ -103,6 +108,7 @@ export function normalizeOrbitDefinition(orbit = {}) {
 export function getLevelObjectPropertyDefaults(type) {
     switch (normalizeLevelObjectType(type)) {
         case LevelObjectType.PLANET:
+        case LevelObjectType.BLACK_HOLE:
             return {
                 radius: LEVEL_DEFAULTS.planet.radius,
                 mass: LEVEL_DEFAULTS.planet.mass,
@@ -141,6 +147,10 @@ export function normalizeLevelObjectDefinition(definition = {}) {
     }
     if (type === LevelObjectType.PLANET && properties.collisionRadius == null) {
         properties.collisionRadius = properties.radius + LEVEL_DEFAULTS.planet.collisionPadding;
+    }
+    if (type === LevelObjectType.BLACK_HOLE) {
+        properties.collisionRadius = 0;
+        properties.collidable = false;
     }
     if (sourceProperties.orbit) {
         properties.orbit = normalizeOrbitDefinition(sourceProperties.orbit);
