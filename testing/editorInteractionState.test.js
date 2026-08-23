@@ -198,3 +198,19 @@ test('a second physical pointer cannot steal an active gesture', () => {
     assert.equal(controller.activePointerId, 1);
     assert.deepEqual(calls.map(call => call[0]), ['select', 'startDrag']);
 });
+
+test('legacy owned drag hydrates once into the single-owner interaction model', () => {
+    const { editor, calls, controller } = controllerFixture();
+    editor.dragging = true;
+    editor.draggingOrbitCenter = false;
+    controller.activePointerId = 7;
+    controller.getEventCoordinates = event => ({ x: event.clientX, y: event.clientY });
+
+    controller.handlePointerMove(pointerEvent({ pointerId: 8, clientX: 50, clientY: 60 }));
+    assert.equal(controller.interaction.idle, true);
+    assert.deepEqual(calls, []);
+
+    controller.handlePointerMove(pointerEvent({ pointerId: 7, clientX: 70, clientY: 80 }));
+    assert.equal(controller.interaction.type, EditorInteractionType.OBJECT_DRAG);
+    assert.deepEqual(calls, [['updateDrag', 70, 80]]);
+});
