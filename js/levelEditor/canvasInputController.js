@@ -2,10 +2,12 @@ import { EDITOR_CONFIG } from '../config/editorConfig.js';
 import { INPUT_CONFIG } from '../config/inputConfig.js';
 import plog from '../penguinLogger.js';
 import { screenToStage, stageToScreen } from '../viewport.js';
+import EditorInteractionState, { EditorInteractionType } from './editorInteractionState.js';
 
 export class LevelEditorCanvasInputController {
     constructor(editor) {
         this.editor = editor;
+        this.interaction = new EditorInteractionState();
         this.touchStart = null;
         this.longPressTimer = null;
         this.indicator = null;
@@ -16,30 +18,44 @@ export class LevelEditorCanvasInputController {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         event.preventDefault();
-        if (this.activePointerId !== null) return;
+        if (this.activePointerId !== null || !this.interaction.idle) return;
         this.activePointerId = Number.isInteger(event.pointerId) ? event.pointerId : null;
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
+
         if (event.button === 1 || editor.spacePan) {
-            editor.startPanning(event.clientX, event.clientY);
+            if (this.interaction.begin(EditorInteractionType.PAN)) {
+                editor.startPanning(event.clientX, event.clientY);
+            }
             return;
         }
+
         const position = this.getEventCoordinates(event);
         if (editor.gravitySculptController.state.drawing) {
-            editor.gravitySculptController.addWaypoint(position);
+            if (this.interaction.begin(EditorInteractionType.GRAVITY_SCULPT)) {
+                editor.gravitySculptController.addWaypoint(position);
+            }
             return;
         }
+
         if (event.pointerType === 'touch') this.startLongPress(position);
         const hit = editor.getObjectAtPosition(position.x, position.y);
         plog.debug('Level Editor PointerDown:', position.x, position.y, 'Found object:', hit);
+
         if (hit?.type === 'orbitCenter') {
             editor.selectObject(hit.object);
-            editor.startOrbitCenterDragging(position.x, position.y, hit.object);
+            if (this.interaction.begin(EditorInteractionType.ORBIT_CENTER_DRAG, { object: hit.object })) {
+                editor.startOrbitCenterDragging(position.x, position.y, hit.object);
+            }
         } else if (hit) {
             editor.selectObject(hit);
-            editor.startDragging(position.x, position.y);
+            if (this.interaction.begin(EditorInteractionType.OBJECT_DRAG, { object: hit })) {
+                editor.startDragging(position.x, position.y);
+            }
         } else {
             editor.selectObject(null);
-            if (event.pointerType === 'touch') editor.startPanning(event.clientX, event.clientY);
+            if (event.pointerType === 'touch' && this.interaction.begin(EditorInteractionType.PAN)) {
+                editor.startPanning(event.clientX, event.clientY);
+            }
         }
     }
 
@@ -48,27 +64,36 @@ export class LevelEditorCanvasInputController {
         if (!editor.active || editor.mode !== 'edit') return;
         if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
         const position = this.getEventCoordinates(event);
-        if (editor.panning) {
-            event.preventDefault();
-            editor.updatePanning(event.clientX, event.clientY);
-            const distance = this.touchStart
-                ? Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y)
-                : 0;
-            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
-            return;
+
+        switch (this.interaction.type) {
+            case EditorInteractionType.PAN: {
+                event.preventDefault();
+                editor.updatePanning(event.clientX, event.clientY);
+                const distance = this.touchStart
+                    ? Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y)
+                    : 0;
+                if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
+                return;
+            }
+            case EditorInteractionType.GRAVITY_SCULPT:
+                event.preventDefault();
+                return;
+            case EditorInteractionType.ORBIT_CENTER_DRAG:
+                event.preventDefault();
+                editor.updateOrbitCenterDragging(position.x, position.y);
+                return;
+            case EditorInteractionType.OBJECT_DRAG:
+                event.preventDefault();
+                editor.updateDragging(position.x, position.y);
+                return;
+            default:
+                break;
         }
-        if (editor.gravitySculptController.state.drawing) {
-            event.preventDefault();
-            return;
-        }
+
         if (event.pointerType === 'touch' && this.touchStart) {
             const distance = Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y);
             if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
         }
-        if (!editor.dragging && !editor.draggingOrbitCenter) return;
-        event.preventDefault();
-        if (editor.draggingOrbitCenter) editor.updateOrbitCenterDragging(position.x, position.y);
-        else editor.updateDragging(position.x, position.y);
     }
 
     handlePointerUp(event) {
@@ -81,12 +106,21 @@ export class LevelEditorCanvasInputController {
             event.currentTarget.releasePointerCapture(event.pointerId);
         }
         this.activePointerId = null;
-        editor.stopPanning();
-        if (editor.gravitySculptController.state.drawing) {
-            return;
+
+        const completed = this.interaction.end();
+        switch (completed?.type) {
+            case EditorInteractionType.PAN:
+                editor.stopPanning();
+                break;
+            case EditorInteractionType.OBJECT_DRAG:
+                editor.stopDragging();
+                break;
+            case EditorInteractionType.ORBIT_CENTER_DRAG:
+                editor.stopOrbitCenterDragging();
+                break;
+            default:
+                break;
         }
-        editor.stopDragging();
-        editor.stopOrbitCenterDragging();
     }
 
     handleContextMenu(event) {
@@ -99,9 +133,20 @@ export class LevelEditorCanvasInputController {
 
     cancelPointer() {
         this.activePointerId = null;
-        this.editor.stopDragging();
-        this.editor.stopOrbitCenterDragging();
-        this.editor.stopPanning();
+        const cancelled = this.interaction.cancel();
+        switch (cancelled?.type) {
+            case EditorInteractionType.PAN:
+                this.editor.stopPanning();
+                break;
+            case EditorInteractionType.OBJECT_DRAG:
+                this.editor.stopDragging();
+                break;
+            case EditorInteractionType.ORBIT_CENTER_DRAG:
+                this.editor.stopOrbitCenterDragging();
+                break;
+            default:
+                break;
+        }
         this.cancelLongPress();
     }
 
