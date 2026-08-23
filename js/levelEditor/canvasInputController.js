@@ -30,6 +30,36 @@ export class LevelEditorCanvasInputController {
         return false;
     }
 
+    hydrateLegacyInteraction() {
+        if (!this.interaction.idle || this.activePointerId === null) return;
+
+        // Temporary migration bridge: LevelEditor still owns the legacy gesture
+        // booleans in this PR. If an existing caller/test has already established
+        // pointer ownership using that state, translate it once into the new
+        // single-owner interaction model. This disappears when those flags move
+        // into EditorInteractionState in the next cleanup chunk.
+        const editor = this.editor;
+        if (editor.panning) {
+            this.interaction.begin(EditorInteractionType.PAN);
+            return;
+        }
+        if (editor.gravitySculptController?.state?.drawing) {
+            this.interaction.begin(EditorInteractionType.GRAVITY_SCULPT);
+            return;
+        }
+        if (editor.draggingOrbitCenter) {
+            this.interaction.begin(EditorInteractionType.ORBIT_CENTER_DRAG, {
+                object: editor.orbitCenterObject ?? null
+            });
+            return;
+        }
+        if (editor.dragging) {
+            this.interaction.begin(EditorInteractionType.OBJECT_DRAG, {
+                object: editor.selectedObject ?? null
+            });
+        }
+    }
+
     handlePointerDown(event) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
@@ -79,6 +109,7 @@ export class LevelEditorCanvasInputController {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
+        this.hydrateLegacyInteraction();
         const position = this.getEventCoordinates(event);
 
         switch (this.interaction.type) {
@@ -116,6 +147,7 @@ export class LevelEditorCanvasInputController {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
+        this.hydrateLegacyInteraction();
         event.preventDefault();
         this.cancelLongPress();
         if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
@@ -148,6 +180,7 @@ export class LevelEditorCanvasInputController {
     }
 
     cancelPointer() {
+        this.hydrateLegacyInteraction();
         this.activePointerId = null;
         const cancelled = this.interaction.cancel();
         switch (cancelled?.type) {
