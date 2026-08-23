@@ -27,6 +27,24 @@ Then open `http://localhost:8000`. Select a default ported level with `http://lo
 
 There is no build or install step for the game itself.
 
+## Deploy to GitHub Pages
+
+A `pages` workflow (`.github/workflows/pages.yml`) publishes the game as a
+static single page app to GitHub Pages on every push to `master`. This makes
+the game playable for anyone, directly in their browser, without needing git
+or a local clone.
+
+The site appears at `https://<owner>.github.io/<repo>/` (e.g.
+`https://newah1.github.io/SpacedPenguin/`). A specific level can be reached with
+`?level=N` (for example `?level=5` or `?level=manual:5`).
+
+If you want to enable this on your own fork:
+
+1. In the repository **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. Push to `master` (or run the `pages` workflow manually via **Actions**).
+
+**Note:** This only deploys the browser game, not the community server.
+
 ## Optional community level server
 
 The server requires Node.js 22.13 or newer and uses Node's built-in SQLite support. Start it with:
@@ -54,10 +72,10 @@ For a separate deployment, enable it in the browser through the deployment-owned
 
 ```js
 globalThis.__SPACED_PENGUIN_APP_CONFIG__ = {
-    levelServer: {
-        baseUrl: 'http://127.0.0.1:3000',
-        requestTimeoutMs: 8000
-    }
+  levelServer: {
+    baseUrl: "http://127.0.0.1:3000",
+    requestTimeoutMs: 8000,
+  },
 };
 ```
 
