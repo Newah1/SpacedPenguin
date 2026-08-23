@@ -14,11 +14,27 @@ export class LevelEditorCanvasInputController {
         this.activePointerId = null;
     }
 
+    canBeginPointerInteraction(event) {
+        if (this.activePointerId === null) return this.interaction.idle;
+
+        // Pointer capture is normally released automatically on pointerup. If
+        // another editor mode owned that pointerup, this controller may not have
+        // seen it and can retain stale ownership. A subsequent down from that
+        // same physical pointer is proof that the old gesture is over.
+        if (event.pointerId === this.activePointerId &&
+            event.currentTarget?.hasPointerCapture?.(this.activePointerId) === false) {
+            this.cancelPointer();
+            return this.interaction.idle;
+        }
+
+        return false;
+    }
+
     handlePointerDown(event) {
         const editor = this.editor;
         if (!editor.active || editor.mode !== 'edit') return;
         event.preventDefault();
-        if (this.activePointerId !== null || !this.interaction.idle) return;
+        if (!this.canBeginPointerInteraction(event)) return;
         this.activePointerId = Number.isInteger(event.pointerId) ? event.pointerId : null;
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
 
