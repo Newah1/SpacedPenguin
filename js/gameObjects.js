@@ -454,6 +454,9 @@ class Portal extends GameObject {
         ctx.shadowColor = this.tint;
         ctx.shadowBlur = config.glowBlur * 0.65;
         ctx.beginPath();
+        // The full rim is rendered below Kevin with the portal body. Redraw
+        // only the inward/deeper half above him, leaving the outward rim below
+        // so he visibly passes over it as he exits.
         ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI);
         ctx.stroke();
         ctx.restore();

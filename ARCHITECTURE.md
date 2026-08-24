@@ -4,7 +4,7 @@
 
 **Audience:** Software architects, maintainers, game/system developers, and level-tooling developers
 
-**Last verified:** 2026-08-15 against the repository source
+**Last verified:** 2026-08-23 against the repository source
 
 **Scope:** The browser-based HTML5 rewrite. `OldSource/` is reference material, not a runtime dependency.
 
@@ -148,7 +148,7 @@ flowchart TB
 | `OrbitSystem` | Runtime/editor orbit configuration facade | Shared `OrbitSimulation` | Direct calls delegate to the same pure orbit step used by browser and headless simulation. |
 | `UIManager` | Stack of Canvas UI screens and input dispatch | `LevelEndScreen`, audio | Rendered above game entities and below the editor overlay. |
 | `LevelEndScreen` | Animated score breakdown and continue/retry actions | `Game`, `UIManager` | Drives transitions out of `SCORING`. |
-| `LevelEditor` | Coordinates in-browser object creation, selection, property editing, play/edit mode, and export | Editor views/controllers, command history, `Game` | Mutates the live runtime graph directly; it is not a separate model. |
+| `LevelEditor` | Compatibility facade for in-browser authoring, selection, tools, play/edit mode, and export | `LevelDocument`, command bus, projector, views, `Game` | Authored state belongs to `LevelDocument`; runtime entities are disposable projections. |
 | `FullscreenManager` | Fullscreen DOM and scaling behavior | Canvas/container | Uses vendor-prefixed fallbacks in addition to the standard API. |
 | `PenguinLogger` / `Console` | Themed logs and debug commands | DOM and global runtime handles | Operational diagnostics, not durable telemetry. |
 | `PerformanceUtils` | Frame-time tracking and browser timing helpers | `GameManager` | The main loop records capped frame durations. |
@@ -493,28 +493,32 @@ UI is hybrid:
 
 ## 11. Level editor architecture
 
-The editor is an embedded mode over the live `Game` aggregate, not an offline document editor. `LevelEditor` coordinates focused views/controllers from `js/levelEditor/` for the inspector, object list, toolbar, pointer input, and Canvas overlay. `LiveLevelMutator` keeps runtime, typed, singleton, and physics collections synchronized. Reversible changes implement the typed `LiveEditCommand` contract from `js/editorCommands/`; `CommandRegistry` resolves strategies by type and `CommandHistory` invokes their `do()` and `undo()` methods against the same live objects. Repeated input events from one focused property-edit session coalesce into a single history entry.
+The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` remains the compatibility facade used by `Game`, input contexts, and browser diagnostics, but delegates interaction state, ID selection, tools, command dispatch, runtime projection, and views to focused collaborators under `js/levelEditor/`. Missing object IDs and display names are assigned when a level enters the editor and persist in subsequent saves and exports.
+
+Every authored mutation crosses `EditorCommandBus`. Commands carry stable IDs and serializable before/after state; live drag and inspector transactions can update the edit projection repeatedly while committing one undo entry. `EditorRuntimeProjector` mirrors accepted document changes into runtime entities through the existing loader, factory, mutator, and physics paths. `LiveLevelMutator` is restricted to this projection/command boundary. The five domain signals—selection, document, mode, history, and tool changes—drive view refreshes without a generic application event bus.
 
 ```mermaid
 flowchart LR
-    Views[Inspector / object list / toolbar] --> Editor[LevelEditor coordinator]
-    Canvas[Canvas input controller] --> Editor
-    Editor --> Overlay[Canvas overlay renderer]
-    Editor --> Commands[Typed do/undo commands]
-    Commands --> Live[Live Game object graph]
-    Live --> Physics[Physics registries]
-    Live --> Preview[Edit guides or play preview]
-    Live --> Serialize[Serialization/export]
-    Serialize --> Download[Level JSON download]
+    Input[Editor input context] --> Tools[EditorToolManager]
+    Views[Inspector / object list / toolbar] --> Commands[EditorCommandBus]
+    Tools --> Commands
+    Commands --> Document[LevelDocument]
+    Document --> Projector[EditorRuntimeProjector]
+    Projector --> Runtime[Disposable Game runtime]
+    Runtime --> Physics[Physics registries]
+    Document --> Preview[Orbit preview / overlays]
+    Document --> Serialize[Save / export / publish]
+    Serialize --> JSON[Canonical level JSON]
 ```
 
 Architectural consequences:
 
-- Edit and play previews share object identity and state, so reset logic matters when switching modes.
-- Object membership is denormalized across `gameObjects`, typed arrays, singleton references, and physics registries. Add/remove operations must update all applicable stores.
-- Stable IDs are part of the data model because orbit relationships serialize by ID.
-- The editor exposes both comprehensive game export and its own serialization helpers; format changes must be reconciled across `Game`, `LevelEditor`, and `LevelLoader`.
-- Export and Ctrl+S download canonical level JSON. In-session undo/redo covers structural edits, canvas moves, orbit-center moves, object properties, and level settings; server persistence is not implemented.
+- `EditorState.interaction` is discriminated, owns its pointer ID, and permits only one of idle, touch-pending, pan, object drag, orbit-center drag, or Gravity Sculpt waypoint capture.
+- `EditorSelection` stores an object ID or the level-settings sentinel and resolves the current runtime mirror after rebuilds.
+- Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
+- Edit to Play validates and clones `LevelDocument`, constructs a fresh simulation world, and freezes that exact definition for completion proof/publishing. Returning to Edit discards the simulated world and rebuilds from the unchanged document.
+- Save, export, thumbnail metadata, and editor publishing serialize `LevelDocument`; `Game.exportCurrentLevel()` remains the runtime/gameplay export path.
+- Orbit preview is visualization-only state. It advances a compiled preview graph and renders with Canvas transforms/global alpha without changing authored or runtime positions.
 
 ## 12. Persistence and network behavior
 
@@ -546,7 +550,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or sub
 
 ### Central `Game` aggregate
 
-**Why:** Makes original global/stateful game logic straightforward to port and gives the editor one live graph to manipulate.
+**Why:** Makes original global/stateful game logic straightforward to port and supplies the editor projector with one established runtime construction path.
 
 **Trade-off:** `Game` has many reasons to change and knows about rendering, physics, input-facing methods, UI, editor, persistence, and scoring.
 

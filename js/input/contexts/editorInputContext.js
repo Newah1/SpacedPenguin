@@ -37,8 +37,11 @@ export class EditorInputContext {
                 editor.handlePointerMove(event);
                 return InputResponse.handled();
             case InputType.POINTER_UP:
-            case InputType.POINTER_CANCEL:
                 editor.handlePointerUp(event);
+                return InputResponse.handled();
+            case InputType.POINTER_CANCEL:
+                if (editor.handlePointerCancel) editor.handlePointerCancel(event);
+                else editor.handlePointerUp(event);
                 return InputResponse.handled();
             case InputType.CONTEXT_MENU:
                 editor.handleRightClick(event);
@@ -48,6 +51,7 @@ export class EditorInputContext {
                 return InputResponse.handled({ preventDefault: true });
             case InputType.KEY_UP:
                 if (event.code !== 'Space') return InputResponse.consumed();
+                editor.toolManager?.setSpacePan(false);
                 editor.spacePan = false;
                 if (!editor.panning) game.canvas.style.cursor = '';
                 return InputResponse.handled();
@@ -61,6 +65,7 @@ export class EditorInputContext {
     handleKeyDown(event, game, editor) {
         switch (event.code) {
             case 'Space':
+                editor.toolManager?.setSpacePan(true);
                 editor.spacePan = true;
                 game.canvas.style.cursor = 'grab';
                 return InputResponse.handled({ preventDefault: true });

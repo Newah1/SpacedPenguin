@@ -14,14 +14,20 @@ export class MoveObjectCommand extends LiveEditCommand {
     static type = 'object.move';
 
     do() {
-        setPosition(this.payload.object, this.payload.after);
-        this.context.refresh(this.payload.object);
+        const object = this.payload.object || this.context.resolveObject?.(this.payload.objectId);
+        if (!object) return false;
+        setPosition(object, this.payload.after);
+        this.context.synchronizeObject?.(object);
+        this.context.refresh(object);
         return true;
     }
 
     undo() {
-        setPosition(this.payload.object, this.payload.before);
-        this.context.refresh(this.payload.object);
+        const object = this.payload.object || this.context.resolveObject?.(this.payload.objectId);
+        if (!object) return false;
+        setPosition(object, this.payload.before);
+        this.context.synchronizeObject?.(object);
+        this.context.refresh(object);
         return true;
     }
 }

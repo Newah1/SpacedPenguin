@@ -345,15 +345,13 @@ test('level editor drag ignores pointer events from non-owning pointers', () => 
     const editor = {
         active: true,
         mode: 'edit',
-        dragging: true,
-        draggingOrbitCenter: false,
-        gravitySculptController: { state: { drawing: false } },
-        updateDragging: (x, y) => calls.push(['move', x, y]),
-        stopDragging: () => calls.push(['stop']),
-        stopOrbitCenterDragging() {}
+        toolManager: {
+            handlePointerMove: input => calls.push(['move', input.world.x, input.world.y]),
+            handlePointerUp: () => calls.push(['stop'])
+        }
     };
     const controller = new LevelEditorCanvasInputController(editor);
-    controller.activePointerId = 7;
+    controller.capturedPointerId = 7;
     controller.getEventCoordinates = event => ({ x: event.clientX, y: event.clientY });
 
     controller.handlePointerMove({ pointerId: 8, clientX: 50, clientY: 60, preventDefault() {} });
@@ -1092,6 +1090,12 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
         calls.filter(call => call[0] === 'fillText').map(call => call[1]).join(''),
         'kEvIn cAm'
     );
+
+    const callsBeforeDisabling = calls.length;
+    game.settingsManager = { get: key => key !== 'kevinCamEnabled' };
+    Game.prototype.drawKevinCam.call(game);
+    assert.equal(calls.length, callsBeforeDisabling);
+    assert.equal(penguinDraws, 1);
 });
 
 test('main Kevin render is clipped to the playfield', () => {
@@ -1261,6 +1265,48 @@ test('alpha-mask rendering draws the canvas cached at launch without pixel-buffe
         ['drawImage', renderCanvas, -8, -13],
         ['restore']
     ]);
+});
+
+test('director launch preserves the release point for the alpha-mask marker', () => {
+    let markerPosition = null;
+    const game = {
+        penguin: {
+            x: 175,
+            y: 265,
+            setPosition(x, y) { this.x = x; this.y = y; },
+            launch() {},
+            setState() {}
+        },
+        slingshot: {
+            launchModel: 'director',
+            position: { x: 100, y: 300 },
+            anchor: { x: 100, y: 300 },
+            maxPullback: 100,
+            minPullback: 0,
+            sourceFrameRate: 30,
+            coordinateScale: 1
+        },
+        launches: [],
+        tries: 0,
+        resetSimulationSpeedControl() {},
+        recordRunLaunch() {},
+        createAlphaMaskAtLaunchPosition(position) { markerPosition = position; },
+        invalidateSimulationState() {},
+        updateUI() {},
+        playSound() {},
+        physics: { clearTrace() {} },
+        startRecordingShotPath() {}
+    };
+    const releasePosition = { x: 175, y: 265 };
+
+    Game.prototype.launchPenguin.call(
+        game,
+        { x: 300, y: -140 },
+        { angle: 335, power: 82 }
+    );
+
+    assert.deepEqual(markerPosition, releasePosition);
+    assert.notDeepEqual({ x: game.penguin.x, y: game.penguin.y }, releasePosition);
 });
 
 test('main starfield wraps with layered drift independent of Kevin', () => {

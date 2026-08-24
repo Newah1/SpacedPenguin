@@ -156,8 +156,7 @@ test('typed command strategies replay against the same live runtime object', () 
     assert.equal(history.redo(), true);
     assert.deepEqual(game.planets, [planet]);
 
-    planet.position = { x: 30, y: 40 };
-    history.recordExecuted(LiveEditCommandType.MOVE_OBJECT, {
+    history.execute(LiveEditCommandType.MOVE_OBJECT, {
         object: planet,
         before: { x: 10, y: 20 },
         after: { x: 30, y: 40 }
@@ -213,7 +212,13 @@ function createPropertyHistoryEditor(selectedObject, gameOverrides = {}) {
         refresh: selection => editor.refreshAfterHistory(selection),
         updateOrbitSystem: object => editor.updateOrbitSystem(object),
         restoreObjectPropertyState: (object, state) => editor.restoreObjectPropertyState(object, state),
-        restoreLevelSettingsState: state => editor.restoreLevelSettingsState(state)
+        restoreLevelSettingsState: state => editor.restoreLevelSettingsState(state),
+        captureObjectPropertyState: object => editor.captureObjectPropertyState(object),
+        captureLevelSettingsState: () => editor.captureLevelSettingsState(),
+        applyObjectProperty: (object, property, value) => editor.applyObjectProperty(object, property, value),
+        applyLevelSetting: (property, value) => editor.updateLevelSetting(property, value),
+        resolveObject: id => selectedObject?.id === id ? selectedObject : null,
+        levelSettingsTarget: editor.levelSettingsNode
     });
     return editor;
 }
@@ -230,6 +235,7 @@ test('property input events coalesce into one typed undo command per edit sessio
         parseHTMLContent(value) { return [value]; }
     }
     const object = new TextObject();
+    object.id = 'textobject_1';
     const editor = createPropertyHistoryEditor(object);
     const event = value => ({
         target: { dataset: { property: 'width', editSession: '7' }, type: 'number', value }

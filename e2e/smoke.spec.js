@@ -223,7 +223,9 @@ test('settings are available from the main and pause menus and persist locally',
     await page.locator('#menuSettingsButton').click();
     await expect(page.getByRole('dialog', { name: 'SETTINGS' })).toBeVisible();
     await expect(page.getByLabel('Aim assist')).not.toBeChecked();
+    await expect(page.getByLabel('Kevin Cam')).toBeChecked();
     await page.getByLabel('Aim assist').check();
+    await page.getByLabel('Kevin Cam').uncheck();
     await page.getByLabel('Sound effects').uncheck();
     await page.getByLabel('Master volume').fill('0.35');
     await page.getByRole('button', { name: 'BACK' }).click();
@@ -232,6 +234,7 @@ test('settings are available from the main and pause menus and persist locally',
     await waitForGame(page);
     await page.locator('#menuSettingsButton').click();
     await expect(page.getByLabel('Aim assist')).toBeChecked();
+    await expect(page.getByLabel('Kevin Cam')).not.toBeChecked();
     await expect(page.getByLabel('Sound effects')).not.toBeChecked();
     await expect(page.getByLabel('Master volume')).toHaveValue('0.35');
     await page.getByRole('button', { name: 'BACK' }).click();
@@ -578,6 +581,152 @@ test('editor exports a valid normalized level document', async ({ page }) => {
     expect(exportedLevel.startPosition).toEqual({ x: 125, y: 300 });
     expect(exportedLevel.rules.gravitationalConstant).toBe(2.5);
     expect(Array.isArray(exportedLevel.objects)).toBe(true);
+});
+
+test('editor clone assigns a fresh identity and survives undo and redo', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/?level_editor');
+    await waitForGame(page, 'levelEditor');
+    await page.evaluate(() => window.game.levelEditor.addObject('Planet'));
+    await page.getByRole('button', { name: 'Clone Selected' }).click();
+
+    await expect.poll(() => page.evaluate(() => ({
+        count: window.game.planets.length,
+        ids: window.game.planets.map(planet => planet.id),
+        selection: window.game.levelEditor.selection.value
+    }))).toEqual({
+        count: 2,
+        ids: ['planet_1', 'planet_2'],
+        selection: { kind: 'object', id: 'planet_2' }
+    });
+
+    await page.keyboard.press('Control+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets.length)).toBe(1);
+    await page.keyboard.press('Control+Shift+KeyZ');
+    await expect.poll(() => page.evaluate(() => window.game.planets.map(planet => planet.id)))
+        .toEqual(['planet_1', 'planet_2']);
+});
+
+test('editor Play uses a disposable runtime and preserves document selection', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/?level_editor');
+    await waitForGame(page, 'levelEditor');
+    await page.evaluate(() => window.game.levelEditor.addObject('Planet'));
+
+    const result = await page.evaluate(() => {
+        const editor = window.game.levelEditor;
+        const before = editor.document.fingerprint();
+        const selectedId = editor.selection.value.id;
+        const authoredPosition = { ...editor.document.getObject(selectedId).position };
+        editor.toggleMode();
+        window.game.planets[0].position.x += 137;
+        window.game.planets[0].position.y -= 49;
+        editor.toggleMode();
+        return {
+            unchanged: editor.document.fingerprint() === before,
+            selected: editor.selection.value,
+            runtimePosition: window.game.planets[0].position,
+            authoredPosition
+        };
+    });
+
+    expect(result).toEqual({
+        unchanged: true,
+        selected: { kind: 'object', id: 'planet_1' },
+        runtimePosition: result.authoredPosition,
+        authoredPosition: result.authoredPosition
+    });
+});
+
+test('editor registers an object-target orbit and projects it into Play', async ({ page }) => {
+    const orbitLevel = {
+        name: 'Object Orbit Editor Regression',
+        startPosition: { x: 100, y: 300 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [
+            {
+                type: 'planet',
+                position: { x: 300, y: 300 },
+                properties: { id: 'anchor', name: 'Anchor', radius: 30, mass: 1000 }
+            },
+            {
+                type: 'planet',
+                position: { x: 500, y: 300 },
+                properties: { id: 'orbiter', name: 'Orbiter', radius: 25, mass: 500 }
+            }
+        ],
+        rules: {}
+    };
+    await page.route('**/levels/level01.json', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(orbitLevel)
+    }));
+    await page.goto('/?level_editor');
+    await waitForGame(page, 'levelEditor');
+    await page.evaluate(() => {
+        const orbiter = window.game.planets.find(planet => planet.id === 'orbiter');
+        window.game.levelEditor.selectObject(orbiter);
+    });
+
+    await page.locator('select[data-property="orbitTargetType"]').selectOption('object');
+    await expect(page.locator('select[data-property="orbitTargetId"]')).toHaveValue('anchor');
+    await page.locator('input[data-property="orbitRadius"]').fill('100');
+    await page.locator('input[data-property="orbitSpeed"]').fill('1');
+
+    await expect.poll(() => page.evaluate(() => {
+        const editor = window.game.levelEditor;
+        const runtime = window.game.planets.find(planet => planet.id === 'orbiter');
+        const authored = editor.document.getObject('orbiter');
+        return {
+            availableIds: editor.getAvailableObjectIds(),
+            runtimeTarget: runtime.orbitSystem.orbitTargetId,
+            resolvedCenter: runtime.orbitSystem.getResolvedCenter(),
+            documentTarget: authored.properties.orbit.orbitTargetId,
+            documentRadius: authored.properties.orbit.orbitRadius
+        };
+    })).toEqual({
+        availableIds: ['none', 'anchor'],
+        runtimeTarget: 'anchor',
+        resolvedCenter: { x: 300, y: 300 },
+        documentTarget: 'anchor',
+        documentRadius: 100
+    });
+
+    const editRender = await page.evaluate(() => {
+        window.gameManager.pause();
+        const orbiter = window.game.planets.find(planet => planet.id === 'orbiter');
+        const originalDraw = orbiter.draw;
+        let draws = 0;
+        orbiter.draw = function drawOnce(ctx) {
+            draws++;
+            return originalDraw.call(this, ctx);
+        };
+        window.game.render();
+        orbiter.draw = originalDraw;
+        const displayPosition = window.game.levelEditor.overlayRenderer.runtimeController
+            .getDisplayPosition(orbiter);
+        window.gameManager.resume();
+        return {
+            draws,
+            deferred: window.game.levelEditor.shouldDeferRuntimeObjectDraw(orbiter),
+            displayDiffersFromAuthored: Math.hypot(
+                displayPosition.x - orbiter.position.x,
+                displayPosition.y - orbiter.position.y
+            ) > 1
+        };
+    });
+    expect(editRender).toEqual({
+        draws: 1,
+        deferred: true,
+        displayDiffersFromAuthored: true
+    });
+
+    await page.getByRole('button', { name: 'Switch to Play Mode' }).click();
+    await expect.poll(() => page.evaluate(() => {
+        const orbiter = window.game.planets.find(planet => planet.id === 'orbiter');
+        return orbiter.position.x;
+    })).not.toBe(500);
 });
 
 test('level_editor URL parameter boots directly into the editor', async ({ page }) => {

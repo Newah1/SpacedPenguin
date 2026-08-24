@@ -2,6 +2,7 @@ import { isCompactEditorViewport } from '../config/inputConfig.js';
 import { makeDraggablePanel } from './draggablePanel.js';
 import { createButton } from '../buttonFramework.js';
 import { getEditorObjectDefinition } from '../editorObjectRegistry.js';
+import { EditorEventType } from './editorEvents.js';
 
 function button(label, background, action) {
     const element = createButton(label, action, {
@@ -10,7 +11,7 @@ function button(label, background, action) {
         textColor: 'white',
         borderColor: 'rgba(255, 255, 255, .25)'
     });
-    element.style.cssText += 'padding: 8px 12px; min-height: 44px; font-size: 14px; white-space: nowrap; flex-shrink: 0;';
+    element.classList.add('editor-toolbar-button');
     return element;
 }
 
@@ -18,18 +19,19 @@ export class LevelEditorToolbarView {
     constructor(editor) {
         this.editor = editor;
         this.addButtons = {};
+        this.unsubscribe = [
+            editor.events?.on(EditorEventType.SELECTION_CHANGED, event =>
+                this.updateContextActions(event.object)),
+            editor.events?.on(EditorEventType.MODE_CHANGED, event => this.updateMode(event.mode)),
+            editor.events?.on(EditorEventType.HISTORY_CHANGED, () => this.updatePublishAvailability())
+        ].filter(Boolean);
     }
 
     createElements() {
         this.wrapper = document.createElement('div');
-        this.wrapper.style.cssText = 'position: relative; width: 100%;';
+        this.wrapper.className = 'editor-toolbar-wrapper';
         this.toolbar = document.createElement('div');
-        this.toolbar.style.cssText = `
-            position: absolute; top: 10px; left: 10px; right: 330px;
-            background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 5px;
-            color: white; font-family: Arial, sans-serif; pointer-events: auto;
-            display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 44px;
-        `;
+        this.toolbar.className = 'editor-toolbar';
         this.modeButton = button('Switch to Play Mode', '#4CAF50', () => this.editor.toggleMode());
         this.toggleButton = button('Add Objects ▼', '#2196F3', event => {
             event.stopPropagation();
@@ -45,16 +47,9 @@ export class LevelEditorToolbarView {
         this.publishHint.textContent = 'Play-test first';
         this.publishHint.title = 'Complete this level in Play Mode to unlock Publish';
         this.publishHint.setAttribute('aria-label', this.publishHint.title);
-        this.publishHint.style.cssText = `
-            padding: 3px 6px; border: 1px solid rgba(255, 228, 155, .35);
-            border-radius: 999px; color: #ffe49b; background: rgba(80, 61, 24, .58);
-            font-size: 10px; line-height: 1; white-space: nowrap;
-        `;
+        this.publishHint.className = 'editor-publish-hint';
         this.publishControl = document.createElement('span');
-        this.publishControl.style.cssText = `
-            display: inline-flex; flex-direction: column; align-items: center;
-            gap: 2px; flex-shrink: 0;
-        `;
+        this.publishControl.className = 'editor-publish-control';
         this.publishControl.append(this.publishButton, this.publishHint);
         this.updatePublishAvailability();
         this.loadButton = button('Open Level…', '#3d74b8', () => this.editor.loadLevel());
@@ -69,15 +64,9 @@ export class LevelEditorToolbarView {
         this.minimizeButton.style.fontSize = '22px';
         this.minimizeButton.style.padding = '4px 12px';
         this.section = document.createElement('div');
-        this.section.style.cssText = `
-            position: absolute; top: 64px; left: 10px; right: 330px;
-            background: rgba(0, 0, 0, 0.95); padding: 15px; border-radius: 8px;
-            display: none; flex-wrap: wrap; gap: 8px; z-index: 1002;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2);
-            max-height: 300px; overflow-y: auto; pointer-events: auto;
-        `;
+        this.section.className = 'editor-add-section';
         this.addButtonContainer = document.createElement('div');
-        this.addButtonContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; width: 100%;';
+        this.addButtonContainer.className = 'editor-add-button-container';
         this.section.appendChild(this.addButtonContainer);
         this.toolbarControls = [
             this.modeButton, this.toggleButton, this.deleteButton,
@@ -88,7 +77,7 @@ export class LevelEditorToolbarView {
         this.status = document.createElement('span');
         this.status.setAttribute('role', 'status');
         this.status.setAttribute('aria-live', 'polite');
-        this.status.style.cssText = 'min-height:20px; margin:0 6px; color:#b8f5c5; font-weight:700; flex:1 1 180px;';
+        this.status.className = 'editor-status';
         this.toolbar.append(...this.toolbarControls, this.status, this.minimizeButton);
         this.wrapper.append(this.toolbar, this.section);
         this.mobileToolbar = this.createMobileToolbar();
@@ -128,7 +117,7 @@ export class LevelEditorToolbarView {
         const className = selection?.constructor?.name;
         const definition = className ? getEditorObjectDefinition(className) : null;
         const canEditObject = Boolean(selection && !selection.isLevelSettings && definition?.editable);
-        const canCloneObject = canEditObject && !definition.singleton;
+        const canCloneObject = canEditObject && definition.capabilities.clone;
 
         if (this.deleteButton) {
             this.deleteButton.hidden = !canEditObject;
@@ -158,12 +147,8 @@ export class LevelEditorToolbarView {
 
     createMobileToolbar() {
         const toolbar = document.createElement('div');
-        toolbar.style.cssText = `
-            position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9); padding: 8px; border-radius: 25px;
-            display: ${isCompactEditorViewport() ? 'flex' : 'none'}; gap: 8px;
-            align-items: center; pointer-events: auto; z-index: 1001;
-        `;
+        toolbar.className = 'editor-mobile-toolbar';
+        toolbar.classList.toggle('is-visible', isCompactEditorViewport());
         toolbar.append(
             button('Clear', '#f44336', () => this.editor.selectObject(null)),
             button('Add', '#2196F3', () => this.editor.showMobileAddMenu())
@@ -231,8 +216,13 @@ export class LevelEditorToolbarView {
         else Object.assign(this.section.style, compact
             ? { right: '10px' }
             : { right: '330px' });
-        this.mobileToolbar.style.display = compact ? 'flex' : 'none';
+        this.mobileToolbar.classList.toggle('is-visible', compact);
         if (this.mobileToolbar.dataset.userPositioned) this.mobileToolbarDrag?.clampToViewport();
+    }
+
+    destroy() {
+        this.unsubscribe.forEach(unsubscribe => unsubscribe());
+        this.unsubscribe = [];
     }
 }
 

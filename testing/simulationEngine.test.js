@@ -527,10 +527,10 @@ test('bounded worker sweeps preserve sequential candidate results', async () => 
 test('swept portals preserve speed and exclude the teleport gap from distance', () => {
     const level = levelWith([
         { type: 'portal', position: { x: 50, y: 0 }, properties: {
-            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 0
+            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 270
         } },
         { type: 'portal', position: { x: 300, y: 0 }, properties: {
-            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 180
+            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 90
         } }
     ], { gravitationalConstant: 0 });
     let state = createSimulationStateFromLevel(level);
@@ -548,10 +548,10 @@ test('swept portals preserve speed and exclude the teleport gap from distance', 
 test('portal orientation rotates heading while preserving momentum magnitude', () => {
     const level = levelWith([
         { type: 'portal', position: { x: 50, y: 0 }, properties: {
-            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 0
+            id: 'red', pairedPortalId: 'blue', color: 'red', width: 48, height: 18, rotation: 270
         } },
         { type: 'portal', position: { x: 300, y: 200 }, properties: {
-            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 270
+            id: 'blue', pairedPortalId: 'red', color: 'blue', width: 48, height: 18, rotation: 180
         } }
     ], { gravitationalConstant: 0 });
     let state = createSimulationStateFromLevel(level);

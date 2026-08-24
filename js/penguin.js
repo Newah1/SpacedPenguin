@@ -684,6 +684,12 @@ export class Penguin {
             this.currentAnimation.rotation = 0;
         }
     }
+
+    markTrailDiscontinuity(position) {
+        if (!position) return;
+        this.trail.push({ x: position.x, y: position.y, move: true });
+        if (this.trail.length > this.maxTrailLength) this.trail.shift();
+    }
     
     getBounds() {
         return {
@@ -814,6 +820,7 @@ export class Penguin {
         ctx.lineWidth = RENDER_CONFIG.penguin.trail.lineWidth;
         
         for (let i = 1; i < this.trail.length; i++) {
+            if (this.trail[i].move) continue;
             const alpha = i / this.trail.length;
             ctx.globalAlpha = alpha * RENDER_CONFIG.penguin.trail.maximumAlpha;
             ctx.beginPath();
@@ -842,7 +849,8 @@ export class Penguin {
                 Number.parseInt(RENDER_CONFIG.penguin.trail.color.slice(1), 16),
                 alpha * RENDER_CONFIG.penguin.trail.maximumAlpha
             );
-            graphics.lineTo(this.trail[i].x, this.trail[i].y);
+            if (this.trail[i].move) graphics.moveTo(this.trail[i].x, this.trail[i].y);
+            else graphics.lineTo(this.trail[i].x, this.trail[i].y);
         }
     }
     

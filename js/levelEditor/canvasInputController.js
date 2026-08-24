@@ -1,132 +1,57 @@
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { INPUT_CONFIG } from '../config/inputConfig.js';
-import plog from '../penguinLogger.js';
 import { screenToStage, stageToScreen } from '../viewport.js';
 
 export class LevelEditorCanvasInputController {
     constructor(editor) {
         this.editor = editor;
-        this.touchStart = null;
-        this.longPressTimer = null;
+        this.capturedPointerId = null;
         this.indicator = null;
-        this.activePointerId = null;
     }
 
     handlePointerDown(event) {
-        const editor = this.editor;
-        if (!editor.active || editor.mode !== 'edit') return;
+        if (!this.#canHandle(event, true)) return;
         event.preventDefault();
-        if (this.activePointerId !== null) return;
-        this.activePointerId = Number.isInteger(event.pointerId) ? event.pointerId : null;
+        const input = this.#normalize(event);
+        if (!this.editor.toolManager.handlePointerDown(input)) return;
+        this.capturedPointerId = Number.isInteger(event.pointerId) ? event.pointerId : 0;
         if (Number.isInteger(event.pointerId)) event.currentTarget?.setPointerCapture?.(event.pointerId);
-        if (event.button === 1 || editor.spacePan) {
-            editor.startPanning(event.clientX, event.clientY);
-            return;
-        }
-        const position = this.getEventCoordinates(event);
-        if (editor.gravitySculptController.state.drawing) {
-            editor.gravitySculptController.addWaypoint(position);
-            return;
-        }
-        if (event.pointerType === 'touch') this.startLongPress(position);
-        const hit = editor.getObjectAtPosition(position.x, position.y);
-        plog.debug('Level Editor PointerDown:', position.x, position.y, 'Found object:', hit);
-        if (hit?.type === 'orbitCenter') {
-            editor.selectObject(hit.object);
-            editor.startOrbitCenterDragging(position.x, position.y, hit.object);
-        } else if (hit) {
-            editor.selectObject(hit);
-            editor.startDragging(position.x, position.y);
-        } else {
-            editor.selectObject(null);
-            if (event.pointerType === 'touch') editor.startPanning(event.clientX, event.clientY);
-        }
     }
 
     handlePointerMove(event) {
-        const editor = this.editor;
-        if (!editor.active || editor.mode !== 'edit') return;
-        if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
-        const position = this.getEventCoordinates(event);
-        if (editor.panning) {
-            event.preventDefault();
-            editor.updatePanning(event.clientX, event.clientY);
-            const distance = this.touchStart
-                ? Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y)
-                : 0;
-            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
-            return;
-        }
-        if (editor.gravitySculptController.state.drawing) {
-            event.preventDefault();
-            return;
-        }
-        if (event.pointerType === 'touch' && this.touchStart) {
-            const distance = Math.hypot(position.x - this.touchStart.x, position.y - this.touchStart.y);
-            if (distance > EDITOR_CONFIG.interaction.orbitCenterHitRadius.touch) this.cancelLongPress();
-        }
-        if (!editor.dragging && !editor.draggingOrbitCenter) return;
-        event.preventDefault();
-        if (editor.draggingOrbitCenter) editor.updateOrbitCenterDragging(position.x, position.y);
-        else editor.updateDragging(position.x, position.y);
+        if (!this.#canHandle(event)) return;
+        if (this.editor.toolManager.handlePointerMove(this.#normalize(event))) event.preventDefault();
     }
 
     handlePointerUp(event) {
-        const editor = this.editor;
-        if (!editor.active || editor.mode !== 'edit') return;
-        if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
+        if (!this.#canHandle(event)) return;
         event.preventDefault();
-        this.cancelLongPress();
-        if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-        this.activePointerId = null;
-        editor.stopPanning();
-        if (editor.gravitySculptController.state.drawing) {
-            return;
-        }
-        editor.stopDragging();
-        editor.stopOrbitCenterDragging();
+        this.editor.toolManager.handlePointerUp(this.#normalize(event));
+        this.#releasePointer(event);
+    }
+
+    handlePointerCancel(event) {
+        if (!this.#canHandle(event)) return;
+        this.editor.toolManager.handlePointerCancel(this.#normalize(event));
+        this.#releasePointer(event);
     }
 
     handleContextMenu(event) {
-        const editor = this.editor;
-        if (!editor.active || editor.mode !== 'edit') return;
+        if (!this.editor.active || this.editor.mode !== 'edit') return;
         event.preventDefault();
-        const position = this.getEventCoordinates(event);
-        editor.showContextMenu(position.x, position.y);
+        this.editor.toolManager.handleContextMenu(this.#normalize(event));
     }
 
     cancelPointer() {
-        this.activePointerId = null;
-        this.editor.stopDragging();
-        this.editor.stopOrbitCenterDragging();
-        this.editor.stopPanning();
-        this.cancelLongPress();
-    }
-
-    startLongPress(position) {
-        this.cancelLongPress();
-        this.touchStart = position;
-        this.showIndicator(position);
-        this.longPressTimer = setTimeout(() => {
-            if (!this.touchStart || this.editor.mode !== 'edit') return;
-            navigator.vibrate?.(INPUT_CONFIG.hapticsMs.contextMenu);
-            this.editor.showContextMenu(this.touchStart.x, this.touchStart.y);
-            this.cancelLongPress();
-        }, EDITOR_CONFIG.interaction.longPressMs);
+        this.editor.toolManager.cancelInteraction();
+        this.capturedPointerId = null;
+        this.hideLongPressIndicator();
     }
 
     cancelLongPress() {
-        if (this.longPressTimer) clearTimeout(this.longPressTimer);
-        this.longPressTimer = null;
-        this.touchStart = null;
-        this.indicator?.remove();
-        this.indicator = null;
+        this.hideLongPressIndicator();
     }
 
-    showIndicator(position) {
-        this.indicator?.remove();
+    showLongPressIndicator(position) {
+        this.hideLongPressIndicator();
         const screen = stageToScreen(
             this.editor.game.canvas,
             this.editor.game.viewport,
@@ -135,12 +60,14 @@ export class LevelEditorCanvasInputController {
             this.editor.editorCamera
         );
         this.indicator = document.createElement('div');
-        this.indicator.style.cssText = `
-            position: fixed; width: 60px; height: 60px; border: 3px solid #00ff00;
-            border-radius: 50%; pointer-events: none; z-index: 1001;
-            transform: translate(-50%, -50%); left: ${screen.x}px; top: ${screen.y}px;
-        `;
+        this.indicator.className = 'editor-long-press-indicator';
+        Object.assign(this.indicator.style, { left: `${screen.x}px`, top: `${screen.y}px` });
         document.body.appendChild(this.indicator);
+    }
+
+    hideLongPressIndicator() {
+        this.indicator?.remove();
+        this.indicator = null;
     }
 
     getEventCoordinates(event) {
@@ -152,6 +79,29 @@ export class LevelEditorCanvasInputController {
             pointer.clientY,
             this.editor.editorCamera
         );
+    }
+
+    #normalize(event) {
+        const pointer = event.touches?.[0] ?? event.changedTouches?.[0] ?? event;
+        return {
+            event,
+            screen: { x: pointer.clientX, y: pointer.clientY },
+            world: this.getEventCoordinates(event)
+        };
+    }
+
+    #canHandle(event, starting = false) {
+        if (!this.editor.active || this.editor.mode !== 'edit') return false;
+        const id = Number.isInteger(event.pointerId) ? event.pointerId : 0;
+        if (starting) return this.capturedPointerId === null;
+        return this.capturedPointerId === null || this.capturedPointerId === id;
+    }
+
+    #releasePointer(event) {
+        if (Number.isInteger(event.pointerId) && event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        this.capturedPointerId = null;
     }
 }
 

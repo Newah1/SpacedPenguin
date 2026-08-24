@@ -3,6 +3,7 @@ import { advanceOrbitGraphMutable, compileOrbitGraph } from './orbitSimulation.j
 import { cloneSimulationState } from './simulationState.js';
 import { circlesOverlap, clonePoint, distance, pointInRect } from './simulationGeometry.js';
 import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from './config/gameConfig.js';
+import { getPortalOutwardDirection } from './portalGeometry.js';
 
 export const SimulationEventType = Object.freeze({
     PENGUIN_MOVED: 'penguin_moved',
@@ -239,10 +240,12 @@ function segmentPortalEntry(start, end, portal, padding) {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
 
-    // Existing authored rotations treat -local X as the front side. Entering
-    // from that side means moving in +local X; reverse/tangential crossings
-    // are back-side passes and do not activate the portal.
-    if (dx <= Number.EPSILON) return null;
+    // Entering must move against the outward normal. Keeping this test in
+    // world space ties directional acceptance to the same convention used by
+    // the editor arrow, including for non-cardinal rotations.
+    const outward = getPortalOutwardDirection(portal);
+    const approachSpeed = (end.x - start.x) * outward.x + (end.y - start.y) * outward.y;
+    if (approachSpeed >= -Number.EPSILON) return null;
 
     const rx = portal.width / 2 + padding;
     const ry = portal.height / 2 + padding;
@@ -255,7 +258,7 @@ function segmentPortalEntry(start, end, portal, padding) {
     const root = Math.sqrt(discriminant);
     const candidates = [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]
         .filter(value => value >= 0 && value <= 1)
-        .filter(value => a.x + dx * value <= Number.EPSILON);
+        .filter(value => a.y + dy * value <= Number.EPSILON);
     return candidates.length ? Math.min(...candidates) : null;
 }
 

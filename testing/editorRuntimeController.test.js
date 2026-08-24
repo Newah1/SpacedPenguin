@@ -66,13 +66,13 @@ test('cloned editor objects discard source identity and generated name', () => {
     assert.equal(clone.mass, 20);
 });
 
-test('editor runtime clone hook forces generated identity on insertion', () => {
+test('editor runtime controller does not replace editor methods', () => {
     const editor = fakeEditor();
+    const cloneObject = editor.cloneObject;
+    const hitTest = editor.getObjectAtPosition;
     new EditorRuntimeController(editor, { now: () => 0 });
-
-    const clone = editor.cloneObject({});
-    assert.equal(clone.id, null);
-    assert.equal(clone.name, '');
+    assert.equal(editor.cloneObject, cloneObject);
+    assert.equal(editor.getObjectAtPosition, hitTest);
 });
 
 test('object bodies take selection priority over orbit-center handles', () => {
@@ -82,8 +82,7 @@ test('object bodies take selection priority over orbit-center handles', () => {
 
     assert.equal(findObjectBodyAtPosition(editor, 10, 0), planet);
 
-    new EditorRuntimeController(editor, { now: () => 0 });
-    assert.equal(editor.getObjectAtPosition(10, 0), planet);
+    assert.equal(findObjectBodyAtPosition(editor, 10, 0), planet);
 });
 
 test('orbit preview advances without mutating authored position', () => {
@@ -101,6 +100,19 @@ test('orbit preview advances without mutating authored position', () => {
     assert.deepEqual(planet.position, { x: 10, y: 0 });
 });
 
+test('moving orbit objects defer their normal edit-world render to the preview renderer', () => {
+    const planet = new FakePlanet();
+    const editor = fakeEditor([planet]);
+    const controller = new EditorRuntimeController(editor, { now: () => 0 });
+
+    assert.equal(controller.shouldRenderPreviewObject(planet), true);
+    assert.deepEqual(controller.getDisplayPosition(planet), { x: 10, y: 0 });
+    editor.state = {
+        interaction: { type: 'drag-object', objectId: planet.id }
+    };
+    assert.equal(controller.shouldRenderPreviewObject(planet), false);
+});
+
 test('editing orbit parameters immediately resets preview phase', () => {
     const planet = new FakePlanet();
     const editor = fakeEditor([planet]);
@@ -113,23 +125,26 @@ test('editing orbit parameters immediately resets preview phase', () => {
     assert.ok(advanced.y > 0);
 
     planet.orbitSystem.orbitSpeed = 2;
+    controller.invalidatePreview();
     time = 0.06;
     assert.deepEqual(controller.getPreviewPosition(planet), { x: 10, y: 0 });
 });
 
-test('drag updates invalidate stale simulation and preview state', () => {
+test('preview invalidation is explicit and does not wrap drag methods', () => {
     const planet = new FakePlanet();
     const editor = fakeEditor([planet]);
     let dragCalls = 0;
     editor.updateDragging = () => { dragCalls++; };
     const controller = new EditorRuntimeController(editor, { now: () => 0 });
-    controller.signature = 'stale';
+    controller.preview.dirty = false;
 
     editor.updateDragging(25, 30);
 
     assert.equal(dragCalls, 1);
-    assert.equal(editor.game.invalidations, 1);
-    assert.equal(controller.signature, null);
+    assert.equal(editor.game.invalidations, 0);
+    assert.equal(controller.preview.dirty, false);
+    controller.invalidatePreview();
+    assert.equal(controller.preview.dirty, true);
 });
 
 test('plain R is suppressed only while actively editing a level', () => {

@@ -1,6 +1,6 @@
 import { GameState } from './game.js';
 import plog from './penguinLogger.js';
-import { LevelOrbitType } from './levelSchema.js';
+import { LevelOrbitType, normalizeLevelObjectType } from './levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, createWorldCamera, screenToStage, stageToScreen } from './viewport.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
@@ -19,7 +19,11 @@ import {
     ORBIT_PROPERTY_FIELDS
 } from './config/editorInspectorConfig.js';
 import { OrbitSystem } from './gameObjects.js';
-import { getEditableClassNames, getEditorObjectDefinition } from './editorObjectRegistry.js';
+import {
+    getEditableClassNames,
+    getEditorActionDefinition,
+    getEditorObjectDefinition
+} from './editorObjectRegistry.js';
 import LiveLevelMutator from './liveLevelMutator.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
 import LevelEditorOverlayRenderer from './levelEditor/overlayRenderer.js';
@@ -29,6 +33,14 @@ import LevelEditorToolbarView from './levelEditor/toolbarView.js';
 import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
 import GravitySculptView from './levelEditor/gravitySculptView.js';
 import GravitySculptController from './levelEditor/gravitySculptController.js';
+import EditorEvents from './levelEditor/editorEvents.js';
+import EditorState, { EditorInteractionType } from './levelEditor/editorState.js';
+import EditorSelection from './levelEditor/editorSelection.js';
+import EditorObjectService, { prepareCloneForInsertion } from './levelEditor/editorObjectService.js';
+import EditorRuntimeProjector from './levelEditor/editorRuntimeProjector.js';
+import LevelDocument from './levelEditor/levelDocument.js';
+import EditorToolManager from './levelEditor/editorToolManager.js';
+import EditorCommandBus from './levelEditor/editorCommandBus.js';
 import { createButton } from './buttonFramework.js';
 import {
     INPUT_CONFIG,
@@ -45,40 +57,112 @@ function cloneEditValue(value) {
 class LevelEditor {
     constructor(game) {
         this.game = game;
+        this.events = new EditorEvents();
+        this.state = new EditorState();
+        this.runtimeProjector = new EditorRuntimeProjector(game);
+        this.objectService = new EditorObjectService(this);
+        this.levelSettingsNode = { isLevelSettings: true };
+        this.selection = new EditorSelection({
+            events: this.events,
+            resolveObject: id => this.objectService.find(id),
+            levelSettingsNode: this.levelSettingsNode
+        });
+        Object.defineProperties(this, {
+            active: {
+                configurable: true,
+                get: () => this.state.active,
+                set: value => { this.state.active = Boolean(value); }
+            },
+            mode: {
+                configurable: true,
+                get: () => this.state.mode,
+                set: value => {
+                    if (this.state.mode === value) return;
+                    this.state.mode = value;
+                    this.events.emit('modeChanged', { mode: value });
+                }
+            },
+            editorCamera: {
+                configurable: true,
+                get: () => this.state.camera,
+                set: value => { this.state.camera = value; }
+            },
+            spacePan: {
+                configurable: true,
+                get: () => this.state.spacePan,
+                set: value => { this.state.spacePan = Boolean(value); }
+            },
+            selectedObject: {
+                configurable: true,
+                get: () => this.selection.get(),
+                set: value => { this.selection.selectValue(value); }
+            },
+            dragging: {
+                configurable: true,
+                get: () => this.state.interaction.type === EditorInteractionType.DRAG_OBJECT,
+                set: () => {}
+            },
+            draggingOrbitCenter: {
+                configurable: true,
+                get: () => this.state.interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER,
+                set: () => {}
+            },
+            panning: {
+                configurable: true,
+                get: () => this.state.interaction.type === EditorInteractionType.PAN,
+                set: () => {}
+            },
+            orbitCenterObject: {
+                configurable: true,
+                get: () => this.state.interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER
+                    ? this.objectService.find(this.state.interaction.objectId)
+                    : null,
+                set: () => {}
+            }
+        });
         this.mutator = new LiveLevelMutator(game);
-        this.history = createLiveEditHistory({
+        this.commandContext = {
             mutator: this.mutator,
             refresh: selection => this.refreshAfterHistory(selection),
             updateOrbitSystem: object => this.updateOrbitSystem(object),
             restoreObjectPropertyState: (object, state) => this.restoreObjectPropertyState(object, state),
-            restoreLevelSettingsState: state => this.restoreLevelSettingsState(state)
+            restoreLevelSettingsState: state => this.restoreLevelSettingsState(state),
+            captureObjectPropertyState: object => this.captureObjectPropertyState(object),
+            captureLevelSettingsState: () => this.captureLevelSettingsState(),
+            applyObjectProperty: (object, property, value) => this.applyObjectProperty(object, property, value),
+            applyLevelSetting: (property, value) => this.updateLevelSetting(property, value),
+            applyObjectAction: (object, action, options) => this.applyObjectAction(object, action, options),
+            resolveObject: id => this.objectService.find(id),
+            synchronizeObject: object => this.synchronizeEditedObject(object),
+            syncStructure: () => this.synchronizeDocumentFromRuntime(),
+            addObjectDefinition: (definition, index) => this.addDocumentObject(definition, index),
+            removeObjectDefinition: id => this.removeDocumentObject(id),
+            getObjectDefinition: id => this.getDocumentObjectSnapshot(id),
+            patchDocumentObject: patch => this.document.applyPatch(patch),
+            documentDefinition: () => this.document.toDefinition(),
+            restoreDocument: definition => this.document.replace(definition, { validate: false }),
+            rebuildProjection: () => this.rebuildDocumentProjection(),
+            levelSettingsTarget: this.levelSettingsNode,
+            liveTransaction: false
+        };
+        this.history = createLiveEditHistory(this.commandContext);
+        this.commandBus = new EditorCommandBus({
+            history: this.history,
+            events: this.events,
+            canExecute: () => !this.active || this.mode === 'edit',
+            validate: () => this.document ? this.assertDocumentValid('editor command') : true
         });
         this.propertyEditSession = 0;
         this.overlayRenderer = new LevelEditorOverlayRenderer(this);
         this.objectListView = new LevelEditorObjectListView(this);
         this.inspectorView = new LevelEditorInspectorView(this);
         this.toolbarView = new LevelEditorToolbarView(this);
-        this.canvasInput = new LevelEditorCanvasInputController(this);
         this.gravitySculptView = new GravitySculptView(this);
         this.gravitySculptController = new GravitySculptController(this);
-        this.active = false;
+        this.toolManager = new EditorToolManager(this);
+        this.canvasInput = new LevelEditorCanvasInputController(this);
         this.previousGameState = null;
-        this.mode = 'edit'; // 'edit' or 'play'
-        this.selectedObject = null;
-        this.levelSettingsNode = { isLevelSettings: true };
-        this.dragging = false;
-        this.dragOffset = { x: 0, y: 0 };
-        this.dragStartPosition = null;
-        this.editorCamera = null;
-        this.panning = false;
-        this.panStart = null;
-        this.spacePan = false;
         this.propertiesPanel = null;
-        
-        // Orbit center drag support
-        this.draggingOrbitCenter = false;
-        this.orbitCenterObject = null; // The object whose orbit center we're dragging
-        this.orbitCenterDragStart = null;
         this.createUI();
         // Note: Event listeners are managed by InputManager contexts.
     }
@@ -86,7 +170,7 @@ class LevelEditor {
     createUI() {
         this.container = document.createElement('div');
         this.container.id = 'level-editor';
-        this.container.style.cssText = 'position: fixed; inset: 0; pointer-events: none; z-index: 100; display: none;';
+        this.container.className = 'level-editor-root';
         Object.assign(this, this.toolbarView.createElements());
         this.propertiesPanel = this.inspectorView.createElement();
         this.createObjectListPanel();
@@ -128,8 +212,8 @@ class LevelEditor {
 
         if (className === 'Portal') {
             const pair = this.game.portals.find(portal => portal.id === obj.pairedPortalId);
-            this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
-                objects: pair ? [obj, pair] : [obj],
+            this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
+                objectIds: pair ? [obj.id, pair.id] : [obj.id],
                 operation: 'remove'
             });
             return;
@@ -137,7 +221,10 @@ class LevelEditor {
         
         plog.debug(`Deleting ${className}...`);
         
-        this.history.execute(LiveEditCommandType.REMOVE_OBJECT, { object: obj, className });
+        this.commandBus.execute(LiveEditCommandType.REMOVE_OBJECT, {
+            objectId: obj.id,
+            className
+        });
         
         plog.success(`Successfully deleted ${className}`);
     }
@@ -147,6 +234,7 @@ class LevelEditor {
         this.saveButton.disabled = true;
         this.toolbarView.showStatus('Saving…', 'pending');
         try {
+            this.assertDocumentValid('editor save');
             const record = await this.game.saveEditedLevel();
             this.markClean();
             this.toolbarView.showStatus(`Saved “${record.name}” to this browser.`);
@@ -165,6 +253,7 @@ class LevelEditor {
         const metadata = await this.promptForPublishMetadata();
         if (!metadata) return null;
         this.applyPublishMetadata(metadata);
+        this.assertDocumentValid('editor publish');
         this.publishButton.disabled = true;
         this.toolbarView.showStatus('Publishing…', 'pending');
         try {
@@ -181,9 +270,22 @@ class LevelEditor {
     }
 
     applyPublishMetadata({ name, description }) {
-        this.game.levelMetadata ||= {};
-        this.game.levelMetadata.name = name;
-        this.game.levelMetadata.description = description;
+        if (this.commandBus && this.mode === 'edit') {
+            this.commandBus.execute(LiveEditCommandType.SET_LEVEL_SETTING, {
+                property: 'levelName',
+                value: name,
+                sessionId: ++this.propertyEditSession
+            }, { source: 'publish-metadata' });
+            this.commandBus.execute(LiveEditCommandType.SET_LEVEL_SETTING, {
+                property: 'levelDescription',
+                value: description,
+                sessionId: ++this.propertyEditSession
+            }, { source: 'publish-metadata' });
+        } else {
+            this.game.levelMetadata ||= {};
+            this.game.levelMetadata.name = name;
+            this.game.levelMetadata.description = description;
+        }
         for (const definition of [
             this.game.completedRun?.level,
             this.game.recordedRunLevel,
@@ -193,6 +295,7 @@ class LevelEditor {
             definition.name = name;
             definition.description = description;
         }
+        this.synchronizeLevelSettingsDocument();
     }
 
     promptForPublishMetadata() {
@@ -201,38 +304,25 @@ class LevelEditor {
         this.publishPromptPromise = new Promise(resolve => {
             const overlay = document.createElement('div');
             overlay.className = 'level-editor-publish-overlay';
-            overlay.style.cssText = `
-                position: fixed; inset: 0; z-index: 2200; display: grid; place-items: center;
-                padding: 20px; background: rgba(0, 0, 0, .72); pointer-events: auto;
-                font-family: Arial, sans-serif; color: #fff6d6;
-            `;
             overlay.setAttribute('role', 'dialog');
             overlay.setAttribute('aria-modal', 'true');
             overlay.setAttribute('aria-labelledby', 'publish-level-title');
 
             const form = document.createElement('form');
-            form.style.cssText = `
-                box-sizing: border-box; width: min(460px, 100%); padding: 22px;
-                border: 3px solid #9c6bd0; border-radius: 12px; background: #241d2d;
-                box-shadow: 0 18px 60px rgba(0, 0, 0, .8);
-            `;
+            form.className = 'level-editor-publish-form';
             const title = document.createElement('h2');
             title.id = 'publish-level-title';
             title.textContent = 'PUBLISH LEVEL';
-            title.style.cssText = 'margin: 0 0 8px; color: #e7c9ff; font-size: 22px;';
+            title.className = 'level-editor-publish-title';
             const copy = document.createElement('p');
             copy.textContent = 'Confirm how this level will appear in Community Levels.';
-            copy.style.cssText = 'margin: 0 0 18px; color: #d5c8dc;';
+            copy.className = 'level-editor-publish-copy';
 
             const makeLabel = (text, control) => {
                 const label = document.createElement('label');
                 label.textContent = text;
-                label.style.cssText = 'display: grid; gap: 6px; margin: 0 0 14px; font-weight: 700;';
-                control.style.cssText = `
-                    box-sizing: border-box; width: 100%; padding: 10px;
-                    border: 2px solid #765a88; border-radius: 6px; background: #120f16;
-                    color: #fff; font: inherit; resize: vertical;
-                `;
+                label.className = 'level-editor-publish-label';
+                control.classList.add('level-editor-publish-input');
                 label.appendChild(control);
                 return label;
             };
@@ -248,9 +338,9 @@ class LevelEditor {
             descriptionInput.value = metadata.description || '';
             const error = document.createElement('p');
             error.setAttribute('role', 'alert');
-            error.style.cssText = 'min-height: 1.2em; margin: 0 0 12px; color: #ffad9f;';
+            error.className = 'level-editor-publish-error';
             const actions = document.createElement('div');
-            actions.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px;';
+            actions.className = 'level-editor-publish-actions';
 
             const background = [
                 this.toolbarWrapper,
@@ -273,13 +363,13 @@ class LevelEditor {
                 backgroundColor: '#4b3b32', hoverColor: '#6a5041',
                 textColor: '#fff3bb', borderColor: '#f79433'
             });
-            cancel.style.cssText += 'padding: 10px 18px;';
+            cancel.classList.add('level-editor-publish-button');
             const publish = createButton('PUBLISH', null, {
                 backgroundColor: '#7b4bb7', hoverColor: '#9564d2',
                 textColor: '#fff', borderColor: '#c6a1ef', type: 'submit'
             });
             publish.type = 'submit';
-            publish.style.cssText += 'padding: 10px 18px;';
+            publish.classList.add('level-editor-publish-button');
             actions.append(cancel, publish);
             form.append(
                 title,
@@ -326,11 +416,13 @@ class LevelEditor {
     }
     
     undo() {
-        if (!this.history.undo()) plog.info('Nothing to undo');
+        const undone = this.commandBus ? this.commandBus.undo() : this.history?.undo();
+        if (!undone) plog.info('Nothing to undo');
     }
     
     redo() {
-        if (!this.history.redo()) plog.info('Nothing to redo');
+        const redone = this.commandBus ? this.commandBus.redo() : this.history?.redo();
+        if (!redone) plog.info('Nothing to redo');
     }
     
     handleResize() {
@@ -344,6 +436,7 @@ class LevelEditor {
     handlePointerDown(event) { this.canvasInput.handlePointerDown(event); }
     handlePointerMove(event) { this.canvasInput.handlePointerMove(event); }
     handlePointerUp(event) { this.canvasInput.handlePointerUp(event); }
+    handlePointerCancel(event) { this.canvasInput.handlePointerCancel(event); }
     handleMouseDown(event) { this.canvasInput.handlePointerDown(event); }
     handleMouseMove(event) { this.canvasInput.handlePointerMove(event); }
     handleMouseUp(event) { this.canvasInput.handlePointerUp(event); }
@@ -380,38 +473,6 @@ class LevelEditor {
         this.setEditorCamera(position, this.editorCamera?.scale || 1);
     }
 
-    startPanning(screenX, screenY) {
-        const camera = this.editorCamera;
-        if (!camera) this.fitEditorCamera();
-        const view = this.editorCamera.viewRect;
-        this.panning = true;
-        this.panStart = {
-            screen: { x: screenX, y: screenY },
-            center: { x: view.x + view.width / 2, y: view.y + view.height / 2 },
-            zoom: this.editorCamera.scale
-        };
-        this.game.canvas.style.cursor = 'grabbing';
-    }
-
-    updatePanning(screenX, screenY) {
-        if (!this.panning || !this.panStart) return;
-        const rect = this.game.canvas.getBoundingClientRect();
-        const logicalDeltaX = (screenX - this.panStart.screen.x) *
-            (this.game.viewport.backingWidth / rect.width) / this.game.viewport.scale;
-        const logicalDeltaY = (screenY - this.panStart.screen.y) *
-            (this.game.viewport.backingHeight / rect.height) / this.game.viewport.scale;
-        this.setEditorCamera({
-            x: this.panStart.center.x - logicalDeltaX / this.panStart.zoom,
-            y: this.panStart.center.y - logicalDeltaY / this.panStart.zoom
-        }, this.panStart.zoom);
-    }
-
-    stopPanning() {
-        this.panning = false;
-        this.panStart = null;
-        this.game.canvas.style.cursor = '';
-    }
-
     zoomEditorAt(screenX, screenY, direction) {
         if (!this.editorCamera) this.fitEditorCamera();
         const world = screenToStage(
@@ -438,7 +499,10 @@ class LevelEditor {
     enter() {
         if (this.active) return;
         this.previousGameState = this.game.state;
-        this.history.clear();
+        this.commandBus.clear();
+        this.runtimeProjector.indexRuntimeObjects();
+        this.objectService.ensureIdentities();
+        this.document = LevelDocument.fromDefinition(this.game.exportCurrentLevel());
         this.active = true;
         this.container.style.display = 'block';
         if (typeof this.game.setState === 'function') this.game.setState(GameState.LEVEL_EDITOR);
@@ -447,9 +511,6 @@ class LevelEditor {
         this.fitEditorCamera();
         this.updateModeButton();
         this.populateObjectButtons();
-        
-        // Assign names to existing objects that don't have them
-        this.assignNamesToExistingObjects();
         
         this.updateObjectList();
         this.markClean();
@@ -461,31 +522,16 @@ class LevelEditor {
     }
     
     assignNamesToExistingObjects() {
-        const allObjects = this.getAllGameObjects();
-        const typeCounters = {};
-        
-        allObjects.forEach(obj => {
-            if (!obj.name) {
-                const className = obj.constructor.name;
-                
-                // Initialize counter for this type if it doesn't exist
-                if (!typeCounters[className]) {
-                    typeCounters[className] = 0;
-                }
-                
-                typeCounters[className]++;
-                obj.name = `${className} ${typeCounters[className]}`;
-            }
-        });
+        return this.objectService.ensureIdentities();
     }
     
     exit() {
         if (!this.active) return;
         this.resolvePublishPrompt?.(null);
         this.gravitySculptController.close();
+        this.canvasInput.cancelPointer();
         this.active = false;
         this.container.style.display = 'none';
-        this.cancelLongPress();
         this.selectObject(null);
         this.game?.invalidateSimulationState?.();
         const nextState = this.previousGameState ?? GameState.PLAYING;
@@ -510,22 +556,40 @@ class LevelEditor {
     toggleMode() {
         if (this.mode === 'edit') {
             this.gravitySculptController.close();
-            const definition = this.game.exportCurrentLevel();
+            this.canvasInput.cancelPointer();
+            const definition = this.currentDocumentDefinition();
+            this.assertDocumentValid('editor play test');
             const metadata = structuredClone(this.game.levelMetadata || {});
-            this.game.loadLevel(definition);
+            this.playDefinition = structuredClone(definition);
+            this.game.loadLevel(structuredClone(this.playDefinition));
+            this.game.recordedRunLevel = structuredClone(this.playDefinition);
+            this.runtimeProjector.indexRuntimeObjects();
             this.game.levelMetadata = { ...metadata, name: definition.name, description: definition.description };
             this.mode = 'play';
             this.game?.invalidateSimulationState?.();
-            this.selectObject(null); // Clear selection when entering play mode
-            this.stopDragging(); // Stop any ongoing drag operation
         } else {
-            const definition = this.game.completedRun?.level || this.game.loadedLevelDefinition;
+            const definition = this.document?.toDefinition();
             if (definition) {
                 const metadata = structuredClone(this.game.levelMetadata || {});
-                this.game.loadLevel(structuredClone(definition));
+                const completedRun = this.game.completedRun
+                    ? structuredClone(this.game.completedRun)
+                    : null;
+                const recordedRunLevel = this.game.recordedRunLevel
+                    ? structuredClone(this.game.recordedRunLevel)
+                    : null;
+                this.runtimeProjector.rebuild(definition);
                 this.game.levelMetadata = metadata;
-                this.game.invalidateRecordedRun();
+                if (
+                    completedRun &&
+                    JSON.stringify(completedRun.level) === JSON.stringify(definition)
+                ) {
+                    this.game.completedRun = completedRun;
+                    this.game.recordedRunLevel = recordedRunLevel;
+                } else {
+                    this.game.invalidateRecordedRun();
+                }
             }
+            this.playDefinition = null;
             this.mode = 'edit';
             this.fitEditorCamera();
         }
@@ -559,64 +623,8 @@ class LevelEditor {
         return getEditableClassNames(this.gameObjectClasses);
     }
     
-    getObjectAtPosition(x, y) {
-        // First check if we clicked on an orbit center
-        const orbitCenterResult = this.getOrbitCenterAtPosition(x, y);
-        if (orbitCenterResult) {
-            return orbitCenterResult;
-        }
-        
-        // Create a list of all objects to check, avoiding duplicates
-        const allObjects = [];
-        
-        // Add planets
-        for (let planet of this.game.planets) {
-            allObjects.push(planet);
-        }
-        
-        // Add bonuses
-        for (let bonus of this.game.bonuses) {
-            allObjects.push(bonus);
-        }
-        
-        // Add ALL game objects (including penguin, targets, slingshots, etc.)
-        for (let obj of this.game.gameObjects) {
-            if (!allObjects.includes(obj)) {
-                allObjects.push(obj);
-            }
-        }
-        
-        // Check in reverse order so topmost objects are selected first
-        for (let i = allObjects.length - 1; i >= 0; i--) {
-            const obj = allObjects[i];
-            if (this.isPointInObject(x, y, obj)) {
-                plog.debug('Selected:', obj.constructor.name);
-                return obj;
-            }
-        }
-        return null;
-    }
-    
     getOrbitCenterAtPosition(x, y) {
-        // Check all objects for orbit centers that could be clicked
-        const allObjects = [];
-        
-        // Add planets
-        for (let planet of this.game.planets) {
-            allObjects.push(planet);
-        }
-        
-        // Add bonuses
-        for (let bonus of this.game.bonuses) {
-            allObjects.push(bonus);
-        }
-        
-        // Add ALL game objects
-        for (let obj of this.game.gameObjects) {
-            if (!allObjects.includes(obj)) {
-                allObjects.push(obj);
-            }
-        }
+        const allObjects = this.getAllGameObjects();
         
         // Check each object for orbit center hits
         for (let obj of allObjects) {
@@ -768,35 +776,20 @@ class LevelEditor {
     }
     
     getAvailableObjectIds() {
-        const objectIds = ['none'];
-        
-        // Get all game objects with IDs
-        if (this.game && this.game.gameObjects) {
-            for (const obj of this.game.gameObjects) {
-                if (obj.id && obj !== this.selectedObject) {
-                    objectIds.push(obj.id);
-                }
-            }
-        }
-        
-        // Add default names if no IDs are set yet
-        if (objectIds.length === 1) {
-            if (this.game) {
-                this.game.gameObjects.forEach((obj, index) => {
-                    if (obj !== this.selectedObject) {
-                        const className = obj.constructor.name.toLowerCase();
-                        objectIds.push(`${className}_${index + 1}`);
-                    }
-                });
-            }
-        }
-        
-        return objectIds;
+        const selectedId = this.selection?.value?.id || this.selectedObject?.id;
+        const targetIds = this.getAllGameObjects()
+            .filter(object => (
+                object?.id &&
+                object.id !== selectedId &&
+                getEditorObjectDefinition(object.constructor?.name).capabilities.orbitTarget
+            ))
+            .map(object => object.id);
+        return ['none', ...new Set(targetIds)];
     }
     
     getClassSpecificProperties(obj, className) {
         const properties = [];
-        const classProps = OBJECT_PROPERTY_FIELDS[className] || [];
+        const classProps = getEditorObjectDefinition(className).properties;
         
         classProps.forEach(propDef => {
             const { optionsFrom, ...field } = propDef;
@@ -834,16 +827,20 @@ class LevelEditor {
         const orbitSystem = obj.orbitSystem;
         
         if (orbitSystem) {
+            const availableTargetIds = this.getAvailableObjectIds();
             properties.push({
                 ...ORBIT_PROPERTY_FIELDS.targetType,
-                value: orbitSystem.orbitTargetId ? 'object' : 'position'
+                value: orbitSystem.orbitTargetId ? 'object' : 'position',
+                options: availableTargetIds.length > 1
+                    ? ORBIT_PROPERTY_FIELDS.targetType.options
+                    : ORBIT_PROPERTY_FIELDS.targetType.options.filter(option => option !== 'object')
             });
             
             if (orbitSystem.orbitTargetId) {
                 properties.push({
                     ...ORBIT_PROPERTY_FIELDS.targetId,
                     value: orbitSystem.orbitTargetId,
-                    options: this.getAvailableObjectIds()
+                    options: availableTargetIds
                 });
             } else {
                 properties.push({
@@ -884,19 +881,16 @@ class LevelEditor {
         const centerY = this.game.stageRect.y + this.game.stageRect.height / 2;
         const object = this.selectedObject;
         const before = this.getObjectPosition(object);
-
-        if (typeof this.selectedObject.x === 'number' && typeof this.selectedObject.y === 'number') {
-            this.selectedObject.x = centerX;
-            this.selectedObject.y = centerY;
-        } else if (this.selectedObject.position && typeof this.selectedObject.position.x === 'number' && typeof this.selectedObject.position.y === 'number') {
-            this.selectedObject.position.x = centerX;
-            this.selectedObject.position.y = centerY;
+        if (!before) return;
+        const after = { x: centerX, y: centerY };
+        if (this.commandBus.execute(LiveEditCommandType.MOVE_OBJECT, {
+            objectId: object.id,
+            before,
+            after,
+            label: 'Center object'
+        }, { source: 'quick-action' })) {
+            plog.debug('Centered object on canvas at', centerX, centerY);
         }
-
-        plog.debug('Centered object on canvas at', centerX, centerY);
-        const after = this.getObjectPosition(object);
-        this.recordPositionChange(object, before, after, 'Center object');
-        this.updatePropertiesPanel();
     }
     
     handlePropertyChange(e) {
@@ -931,34 +925,24 @@ class LevelEditor {
         const target = this.selectedObject;
         if (!target) return;
         const sessionId = Number(e.target.dataset.editSession) || ++this.propertyEditSession;
-
-        if (target.isLevelSettings) {
-            const before = this.captureLevelSettingsState();
-            this.updateLevelSetting(property, value);
-            const after = this.captureLevelSettingsState();
-            if (this.history && !this.editStatesEqual(before, after)) {
-                this.history.recordExecuted(LiveEditCommandType.SET_LEVEL_SETTING, {
-                    target,
-                    property,
-                    before,
-                    after,
-                    sessionId
-                });
-            }
-        } else {
-            const before = this.captureObjectPropertyState(target);
-            this.applyObjectProperty(target, property, value);
-            const after = this.captureObjectPropertyState(target);
-            if (this.history && !this.editStatesEqual(before, after)) {
-                this.history.recordExecuted(LiveEditCommandType.SET_OBJECT_PROPERTY, {
-                    object: target,
-                    property,
-                    before,
-                    after,
-                    sessionId
-                });
-            }
+        const executor = this.commandBus || this.history;
+        if (!executor) {
+            if (target.isLevelSettings) this.updateLevelSetting(property, value);
+            else this.applyObjectProperty(target, property, value);
+            return;
         }
+        executor.execute(
+            target.isLevelSettings
+                ? LiveEditCommandType.SET_LEVEL_SETTING
+                : LiveEditCommandType.SET_OBJECT_PROPERTY,
+            {
+                objectId: target.id,
+                property,
+                value,
+                sessionId
+            },
+            { source: 'inspector-live' }
+        );
     }
 
     applyObjectProperty(object, property, value) {
@@ -1034,10 +1018,13 @@ class LevelEditor {
         } else if (property === 'startX' || property === 'startY') {
             const axis = property === 'startX' ? 'x' : 'y';
             if (this.game.slingshot?.position) this.game.slingshot.position[axis] = value;
+            if (this.game.slingshot?.resetPosition) this.game.slingshot.resetPosition[axis] = value;
             if (this.game.penguin) this.game.penguin[axis] = value;
+            this.synchronizeSingletonDocumentPosition('slingshot', this.game.slingshot?.position);
         } else if (property === 'targetX' || property === 'targetY') {
             const axis = property === 'targetX' ? 'x' : 'y';
             if (this.game.target?.position) this.game.target.position[axis] = value;
+            this.synchronizeSingletonDocumentPosition('target', this.game.target?.position);
         } else if (this.game.levelRules && property in this.game.levelRules) {
             this.game.levelRules[property] = value;
             if (property === 'gravitationalConstant' && this.game.physics) {
@@ -1045,6 +1032,7 @@ class LevelEditor {
             }
         }
         this.game?.invalidateSimulationState?.();
+        this.synchronizeLevelSettingsDocument();
     }
 
     captureObjectPropertyState(object) {
@@ -1114,12 +1102,17 @@ class LevelEditor {
         if (this.game.levelRules) Object.assign(this.game.levelRules, cloneEditValue(state.rules));
         if (this.game.slingshot?.position && state.slingshotPosition) {
             Object.assign(this.game.slingshot.position, state.slingshotPosition);
+            if (this.game.slingshot.resetPosition) {
+                Object.assign(this.game.slingshot.resetPosition, state.slingshotPosition);
+            }
+            this.synchronizeSingletonDocumentPosition('slingshot', state.slingshotPosition);
         }
         if (this.game.penguin && state.penguinPosition) {
             Object.assign(this.game.penguin, state.penguinPosition);
         }
         if (this.game.target?.position && state.targetPosition) {
             Object.assign(this.game.target.position, state.targetPosition);
+            this.synchronizeSingletonDocumentPosition('target', state.targetPosition);
         }
         if (this.game.physics && state.gravitationalConstant !== undefined) {
             this.game.physics.gravitationalConstant = state.gravitationalConstant;
@@ -1131,6 +1124,7 @@ class LevelEditor {
         this.game.resetWorldCamera?.();
         if (this.game.stageRect) this.fitEditorCamera();
         this.game?.invalidateSimulationState?.();
+        this.synchronizeLevelSettingsDocument();
     }
 
     editStatesEqual(left, right) {
@@ -1139,12 +1133,14 @@ class LevelEditor {
 
     synchronizeEditedObject(object) {
         this.game?.invalidateSimulationState?.();
+        this.overlayRenderer?.runtimeController?.invalidatePreview();
         if (object.constructor.name === 'Planet' || object.constructor.name === 'BlackHole') {
             this.game.physics?.refreshPlanet?.(object);
             if (object.constructor.name === 'Planet') this.refreshPlanetSprite(object);
         } else if (object.constructor.name === 'Target') {
             this.refreshTargetSprite(object);
         }
+        this.synchronizeDocumentObject(object);
     }
     
     updateOrbitProperty(property, value, obj = this.selectedObject) {
@@ -1300,9 +1296,14 @@ class LevelEditor {
     }
     
     updateOrbitSystem(obj) {
-        // Refresh the orbit system with current parameters
-        if (obj.orbitSystem.orbitCenter && obj.orbitSystem.orbitRadius > 0) {
-            const center = obj.orbitSystem.orbitCenter;
+        const orbit = obj.orbitSystem;
+        if (!orbit) return;
+        orbit.gameObjectLookup = id => this.objectService?.find(id) ||
+            this.getAllGameObjects().find(object => object?.id === id) || null;
+        const center = orbit.orbitTargetId || orbit.orbitCenter;
+
+        // Refresh the orbit system with current parameters.
+        if (center && orbit.orbitRadius > 0) {
             const radius = obj.orbitSystem.orbitRadius;
             const speed = obj.orbitSystem.orbitSpeed;
             
@@ -1321,13 +1322,35 @@ class LevelEditor {
                     // For gravity orbits, set up initial conditions
                     const initialVelocity = obj.orbitSystem.velocity || PHYSICS_CONFIG.orbit.initialVelocity;
                     const gravityStrength = obj.orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength;
-                    obj.orbitSystem.setGravityOrbit(center, initialVelocity, gravityStrength);
+                    obj.orbitSystem.setGravityOrbit(
+                        center,
+                        initialVelocity,
+                        gravityStrength,
+                        this.getObjectPosition(obj)
+                    );
                     break;
             }
         }
     }
     
     resetGravityOrbit(obj) {
+        if (!obj) return false;
+        if (!this.commandBus) return this.applyGravityOrbitReset(obj);
+        return this.commandBus.execute(LiveEditCommandType.OBJECT_ACTION, {
+            objectId: obj.id,
+            action: 'gravity-orbit.reset'
+        }, { source: 'quick-action' });
+    }
+
+    applyObjectAction(object, action) {
+        if (action === 'gravity-orbit.reset') {
+            this.applyGravityOrbitReset(object);
+            return true;
+        }
+        return false;
+    }
+
+    applyGravityOrbitReset(obj) {
         plog.debug('resetGravityOrbit called with object:', obj);
         plog.debug('Object orbit system:', obj.orbitSystem);
         plog.debug('Orbit type:', obj.orbitSystem?.orbitType);
@@ -1616,120 +1639,6 @@ class LevelEditor {
         }
     }
     
-    startDragging(x, y) {
-        if (!this.selectedObject) return;
-        
-        this.dragging = true;
-        this.dragStartPosition = this.getObjectPosition(this.selectedObject);
-        
-        // Handle both coordinate systems
-        let objX, objY;
-        if (typeof this.selectedObject.x === 'number') {
-            objX = this.selectedObject.x;
-            objY = this.selectedObject.y;
-        } else if (this.selectedObject.position) {
-            objX = this.selectedObject.position.x;
-            objY = this.selectedObject.position.y;
-        }
-        
-        this.dragOffset.x = x - objX;
-        this.dragOffset.y = y - objY;
-        plog.debug('Started dragging:', this.selectedObject.constructor.name, 'at', x, y);
-    }
-    
-    updateDragging(x, y) {
-        if (!this.dragging || !this.selectedObject) return;
-        
-        const newX = x - this.dragOffset.x;
-        const newY = y - this.dragOffset.y;
-        
-        // Update coordinates based on object type
-        if (typeof this.selectedObject.x === 'number') {
-            // Penguin class uses direct x/y properties
-            this.selectedObject.x = newX;
-            this.selectedObject.y = newY;
-        } else if (this.selectedObject.position) {
-            // GameObject classes use position.x/y
-            this.selectedObject.position.x = newX;
-            this.selectedObject.position.y = newY;
-        }
-        
-        plog.debug('Dragging to:', x, y, 'Object now at:', newX, newY);
-        
-        this.setDisplayedPropertyValue('x', newX);
-        this.setDisplayedPropertyValue('y', newY);
-    }
-    
-    stopDragging() {
-        if (this.dragging) {
-            plog.debug('Stopped dragging');
-            const object = this.selectedObject;
-            this.recordPositionChange(
-                object,
-                this.dragStartPosition,
-                this.getObjectPosition(object),
-                `Move ${object?.constructor?.name ?? 'object'}`
-            );
-            this.updateObjectList();
-        }
-        this.dragging = false;
-        this.dragStartPosition = null;
-    }
-    
-    startOrbitCenterDragging(x, y, obj) {
-        if (!obj || !obj.orbitSystem || !obj.orbitSystem.orbitCenter) return;
-        
-        this.draggingOrbitCenter = true;
-        this.orbitCenterObject = obj;
-        this.orbitCenterDragStart = { ...obj.orbitSystem.orbitCenter };
-        
-        // Calculate offset from click to orbit center
-        const center = obj.orbitSystem.orbitCenter;
-        this.dragOffset.x = x - center.x;
-        this.dragOffset.y = y - center.y;
-        
-        plog.debug('Started dragging orbit center for:', obj.constructor.name, 'at', x, y);
-    }
-    
-    updateOrbitCenterDragging(x, y) {
-        if (!this.draggingOrbitCenter || !this.orbitCenterObject) return;
-        
-        const newX = x - this.dragOffset.x;
-        const newY = y - this.dragOffset.y;
-        
-        // Update the orbit center
-        this.orbitCenterObject.orbitSystem.orbitCenter.x = newX;
-        this.orbitCenterObject.orbitSystem.orbitCenter.y = newY;
-        
-        // Recalculate orbit system with new center
-        this.updateOrbitSystem(this.orbitCenterObject);
-        
-        plog.debug('Dragging orbit center to:', x, y, 'Center now at:', newX, newY);
-        
-        this.setDisplayedPropertyValue('orbitCenterX', newX);
-        this.setDisplayedPropertyValue('orbitCenterY', newY);
-    }
-    
-    stopOrbitCenterDragging() {
-        if (this.draggingOrbitCenter) {
-            plog.debug('Stopped dragging orbit center');
-            const object = this.orbitCenterObject;
-            const before = this.orbitCenterDragStart;
-            const after = { ...object.orbitSystem.orbitCenter };
-            if (before && (before.x !== after.x || before.y !== after.y)) {
-                this.history.recordExecuted(LiveEditCommandType.MOVE_ORBIT_CENTER, {
-                    object,
-                    before,
-                    after
-                });
-            }
-            this.updateObjectList();
-        }
-        this.draggingOrbitCenter = false;
-        this.orbitCenterObject = null;
-        this.orbitCenterDragStart = null;
-    }
-
     setDisplayedPropertyValue(property, value) {
         const input = this.propertiesPanel?.querySelector(`[data-property="${property}"]`);
         if (input) input.value = String(value);
@@ -1746,16 +1655,6 @@ class LevelEditor {
         return null;
     }
 
-    recordPositionChange(object, before, after, label) {
-        if (!object || !before || !after || (before.x === after.x && before.y === after.y)) return;
-        this.history.recordExecuted(LiveEditCommandType.MOVE_OBJECT, {
-            object,
-            before,
-            after,
-            label
-        });
-    }
-    
     addObject(className) {
         const view = this.editorCamera?.viewRect || this.game.stageRect;
         const centerX = view.x + view.width / 2;
@@ -1840,7 +1739,7 @@ class LevelEditor {
     }
     
     setObjectSpriteDefaults(obj, className) {
-        const definition = EDITOR_OBJECT_SPRITE_DEFAULTS[className];
+        const definition = getEditorObjectDefinition(className).spriteDefault;
         if (!definition) return;
         if (!obj[definition.property]) obj[definition.property] = definition.value;
         this[definition.refreshMethod](obj);
@@ -1858,7 +1757,11 @@ class LevelEditor {
         }
         
         const added = recordHistory
-            ? this.history.execute(LiveEditCommandType.ADD_OBJECT, { object: obj, className })
+            ? this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
+                objectId: obj.id,
+                definition: this.game.exportObjectComprehensively(obj),
+                index: this.document?.listObjects().length
+            })
             : this.mutator.addObject(obj, className);
         if (!added) {
             plog.warn(`Could not add ${className} to the live level`);
@@ -1868,6 +1771,12 @@ class LevelEditor {
     }
 
     refreshAfterHistory(selection) {
+        this.runtimeProjector?.indexRuntimeObjects();
+        this.overlayRenderer?.runtimeController?.invalidatePreview();
+        if (
+            this.commandContext?.liveTransaction ||
+            this.commandContext?.changeSource === 'inspector-live'
+        ) return;
         this.selectObject(selection);
     }
     
@@ -1906,19 +1815,7 @@ class LevelEditor {
         // Create context menu
         const menu = document.createElement('div');
         menu.id = 'level-editor-context-menu';
-        menu.style.cssText = `
-            position: fixed;
-            background: rgba(0, 0, 0, 0.9);
-            border: 1px solid #555;
-            border-radius: 8px;
-            padding: 8px 0;
-            z-index: 1000;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            min-width: 150px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        `;
+        menu.className = 'editor-context-menu';
         
         // Convert canvas coordinates to screen coordinates
         const screenPoint = stageToScreen(this.game.canvas, this.game.viewport, x, y, this.editorCamera);
@@ -1929,28 +1826,26 @@ class LevelEditor {
         menu.style.left = Math.min(screenX, window.innerWidth - 200) + 'px';
         menu.style.top = Math.min(screenY, window.innerHeight - 300) + 'px';
         
-        // Add menu items for object creation
-        const editableClasses = this.getEditableObjectClasses();
-        editableClasses.forEach(className => {
-            const item = createButton(`Add ${className}`, () => {
-                this.addObjectAtPosition(className, x, y);
-                menu.remove();
-            }, {
-                backgroundColor: 'transparent',
-                hoverColor: '#333',
-                textColor: 'white',
-                borderColor: 'transparent'
-            });
-            item.style.cssText += `
-                padding: 12px 16px;
-                border-bottom: 1px solid #333;
-                min-height: 20px;
-                touch-action: manipulation;
-            `;
-            item.style.borderBottom = '1px solid #333';
-            
-            menu.appendChild(item);
-        });
+        const hit = this.objectService.hitTestBody(x, y);
+        if (hit) {
+            this.selectObject(hit);
+            const definition = getEditorObjectDefinition(hit.constructor.name);
+            for (const actionName of definition.actions) {
+                const action = getEditorActionDefinition(actionName);
+                if (!action) continue;
+                menu.appendChild(this.createContextMenuItem(action.label, () => {
+                    action.execute(this, hit);
+                    menu.remove();
+                }, action.danger));
+            }
+        } else {
+            for (const className of this.getEditableObjectClasses()) {
+                menu.appendChild(this.createContextMenuItem(`Add ${className}`, () => {
+                    this.addObjectAtPosition(className, x, y);
+                    menu.remove();
+                }));
+            }
+        }
         
         // Add menu to document
         document.body.appendChild(menu);
@@ -1969,6 +1864,18 @@ class LevelEditor {
             document.addEventListener('click', removeMenu);
             document.addEventListener('touchstart', removeMenu);
         }, EDITOR_CONFIG.interaction.deferredListenerMs);
+    }
+
+    createContextMenuItem(label, action, danger = false) {
+        const item = createButton(label, action, {
+            backgroundColor: 'transparent',
+            hoverColor: '#333',
+            textColor: danger ? '#ffad9f' : 'white',
+            borderColor: 'transparent'
+        });
+        item.classList.add('editor-context-menu-item');
+        if (danger) item.classList.add('is-danger');
+        return item;
     }
     
     addObjectAtPosition(className, x, y) {
@@ -2016,18 +1923,23 @@ class LevelEditor {
         const offset = Math.max(55, LEVEL_DEFAULTS.portal.width * 1.5);
         const red = new PortalConstructor(x - offset, y, {
             ...LEVEL_DEFAULTS.portal,
-            color: 'red', pairedPortalId: blueId, rotation: 0
+            color: 'red', pairedPortalId: blueId, rotation: 270
         });
         const blue = new PortalConstructor(x + offset, y, {
             ...LEVEL_DEFAULTS.portal,
-            color: 'blue', pairedPortalId: redId, rotation: 180
+            color: 'blue', pairedPortalId: redId, rotation: 90
         });
         red.id = redId;
         blue.id = blueId;
         red.name = `Portal Pair ${number} Red`;
         blue.name = `Portal Pair ${number} Blue`;
-        const added = this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
-            objects: [red, blue], operation: 'add'
+        const baseIndex = this.document.listObjects().length;
+        const added = this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
+            entries: [red, blue].map((object, offsetIndex) => ({
+                definition: this.game.exportObjectComprehensively(object),
+                index: baseIndex + offsetIndex
+            })),
+            operation: 'add'
         });
         if (added) this.selectObject(red);
         return added;
@@ -2063,15 +1975,21 @@ class LevelEditor {
         };
         const red = cloneEndpoint(redSource, redId, blueId);
         const blue = cloneEndpoint(blueSource, blueId, redId);
-        const added = this.history.execute(LiveEditCommandType.OBJECT_GROUP, {
-            objects: [red, blue], operation: 'add'
+        const baseIndex = this.document.listObjects().length;
+        const added = this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
+            entries: [red, blue].map((object, offsetIndex) => ({
+                definition: this.game.exportObjectComprehensively(object),
+                index: baseIndex + offsetIndex
+            })),
+            operation: 'add'
         });
         if (added) this.selectObject(red);
         return added;
     }
 
     exportLevel() {
-        const levelData = this.game.exportCurrentLevel();
+        this.assertDocumentValid('editor export');
+        const levelData = this.currentDocumentDefinition();
         const filename = `custom_level_${Date.now()}.json`;
         
         const blob = new Blob([JSON.stringify(levelData, null, 2)], {type: 'application/json'});
@@ -2150,7 +2068,10 @@ class LevelEditor {
         try {
             // Create a deep copy by serializing and deserializing the object properties
             const objData = this.serializeObject(obj);
-            const clonedObject = this.deserializeObject(objData, ClassConstructor);
+            const deserialized = this.deserializeObject(objData, ClassConstructor);
+            const clonedObject = this.objectService?.prepareClone
+                ? this.objectService.prepareClone(deserialized)
+                : prepareCloneForInsertion(deserialized);
             
             plog.debug('Cloned object data:', objData);
             return clonedObject;
@@ -2177,7 +2098,7 @@ class LevelEditor {
             data.properties.position = { x: obj.position.x, y: obj.position.y };
         }
         
-        const classProperties = CLASS_SERIALIZED_OBJECT_PROPERTIES[obj.constructor.name] || [];
+        const classProperties = getEditorObjectDefinition(obj.constructor.name).serializedProperties;
         for (const property of classProperties) {
             if (obj[property] === undefined) continue;
             data.properties[property] = property === 'pointingAt' && obj[property]
@@ -2342,6 +2263,9 @@ class LevelEditor {
     }
 
     getAllGameObjects() {
+        if (this.objectService && this.runtimeProjector) {
+            return this.objectService.listRuntimeObjects();
+        }
         const allObjects = [];
         
         // Add planets
@@ -2364,24 +2288,121 @@ class LevelEditor {
         return allObjects.filter(object => getEditorObjectDefinition(object?.constructor?.name).editable);
     }
 
-    currentDocumentDefinition() {
-        if (this.mode === 'play' && this.game.loadedLevelDefinition) {
-            return structuredClone(this.game.completedRun?.level || this.game.loadedLevelDefinition);
+    synchronizeDocumentObject(object) {
+        if (!this.document || !object?.id || this.mode !== 'edit' || this.transientProjection) return;
+        const exported = this.game.exportObjectComprehensively(object);
+        if (!exported) return;
+        this.document.applyPatch({
+            type: 'object.update',
+            id: object.id,
+            changes: exported
+        });
+    }
+
+    synchronizeSingletonDocumentPosition(type, position) {
+        if (!this.document || !position || this.mode !== 'edit' || this.transientProjection) return;
+        const record = this.document.listObjects().find(object =>
+            normalizeLevelObjectType(object.type) === type
+        );
+        if (!record?.properties?.id) return;
+        this.document.applyPatch({
+            type: 'object.update',
+            id: record.properties.id,
+            changes: { position: { x: position.x, y: position.y } }
+        });
+    }
+
+    synchronizeLevelSettingsDocument() {
+        if (!this.document || this.mode !== 'edit' || this.transientProjection) return;
+        const exported = this.game.exportCurrentLevel();
+        const { objects: _objects, ...levelChanges } = exported;
+        this.document.applyPatch({ type: 'level.update', changes: levelChanges });
+    }
+
+    synchronizeDocumentFromRuntime() {
+        if (!this.document || this.mode !== 'edit' || this.transientProjection) return;
+        this.document.replace(this.game.exportCurrentLevel(), { validate: false });
+        this.runtimeProjector.indexRuntimeObjects();
+    }
+
+    getDocumentObjectSnapshot(id) {
+        const object = this.document?.getObject(id);
+        if (!object) return null;
+        return {
+            definition: structuredClone(object),
+            index: this.document.listObjects().indexOf(object)
+        };
+    }
+
+    addDocumentObject(definition, index) {
+        const before = this.document.toDefinition();
+        if (!this.document.applyPatch({ type: 'object.add', object: definition, index })) return false;
+        if (this.rebuildDocumentProjection()) return true;
+        this.restoreLastKnownGoodProjection(before);
+        return false;
+    }
+
+    removeDocumentObject(id) {
+        const before = this.document.toDefinition();
+        if (!this.document.applyPatch({ type: 'object.remove', id })) return false;
+        if (this.rebuildDocumentProjection()) return true;
+        this.restoreLastKnownGoodProjection(before);
+        return false;
+    }
+
+    restoreLastKnownGoodProjection(definition) {
+        this.document.replace(definition, { validate: false });
+        try {
+            this.runtimeProjector.rebuild(definition);
+            if (this.active) this.game.setState?.(GameState.LEVEL_EDITOR);
+        } catch (error) {
+            plog.error('Unable to recover the last known-good editor projection:', error);
         }
-        return this.game.exportCurrentLevel();
+    }
+
+    rebuildDocumentProjection() {
+        const saveId = this.game.levelMetadata?.saveId;
+        const catalogReference = structuredClone(this.game.levelMetadata?.catalogReference);
+        try {
+            this.document.validate('editor runtime projection');
+            this.runtimeProjector.rebuild(this.document.toDefinition());
+            if (saveId !== undefined) this.game.levelMetadata.saveId = saveId;
+            if (catalogReference) this.game.levelMetadata.catalogReference = catalogReference;
+            if (this.active) this.game.setState?.(GameState.LEVEL_EDITOR);
+            return true;
+        } catch (error) {
+            plog.error('Unable to rebuild the editor runtime projection:', error);
+            return false;
+        }
+    }
+
+    assertDocumentValid(source = 'editor document') {
+        if (!this.document) return true;
+        const selectedId = this.selection?.value?.id;
+        if (selectedId && !this.document.getObject(selectedId)) {
+            throw new Error(`The selected object no longer exists: ${selectedId}`);
+        }
+        return this.document.validate(source);
+    }
+
+    currentDocumentDefinition() {
+        return this.document?.toDefinition() || this.game.exportCurrentLevel();
     }
 
     markClean() {
-        this.cleanDocumentSnapshot = JSON.stringify(this.currentDocumentDefinition());
+        this.cleanDocumentSnapshot = this.document?.fingerprint() ||
+            JSON.stringify(this.currentDocumentDefinition());
     }
 
     isDirty() {
         if (!this.active || !this.cleanDocumentSnapshot) return false;
-        return JSON.stringify(this.currentDocumentDefinition()) !== this.cleanDocumentSnapshot;
+        const fingerprint = this.document?.fingerprint() || JSON.stringify(this.currentDocumentDefinition());
+        return fingerprint !== this.cleanDocumentSnapshot;
     }
     
     selectObjectFromList(index) {
-        this.objectListView.selectIndex(index);
+        const object = this.objectListView.objects[index];
+        if (object?.id) this.objectListView.selectId(object.id);
     }
 
     selectLevelSettings() {
@@ -2390,6 +2411,14 @@ class LevelEditor {
     
     render(ctx) {
         this.overlayRenderer.render(ctx);
+    }
+
+    shouldDeferRuntimeObjectDraw(object) {
+        return Boolean(
+            this.active &&
+            this.mode === 'edit' &&
+            this.overlayRenderer?.runtimeController?.shouldRenderPreviewObject(object)
+        );
     }
 
     getPlanetSpriteOptions() {

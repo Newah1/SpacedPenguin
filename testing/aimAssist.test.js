@@ -60,10 +60,10 @@ test('aim assist horizon is tunable and stops at a predicted collision', () => {
 test('aim assist marks portal jumps as disconnected path segments', () => {
     const state = createState([
         { type: 'portal', position: { x: 150, y: 300 }, properties: {
-            id: 'red', pairedPortalId: 'blue', color: 'red', rotation: 0
+            id: 'red', pairedPortalId: 'blue', color: 'red', rotation: 270
         } },
         { type: 'portal', position: { x: 400, y: 300 }, properties: {
-            id: 'blue', pairedPortalId: 'red', color: 'blue', rotation: 180
+            id: 'blue', pairedPortalId: 'red', color: 'blue', rotation: 90
         } }
     ]);
     const points = predictAimAssistTrajectory(state, { x: 6000, y: 0 }, {

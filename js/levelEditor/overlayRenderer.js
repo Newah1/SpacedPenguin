@@ -1,11 +1,17 @@
 import { EDITOR_CONFIG } from '../config/editorConfig.js';
 import { LevelOrbitType } from '../levelSchema.js';
 import EditorRuntimeController from './editorRuntimeController.js';
+import { EditorEventType } from './editorEvents.js';
+import { getPortalOutwardDirection } from '../portalGeometry.js';
 
 export class LevelEditorOverlayRenderer {
     constructor(editor) {
         this.editor = editor;
         this.runtimeController = new EditorRuntimeController(editor);
+        this.unsubscribe = editor.events?.on(
+            EditorEventType.DOCUMENT_CHANGED,
+            () => this.runtimeController.invalidatePreview()
+        );
     }
 
     render(ctx) {
@@ -16,6 +22,7 @@ export class LevelEditorOverlayRenderer {
         this.drawGravitySculpt(ctx);
         this.drawAllOrbitCenters(ctx);
         this.runtimeController.draw(ctx);
+        this.drawAllPortalDirectionArrows(ctx);
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
             this.drawPortalPairLine(ctx, editor.selectedObject);
             this.drawSelectionHighlight(ctx, editor.selectedObject);
@@ -86,7 +93,7 @@ export class LevelEditorOverlayRenderer {
     }
 
     drawSelectionHighlight(ctx, object) {
-        const position = this.editor.getObjectPosition(object);
+        const position = this.runtimeController.getDisplayPosition(object);
         if (!position) return;
         const radius = object.radius || object.collisionRadius || 20;
         ctx.save();
@@ -123,12 +130,47 @@ export class LevelEditorOverlayRenderer {
         ctx.moveTo(object.position.x, object.position.y);
         ctx.lineTo(pair.position.x, pair.position.y);
         ctx.stroke();
-        const angle = (object.rotation || 0) * Math.PI / 180;
+        ctx.restore();
+    }
+
+    drawAllPortalDirectionArrows(ctx) {
+        for (const portal of this.editor.game.portals || []) {
+            this.drawPortalDirectionArrow(ctx, portal);
+        }
+    }
+
+    drawPortalDirectionArrow(ctx, portal) {
+        const outward = getPortalOutwardDirection(portal);
+        const perpendicular = { x: -outward.y, y: outward.x };
+        const startDistance = portal.height / 2 + 5;
+        const tipDistance = startDistance + 24;
+        const headLength = 8;
+        const headWidth = 5;
+        const start = {
+            x: portal.position.x + outward.x * startDistance,
+            y: portal.position.y + outward.y * startDistance
+        };
+        const tip = {
+            x: portal.position.x + outward.x * tipDistance,
+            y: portal.position.y + outward.y * tipDistance
+        };
+
+        ctx.save();
+        ctx.strokeStyle = portal.tint;
+        ctx.lineWidth = 2;
         ctx.setLineDash([]);
-        ctx.strokeStyle = object.tint;
         ctx.beginPath();
-        ctx.moveTo(object.position.x, object.position.y);
-        ctx.lineTo(object.position.x + Math.cos(angle) * 30, object.position.y + Math.sin(angle) * 30);
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(tip.x, tip.y);
+        ctx.moveTo(
+            tip.x - outward.x * headLength + perpendicular.x * headWidth,
+            tip.y - outward.y * headLength + perpendicular.y * headWidth
+        );
+        ctx.lineTo(tip.x, tip.y);
+        ctx.lineTo(
+            tip.x - outward.x * headLength - perpendicular.x * headWidth,
+            tip.y - outward.y * headLength - perpendicular.y * headWidth
+        );
         ctx.stroke();
         ctx.restore();
     }
