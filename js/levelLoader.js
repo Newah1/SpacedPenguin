@@ -32,8 +32,20 @@ import {
     formatLevelSelector,
     levelCollectionPath
 } from './config/gameConfig.js';
+import { getEditorObjectDefinition } from './editorObjectRegistry.js';
 
 export class GameObjectFactory {
+    static constructors = Object.freeze({
+        Planet,
+        BlackHole,
+        Bonus,
+        Target,
+        Slingshot,
+        TextObject,
+        PointingArrow,
+        Portal
+    });
+
     static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
         const normalizedDefinition = normalizeLevelObjectDefinition(objectDefinition);
         let { type, position, properties = {} } = normalizedDefinition;
@@ -50,192 +62,24 @@ export class GameObjectFactory {
             return null;
         }
         
-        let gameObject = null;
-        switch (normalizeLevelObjectType(type)) {
-            case LevelObjectType.PLANET:
-                gameObject = this.createPlanet(position, properties, assetLoader, gameObjectLookup);
-                break;
-            case LevelObjectType.BLACK_HOLE:
-                gameObject = this.createBlackHole(position, properties, gameObjectLookup);
-                break;
-            case LevelObjectType.BONUS:
-                gameObject = this.createBonus(position, properties, assetLoader, gameObjectLookup);
-                break;
-            case LevelObjectType.TARGET:
-                gameObject = this.createTarget(position, properties, assetLoader, gameObjectLookup);
-                break;
-            case LevelObjectType.SLINGSHOT:
-                gameObject = this.createSlingshot(position, properties, gameObjectLookup);
-                break;
-            case LevelObjectType.TEXT:
-                gameObject = this.createTextObject(position, properties, gameObjectLookup);
-                break;
-            case LevelObjectType.POINTING_ARROW:
-                gameObject = this.createPointingArrow(position, properties, gameObjectLookup);
-                break;
-            case LevelObjectType.PORTAL:
-                gameObject = this.createPortal(position, properties);
-                break;
-            case LevelObjectType.PENGUIN:
-                return null;
-            default:
-                plog.warn(`Unknown object type: ${type}`);
-                return null;
+        const creator = getEditorObjectDefinition(type).createRuntime;
+        if (!creator) {
+            plog.warn(`Unknown object type: ${type}`);
+            return null;
         }
+        const gameObject = creator({
+            constructors: this.constructors,
+            position,
+            properties,
+            assetLoader,
+            game,
+            gameObjectLookup,
+            applyOrbit: (object, orbit, lookup) => this.applyOrbitToObject(object, orbit, lookup),
+            schedule: (callback, delay) => setTimeout(callback, delay)
+        });
 
         if (gameObject && properties.id != null) gameObject.id = properties.id;
         return gameObject;
-    }
-    
-    static createPlanet(position, properties, assetLoader, gameObjectLookup = null) {
-        if (!position) return null;
-        const {
-            name = null,
-            radius = LEVEL_DEFAULTS.planet.radius,
-            mass = LEVEL_DEFAULTS.planet.mass,
-            collisionRadius = radius + LEVEL_DEFAULTS.planet.collisionPadding,
-            gravitationalReach = LEVEL_DEFAULTS.planet.gravitationalReach,
-            orbit = null,
-            planetType = null,
-            id = null
-        } = properties;
-        const planet = new Planet(position.x, position.y, radius, mass, gravitationalReach, planetType, assetLoader, gameObjectLookup);
-        planet.collisionRadius = collisionRadius;
-        if (name) planet.name = name;
-        if (id) planet.id = id;
-        if (orbit) this.applyOrbitToObject(planet, orbit, gameObjectLookup);
-        return planet;
-    }
-
-    static createBlackHole(position, properties, gameObjectLookup = null) {
-        if (!position) return null;
-        const {
-            name = null,
-            radius = LEVEL_DEFAULTS.planet.radius,
-            mass = LEVEL_DEFAULTS.planet.mass,
-            gravitationalReach = LEVEL_DEFAULTS.planet.gravitationalReach,
-            orbit = null,
-            id = null
-        } = properties;
-        const blackHole = new BlackHole(position.x, position.y, radius, mass, gravitationalReach, gameObjectLookup);
-        if (name) blackHole.name = name;
-        if (id) blackHole.id = id;
-        if (orbit) this.applyOrbitToObject(blackHole, orbit, gameObjectLookup);
-        return blackHole;
-    }
-
-    static createPortal(position, properties) {
-        if (!position) return null;
-        const portal = new Portal(position.x, position.y, properties);
-        portal.id = properties.id ?? null;
-        portal.name = properties.name ?? '';
-        return portal;
-    }
-    
-    static createBonus(position, properties, assetLoader, gameObjectLookup = null) {
-        const { name = null, value = LEVEL_DEFAULTS.bonus.value, id = null } = properties;
-        if (!position || typeof position.x === 'undefined' || typeof position.y === 'undefined') return null;
-        const bonus = new Bonus(position.x, position.y, value, assetLoader, gameObjectLookup);
-        if (name) bonus.name = name;
-        if (id) bonus.id = id;
-        if (properties.orbit) this.applyOrbitToObject(bonus, properties.orbit, gameObjectLookup);
-        return bonus;
-    }
-    
-    static createTarget(position, properties, assetLoader, gameObjectLookup = null) {
-        if (!position) return null;
-        const {
-            name = null,
-            width = LEVEL_DEFAULTS.target.width,
-            height = LEVEL_DEFAULTS.target.height,
-            spriteType = LEVEL_DEFAULTS.target.spriteType,
-            id = null,
-            collisionRadius = width / 2
-        } = properties;
-        const target = new Target(position.x, position.y, width, height, spriteType, assetLoader, gameObjectLookup);
-        target.collisionRadius = collisionRadius;
-        if (name) target.name = name;
-        if (id) target.id = id;
-        if (properties.orbit) this.applyOrbitToObject(target, properties.orbit, gameObjectLookup);
-        return target;
-    }
-    
-    static createSlingshot(position, properties) {
-        if (!position) return null;
-        const {
-            name = null,
-            anchorX = properties.anchorPosition?.x ?? position.x,
-            anchorY = properties.anchorPosition?.y ?? position.y,
-            stretchLimit = properties.maxPullback ?? LEVEL_DEFAULTS.slingshot.maxPullback,
-            velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier
-        } = properties;
-        const slingshot = new Slingshot(position.x, position.y, anchorX, anchorY, stretchLimit);
-        slingshot.velocityMultiplier = velocityMultiplier;
-        slingshot.minPullback = properties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback;
-        slingshot.launchModel = properties.launchModel ?? 'modern';
-        slingshot.sourceFrameRate = properties.sourceFrameRate ?? null;
-        slingshot.coordinateScale = properties.coordinateScale ?? 1;
-        if (name) slingshot.name = name;
-        if (properties.orbit) this.applyOrbitToObject(slingshot, properties.orbit);
-        return slingshot;
-    }
-    
-    static createTextObject(position, properties) {
-        const {
-            name = null,
-            content = LEVEL_DEFAULTS.text.content,
-            width = LEVEL_DEFAULTS.text.width,
-            height = LEVEL_DEFAULTS.text.height,
-            visible = LEVEL_DEFAULTS.text.visible,
-            textAlign = LEVEL_DEFAULTS.text.textAlign,
-            fontSize = LEVEL_DEFAULTS.text.fontSize,
-            fontFamily = LEVEL_DEFAULTS.text.fontFamily,
-            color = LEVEL_DEFAULTS.text.color,
-            backgroundColor = LEVEL_DEFAULTS.text.backgroundColor,
-            padding = LEVEL_DEFAULTS.text.padding,
-            maxWidth = LEVEL_DEFAULTS.text.maxWidth,
-            autoSize = LEVEL_DEFAULTS.text.autoSize,
-            fadeIn = LEVEL_DEFAULTS.text.fadeIn,
-            fadeInDuration = LEVEL_DEFAULTS.text.fadeInDuration,
-            renderOrder = LEVEL_DEFAULTS.text.renderOrder
-        } = properties;
-        const options = { width, height, visible, textAlign, fontSize, fontFamily, color, backgroundColor, padding, maxWidth, autoSize, fadeIn, fadeInDuration, renderOrder };
-        const textObject = new TextObject(position.x, position.y, content, options);
-        if (name) textObject.name = name;
-        if (properties.showAfterDelay) {
-            textObject.visible = false;
-            setTimeout(() => textObject.show(properties.fadeIn), properties.showAfterDelay * 1000);
-        }
-        if (properties.orbit) this.applyOrbitToObject(textObject, properties.orbit);
-        return textObject;
-    }
-    
-    static createPointingArrow(position, properties) {
-        const {
-            name = null,
-            color = LEVEL_DEFAULTS.pointingArrow.color,
-            glowColor = LEVEL_DEFAULTS.pointingArrow.glowColor,
-            baseWidth = LEVEL_DEFAULTS.pointingArrow.baseWidth,
-            scaleWithDistance = LEVEL_DEFAULTS.pointingArrow.scaleWithDistance,
-            maxDistance = LEVEL_DEFAULTS.pointingArrow.maxDistance,
-            minWidth = LEVEL_DEFAULTS.pointingArrow.minWidth,
-            maxWidth = LEVEL_DEFAULTS.pointingArrow.maxWidth,
-            pulseSpeed = LEVEL_DEFAULTS.pointingArrow.pulseSpeed,
-            minAlpha = LEVEL_DEFAULTS.pointingArrow.minAlpha,
-            maxAlpha = LEVEL_DEFAULTS.pointingArrow.maxAlpha,
-            renderOrder = LEVEL_DEFAULTS.pointingArrow.renderOrder,
-            pointingAt = null
-        } = properties;
-        const options = { color, glowColor, baseWidth, scaleWithDistance, maxDistance, minWidth, maxWidth, pulseSpeed, minAlpha, maxAlpha, renderOrder };
-        const arrow = new PointingArrow(position.x, position.y, options);
-        if (name) arrow.name = name;
-        if (pointingAt) arrow.pointTo(pointingAt);
-        if (properties.pointAfterDelay && pointingAt) {
-            arrow.visible = false;
-            setTimeout(() => { arrow.pointTo(pointingAt); arrow.visible = true; }, properties.pointAfterDelay * 1000);
-        }
-        if (properties.orbit) this.applyOrbitToObject(arrow, properties.orbit);
-        return arrow;
     }
     
     static applyOrbitToObject(object, orbitConfig, gameObjectLookup = null) {

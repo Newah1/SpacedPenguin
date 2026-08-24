@@ -35,6 +35,7 @@ const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameO
 const { LEVEL_CATALOG_CONFIG, LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
 const { SimulationEventType } = await import('../js/simulationEngine.js');
 const { GameObjectFactory } = await import('../js/levelLoader.js');
+const { LiveEditCommandType } = await import('../js/editorCommands/index.js');
 const {
     DEFAULT_MAX_SIMULATION_TIME,
     HeadlessGameEngine,
@@ -140,6 +141,13 @@ test('level editor text width updates the renderer wrap limit', () => {
         padding: 10,
         autoSize: true
     });
+    editor.commandBus = {
+        execute(type, payload) {
+            assert.equal(type, LiveEditCommandType.SET_OBJECT_PROPERTY);
+            editor.applyObjectProperty(editor.selectedObject, payload.property, payload.value);
+            return true;
+        }
+    };
 
     editor.handlePropertyChange({
         target: {
@@ -470,11 +478,10 @@ test('saving an edited level synchronizes its authored name back to live metadat
 });
 
 test('text factory restores an explicitly exported wrap limit', () => {
-    const textObject = GameObjectFactory.createTextObject({ x: 10, y: 20 }, {
-        content: 'Tutorial text',
-        width: 360,
-        padding: 10,
-        maxWidth: 340
+    const textObject = GameObjectFactory.create({
+        type: 'textobject',
+        position: { x: 10, y: 20 },
+        properties: { content: 'Tutorial text', width: 360, padding: 10, maxWidth: 340 }
     });
 
     assert.equal(textObject.width, 360);
@@ -509,10 +516,14 @@ test('tutorial text parser preserves authored breaks and decodes quoted copy', (
 });
 
 test('planet factory respects an explicit collision radius', () => {
-    const planet = GameObjectFactory.createPlanet({ x: 100, y: 200 }, {
-        radius: 65.8413472395633,
-        collisionRadius: 62.8,
-        mass: 128.841347239563
+    const planet = GameObjectFactory.create({
+        type: 'planet',
+        position: { x: 100, y: 200 },
+        properties: {
+            radius: 65.8413472395633,
+            collisionRadius: 62.8,
+            mass: 128.841347239563
+        }
     }, null);
 
     assert.equal(planet.radius, 65.8413472395633);
@@ -1017,9 +1028,13 @@ test('delayed pointing arrows reveal the configured target without a loader erro
     const timers = createTimeoutFixture();
 
     withGlobalOverrides({ setTimeout: timers.setTimeout }, () => {
-        const arrow = GameObjectFactory.createPointingArrow({ x: 10, y: 20 }, {
-            pointingAt: { x: 80, y: 90 },
-            pointAfterDelay: 1.5
+        const arrow = GameObjectFactory.create({
+            type: 'pointingarrow',
+            position: { x: 10, y: 20 },
+            properties: {
+                pointingAt: { x: 80, y: 90 },
+                pointAfterDelay: 1.5
+            }
         });
         assert.equal(arrow.visible, false);
         assert.equal(timers.scheduled[0].delay, 1500);

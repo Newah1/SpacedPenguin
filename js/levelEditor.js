@@ -1559,113 +1559,7 @@ class LevelEditor {
         const view = this.editorCamera?.viewRect || this.game.stageRect;
         const centerX = view.x + view.width / 2;
         const centerY = view.y + view.height / 2;
-        if (className === 'Portal') {
-            this.addPortalPairAt(centerX, centerY);
-            return;
-        }
-        
-        if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
-            plog.error('Unknown class:', className);
-            return;
-        }
-        
-        const ClassConstructor = this.gameObjectClasses[className];
-        const existingSingleton = this.getRuntimeSingleton(className);
-        if (existingSingleton) {
-            plog.warn(`${className} is unique in a level; selecting the existing object`);
-            this.selectObject(existingSingleton);
-            return;
-        }
-        let newObject;
-        
-        try {
-            // Create object with sensible defaults based on class
-            newObject = this.createObjectWithDefaults(ClassConstructor, className, centerX, centerY);
-            
-            if (newObject) {
-                if (!this.addObjectToGame(newObject, className)) return;
-                this.selectObject(newObject);
-                this.updateObjectList();
-                plog.debug('Created new', className, 'at', centerX, centerY);
-            }
-        } catch (error) {
-            plog.error('Failed to create', className, ':', error);
-        }
-    }
-    
-    createObjectWithDefaults(ClassConstructor, className, x, y) {
-        // Define default parameters for each class type
-        const defaults = {
-            'Planet': [
-                x, y,
-                EDITOR_CONFIG.authoringDefaults.planet.radius,
-                EDITOR_CONFIG.authoringDefaults.planet.mass,
-                EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach,
-                EDITOR_CONFIG.authoringDefaults.planet.planetType,
-                this.game.assetLoader
-            ],
-            'BlackHole': [
-                x, y,
-                EDITOR_CONFIG.authoringDefaults.planet.radius,
-                EDITOR_CONFIG.authoringDefaults.planet.mass,
-                EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach
-            ],
-            'Bonus': [x, y, EDITOR_CONFIG.authoringDefaults.bonus.value, this.game.assetLoader],
-            'Target': [
-                x, y,
-                LEVEL_DEFAULTS.target.width,
-                LEVEL_DEFAULTS.target.height,
-                LEVEL_DEFAULTS.target.spriteType,
-                this.game.assetLoader
-            ],
-            'Slingshot': [x, y, null, null, EDITOR_CONFIG.authoringDefaults.slingshot.maxPullback],
-            'TextObject': [x, y, LEVEL_DEFAULTS.text.content, {
-                width: LEVEL_DEFAULTS.text.width,
-                height: LEVEL_DEFAULTS.text.height,
-                fontSize: LEVEL_DEFAULTS.text.fontSize,
-                color: LEVEL_DEFAULTS.text.color
-            }],
-            'PointingArrow': [x, y, { baseWidth: LEVEL_DEFAULTS.pointingArrow.baseWidth }],
-            'Portal': [x, y, { ...LEVEL_DEFAULTS.portal }]
-        };
-        
-        const params = defaults[className] || [x, y];
-        const newObject = new ClassConstructor(...params);
-        
-        // Set additional sprite defaults after creation
-        this.setObjectSpriteDefaults(newObject, className);
-        
-        return newObject;
-    }
-    
-    setObjectSpriteDefaults(obj, className) {
-        const definition = getEditorObjectDefinition(className).spriteDefault;
-        if (!definition) return;
-        if (!obj[definition.property]) obj[definition.property] = definition.value;
-        this[definition.refreshMethod](obj);
-    }
-    
-    addObjectToGame(obj, className) {
-        // Add name if it doesn't exist
-        if (!obj.name) {
-            obj.name = this.generateObjectName(obj, className);
-        }
-        
-        // Add ID if it doesn't exist (for consistent export/import)
-        if (!obj.id) {
-            obj.id = this.generateObjectId(obj, className);
-        }
-        
-        const added = this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
-            objectId: obj.id,
-            definition: this.game.exportObjectComprehensively(obj),
-            index: this.document?.listObjects().length
-        });
-        if (!added) {
-            plog.warn(`Could not add ${className} to the live level`);
-            return false;
-        }
-        return true;
+        return this.addObjectAtPosition(className, centerX, centerY);
     }
 
     refreshAfterHistory(selection) {
@@ -1786,70 +1680,59 @@ class LevelEditor {
     }
     
     addObjectAtPosition(className, x, y) {
-        if (className === 'Portal') {
-            this.addPortalPairAt(x, y);
-            return;
+        const descriptor = getEditorObjectDefinition(className);
+        if (!descriptor.createAuthoringDefinitions) {
+            plog.error('Unknown or non-creatable editor object:', className);
+            return false;
         }
-        if (!this.gameObjectClasses || !this.gameObjectClasses[className]) {
-            console.error('Unknown class:', className);
-            return;
-        }
-        
-        const ClassConstructor = this.gameObjectClasses[className];
         const existingSingleton = this.getRuntimeSingleton(className);
         if (existingSingleton) {
             plog.warn(`${className} is unique in a level; selecting the existing object`);
             this.selectObject(existingSingleton);
-            return;
+            return false;
         }
-        let newObject;
-        
+
         try {
-            // Create object at the specified position
-            newObject = this.createObjectWithDefaults(ClassConstructor, className, x, y);
-            
-            if (newObject) {
-                if (!this.addObjectToGame(newObject, className)) return;
-                this.selectObject(newObject);
-                this.updateObjectList();
-                plog.debug('Created new', className, 'at', x, y);
+            const definitions = descriptor.createAuthoringDefinitions({
+                x,
+                y,
+                allocatePairNumber: (prefix, suffixes) =>
+                    this.allocateObjectGroupNumber(prefix, suffixes)
+            });
+            for (const definition of definitions) {
+                definition.properties ||= {};
+                definition.properties.id ||= this.generateObjectId(null, className);
+                definition.properties.name ||= this.generateObjectName(null, className);
             }
+            const baseIndex = this.document.listObjects().length;
+            const added = definitions.length === 1
+                ? this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
+                    objectId: definitions[0].properties.id,
+                    definition: definitions[0],
+                    index: baseIndex
+                })
+                : this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
+                    entries: definitions.map((definition, index) => ({
+                        definition,
+                        index: baseIndex + index
+                    })),
+                    operation: 'add'
+                });
+            if (!added) return false;
+            this.selection.select(definitions[0].properties.id);
+            plog.debug('Created new', className, 'at', x, y);
+            return true;
         } catch (error) {
             plog.error('Failed to create', className, ':', error);
+            return false;
         }
     }
 
-    addPortalPairAt(x, y) {
-        const PortalConstructor = this.gameObjectClasses?.Portal;
-        if (!PortalConstructor) return false;
-        const usedIds = new Set((this.game.portals || []).map(portal => portal.id));
+    allocateObjectGroupNumber(prefix, suffixes) {
+        const usedIds = new Set(this.document.listObjects().map(object => object.properties?.id));
         let number = 1;
-        while (usedIds.has(`portal_pair_${number}_red`) || usedIds.has(`portal_pair_${number}_blue`)) number++;
-        const redId = `portal_pair_${number}_red`;
-        const blueId = `portal_pair_${number}_blue`;
-        const offset = Math.max(55, LEVEL_DEFAULTS.portal.width * 1.5);
-        const red = new PortalConstructor(x - offset, y, {
-            ...LEVEL_DEFAULTS.portal,
-            color: 'red', pairedPortalId: blueId, rotation: 270
-        });
-        const blue = new PortalConstructor(x + offset, y, {
-            ...LEVEL_DEFAULTS.portal,
-            color: 'blue', pairedPortalId: redId, rotation: 90
-        });
-        red.id = redId;
-        blue.id = blueId;
-        red.name = `Portal Pair ${number} Red`;
-        blue.name = `Portal Pair ${number} Blue`;
-        const baseIndex = this.document.listObjects().length;
-        const added = this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
-            entries: [red, blue].map((object, offsetIndex) => ({
-                definition: this.game.exportObjectComprehensively(object),
-                index: baseIndex + offsetIndex
-            })),
-            operation: 'add'
-        });
-        if (added) this.selectObject(red);
-        return added;
+        while (suffixes.some(suffix => usedIds.has(`${prefix}_${number}_${suffix}`))) number++;
+        return number;
     }
 
     clonePortalPair(selected) {
