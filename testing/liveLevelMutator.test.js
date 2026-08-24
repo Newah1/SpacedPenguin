@@ -5,7 +5,6 @@ import './nodeShims.js';
 import LiveLevelMutator from '../js/liveLevelMutator.js';
 import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
 import {
-    createLiveEditHistory,
     LiveEditCommandType,
     liveEditCommandRegistry
 } from '../js/editorCommands/index.js';
@@ -15,7 +14,6 @@ import { EditorInputContext } from '../js/input/contexts/editorInputContext.js';
 class Planet {}
 class Bonus {}
 class Target {}
-class Portal {}
 
 function createGame() {
     return {
@@ -138,56 +136,6 @@ test('orbit clone data is restored before deserializeObject returns', () => {
     assert.deepEqual(clone.orbitSystem.orbitCenter, { x: 100, y: 200 });
 });
 
-test('typed command strategies replay against the same live runtime object', () => {
-    const game = createGame();
-    const mutator = new LiveLevelMutator(game);
-    const selections = [];
-    const history = createLiveEditHistory({
-        mutator,
-        refresh: object => selections.push(object),
-        updateOrbitSystem() {}
-    }, 2);
-    const planet = Object.assign(new Planet(), { position: { x: 10, y: 20 } });
-
-    assert.equal(history.execute(LiveEditCommandType.ADD_OBJECT, { object: planet }), true);
-    assert.deepEqual(game.planets, [planet]);
-    assert.equal(history.undo(), true);
-    assert.deepEqual(game.planets, []);
-    assert.equal(history.redo(), true);
-    assert.deepEqual(game.planets, [planet]);
-
-    history.execute(LiveEditCommandType.MOVE_OBJECT, {
-        object: planet,
-        before: { x: 10, y: 20 },
-        after: { x: 30, y: 40 }
-    });
-    history.undo();
-    assert.deepEqual(planet.position, { x: 10, y: 20 });
-    history.redo();
-    assert.deepEqual(planet.position, { x: 30, y: 40 });
-    assert.equal(selections.at(-1), planet);
-});
-
-test('portal endpoint groups add, undo, and redo atomically', () => {
-    const game = createGame();
-    const history = createLiveEditHistory({
-        mutator: new LiveLevelMutator(game),
-        refresh() {},
-        updateOrbitSystem() {}
-    });
-    const red = new Portal();
-    const blue = new Portal();
-
-    assert.equal(history.execute(LiveEditCommandType.OBJECT_GROUP, {
-        objects: [red, blue], operation: 'add'
-    }), true);
-    assert.deepEqual(game.portals, [red, blue]);
-    assert.equal(history.undo(), true);
-    assert.deepEqual(game.portals, []);
-    assert.equal(history.redo(), true);
-    assert.deepEqual(game.portals, [red, blue]);
-});
-
 test('every registered strategy implements the do/undo command contract', () => {
     for (const type of Object.values(LiveEditCommandType)) {
         const CommandClass = liveEditCommandRegistry.commandClasses.get(type);
@@ -196,86 +144,4 @@ test('every registered strategy implements the do/undo command contract', () => 
         assert.equal(typeof CommandClass.prototype.undo, 'function');
         assert.equal(CommandClass.type, type);
     }
-});
-
-function createPropertyHistoryEditor(selectedObject, gameOverrides = {}) {
-    const editor = Object.create(LevelEditor.prototype);
-    editor.game = { physics: {}, ...gameOverrides };
-    editor.selectedObject = selectedObject;
-    editor.levelSettingsNode = selectedObject?.isLevelSettings ? selectedObject : { isLevelSettings: true };
-    editor.propertyEditSession = 1;
-    editor.inspectorView = { render() {} };
-    editor.objectListView = { render() {} };
-    editor.mutator = new LiveLevelMutator(editor.game);
-    editor.history = createLiveEditHistory({
-        mutator: editor.mutator,
-        refresh: selection => editor.refreshAfterHistory(selection),
-        updateOrbitSystem: object => editor.updateOrbitSystem(object),
-        restoreObjectPropertyState: (object, state) => editor.restoreObjectPropertyState(object, state),
-        restoreLevelSettingsState: state => editor.restoreLevelSettingsState(state),
-        captureObjectPropertyState: object => editor.captureObjectPropertyState(object),
-        captureLevelSettingsState: () => editor.captureLevelSettingsState(),
-        applyObjectProperty: (object, property, value) => editor.applyObjectProperty(object, property, value),
-        applyLevelSetting: (property, value) => editor.updateLevelSetting(property, value),
-        resolveObject: id => selectedObject?.id === id ? selectedObject : null,
-        levelSettingsTarget: editor.levelSettingsNode
-    });
-    return editor;
-}
-
-test('property input events coalesce into one typed undo command per edit session', () => {
-    class TextObject {
-        constructor() {
-            this.position = { x: 10, y: 20 };
-            this.width = 100;
-            this.maxWidth = 80;
-            this.padding = 10;
-            this.content = 'text';
-        }
-        parseHTMLContent(value) { return [value]; }
-    }
-    const object = new TextObject();
-    object.id = 'textobject_1';
-    const editor = createPropertyHistoryEditor(object);
-    const event = value => ({
-        target: { dataset: { property: 'width', editSession: '7' }, type: 'number', value }
-    });
-
-    editor.handlePropertyChange(event('200'));
-    editor.handlePropertyChange(event('300'));
-
-    assert.equal(editor.history.undoStack.length, 1);
-    assert.equal(object.width, 300);
-    assert.equal(object.maxWidth, 280);
-    editor.undo();
-    assert.equal(object.width, 100);
-    assert.equal(object.maxWidth, 80);
-    editor.redo();
-    assert.equal(object.width, 300);
-    assert.equal(object.maxWidth, 280);
-});
-
-test('level setting edits undo and redo live metadata and physics state', () => {
-    const settings = { isLevelSettings: true };
-    const game = {
-        levelMetadata: { name: 'Before', description: '' },
-        levelRules: { gravitationalConstant: 3 },
-        slingshot: { position: { x: 100, y: 300 } },
-        penguin: { x: 100, y: 300 },
-        target: { position: { x: 700, y: 300 } },
-        physics: { gravitationalConstant: 3 }
-    };
-    const editor = createPropertyHistoryEditor(settings, game);
-    editor.handlePropertyChange({
-        target: { dataset: { property: 'gravitationalConstant', editSession: '11' }, type: 'number', value: '2.5' }
-    });
-
-    assert.equal(game.levelRules.gravitationalConstant, 2.5);
-    assert.equal(game.physics.gravitationalConstant, 2.5);
-    editor.undo();
-    assert.equal(game.levelRules.gravitationalConstant, 3);
-    assert.equal(game.physics.gravitationalConstant, 3);
-    editor.redo();
-    assert.equal(game.levelRules.gravitationalConstant, 2.5);
-    assert.equal(game.physics.gravitationalConstant, 2.5);
 });

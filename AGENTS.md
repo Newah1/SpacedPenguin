@@ -53,7 +53,7 @@ The browser calls the immutable `stepSimulation()` API. Headless sweeps use the 
 7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
 8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
 9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.
-10. The level editor mutates the live runtime graph. Export after play mode can contain mutated positions and orbit state and must be reviewed.
+10. The level editor mutates canonical `LevelDocument` definitions through commands. The disposable edit/play runtime is a projection and must never be exported back into authored state.
 
 ## Common changes
 

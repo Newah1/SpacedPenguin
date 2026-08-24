@@ -3,35 +3,32 @@ import test from 'node:test';
 
 import { createLiveEditHistory, LiveEditCommandType } from '../js/editorCommands/index.js';
 
-class Portal {}
-
-test('grouped editor mutations roll back earlier objects when a later mutation fails', () => {
+test('grouped document mutations publish no partial state when projection fails', () => {
     const applied = [];
     let refreshCount = 0;
-    const red = new Portal();
-    const blue = new Portal();
-    const mutator = {
-        addObject(object) {
-            if (object === blue) return false;
-            applied.push(object);
+    const entries = [
+        { definition: { type: 'portal', properties: { id: 'red' } }, index: 0 },
+        { definition: { type: 'portal', properties: { id: 'blue' } }, index: 1 }
+    ];
+    const history = createLiveEditHistory({
+        applyDocumentPatches(patches) {
+            const staged = [...applied];
+            for (const patch of patches) {
+                staged.push(patch.object.properties.id);
+                if (patch.object.properties.id === 'blue') {
+                    throw new Error('injected projection failure');
+                }
+            }
+            applied.splice(0, applied.length, ...staged);
             return true;
         },
-        removeObject(object) {
-            const index = applied.indexOf(object);
-            if (index >= 0) applied.splice(index, 1);
-            return true;
-        }
-    };
-    const history = createLiveEditHistory({
-        mutator,
-        refresh() { refreshCount += 1; },
-        updateOrbitSystem() {}
+        refresh() { refreshCount += 1; }
     });
 
-    assert.equal(history.execute(LiveEditCommandType.OBJECT_GROUP, {
-        objects: [red, blue],
+    assert.throws(() => history.execute(LiveEditCommandType.OBJECT_GROUP, {
+        entries,
         operation: 'add'
-    }), false);
+    }), /injected projection failure/);
     assert.deepEqual(applied, []);
     assert.equal(refreshCount, 0);
     assert.equal(history.undoStack.length, 0);

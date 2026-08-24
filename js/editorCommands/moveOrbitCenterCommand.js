@@ -1,26 +1,24 @@
 import LiveEditCommand from './liveEditCommand.js';
 
-function restoreOrbitCenter(context, object, position) {
-    object.orbitSystem.orbitCenter = { ...position };
-    context.updateOrbitSystem(object);
-    context.synchronizeObject?.(object);
-    context.refresh(object);
-}
-
 export class MoveOrbitCenterCommand extends LiveEditCommand {
     static type = 'orbit-center.move';
 
     do() {
-        const object = this.payload.object || this.context.resolveObject?.(this.payload.objectId);
-        if (!object) return false;
-        restoreOrbitCenter(this.context, object, this.payload.after);
+        this.payload.beforeDefinition ||= this.context.documentDefinition();
+        this.payload.afterDefinition = this.context.mutateOrbitCenter(
+            this.payload.beforeDefinition,
+            this.payload.objectId,
+            this.payload.after
+        );
+        if (!this.payload.afterDefinition ||
+            !this.context.applyDocumentDefinition(this.payload.afterDefinition)) return false;
+        this.context.refresh(this.context.resolveObject(this.payload.objectId));
         return true;
     }
 
     undo() {
-        const object = this.payload.object || this.context.resolveObject?.(this.payload.objectId);
-        if (!object) return false;
-        restoreOrbitCenter(this.context, object, this.payload.before);
+        if (!this.context.applyDocumentDefinition(this.payload.beforeDefinition)) return false;
+        this.context.refresh(this.context.resolveObject(this.payload.objectId));
         return true;
     }
 }

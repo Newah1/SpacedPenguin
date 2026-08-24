@@ -62,7 +62,10 @@ export class EditorCommandBus {
             this.transaction = null;
             return false;
         }
-        this.transaction.payload = payload;
+        // Commands may add serializable before/after snapshots to their payload.
+        // Carry those snapshots into the next live update so cancellation and the
+        // single committed undo entry always return to the transaction start.
+        this.transaction.payload = { ...command.payload };
         this.transaction.command = command;
         return true;
     }
@@ -121,6 +124,7 @@ export class EditorCommandBus {
         this.events?.emit(EditorEventType.DOCUMENT_CHANGED, {
             type,
             objectId: payload.objectId ?? payload.id ?? null,
+            property: payload.property ?? null,
             source: metadata.source || 'command'
         });
         this.#emitHistory('execute');

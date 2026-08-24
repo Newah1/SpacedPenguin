@@ -4,20 +4,21 @@ export class SetLevelSettingCommand extends LiveEditCommand {
     static type = 'level-setting.set';
 
     do() {
-        if (!this.payload.before) {
-            this.payload.before = this.context.captureLevelSettingsState();
-            this.context.applyLevelSetting(this.payload.property, this.payload.value);
-            this.payload.after = this.context.captureLevelSettingsState();
-        } else {
-            this.context.restoreLevelSettingsState(this.payload.after);
-        }
-        this.context.refresh(this.context.levelSettingsTarget || this.payload.target);
+        this.payload.beforeDefinition ||= this.context.documentDefinition();
+        this.payload.afterDefinition ||= this.context.mutateLevelSetting(
+            this.payload.beforeDefinition,
+            this.payload.property,
+            this.payload.value
+        );
+        if (!this.payload.afterDefinition ||
+            !this.context.applyDocumentDefinition(this.payload.afterDefinition)) return false;
+        this.context.refresh(this.context.levelSettingsTarget);
         return true;
     }
 
     undo() {
-        this.context.restoreLevelSettingsState(this.payload.before);
-        this.context.refresh(this.context.levelSettingsTarget || this.payload.target);
+        if (!this.context.applyDocumentDefinition(this.payload.beforeDefinition)) return false;
+        this.context.refresh(this.context.levelSettingsTarget);
         return true;
     }
 
@@ -26,10 +27,8 @@ export class SetLevelSettingCommand extends LiveEditCommand {
             command.type !== this.type ||
             command.payload.property !== this.payload.property ||
             command.payload.sessionId !== this.payload.sessionId
-        ) {
-            return false;
-        }
-        this.payload.after = command.payload.after;
+        ) return false;
+        this.payload.afterDefinition = command.payload.afterDefinition;
         return true;
     }
 }

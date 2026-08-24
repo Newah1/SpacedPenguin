@@ -392,7 +392,7 @@ The exporter generates JSON accepted by the level loader, subject to the round-t
 
 ### Export Coverage and Caveats
 
-The export system gathers current live objects and writes the primary level envelope. It is not a lossless authored-state codec:
+Editor save, export, Play, and publishing clone the canonical `LevelDocument`; simulated or preview runtime state is never gathered back into the authored definition. `Game.exportCurrentLevel()` remains a separate gameplay/debug export and is not the editor synchronization path.
 
 - **Authorable Object Lists**: Planets, bonuses, target, slingshot, text objects, and pointing arrows are gathered; runtime-only Penguin, off-screen Arrow, and BonusPopup objects are excluded.
 - **Proper Structure**: Objects nested under `properties` matching game format
@@ -400,8 +400,7 @@ The export system gathers current live objects and writes the primary level enve
 - **Sprite Fields**: Known planet and target sprite type fields are included; export does not validate the referenced asset
 - **Orbit Systems**: Authored orbital parameters and centers are serialized from `LevelDocument`; preview and Play simulation state is excluded.
 - **Runtime State**: Play can change the disposable projection, but returning to Edit rebuilds from the unchanged authored document.
-- **Asymmetry**: Some exported fields are not restored by `GameObjectFactory`
-- **Rule Omission**: `customBehaviors` is accepted by loading but omitted by `Game.exportLevelRules()`
+- **Runtime Export Caveat**: `Game.exportCurrentLevel()` can still omit or normalize runtime-only details and must not be substituted for `LevelDocument.toDefinition()` in editor code.
 - **Relationships**: IDs must be unique; clones receive a new ID while retaining valid authored relationship fields.
 - **Singletons**: Validation rejects multiple target or slingshot definitions; the runtime model supports one of each.
 
@@ -550,13 +549,15 @@ js/
 - `EditorSelection` stores `none`, `level-settings`, or an object ID and resolves rebuilt runtime mirrors
 - `EditorToolManager` handles selection, object/orbit dragging, Space or middle-button pan, touch threshold/long press, and Gravity Sculpt waypoint capture
 - `LevelDocument` preserves authored ordering, indexes records by ID, applies patches, and supplies revision/fingerprint state
-- `EditorRuntimeProjector` builds the edit/play runtime through existing validation, loader, factory, mutator, and physics paths
+- `DocumentMutationService` transforms cloned JSON definitions for properties, positions, level settings, orbit authoring, object actions, and Gravity Sculpt batches
+- `documentProjectionTransaction` validates before projection and restores the prior document/runtime pair on any projection failure
+- `EditorRuntimeProjector` is the only edit-mode runtime writer; it incrementally replaces changed mirrors and uses existing loader, factory, mutator, and physics paths for structural projection
 - `OrbitPreviewService` derives visualization-only orbit positions without mutating authored or runtime objects
 - `EditorEvents` exposes only selection, document, mode, history, and tool signals
 
 **Editor Commands (`editorCommands/`):**
-- A `LiveEditCommand` contract with `do()` and `undo()` methods
-- Type-keyed, stable-ID strategies for structural, movement, object-property, and level-setting changes
+- A compatibility-named `LiveEditCommand` contract whose implementations mutate authored documents, never runtime object references
+- Type-keyed, stable-ID strategies carrying serializable document snapshots for structural, movement, object-property, and level-setting changes
 - `EditorCommandBus` execution, undo/redo, failure rollback, and begin/update/commit/cancel live transactions
 - Per-focus coalescing for continuous inspector input and one history entry per canvas drag
 

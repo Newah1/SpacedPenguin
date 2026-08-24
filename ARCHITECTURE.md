@@ -495,7 +495,9 @@ UI is hybrid:
 
 The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` remains the compatibility facade used by `Game`, input contexts, and browser diagnostics, but delegates interaction state, ID selection, tools, command dispatch, runtime projection, and views to focused collaborators under `js/levelEditor/`. Missing object IDs and display names are assigned when a level enters the editor and persist in subsequent saves and exports.
 
-Every authored mutation crosses `EditorCommandBus`. Commands carry stable IDs and serializable before/after state; live drag and inspector transactions can update the edit projection repeatedly while committing one undo entry. `EditorRuntimeProjector` mirrors accepted document changes into runtime entities through the existing loader, factory, mutator, and physics paths. `LiveLevelMutator` is restricted to this projection/command boundary. The five domain signals—selection, document, mode, history, and tool changes—drive view refreshes without a generic application event bus.
+Every authored mutation crosses `EditorCommandBus`. Commands carry stable IDs and serializable before/after document definitions; `DocumentMutationService` derives changes without reading or changing runtime objects. Live drag and inspector transactions can update the edit projection repeatedly while committing one undo entry. `documentProjectionTransaction` validates the candidate definition before projection and restores both the prior document and the last-known-good runtime if projection fails.
+
+`EditorRuntimeProjector` is the sole edit-mode runtime writer. Property and position changes replace the matching runtime mirror incrementally while preserving authored collection and physics order. Structural edits use the existing loader/factory/mutator paths and may rebuild the edit projection. `LiveLevelMutator` is restricted to projector internals. The five domain signals—selection, document, mode, history, and tool changes—drive view refreshes without a generic application event bus.
 
 ```mermaid
 flowchart LR
@@ -516,6 +518,8 @@ Architectural consequences:
 - `EditorState.interaction` is discriminated, owns its pointer ID, and permits only one of idle, touch-pending, pan, object drag, orbit-center drag, or Gravity Sculpt waypoint capture.
 - `EditorSelection` stores an object ID or the level-settings sentinel and resolves the current runtime mirror after rebuilds.
 - Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
+- Inspector properties, level settings, orbit edits, movement, object actions, and Gravity Sculpt acceptance transform cloned document definitions. Runtime exports are never used to synchronize accepted commands into authored state.
+- Clone reads the selected authored record, allocates a new document-visible identity, applies its offset, and submits the new record through the structural command path.
 - Edit to Play validates and clones `LevelDocument`, constructs a fresh simulation world, and freezes that exact definition for completion proof/publishing. Returning to Edit discards the simulated world and rebuilds from the unchanged document.
 - Save, export, thumbnail metadata, and editor publishing serialize `LevelDocument`; `Game.exportCurrentLevel()` remains the runtime/gameplay export path.
 - Orbit preview is visualization-only state. It advances a compiled preview graph and renders with Canvas transforms/global alpha without changing authored or runtime positions.

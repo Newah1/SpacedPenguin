@@ -21,10 +21,6 @@ function freshState() {
     return structuredClone(INITIAL_STATE);
 }
 
-function cloneValue(value) {
-    return value === undefined ? undefined : structuredClone(value);
-}
-
 function randomSeed(previousSeed) {
     let seed;
     do {
@@ -168,26 +164,16 @@ export default class GravitySculptController {
     }
 
     createAdjustmentBatch(candidate) {
-        const entries = (candidate?.adjustments || []).flatMap(adjustment => {
+        const adjustments = (candidate?.adjustments || []).flatMap(adjustment => {
             const object = this.game.planets[adjustment.index];
             if (!object) return [];
-            const before = this.editor.captureObjectPropertyState(object);
-            const after = cloneValue(before);
-            after.position = { ...adjustment.position };
-            after.direct.mass = adjustment.mass;
-            return [{ objectId: object.id, before, after }];
+            return [{
+                objectId: object.id,
+                position: { ...adjustment.position },
+                mass: adjustment.mass
+            }];
         });
-        return {
-            before: entries.map(({ objectId, before: state }) => ({ objectId, state })),
-            after: entries.map(({ objectId, after: state }) => ({ objectId, state }))
-        };
-    }
-
-    applyStates(entries) {
-        entries.forEach(entry => {
-            const object = entry.object || this.editor.objectService.find(entry.objectId);
-            if (object) this.editor.restoreObjectPropertyState(object, entry.state);
-        });
+        return { adjustments };
     }
 
     testCandidate() {
@@ -195,9 +181,11 @@ export default class GravitySculptController {
         if (!candidate?.launch || this.state.testSession) return;
         const batch = this.createAdjustmentBatch(candidate);
         this.state.testSession = { candidate, batch };
-        this.editor.transientProjection = true;
-        this.applyStates(batch.after);
-        const candidateDefinition = this.game.exportCurrentLevel();
+        const candidateDefinition = this.editor.documentMutations.applyPlanetAdjustments(
+            this.editor.currentDocumentDefinition(),
+            batch.adjustments
+        );
+        if (!candidateDefinition) return;
         this.editor.runtimeProjector.rebuild(candidateDefinition);
         this.editor.mode = 'play';
         this.editor.updateModeButton();
@@ -219,7 +207,6 @@ export default class GravitySculptController {
     finishTest(accept) {
         const session = this.state.testSession;
         if (!session) return;
-        this.editor.transientProjection = false;
         this.state.testSession = null;
         this.editor.mode = 'edit';
         this.editor.rebuildDocumentProjection();

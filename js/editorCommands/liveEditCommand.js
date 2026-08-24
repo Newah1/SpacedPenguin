@@ -1,8 +1,8 @@
 /**
- * Contract for one reversible mutation of the live level.
+ * Contract for one reversible authored-document mutation.
  *
  * Implementations must declare a stable static `type` and provide symmetrical
- * do/undo behavior against the live runtime passed in through `context`.
+ * do/undo behavior against the document/projector transaction in `context`.
  */
 export class LiveEditCommand {
     static type = null;

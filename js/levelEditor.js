@@ -8,7 +8,6 @@ import {
     BASIC_SERIALIZED_OBJECT_PROPERTIES,
     CLASS_SERIALIZED_OBJECT_PROPERTIES,
     COMMON_OBJECT_PROPERTY_FIELDS,
-    EDITABLE_STATE_PROPERTIES,
     EDITOR_INSPECTOR_DEFAULTS,
     EDITOR_NUMERIC_FALLBACKS,
     EDITOR_OBJECT_SPRITE_DEFAULTS,
@@ -24,7 +23,6 @@ import {
     getEditorActionDefinition,
     getEditorObjectDefinition
 } from './editorObjectRegistry.js';
-import LiveLevelMutator from './liveLevelMutator.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
 import LevelEditorOverlayRenderer from './levelEditor/overlayRenderer.js';
 import LevelEditorObjectListView from './levelEditor/objectListView.js';
@@ -41,6 +39,8 @@ import EditorRuntimeProjector from './levelEditor/editorRuntimeProjector.js';
 import LevelDocument from './levelEditor/levelDocument.js';
 import EditorToolManager from './levelEditor/editorToolManager.js';
 import EditorCommandBus from './levelEditor/editorCommandBus.js';
+import DocumentMutationService from './levelEditor/documentMutationService.js';
+import { projectDocumentDefinition } from './levelEditor/documentProjectionTransaction.js';
 import { createButton } from './buttonFramework.js';
 import {
     INPUT_CONFIG,
@@ -50,16 +50,15 @@ import {
 
 const ORBIT_EDITOR_PROPERTIES = new Set(ORBIT_EDITOR_PROPERTY_KEYS);
 
-function cloneEditValue(value) {
-    return value === undefined ? undefined : structuredClone(value);
-}
-
 class LevelEditor {
     constructor(game) {
         this.game = game;
         this.events = new EditorEvents();
         this.state = new EditorState();
         this.runtimeProjector = new EditorRuntimeProjector(game);
+        this.documentMutations = new DocumentMutationService({
+            getPlayfieldCenter: () => this.getPlayfieldCenter()
+        });
         this.objectService = new EditorObjectService(this);
         this.levelSettingsNode = { isLevelSettings: true };
         this.selection = new EditorSelection({
@@ -120,28 +119,28 @@ class LevelEditor {
                 set: () => {}
             }
         });
-        this.mutator = new LiveLevelMutator(game);
         this.commandContext = {
-            mutator: this.mutator,
             refresh: selection => this.refreshAfterHistory(selection),
-            updateOrbitSystem: object => this.updateOrbitSystem(object),
-            restoreObjectPropertyState: (object, state) => this.restoreObjectPropertyState(object, state),
-            restoreLevelSettingsState: state => this.restoreLevelSettingsState(state),
-            captureObjectPropertyState: object => this.captureObjectPropertyState(object),
-            captureLevelSettingsState: () => this.captureLevelSettingsState(),
-            applyObjectProperty: (object, property, value) => this.applyObjectProperty(object, property, value),
-            applyLevelSetting: (property, value) => this.updateLevelSetting(property, value),
-            applyObjectAction: (object, action, options) => this.applyObjectAction(object, action, options),
             resolveObject: id => this.objectService.find(id),
-            synchronizeObject: object => this.synchronizeEditedObject(object),
-            syncStructure: () => this.synchronizeDocumentFromRuntime(),
             addObjectDefinition: (definition, index) => this.addDocumentObject(definition, index),
             removeObjectDefinition: id => this.removeDocumentObject(id),
             getObjectDefinition: id => this.getDocumentObjectSnapshot(id),
-            patchDocumentObject: patch => this.document.applyPatch(patch),
+            applyDocumentPatches: patches => this.applyDocumentPatches(patches),
             documentDefinition: () => this.document.toDefinition(),
-            restoreDocument: definition => this.document.replace(definition, { validate: false }),
-            rebuildProjection: () => this.rebuildDocumentProjection(),
+            applyDocumentDefinition: definition => this.applyDocumentDefinition(definition),
+            mutateObjectProperty: (definition, id, property, value) =>
+                this.documentMutations.setObjectProperty(definition, id, property, value),
+            mutateObjectPosition: (definition, id, position) =>
+                this.documentMutations.setObjectPosition(definition, id, position),
+            mutateOrbitCenter: (definition, id, center) =>
+                this.documentMutations.setOrbitCenter(definition, id, center),
+            mutateLevelSetting: (definition, property, value) =>
+                this.documentMutations.setLevelSetting(definition, property, value),
+            mutateObjectAction: (definition, id, action) => action === 'gravity-orbit.reset'
+                ? this.documentMutations.resetGravityOrbit(definition, id)
+                : null,
+            mutatePlanetAdjustments: (definition, adjustments) =>
+                this.documentMutations.applyPlanetAdjustments(definition, adjustments),
             levelSettingsTarget: this.levelSettingsNode,
             liveTransaction: false
         };
@@ -295,7 +294,6 @@ class LevelEditor {
             definition.name = name;
             definition.description = description;
         }
-        this.synchronizeLevelSettingsDocument();
     }
 
     promptForPublishMetadata() {
@@ -949,6 +947,15 @@ class LevelEditor {
     }
 
     applyObjectProperty(object, property, value) {
+        if (this.document && object?.id && this.mode === 'edit' && !this.transientProjection) {
+            if (!this.commandBus) throw new Error('EditorCommandBus is required for authored changes');
+            return this.commandBus.execute(LiveEditCommandType.SET_OBJECT_PROPERTY, {
+                objectId: object.id,
+                property,
+                value,
+                sessionId: ++this.propertyEditSession
+            }, { source: 'facade' });
+        }
         if (property === 'name') {
             object.name = value;
             this.updateObjectList();
@@ -989,6 +996,14 @@ class LevelEditor {
     }
 
     updateLevelSetting(property, value) {
+        if (this.document && this.mode === 'edit' && !this.transientProjection) {
+            if (!this.commandBus) throw new Error('EditorCommandBus is required for authored changes');
+            return this.commandBus.execute(LiveEditCommandType.SET_LEVEL_SETTING, {
+                property,
+                value,
+                sessionId: ++this.propertyEditSession
+            }, { source: 'facade' });
+        }
         this.game.levelMetadata ||= { name: '', description: '' };
 
         if (property === 'levelName') {
@@ -1023,11 +1038,9 @@ class LevelEditor {
             if (this.game.slingshot?.position) this.game.slingshot.position[axis] = value;
             if (this.game.slingshot?.resetPosition) this.game.slingshot.resetPosition[axis] = value;
             if (this.game.penguin) this.game.penguin[axis] = value;
-            this.synchronizeSingletonDocumentPosition('slingshot', this.game.slingshot?.position);
         } else if (property === 'targetX' || property === 'targetY') {
             const axis = property === 'targetX' ? 'x' : 'y';
             if (this.game.target?.position) this.game.target.position[axis] = value;
-            this.synchronizeSingletonDocumentPosition('target', this.game.target?.position);
         } else if (this.game.levelRules && property in this.game.levelRules) {
             this.game.levelRules[property] = value;
             if (property === 'gravitationalConstant' && this.game.physics) {
@@ -1035,106 +1048,12 @@ class LevelEditor {
             }
         }
         this.game?.invalidateSimulationState?.();
-        this.synchronizeLevelSettingsDocument();
-    }
-
-    captureObjectPropertyState(object) {
-        const direct = {};
-        for (const property of EDITABLE_STATE_PROPERTIES) {
-            if (property in object) direct[property] = cloneEditValue(object[property]);
-        }
-        const orbit = object.orbitSystem ? {
-            orbitCenter: cloneEditValue(object.orbitSystem.orbitCenter),
-            orbitTargetId: object.orbitSystem.orbitTargetId ?? null,
-            orbitRadius: object.orbitSystem.orbitRadius,
-            orbitSpeed: object.orbitSystem.orbitSpeed,
-            orbitAngle: object.orbitSystem.orbitAngle,
-            orbitType: object.orbitSystem.orbitType,
-            orbitParams: cloneEditValue(object.orbitSystem.orbitParams),
-            velocity: cloneEditValue(object.orbitSystem.velocity),
-            gravityStrength: object.orbitSystem.gravityStrength,
-            maxGravityAccel: object.orbitSystem.maxGravityAccel
-        } : null;
-        return {
-            direct,
-            position: this.getObjectPosition(object),
-            pointingAt: cloneEditValue(object.pointingAt),
-            orbit
-        };
-    }
-
-    restoreObjectPropertyState(object, state) {
-        Object.assign(object, cloneEditValue(state.direct));
-        if (state.position) {
-            if (typeof object.x === 'number') {
-                object.x = state.position.x;
-                object.y = state.position.y;
-            } else if (object.position) {
-                object.position.x = state.position.x;
-                object.position.y = state.position.y;
-            }
-        }
-        if ('pointingAt' in state) object.pointingAt = cloneEditValue(state.pointingAt);
-        if (state.orbit && object.orbitSystem) {
-            Object.assign(object.orbitSystem, cloneEditValue(state.orbit));
-        }
-        if (object.constructor.name === 'TextObject' && typeof object.parseHTMLContent === 'function') {
-            object.parsedContent = object.parseHTMLContent(object.content);
-        }
-        this.synchronizeEditedObject(object);
-    }
-
-    captureLevelSettingsState() {
-        return {
-            metadata: cloneEditValue(this.game.levelMetadata ?? {}),
-            rules: cloneEditValue({ ...(this.game.levelRules ?? {}) }),
-            slingshotPosition: cloneEditValue(this.game.slingshot?.position),
-            penguinPosition: this.game.penguin
-                ? { x: this.game.penguin.x, y: this.game.penguin.y }
-                : null,
-            targetPosition: cloneEditValue(this.game.target?.position),
-            gravitationalConstant: this.game.physics?.gravitationalConstant,
-            stageRect: cloneEditValue(this.game.stageRect),
-            flightRect: cloneEditValue(this.game.flightRect),
-            cameraConfig: cloneEditValue(this.game.cameraConfig)
-        };
-    }
-
-    restoreLevelSettingsState(state) {
-        this.game.levelMetadata = cloneEditValue(state.metadata);
-        if (this.game.levelRules) Object.assign(this.game.levelRules, cloneEditValue(state.rules));
-        if (this.game.slingshot?.position && state.slingshotPosition) {
-            Object.assign(this.game.slingshot.position, state.slingshotPosition);
-            if (this.game.slingshot.resetPosition) {
-                Object.assign(this.game.slingshot.resetPosition, state.slingshotPosition);
-            }
-            this.synchronizeSingletonDocumentPosition('slingshot', state.slingshotPosition);
-        }
-        if (this.game.penguin && state.penguinPosition) {
-            Object.assign(this.game.penguin, state.penguinPosition);
-        }
-        if (this.game.target?.position && state.targetPosition) {
-            Object.assign(this.game.target.position, state.targetPosition);
-            this.synchronizeSingletonDocumentPosition('target', state.targetPosition);
-        }
-        if (this.game.physics && state.gravitationalConstant !== undefined) {
-            this.game.physics.gravitationalConstant = state.gravitationalConstant;
-        }
-        if (state.stageRect) this.game.stageRect = cloneEditValue(state.stageRect);
-        if (state.flightRect) this.game.flightRect = cloneEditValue(state.flightRect);
-        this.game.cameraConfig = cloneEditValue(state.cameraConfig);
-        this.game.arrow?.setFlightRect(this.game.flightRect);
-        this.game.resetWorldCamera?.();
-        if (this.game.stageRect) this.fitEditorCamera();
-        this.game?.invalidateSimulationState?.();
-        this.synchronizeLevelSettingsDocument();
-    }
-
-    editStatesEqual(left, right) {
-        return JSON.stringify(left) === JSON.stringify(right);
     }
 
     synchronizeEditedObject(object) {
+        if (this.document && this.mode === 'edit' && !this.transientProjection) {
+            throw new Error('Authored editor objects must be changed through EditorCommandBus');
+        }
         this.game?.invalidateSimulationState?.();
         this.overlayRenderer?.runtimeController?.invalidatePreview();
         if (object.constructor.name === 'Planet' || object.constructor.name === 'BlackHole') {
@@ -1143,7 +1062,6 @@ class LevelEditor {
         } else if (object.constructor.name === 'Target') {
             this.refreshTargetSprite(object);
         }
-        this.synchronizeDocumentObject(object);
     }
     
     updateOrbitProperty(property, value, obj = this.selectedObject) {
@@ -1345,15 +1263,14 @@ class LevelEditor {
         }, { source: 'quick-action' });
     }
 
-    applyObjectAction(object, action) {
-        if (action === 'gravity-orbit.reset') {
-            this.applyGravityOrbitReset(object);
-            return true;
-        }
-        return false;
-    }
-
     applyGravityOrbitReset(obj) {
+        if (this.document && obj?.id && this.mode === 'edit' && !this.transientProjection) {
+            if (!this.commandBus) throw new Error('EditorCommandBus is required for authored changes');
+            return this.commandBus.execute(LiveEditCommandType.OBJECT_ACTION, {
+                objectId: obj.id,
+                action: 'gravity-orbit.reset'
+            }, { source: 'facade' });
+        }
         plog.debug('resetGravityOrbit called with object:', obj);
         plog.debug('Object orbit system:', obj.orbitSystem);
         plog.debug('Orbit type:', obj.orbitSystem?.orbitType);
@@ -1673,7 +1590,7 @@ class LevelEditor {
         }
         
         const ClassConstructor = this.gameObjectClasses[className];
-        const existingSingleton = this.mutator.getSingleton(className);
+        const existingSingleton = this.getRuntimeSingleton(className);
         if (existingSingleton) {
             plog.warn(`${className} is unique in a level; selecting the existing object`);
             this.selectObject(existingSingleton);
@@ -1748,7 +1665,7 @@ class LevelEditor {
         this[definition.refreshMethod](obj);
     }
     
-    addObjectToGame(obj, className, { recordHistory = true } = {}) {
+    addObjectToGame(obj, className) {
         // Add name if it doesn't exist
         if (!obj.name) {
             obj.name = this.generateObjectName(obj, className);
@@ -1759,13 +1676,11 @@ class LevelEditor {
             obj.id = this.generateObjectId(obj, className);
         }
         
-        const added = recordHistory
-            ? this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
-                objectId: obj.id,
-                definition: this.game.exportObjectComprehensively(obj),
-                index: this.document?.listObjects().length
-            })
-            : this.mutator.addObject(obj, className);
+        const added = this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
+            objectId: obj.id,
+            definition: this.game.exportObjectComprehensively(obj),
+            index: this.document?.listObjects().length
+        });
         if (!added) {
             plog.warn(`Could not add ${className} to the live level`);
             return false;
@@ -1784,11 +1699,13 @@ class LevelEditor {
     }
     
     generateObjectName(obj, className) {
-        const usedNames = new Set(
-            this.getAllGameObjects()
-                .filter(existingObj => existingObj !== obj && typeof existingObj.name === 'string')
-                .map(existingObj => existingObj.name)
-        );
+        const usedNames = this.document
+            ? new Set(this.document.listObjects().map(record => record.properties?.name).filter(Boolean))
+            : new Set(
+                this.getAllGameObjects()
+                    .filter(existingObj => existingObj !== obj && typeof existingObj.name === 'string')
+                    .map(existingObj => existingObj.name)
+            );
         let number = 1;
         while (usedNames.has(`${className} ${number}`)) number++;
         return `${className} ${number}`;
@@ -1796,14 +1713,21 @@ class LevelEditor {
     
     generateObjectId(obj, className) {
         const prefix = className.toLowerCase();
-        const usedIds = new Set(
-            this.getAllGameObjects()
-                .filter(existingObj => existingObj !== obj && typeof existingObj.id === 'string')
-                .map(existingObj => existingObj.id)
-        );
+        const usedIds = this.document
+            ? new Set(this.document.listObjects().map(record => record.properties?.id).filter(Boolean))
+            : new Set(
+                this.getAllGameObjects()
+                    .filter(existingObj => existingObj !== obj && typeof existingObj.id === 'string')
+                    .map(existingObj => existingObj.id)
+            );
         let number = 1;
         while (usedIds.has(`${prefix}_${number}`)) number++;
         return `${prefix}_${number}`;
+    }
+
+    getRuntimeSingleton(className) {
+        const key = getEditorObjectDefinition(className).singleton;
+        return key ? this.game[key] ?? null : null;
     }
     
     showContextMenu(x, y) {
@@ -1892,7 +1816,7 @@ class LevelEditor {
         }
         
         const ClassConstructor = this.gameObjectClasses[className];
-        const existingSingleton = this.mutator.getSingleton(className);
+        const existingSingleton = this.getRuntimeSingleton(className);
         if (existingSingleton) {
             plog.warn(`${className} is unique in a level; selecting the existing object`);
             this.selectObject(existingSingleton);
@@ -1949,44 +1873,36 @@ class LevelEditor {
     }
 
     clonePortalPair(selected) {
-        const pair = (this.game.portals || []).find(portal => portal.id === selected.pairedPortalId);
-        const PortalConstructor = this.gameObjectClasses?.Portal;
-        if (!pair || !PortalConstructor) return false;
-        const redSource = selected.color === 'red' ? selected : pair;
-        const blueSource = selected.color === 'blue' ? selected : pair;
-        const usedIds = new Set(this.game.portals.map(portal => portal.id));
+        const selectedRecord = this.document?.getObject(selected.id);
+        const pairRecord = this.document?.getObject(selectedRecord?.properties?.pairedPortalId);
+        if (!selectedRecord || !pairRecord) return false;
+        const redSource = selectedRecord.properties.color === 'red' ? selectedRecord : pairRecord;
+        const blueSource = selectedRecord.properties.color === 'blue' ? selectedRecord : pairRecord;
+        const usedIds = new Set(this.document.listObjects().map(object => object.properties?.id));
         let number = 1;
         while (usedIds.has(`portal_pair_${number}_red`) || usedIds.has(`portal_pair_${number}_blue`)) number++;
         const redId = `portal_pair_${number}_red`;
         const blueId = `portal_pair_${number}_blue`;
         const cloneEndpoint = (source, id, pairedPortalId) => {
-            const clone = new PortalConstructor(
-                source.position.x + EDITOR_CONFIG.cloneOffset.x,
-                source.position.y + EDITOR_CONFIG.cloneOffset.y,
-                {
-                    width: source.width,
-                    height: source.height,
-                    rotation: source.rotation,
-                    color: source.color,
-                    playSound: source.playSound,
-                    pairedPortalId
-                }
-            );
-            clone.id = id;
-            clone.name = `Portal Pair ${number} ${source.color === 'red' ? 'Red' : 'Blue'}`;
+            const clone = structuredClone(source);
+            clone.position.x += EDITOR_CONFIG.cloneOffset.x;
+            clone.position.y += EDITOR_CONFIG.cloneOffset.y;
+            clone.properties.id = id;
+            clone.properties.pairedPortalId = pairedPortalId;
+            clone.properties.name = `Portal Pair ${number} ${source.properties.color === 'red' ? 'Red' : 'Blue'}`;
             return clone;
         };
         const red = cloneEndpoint(redSource, redId, blueId);
         const blue = cloneEndpoint(blueSource, blueId, redId);
         const baseIndex = this.document.listObjects().length;
         const added = this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
-            entries: [red, blue].map((object, offsetIndex) => ({
-                definition: this.game.exportObjectComprehensively(object),
+            entries: [red, blue].map((definition, offsetIndex) => ({
+                definition,
                 index: baseIndex + offsetIndex
             })),
             operation: 'add'
         });
-        if (added) this.selectObject(red);
+        if (added) this.selection.select(redId);
         return added;
     }
 
@@ -2020,43 +1936,32 @@ class LevelEditor {
             return;
         }
         const selectedClassName = this.selectedObject.constructor.name;
-        if (this.mutator.getSingleton(selectedClassName)) {
+        if (this.getRuntimeSingleton(selectedClassName)) {
             plog.warn(`${selectedClassName} is unique in a level and cannot be cloned`);
             return;
         }
         
-        const clonedObject = this.cloneObject(this.selectedObject);
-        if (clonedObject) {
-            // Offset the clone slightly so it's visible
-            const offsetX = EDITOR_CONFIG.cloneOffset.x;
-            const offsetY = EDITOR_CONFIG.cloneOffset.y;
-            
-            if (typeof clonedObject.x === 'number') {
-                clonedObject.x += offsetX;
-                clonedObject.y += offsetY;
-            } else if (clonedObject.position) {
-                clonedObject.position.x += offsetX;
-                clonedObject.position.y += offsetY;
-            }
-            
-            // Also offset orbit center if it exists
-            if (clonedObject.orbitSystem && clonedObject.orbitSystem.orbitCenter) {
-                clonedObject.orbitSystem.orbitCenter.x += offsetX;
-                clonedObject.orbitSystem.orbitCenter.y += offsetY;
-            }
-            
-            // Add to game
-            const className = clonedObject.constructor.name;
-            if (!this.addObjectToGame(clonedObject, className)) return;
-            
-            // Select the new clone
-            this.selectObject(clonedObject);
-            
-            // Update object list
-            this.updateObjectList();
-            
-            plog.debug('Cloned', className);
+        const source = this.document?.getObject(this.selectedObject.id);
+        if (!source) return;
+        const clone = structuredClone(source);
+        clone.position = {
+            x: clone.position.x + EDITOR_CONFIG.cloneOffset.x,
+            y: clone.position.y + EDITOR_CONFIG.cloneOffset.y
+        };
+        if (clone.properties?.orbit?.center) {
+            clone.properties.orbit.center.x += EDITOR_CONFIG.cloneOffset.x;
+            clone.properties.orbit.center.y += EDITOR_CONFIG.cloneOffset.y;
         }
+        clone.properties.id = this.generateObjectId(null, selectedClassName);
+        clone.properties.name = this.generateObjectName(null, selectedClassName);
+        const added = this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
+            objectId: clone.properties.id,
+            definition: clone,
+            index: this.document.listObjects().length
+        }, { source: 'clone' });
+        if (!added) return;
+        this.selection.select(clone.properties.id);
+        plog.debug('Cloned', selectedClassName);
     }
     
     cloneObject(obj) {
@@ -2291,43 +2196,6 @@ class LevelEditor {
         return allObjects.filter(object => getEditorObjectDefinition(object?.constructor?.name).editable);
     }
 
-    synchronizeDocumentObject(object) {
-        if (!this.document || !object?.id || this.mode !== 'edit' || this.transientProjection) return;
-        const exported = this.game.exportObjectComprehensively(object);
-        if (!exported) return;
-        this.document.applyPatch({
-            type: 'object.update',
-            id: object.id,
-            changes: exported
-        });
-    }
-
-    synchronizeSingletonDocumentPosition(type, position) {
-        if (!this.document || !position || this.mode !== 'edit' || this.transientProjection) return;
-        const record = this.document.listObjects().find(object =>
-            normalizeLevelObjectType(object.type) === type
-        );
-        if (!record?.properties?.id) return;
-        this.document.applyPatch({
-            type: 'object.update',
-            id: record.properties.id,
-            changes: { position: { x: position.x, y: position.y } }
-        });
-    }
-
-    synchronizeLevelSettingsDocument() {
-        if (!this.document || this.mode !== 'edit' || this.transientProjection) return;
-        const exported = this.game.exportCurrentLevel();
-        const { objects: _objects, ...levelChanges } = exported;
-        this.document.applyPatch({ type: 'level.update', changes: levelChanges });
-    }
-
-    synchronizeDocumentFromRuntime() {
-        if (!this.document || this.mode !== 'edit' || this.transientProjection) return;
-        this.document.replace(this.game.exportCurrentLevel(), { validate: false });
-        this.runtimeProjector.indexRuntimeObjects();
-    }
-
     getDocumentObjectSnapshot(id) {
         const object = this.document?.getObject(id);
         if (!object) return null;
@@ -2338,28 +2206,52 @@ class LevelEditor {
     }
 
     addDocumentObject(definition, index) {
-        const before = this.document.toDefinition();
-        if (!this.document.applyPatch({ type: 'object.add', object: definition, index })) return false;
-        if (this.rebuildDocumentProjection()) return true;
-        this.restoreLastKnownGoodProjection(before);
-        return false;
+        return this.applyDocumentPatch({ type: 'object.add', object: definition, index });
     }
 
     removeDocumentObject(id) {
-        const before = this.document.toDefinition();
-        if (!this.document.applyPatch({ type: 'object.remove', id })) return false;
-        if (this.rebuildDocumentProjection()) return true;
-        this.restoreLastKnownGoodProjection(before);
-        return false;
+        return this.applyDocumentPatch({ type: 'object.remove', id });
     }
 
-    restoreLastKnownGoodProjection(definition) {
-        this.document.replace(definition, { validate: false });
-        try {
-            this.runtimeProjector.rebuild(definition);
-            if (this.active) this.game.setState?.(GameState.LEVEL_EDITOR);
-        } catch (error) {
-            plog.error('Unable to recover the last known-good editor projection:', error);
+    applyDocumentPatch(patch) {
+        const candidate = LevelDocument.fromDefinition(this.document.toDefinition());
+        if (!candidate.applyPatch(patch)) return false;
+        return this.applyDocumentDefinition(candidate.toDefinition());
+    }
+
+    applyDocumentPatches(patches) {
+        if (!this.document || !patches?.length) return false;
+        const candidate = LevelDocument.fromDefinition(this.document.toDefinition());
+        for (const patch of patches) {
+            if (!candidate.applyPatch(patch)) return false;
+        }
+        return this.applyDocumentDefinition(candidate.toDefinition());
+    }
+
+    applyDocumentDefinition(definition) {
+        if (!this.document || !definition) return false;
+        return projectDocumentDefinition({
+            document: this.document,
+            projector: this.runtimeProjector,
+            definition,
+            source: 'editor document mutation',
+            onCommitted: () => this.finishDocumentProjection(),
+            onRecoveryFailure: error => plog.error(
+                'Unable to recover the last known-good editor projection:', error
+            )
+        });
+    }
+
+    finishDocumentProjection() {
+        this.runtimeProjector.indexRuntimeObjects();
+        this.overlayRenderer?.runtimeController?.invalidatePreview();
+        this.game?.invalidateSimulationState?.();
+        if (this.active && this.mode === 'edit') {
+            this.game.setState?.(GameState.LEVEL_EDITOR);
+            if (this.editorCamera) {
+                this.game.viewRect = this.editorCamera.viewRect;
+                this.game.arrow?.setStageRect?.(this.editorCamera.viewRect);
+            }
         }
     }
 

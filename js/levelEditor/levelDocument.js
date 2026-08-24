@@ -113,6 +113,14 @@ export class LevelDocument {
                 this.definition.objects[index] = next;
                 break;
             }
+            case 'object.replace': {
+                const object = this.getObject(patch.id);
+                if (!object) return false;
+                const replacement = clone(patch.object);
+                if (replacement?.properties?.id !== patch.id) return false;
+                this.definition.objects[this.definition.objects.indexOf(object)] = replacement;
+                break;
+            }
             case 'object.add': {
                 const object = clone(patch.object);
                 object.properties ||= {};

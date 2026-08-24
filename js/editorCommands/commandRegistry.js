@@ -19,7 +19,7 @@ export class CommandRegistry {
 
     create(type, context, payload) {
         const CommandClass = this.commandClasses.get(type);
-        if (!CommandClass) throw new TypeError(`Unknown live edit command type: ${type}`);
+        if (!CommandClass) throw new TypeError(`Unknown editor command type: ${type}`);
         return new CommandClass(context, payload);
     }
 }

@@ -14,7 +14,10 @@ export class LevelEditorInspectorView {
         this.unsubscribe = [
             editor.events?.on(EditorEventType.SELECTION_CHANGED, () => this.render()),
             editor.events?.on(EditorEventType.DOCUMENT_CHANGED, event => {
-                if (event?.source !== 'inspector-live') this.render();
+                const changesInspectorShape = [
+                    'orbitTargetType', 'orbitType', 'validateObject'
+                ].includes(event?.property);
+                if (event?.source !== 'inspector-live' || changesInspectorShape) this.render();
             })
         ].filter(Boolean);
     }

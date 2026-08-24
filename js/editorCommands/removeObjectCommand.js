@@ -5,14 +5,7 @@ export class RemoveObjectCommand extends LiveEditCommand {
 
     do() {
         const { objectId } = this.payload;
-        if (!objectId && this.payload.object && this.context.mutator) {
-            this.context.mutator.removeObject(
-                this.payload.object,
-                this.payload.className || this.payload.object.constructor.name
-            );
-            this.context.refresh(null);
-            return true;
-        }
+        if (!objectId) return false;
         if (!this.payload.definition) {
             const snapshot = this.context.getObjectDefinition(objectId);
             if (!snapshot) return false;
@@ -25,14 +18,6 @@ export class RemoveObjectCommand extends LiveEditCommand {
     }
 
     undo() {
-        if (!this.payload.objectId && this.payload.object && this.context.mutator) {
-            if (!this.context.mutator.addObject(
-                this.payload.object,
-                this.payload.className || this.payload.object.constructor.name
-            )) return false;
-            this.context.refresh(this.payload.object);
-            return true;
-        }
         if (!this.context.addObjectDefinition(this.payload.definition, this.payload.index)) return false;
         this.context.refresh(this.context.resolveObject(this.payload.objectId));
         return true;

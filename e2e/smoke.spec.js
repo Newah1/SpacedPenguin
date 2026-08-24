@@ -682,8 +682,8 @@ test('editor registers an object-target orbit and projects it into Play', async 
             availableIds: editor.getAvailableObjectIds(),
             runtimeTarget: runtime.orbitSystem.orbitTargetId,
             resolvedCenter: runtime.orbitSystem.getResolvedCenter(),
-            documentTarget: authored.properties.orbit.orbitTargetId,
-            documentRadius: authored.properties.orbit.orbitRadius
+            documentTarget: authored.properties.orbit.targetId,
+            documentRadius: authored.properties.orbit.radius
         };
     })).toEqual({
         availableIds: ['none', 'anchor'],
@@ -692,6 +692,13 @@ test('editor registers an object-target orbit and projects it into Play', async 
         documentTarget: 'anchor',
         documentRadius: 100
     });
+
+    await expect.poll(() => page.evaluate(() => {
+        const editor = window.game.levelEditor;
+        const orbiter = window.game.planets.find(planet => planet.id === 'orbiter');
+        const display = editor.overlayRenderer.runtimeController.getDisplayPosition(orbiter);
+        return Math.hypot(display.x - orbiter.position.x, display.y - orbiter.position.y) > 1;
+    })).toBe(true);
 
     const editRender = await page.evaluate(() => {
         window.gameManager.pause();

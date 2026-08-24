@@ -7,9 +7,12 @@ import EditorState, { EditorInteractionType } from '../js/levelEditor/editorStat
 import EditorToolManager from '../js/levelEditor/editorToolManager.js';
 import EditorCommandBus from '../js/levelEditor/editorCommandBus.js';
 import LevelDocument from '../js/levelEditor/levelDocument.js';
+import DocumentMutationService from '../js/levelEditor/documentMutationService.js';
+import { projectDocumentDefinition } from '../js/levelEditor/documentProjectionTransaction.js';
 import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
 import CommandHistory from '../js/editorCommands/commandHistory.js';
 import CommandRegistry from '../js/editorCommands/commandRegistry.js';
+import { createLiveEditHistory, LiveEditCommandType } from '../js/editorCommands/index.js';
 import {
     getEditableLevelTypes,
     getEditorObjectDefinition
@@ -108,6 +111,157 @@ test('level document patches by ID and synchronizes singleton positions', () => 
     assert.deepEqual(document.toDefinition().targetPosition, { x: 650, y: 250 });
     assert.equal(document.revision, 1);
     assert.equal(document.validate().valid, true);
+});
+
+function createDocumentCommandHarness() {
+    const document = LevelDocument.fromDefinition(validDefinition());
+    const mutations = new DocumentMutationService();
+    let projected = document.toDefinition();
+    const context = {
+        documentDefinition: () => document.toDefinition(),
+        applyDocumentDefinition(definition) {
+            document.replace(definition);
+            projected = document.toDefinition();
+            return true;
+        },
+        mutateObjectProperty: (...args) => mutations.setObjectProperty(...args),
+        mutateObjectPosition: (...args) => mutations.setObjectPosition(...args),
+        mutateOrbitCenter: (...args) => mutations.setOrbitCenter(...args),
+        mutateLevelSetting: (...args) => mutations.setLevelSetting(...args),
+        mutatePlanetAdjustments: (...args) => mutations.applyPlanetAdjustments(...args),
+        getObjectDefinition(id) {
+            const object = document.getObject(id);
+            return object ? {
+                definition: structuredClone(object),
+                index: document.listObjects().indexOf(object)
+            } : null;
+        },
+        applyDocumentPatches(patches) {
+            const candidate = LevelDocument.fromDefinition(document.toDefinition());
+            for (const patch of patches) if (!candidate.applyPatch(patch)) return false;
+            return this.applyDocumentDefinition(candidate.toDefinition());
+        },
+        resolveObject: id => projected.objects.find(object => object.properties.id === id),
+        refresh() {},
+        levelSettingsTarget: { isLevelSettings: true }
+    };
+    const history = createLiveEditHistory(context);
+    const bus = new EditorCommandBus({ history, validate: () => document.validate() });
+    return { document, context, history, bus, get projected() { return projected; } };
+}
+
+test('production property and level-setting commands mutate the document before projection', () => {
+    const harness = createDocumentCommandHarness();
+    const planetId = harness.document.listObjects()[0].properties.id;
+    assert.equal(harness.bus.execute(LiveEditCommandType.SET_OBJECT_PROPERTY, {
+        objectId: planetId,
+        property: 'mass',
+        value: 42,
+        sessionId: 1
+    }), true);
+    assert.equal(harness.document.getObject(planetId).properties.mass, 42);
+    assert.equal(harness.projected.objects[0].properties.mass, 42);
+    assert.equal(harness.bus.undo(), true);
+    assert.equal(harness.document.getObject(planetId).properties.mass, 0);
+    assert.equal(harness.bus.redo(), true);
+    assert.equal(harness.document.getObject(planetId).properties.mass, 42);
+
+    assert.equal(harness.bus.execute(LiveEditCommandType.SET_LEVEL_SETTING, {
+        property: 'gravitationalConstant', value: 0, sessionId: 2
+    }), true);
+    assert.equal(harness.document.toDefinition().rules.gravitationalConstant, 0);
+    assert.equal(harness.projected.rules.gravitationalConstant, 0);
+});
+
+test('document-first live movement commits one entry and cancel restores the authored start', () => {
+    const harness = createDocumentCommandHarness();
+    const planetId = harness.document.listObjects()[0].properties.id;
+    assert.equal(harness.bus.begin(LiveEditCommandType.MOVE_OBJECT, {
+        objectId: planetId,
+        before: { x: 300, y: 300 },
+        after: { x: 300, y: 300 }
+    }), true);
+    harness.bus.update({ after: { x: 350, y: 320 } });
+    harness.bus.update({ after: { x: 380, y: 340 } });
+    assert.deepEqual(harness.document.getObject(planetId).position, { x: 380, y: 340 });
+    assert.equal(harness.bus.cancel(), true);
+    assert.deepEqual(harness.document.getObject(planetId).position, { x: 300, y: 300 });
+
+    harness.bus.begin(LiveEditCommandType.MOVE_OBJECT, {
+        objectId: planetId,
+        before: { x: 300, y: 300 },
+        after: { x: 300, y: 300 }
+    });
+    harness.bus.update({ after: { x: 400, y: 360 } });
+    assert.equal(harness.bus.commit(), true);
+    assert.equal(harness.history.undoStack.length, 1);
+    harness.bus.undo();
+    assert.deepEqual(harness.document.getObject(planetId).position, { x: 300, y: 300 });
+});
+
+test('document-first grouped portal mutations remain atomic through undo and redo', () => {
+    const harness = createDocumentCommandHarness();
+    const entries = [
+        {
+            definition: {
+                type: 'portal', position: { x: 200, y: 200 },
+                properties: { id: 'portal_red', name: 'Red', color: 'red', pairedPortalId: 'portal_blue' }
+            },
+            index: 2
+        },
+        {
+            definition: {
+                type: 'portal', position: { x: 600, y: 400 },
+                properties: { id: 'portal_blue', name: 'Blue', color: 'blue', pairedPortalId: 'portal_red' }
+            },
+            index: 3
+        }
+    ];
+    assert.equal(harness.bus.execute(LiveEditCommandType.OBJECT_GROUP, {
+        entries, operation: 'add'
+    }), true);
+    assert.deepEqual(harness.document.listObjects().slice(-2).map(object => object.properties.id),
+        ['portal_red', 'portal_blue']);
+    assert.equal(harness.bus.undo(), true);
+    assert.equal(harness.document.getObject('portal_red'), null);
+    assert.equal(harness.document.getObject('portal_blue'), null);
+    assert.equal(harness.bus.redo(), true);
+    assert.ok(harness.document.getObject('portal_red'));
+    assert.ok(harness.document.getObject('portal_blue'));
+});
+
+test('projection failure restores the prior document and last-known-good runtime', () => {
+    const document = LevelDocument.fromDefinition(validDefinition());
+    const prior = document.toDefinition();
+    const next = structuredClone(prior);
+    next.name = 'Rejected projection';
+    let rebuilt = null;
+    const projector = {
+        applyDefinition() { throw new Error('injected projection failure'); },
+        rebuild(definition) { rebuilt = structuredClone(definition); }
+    };
+    assert.throws(() => projectDocumentDefinition({
+        document, projector, definition: next
+    }), /injected projection failure/);
+    assert.deepEqual(document.toDefinition(), prior);
+    assert.deepEqual(rebuilt, prior);
+});
+
+test('invalid authored candidates are rejected before the runtime projector is touched', () => {
+    const document = LevelDocument.fromDefinition(validDefinition());
+    const prior = document.toDefinition();
+    const invalid = structuredClone(prior);
+    invalid.objects[1].properties.id = invalid.objects[0].properties.id;
+    let calls = 0;
+    const projector = {
+        applyDefinition() { calls += 1; },
+        rebuild() { calls += 1; }
+    };
+    assert.throws(() => projectDocumentDefinition({
+        document, projector, definition: invalid
+    }), /unique|duplicate/i);
+    assert.equal(calls, 0);
+    assert.deepEqual(document.toDefinition(), prior);
 });
 
 function createToolHarness(hit = null) {
