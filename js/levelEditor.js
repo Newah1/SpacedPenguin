@@ -648,10 +648,13 @@ class LevelEditor {
         return null;
     }
     
-    isPointInObject(x, y, obj) {
+    isPointInObject(x, y, obj, displayPosition = null) {
         // Get object coordinates - handle both position.x/y and direct x/y properties
         let objX, objY;
-        if (typeof obj.x === 'number' && typeof obj.y === 'number') {
+        if (Number.isFinite(displayPosition?.x) && Number.isFinite(displayPosition?.y)) {
+            objX = displayPosition.x;
+            objY = displayPosition.y;
+        } else if (typeof obj.x === 'number' && typeof obj.y === 'number') {
             // Penguin class uses direct x/y properties
             objX = obj.x;
             objY = obj.y;

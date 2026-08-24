@@ -44,7 +44,9 @@ export class EditorObjectService {
         const objects = this.listRuntimeObjects();
         for (let index = objects.length - 1; index >= 0; index--) {
             const object = objects[index];
-            if (this.editor.isPointInObject(x, y, object)) return object;
+            const displayPosition = this.editor.overlayRenderer?.runtimeController
+                ?.getDisplayPosition(object);
+            if (this.editor.isPointInObject(x, y, object, displayPosition)) return object;
         }
         return null;
     }

@@ -9,6 +9,7 @@ import {
     prepareCloneForInsertion,
     shouldSuppressEditorKey
 } from '../js/levelEditor/editorRuntimeController.js';
+import EditorObjectService from '../js/levelEditor/editorObjectService.js';
 
 class FakePlanet {
     constructor() {
@@ -111,6 +112,29 @@ test('moving orbit objects defer their normal edit-world render to the preview r
         interaction: { type: 'drag-object', objectId: planet.id }
     };
     assert.equal(controller.shouldRenderPreviewObject(planet), false);
+});
+
+test('body hit testing uses the moving orbit preview position', () => {
+    const planet = new FakePlanet();
+    planet.orbitSystem.orbitSpeed = 40;
+    const editor = fakeEditor([planet]);
+    let time = 0;
+    editor.objectService = new EditorObjectService(editor);
+    editor.objectService.listRuntimeObjects = () => [planet];
+    const controller = new EditorRuntimeController(editor, { now: () => time });
+    editor.overlayRenderer = { runtimeController: controller };
+    editor.isPointInObject = (x, y, object, displayPosition) => {
+        const position = displayPosition || object.position;
+        return Math.hypot(x - position.x, y - position.y) <= object.radius;
+    };
+
+    controller.getPreviewPosition(planet);
+    time = 0.05;
+    const previewPosition = controller.getPreviewPosition(planet);
+
+    assert.equal(editor.objectService.hitTestBody(previewPosition.x, previewPosition.y), planet);
+    assert.equal(editor.objectService.hitTestBody(planet.position.x, planet.position.y), null);
+    assert.deepEqual(planet.position, { x: 10, y: 0 });
 });
 
 test('editing orbit parameters immediately resets preview phase', () => {
