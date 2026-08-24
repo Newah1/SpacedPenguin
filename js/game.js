@@ -1929,7 +1929,12 @@ class Game {
             id: this.levelMetadata?.saveId,
             thumbnail: captureLevelThumbnail(this.canvas)
         });
-        this.levelMetadata.saveId = record.id;
+        this.levelMetadata ||= {};
+        Object.assign(this.levelMetadata, {
+            name: record.name,
+            description: record.description,
+            saveId: record.id
+        });
         return record;
     }
 

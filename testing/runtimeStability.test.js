@@ -435,6 +435,40 @@ test('level export uses editor-authored root metadata', () => {
     assert.deepEqual(exported.camera, game.cameraConfig);
 });
 
+test('saving an edited level synchronizes its authored name back to live metadata', async () => {
+    const authoredLevel = { name: 'Renamed level', description: 'Updated description', objects: [] };
+    const savedRecord = {
+        id: 'local-renamed',
+        name: authoredLevel.name,
+        description: authoredLevel.description,
+        level: authoredLevel
+    };
+    const game = {
+        canvas: {},
+        levelMetadata: { name: 'Untitled Level', description: '', saveId: 'local-existing' },
+        levelEditor: {
+            active: true,
+            currentDocumentDefinition: () => authoredLevel
+        },
+        levelSaveService: {
+            async save(level, options) {
+                assert.equal(level, authoredLevel);
+                assert.equal(options.id, 'local-existing');
+                return savedRecord;
+            }
+        }
+    };
+
+    const result = await Game.prototype.saveEditedLevel.call(game);
+
+    assert.equal(result, savedRecord);
+    assert.deepEqual(game.levelMetadata, {
+        name: 'Renamed level',
+        description: 'Updated description',
+        saveId: 'local-renamed'
+    });
+});
+
 test('text factory restores an explicitly exported wrap limit', () => {
     const textObject = GameObjectFactory.createTextObject({ x: 10, y: 20 }, {
         content: 'Tutorial text',

@@ -3,6 +3,8 @@ import { EDITOR_CONFIG } from './editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './gameConfig.js';
 import { LEVEL_CAMERA_MODES, LEVEL_ORBIT_TYPES, LevelOrbitType } from '../levelSchema.js';
 
+const EDITOR_CAMERA_MODES = deepFreeze(['legacy', ...LEVEL_CAMERA_MODES]);
+
 export const EditorOptionCatalog = Object.freeze({
     PLANET_SPRITES: 'planetSprites',
     SHIP_SPRITES: 'shipSprites',
@@ -146,7 +148,7 @@ export const LEVEL_SETTING_FIELDS = deepFreeze([
     { label: 'Description', key: 'levelDescription', type: 'text' },
     { label: 'Playfield Width', key: 'playfieldWidth', type: 'number', min: EDITOR_CONFIG.playfield.minimumWidth, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
     { label: 'Playfield Height', key: 'playfieldHeight', type: 'number', min: EDITOR_CONFIG.playfield.minimumHeight, max: EDITOR_CONFIG.playfield.maximumDimension, step: 50 },
-    { label: 'Gameplay Camera', key: 'cameraMode', type: 'select', options: LEVEL_CAMERA_MODES },
+    { label: 'Gameplay Camera', key: 'cameraMode', type: 'select', options: EDITOR_CAMERA_MODES },
     { label: 'Follow Zoom', key: 'cameraZoom', type: 'number', min: EDITOR_CONFIG.playfield.minimumZoom, max: EDITOR_CONFIG.playfield.maximumZoom, step: 0.05 },
     { label: 'Start X', key: 'startX', type: 'number' },
     { label: 'Start Y', key: 'startY', type: 'number' },

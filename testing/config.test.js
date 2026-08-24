@@ -101,6 +101,10 @@ test('level editor inspector policy is cataloged by object and settings domain',
         LEVEL_SETTING_FIELDS.find(field => field.key === 'requiredBonuses').dynamicMax,
         'bonusCount'
     );
+    assert.deepEqual(
+        LEVEL_SETTING_FIELDS.find(field => field.key === 'cameraMode').options,
+        ['legacy', 'fit', 'follow']
+    );
     assert.equal(
         OBJECT_PROPERTY_FIELDS.Planet.find(field => field.key === 'planetType').optionsFrom,
         'planetSprites'
