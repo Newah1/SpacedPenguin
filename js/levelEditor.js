@@ -39,6 +39,10 @@ import EditorRuntimeProjector from './levelEditor/editorRuntimeProjector.js';
 import LevelDocument from './levelEditor/levelDocument.js';
 import EditorToolManager from './levelEditor/editorToolManager.js';
 import EditorCommandBus from './levelEditor/editorCommandBus.js';
+import {
+    EditorCommandIntent,
+    registerDeleteObjectCommandStrategies
+} from './levelEditor/deleteObjectCommandStrategies.js';
 import DocumentMutationService from './levelEditor/documentMutationService.js';
 import { projectDocumentDefinition } from './levelEditor/documentProjectionTransaction.js';
 import { createButton } from './buttonFramework.js';
@@ -144,12 +148,17 @@ class LevelEditor {
             levelSettingsTarget: this.levelSettingsNode,
             liveTransaction: false
         };
-        this.history = createLiveEditHistory(this.commandContext);
+        const history = createLiveEditHistory(this.commandContext);
         this.commandBus = new EditorCommandBus({
-            history: this.history,
+            history,
             events: this.events,
             canExecute: () => !this.active || this.mode === 'edit',
             validate: () => this.document ? this.assertDocumentValid('editor command') : true
+        });
+        this.commandStrategyUnsubscribe = registerDeleteObjectCommandStrategies({
+            commandBus: this.commandBus,
+            findPortal: id => this.game.portals.find(portal => portal.id === id),
+            logger: plog
         });
         this.propertyEditSession = 0;
         this.overlayRenderer = new LevelEditorOverlayRenderer(this);
@@ -200,32 +209,9 @@ class LevelEditor {
     }
     
     deleteSelectedObject() {
-        if (!this.selectedObject) return;
-        if (this.selectedObject.isLevelSettings) {
-            plog.warn('Level Settings cannot be deleted');
-            return;
-        }
-        
-        const obj = this.selectedObject;
-        const className = obj.constructor.name;
-
-        if (className === 'Portal') {
-            const pair = this.game.portals.find(portal => portal.id === obj.pairedPortalId);
-            this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
-                objectIds: pair ? [obj.id, pair.id] : [obj.id],
-                operation: 'remove'
-            });
-            return;
-        }
-        
-        plog.debug(`Deleting ${className}...`);
-        
-        this.commandBus.execute(LiveEditCommandType.REMOVE_OBJECT, {
-            objectId: obj.id,
-            className
-        });
-        
-        plog.success(`Successfully deleted ${className}`);
+        const object = this.selectedObject;
+        if (!object) return false;
+        return this.commandBus.emit(EditorCommandIntent.DELETE_SELECTED_OBJECT, { object });
     }
     
     async saveLevel() {
@@ -414,12 +400,12 @@ class LevelEditor {
     }
     
     undo() {
-        const undone = this.commandBus ? this.commandBus.undo() : this.history?.undo();
+        const undone = this.commandBus.undo();
         if (!undone) plog.info('Nothing to undo');
     }
     
     redo() {
-        const redone = this.commandBus ? this.commandBus.redo() : this.history?.redo();
+        const redone = this.commandBus.redo();
         if (!redone) plog.info('Nothing to redo');
     }
     
@@ -926,13 +912,7 @@ class LevelEditor {
         const target = this.selectedObject;
         if (!target) return;
         const sessionId = Number(e.target.dataset.editSession) || ++this.propertyEditSession;
-        const executor = this.commandBus || this.history;
-        if (!executor) {
-            if (target.isLevelSettings) this.updateLevelSetting(property, value);
-            else this.applyObjectProperty(target, property, value);
-            return;
-        }
-        executor.execute(
+        this.commandBus.execute(
             target.isLevelSettings
                 ? LiveEditCommandType.SET_LEVEL_SETTING
                 : LiveEditCommandType.SET_OBJECT_PROPERTY,

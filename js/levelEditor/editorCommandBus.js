@@ -8,6 +8,27 @@ export class EditorCommandBus {
         this.validate = validate || (() => true);
         this.transaction = null;
         this.lastError = null;
+        this.listeners = new Map();
+    }
+
+    on(type, listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('Editor command listeners must be functions');
+        }
+        const listeners = this.listeners.get(type) || new Set();
+        listeners.add(listener);
+        this.listeners.set(type, listeners);
+        return () => listeners.delete(listener);
+    }
+
+    emit(type, payload = {}, metadata = {}) {
+        const listeners = this.listeners.get(type);
+        if (!listeners?.size) return false;
+        let handled = false;
+        for (const listener of [...listeners]) {
+            handled = listener(payload, metadata) === true || handled;
+        }
+        return handled;
     }
 
     execute(type, payload, metadata = {}) {
