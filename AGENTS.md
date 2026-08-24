@@ -59,7 +59,7 @@ The browser calls the immutable `stepSimulation()` API. Headless sweeps use the 
 
 ### Add a game object
 
-Update the runtime class, `GameObjectFactory`, shared type vocabulary/validation, simulation state if gameplay-relevant, editor creation/property/clone/export paths, collection registration, tests, and level documentation.
+Update the runtime class and its `editorObjectRegistry.js` descriptor (authoring/runtime factories, collections, capabilities, inspector fields, and clone/property hooks), shared type vocabulary/validation, simulation state if gameplay-relevant, export paths, tests, and level documentation. `GameObjectFactory` should remain generic registry dispatch plus shared orbit configuration.
 
 ### Add a rule
 

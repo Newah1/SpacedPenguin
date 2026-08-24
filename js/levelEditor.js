@@ -5,8 +5,6 @@ import { STAGE_WIDTH, STAGE_HEIGHT, createWorldCamera, screenToStage, stageToScr
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './config/gameConfig.js';
 import {
-    BASIC_SERIALIZED_OBJECT_PROPERTIES,
-    CLASS_SERIALIZED_OBJECT_PROPERTIES,
     COMMON_OBJECT_PROPERTY_FIELDS,
     EDITOR_INSPECTOR_DEFAULTS,
     EDITOR_NUMERIC_FALLBACKS,
@@ -17,7 +15,6 @@ import {
     ORBIT_EDITOR_PROPERTY_KEYS,
     ORBIT_PROPERTY_FIELDS
 } from './config/editorInspectorConfig.js';
-import { OrbitSystem } from './gameObjects.js';
 import {
     getEditableClassNames,
     getEditorActionDefinition,
@@ -31,10 +28,11 @@ import LevelEditorToolbarView from './levelEditor/toolbarView.js';
 import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
 import GravitySculptView from './levelEditor/gravitySculptView.js';
 import GravitySculptController from './levelEditor/gravitySculptController.js';
+import PublishMetadataPromptView from './levelEditor/publishMetadataPromptView.js';
 import EditorEvents from './levelEditor/editorEvents.js';
 import EditorState, { EditorInteractionType } from './levelEditor/editorState.js';
 import EditorSelection from './levelEditor/editorSelection.js';
-import EditorObjectService, { prepareCloneForInsertion } from './levelEditor/editorObjectService.js';
+import EditorObjectService from './levelEditor/editorObjectService.js';
 import EditorRuntimeProjector from './levelEditor/editorRuntimeProjector.js';
 import LevelDocument from './levelEditor/levelDocument.js';
 import EditorToolManager from './levelEditor/editorToolManager.js';
@@ -167,6 +165,7 @@ class LevelEditor {
         this.toolbarView = new LevelEditorToolbarView(this);
         this.gravitySculptView = new GravitySculptView(this);
         this.gravitySculptController = new GravitySculptController(this);
+        this.publishMetadataPromptView = new PublishMetadataPromptView(this);
         this.toolManager = new EditorToolManager(this);
         this.canvasInput = new LevelEditorCanvasInputController(this);
         this.previousGameState = null;
@@ -283,111 +282,9 @@ class LevelEditor {
     }
 
     promptForPublishMetadata() {
-        if (this.publishPromptPromise) return this.publishPromptPromise;
-        const metadata = this.game.levelMetadata || {};
-        this.publishPromptPromise = new Promise(resolve => {
-            const overlay = document.createElement('div');
-            overlay.className = 'level-editor-publish-overlay';
-            overlay.setAttribute('role', 'dialog');
-            overlay.setAttribute('aria-modal', 'true');
-            overlay.setAttribute('aria-labelledby', 'publish-level-title');
-
-            const form = document.createElement('form');
-            form.className = 'level-editor-publish-form';
-            const title = document.createElement('h2');
-            title.id = 'publish-level-title';
-            title.textContent = 'PUBLISH LEVEL';
-            title.className = 'level-editor-publish-title';
-            const copy = document.createElement('p');
-            copy.textContent = 'Confirm how this level will appear in Community Levels.';
-            copy.className = 'level-editor-publish-copy';
-
-            const makeLabel = (text, control) => {
-                const label = document.createElement('label');
-                label.textContent = text;
-                label.className = 'level-editor-publish-label';
-                control.classList.add('level-editor-publish-input');
-                label.appendChild(control);
-                return label;
-            };
-            const nameInput = document.createElement('input');
-            nameInput.type = 'text';
-            nameInput.required = true;
-            nameInput.maxLength = 80;
-            nameInput.value = metadata.name || '';
-            nameInput.autocomplete = 'off';
-            const descriptionInput = document.createElement('textarea');
-            descriptionInput.rows = 4;
-            descriptionInput.maxLength = 500;
-            descriptionInput.value = metadata.description || '';
-            const error = document.createElement('p');
-            error.setAttribute('role', 'alert');
-            error.className = 'level-editor-publish-error';
-            const actions = document.createElement('div');
-            actions.className = 'level-editor-publish-actions';
-
-            const background = [
-                this.toolbarWrapper,
-                this.propertiesPanel,
-                this.objectListPanel,
-                this.mobileToolbar,
-                this.gravitySculptPanel
-            ].filter(Boolean);
-            for (const element of background) element.inert = true;
-            const finish = result => {
-                for (const element of background) element.inert = false;
-                overlay.remove();
-                this.publishPromptElement = null;
-                this.publishPromptPromise = null;
-                this.resolvePublishPrompt = null;
-                resolve(result);
-            };
-            this.resolvePublishPrompt = finish;
-            const cancel = createButton('CANCEL', () => finish(null), {
-                backgroundColor: '#4b3b32', hoverColor: '#6a5041',
-                textColor: '#fff3bb', borderColor: '#f79433'
-            });
-            cancel.classList.add('level-editor-publish-button');
-            const publish = createButton('PUBLISH', null, {
-                backgroundColor: '#7b4bb7', hoverColor: '#9564d2',
-                textColor: '#fff', borderColor: '#c6a1ef', type: 'submit'
-            });
-            publish.type = 'submit';
-            publish.classList.add('level-editor-publish-button');
-            actions.append(cancel, publish);
-            form.append(
-                title,
-                copy,
-                makeLabel('Level name', nameInput),
-                makeLabel('Description', descriptionInput),
-                error,
-                actions
-            );
-            form.addEventListener('submit', event => {
-                event.preventDefault();
-                const name = nameInput.value.trim();
-                if (!name) {
-                    error.textContent = 'Enter a level name before publishing.';
-                    nameInput.focus();
-                    return;
-                }
-                finish({ name, description: descriptionInput.value.trim() });
-            });
-            overlay.addEventListener('keydown', event => {
-                event.stopPropagation();
-                if (event.code === 'Escape') {
-                    event.preventDefault();
-                    finish(null);
-                }
-            });
-            overlay.appendChild(form);
-            this.container.appendChild(overlay);
-            this.publishPromptElement = overlay;
-            nameInput.focus();
-            nameInput.select();
-        });
-        return this.publishPromptPromise;
+        return this.publishMetadataPromptView.prompt();
     }
+
 
     loadLevel() {
         this.game.showLevelBrowser({ mode: 'open' });
@@ -421,9 +318,6 @@ class LevelEditor {
     handlePointerMove(event) { this.canvasInput.handlePointerMove(event); }
     handlePointerUp(event) { this.canvasInput.handlePointerUp(event); }
     handlePointerCancel(event) { this.canvasInput.handlePointerCancel(event); }
-    handleMouseDown(event) { this.canvasInput.handlePointerDown(event); }
-    handleMouseMove(event) { this.canvasInput.handlePointerMove(event); }
-    handleMouseUp(event) { this.canvasInput.handlePointerUp(event); }
     handleRightClick(event) { this.canvasInput.handleContextMenu(event); }
     cancelLongPress() { this.canvasInput.cancelLongPress(); }
 
@@ -505,13 +399,9 @@ class LevelEditor {
         }
     }
     
-    assignNamesToExistingObjects() {
-        return this.objectService.ensureIdentities();
-    }
-    
     exit() {
         if (!this.active) return;
-        this.resolvePublishPrompt?.(null);
+        this.publishMetadataPromptView.cancel();
         this.gravitySculptController.close();
         this.canvasInput.cancelPointer();
         this.active = false;
@@ -690,7 +580,7 @@ class LevelEditor {
 
         properties.push({
             ...COMMON_OBJECT_PROPERTY_FIELDS.name,
-            value: obj.name || this.generateObjectName(obj, className)
+            value: obj.name || this.objectService.allocateName(className, obj)
         });
         
         // Position properties (handled specially due to different coordinate systems)
@@ -948,26 +838,10 @@ class LevelEditor {
             }
         } else if (ORBIT_EDITOR_PROPERTIES.has(property)) {
             this.updateOrbitProperty(property, value, object);
-        } else if (property === 'planetType' || property === 'spriteType') {
-            this.updateSpriteProperty(property, value, object);
-        } else if (property === 'pointingAtX' || property === 'pointingAtY') {
-            this.updatePointingAtProperty(property, value, object);
-        } else if (property === 'content' && object.constructor.name === 'TextObject') {
-            object.content = value;
-            object.parsedContent = object.parseHTMLContent(value);
-            plog.debug(`Updated text content to: ${value}`);
-        } else if (property === 'width' && object.constructor.name === 'TextObject') {
-            object.width = value;
-            object.maxWidth = Math.max(
-                1,
-                value - (object.padding * 2)
-            );
-            plog.debug(`Updated text wrap width to ${object.maxWidth}`);
-        } else if ((property === 'width' || property === 'height') && object.constructor.name === 'Planet') {
-            object[property] = value;
-            const newRadius = Math.min(object.width, object.height) / 2;
-            object.radius = newRadius;
-            plog.debug(`Updated planet ${property} to ${value}, adjusted radius to ${newRadius}`);
+        } else if (getEditorObjectDefinition(object.constructor.name).applyRuntimeProperty?.({
+            object, property, value, editor: this
+        })) {
+            plog.debug(`Applied ${property} to ${object.constructor.name}`);
         } else if (property in object) {
             object[property] = value;
             plog.debug(`Updated ${property} to ${value}`);
@@ -1036,12 +910,10 @@ class LevelEditor {
         }
         this.game?.invalidateSimulationState?.();
         this.overlayRenderer?.runtimeController?.invalidatePreview();
-        if (object.constructor.name === 'Planet' || object.constructor.name === 'BlackHole') {
-            this.game.physics?.refreshPlanet?.(object);
-            if (object.constructor.name === 'Planet') this.refreshPlanetSprite(object);
-        } else if (object.constructor.name === 'Target') {
-            this.refreshTargetSprite(object);
-        }
+        getEditorObjectDefinition(object.constructor.name).afterRuntimePropertyChanged?.({
+            object,
+            editor: this
+        });
     }
     
     updateOrbitProperty(property, value, obj = this.selectedObject) {
@@ -1485,42 +1357,6 @@ class LevelEditor {
         return positionFallbacks[property] ?? EDITOR_NUMERIC_FALLBACKS[property] ?? 0;
     }
     
-    updateSpriteProperty(property, value, obj = this.selectedObject) {
-        
-        if (property === 'planetType' && obj.constructor.name === 'Planet') {
-            obj.planetType = value;
-            this.refreshPlanetSprite(obj);
-            plog.debug(`Updated planet sprite to ${value}`);
-        } else if (property === 'spriteType' && obj.constructor.name === 'Target') {
-            obj.spriteType = value;
-            this.refreshTargetSprite(obj);
-            plog.debug(`Updated target sprite to ${value}`);
-        }
-    }
-    
-    updatePointingAtProperty(property, value, obj = this.selectedObject) {
-        
-        if (obj.constructor.name === 'PointingArrow') {
-            // Initialize pointingAt object if it doesn't exist
-            if (!obj.pointingAt) {
-                obj.pointingAt = { x: 0, y: 0 };
-            }
-            
-            if (property === 'pointingAtX') {
-                obj.pointingAt.x = value;
-                plog.debug(`Updated pointing target X to ${value}`);
-            } else if (property === 'pointingAtY') {
-                obj.pointingAt.y = value;
-                plog.debug(`Updated pointing target Y to ${value}`);
-            }
-            
-            // Update visibility - show arrow if it has a target
-            if (obj.pointingAt.x !== 0 || obj.pointingAt.y !== 0) {
-                obj.visible = true;
-            }
-        }
-    }
-    
     refreshPlanetSprite(planet) {
         // Use the planet's built-in refreshSprite method
         if (typeof planet.refreshSprite === 'function') {
@@ -1572,33 +1408,6 @@ class LevelEditor {
         this.selectObject(selection);
     }
     
-    generateObjectName(obj, className) {
-        const usedNames = this.document
-            ? new Set(this.document.listObjects().map(record => record.properties?.name).filter(Boolean))
-            : new Set(
-                this.getAllGameObjects()
-                    .filter(existingObj => existingObj !== obj && typeof existingObj.name === 'string')
-                    .map(existingObj => existingObj.name)
-            );
-        let number = 1;
-        while (usedNames.has(`${className} ${number}`)) number++;
-        return `${className} ${number}`;
-    }
-    
-    generateObjectId(obj, className) {
-        const prefix = className.toLowerCase();
-        const usedIds = this.document
-            ? new Set(this.document.listObjects().map(record => record.properties?.id).filter(Boolean))
-            : new Set(
-                this.getAllGameObjects()
-                    .filter(existingObj => existingObj !== obj && typeof existingObj.id === 'string')
-                    .map(existingObj => existingObj.id)
-            );
-        let number = 1;
-        while (usedIds.has(`${prefix}_${number}`)) number++;
-        return `${prefix}_${number}`;
-    }
-
     getRuntimeSingleton(className) {
         const key = getEditorObjectDefinition(className).singleton;
         return key ? this.game[key] ?? null : null;
@@ -1697,12 +1506,12 @@ class LevelEditor {
                 x,
                 y,
                 allocatePairNumber: (prefix, suffixes) =>
-                    this.allocateObjectGroupNumber(prefix, suffixes)
+                    this.objectService.allocateGroupNumber(prefix, suffixes)
             });
             for (const definition of definitions) {
                 definition.properties ||= {};
-                definition.properties.id ||= this.generateObjectId(null, className);
-                definition.properties.name ||= this.generateObjectName(null, className);
+                definition.properties.id ||= this.objectService.allocateId(className);
+                definition.properties.name ||= this.objectService.allocateName(className);
             }
             const baseIndex = this.document.listObjects().length;
             const added = definitions.length === 1
@@ -1728,44 +1537,25 @@ class LevelEditor {
         }
     }
 
-    allocateObjectGroupNumber(prefix, suffixes) {
-        const usedIds = new Set(this.document.listObjects().map(object => object.properties?.id));
-        let number = 1;
-        while (suffixes.some(suffix => usedIds.has(`${prefix}_${number}_${suffix}`))) number++;
-        return number;
-    }
-
-    clonePortalPair(selected) {
+    cloneRegisteredObjectGroup(selected, descriptor) {
         const selectedRecord = this.document?.getObject(selected.id);
-        const pairRecord = this.document?.getObject(selectedRecord?.properties?.pairedPortalId);
-        if (!selectedRecord || !pairRecord) return false;
-        const redSource = selectedRecord.properties.color === 'red' ? selectedRecord : pairRecord;
-        const blueSource = selectedRecord.properties.color === 'blue' ? selectedRecord : pairRecord;
-        const usedIds = new Set(this.document.listObjects().map(object => object.properties?.id));
-        let number = 1;
-        while (usedIds.has(`portal_pair_${number}_red`) || usedIds.has(`portal_pair_${number}_blue`)) number++;
-        const redId = `portal_pair_${number}_red`;
-        const blueId = `portal_pair_${number}_blue`;
-        const cloneEndpoint = (source, id, pairedPortalId) => {
-            const clone = structuredClone(source);
-            clone.position.x += EDITOR_CONFIG.cloneOffset.x;
-            clone.position.y += EDITOR_CONFIG.cloneOffset.y;
-            clone.properties.id = id;
-            clone.properties.pairedPortalId = pairedPortalId;
-            clone.properties.name = `Portal Pair ${number} ${source.properties.color === 'red' ? 'Red' : 'Blue'}`;
-            return clone;
-        };
-        const red = cloneEndpoint(redSource, redId, blueId);
-        const blue = cloneEndpoint(blueSource, blueId, redId);
+        if (!selectedRecord) return false;
+        const definitions = descriptor.cloneAuthoringDefinitions({
+            source: selectedRecord,
+            resolveDefinition: id => this.document.getObject(id),
+            allocatePairNumber: (prefix, suffixes) =>
+                this.objectService.allocateGroupNumber(prefix, suffixes)
+        });
+        if (!definitions.length) return false;
         const baseIndex = this.document.listObjects().length;
         const added = this.commandBus.execute(LiveEditCommandType.OBJECT_GROUP, {
-            entries: [red, blue].map((definition, offsetIndex) => ({
+            entries: definitions.map((definition, offsetIndex) => ({
                 definition,
                 index: baseIndex + offsetIndex
             })),
             operation: 'add'
         });
-        if (added) this.selection.select(redId);
+        if (added) this.selection.select(definitions[0].properties.id);
         return added;
     }
 
@@ -1794,11 +1584,12 @@ class LevelEditor {
             plog.warn('Level Settings cannot be cloned');
             return;
         }
-        if (this.selectedObject.constructor.name === 'Portal') {
-            this.clonePortalPair(this.selectedObject);
+        const selectedClassName = this.selectedObject.constructor.name;
+        const descriptor = getEditorObjectDefinition(selectedClassName);
+        if (descriptor.cloneAuthoringDefinitions) {
+            this.cloneRegisteredObjectGroup(this.selectedObject, descriptor);
             return;
         }
-        const selectedClassName = this.selectedObject.constructor.name;
         if (this.getRuntimeSingleton(selectedClassName)) {
             plog.warn(`${selectedClassName} is unique in a level and cannot be cloned`);
             return;
@@ -1815,8 +1606,8 @@ class LevelEditor {
             clone.properties.orbit.center.x += EDITOR_CONFIG.cloneOffset.x;
             clone.properties.orbit.center.y += EDITOR_CONFIG.cloneOffset.y;
         }
-        clone.properties.id = this.generateObjectId(null, selectedClassName);
-        clone.properties.name = this.generateObjectName(null, selectedClassName);
+        clone.properties.id = this.objectService.allocateId(selectedClassName);
+        clone.properties.name = this.objectService.allocateName(selectedClassName);
         const added = this.commandBus.execute(LiveEditCommandType.ADD_OBJECT, {
             objectId: clone.properties.id,
             definition: clone,
@@ -1825,208 +1616,6 @@ class LevelEditor {
         if (!added) return;
         this.selection.select(clone.properties.id);
         plog.debug('Cloned', selectedClassName);
-    }
-    
-    cloneObject(obj) {
-        const className = obj.constructor.name;
-        const ClassConstructor = this.gameObjectClasses[className];
-        
-        if (!ClassConstructor) {
-            plog.error('Cannot clone object - unknown class:', className);
-            return null;
-        }
-        
-        try {
-            // Create a deep copy by serializing and deserializing the object properties
-            const objData = this.serializeObject(obj);
-            const deserialized = this.deserializeObject(objData, ClassConstructor);
-            const clonedObject = this.objectService?.prepareClone
-                ? this.objectService.prepareClone(deserialized)
-                : prepareCloneForInsertion(deserialized);
-            
-            plog.debug('Cloned object data:', objData);
-            return clonedObject;
-        } catch (error) {
-            plog.error('Failed to clone object:', error);
-            return null;
-        }
-    }
-    
-    serializeObject(obj) {
-        const data = {
-            className: obj.constructor.name,
-            properties: {}
-        };
-        
-        BASIC_SERIALIZED_OBJECT_PROPERTIES.forEach(prop => {
-            if (obj[prop] !== undefined) {
-                data.properties[prop] = obj[prop];
-            }
-        });
-        
-        // Handle position object
-        if (obj.position) {
-            data.properties.position = { x: obj.position.x, y: obj.position.y };
-        }
-        
-        const classProperties = getEditorObjectDefinition(obj.constructor.name).serializedProperties;
-        for (const property of classProperties) {
-            if (obj[property] === undefined) continue;
-            data.properties[property] = property === 'pointingAt' && obj[property]
-                ? { x: obj[property].x, y: obj[property].y }
-                : obj[property];
-        }
-        
-        // Handle orbit system
-        if (obj.orbitSystem) {
-            data.properties.orbitSystem = {
-                orbitCenter: obj.orbitSystem.orbitCenter ? { x: obj.orbitSystem.orbitCenter.x, y: obj.orbitSystem.orbitCenter.y } : null,
-                orbitRadius: obj.orbitSystem.orbitRadius,
-                orbitSpeed: obj.orbitSystem.orbitSpeed,
-                orbitAngle: obj.orbitSystem.orbitAngle,
-                orbitType: obj.orbitSystem.orbitType,
-                orbitParams: JSON.parse(JSON.stringify(obj.orbitSystem.orbitParams || {}))
-            };
-        }
-        
-        return data;
-    }
-    
-    deserializeObject(data, ClassConstructor) {
-        const props = data.properties;
-        let clonedObject;
-        
-        // Create object with appropriate constructor parameters
-        switch (data.className) {
-            case 'Planet':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.radius ?? EDITOR_CONFIG.authoringDefaults.planet.radius,
-                    props.mass ?? EDITOR_CONFIG.authoringDefaults.planet.mass,
-                    props.gravitationalReach ?? EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach,
-                    props.planetType ?? EDITOR_CONFIG.authoringDefaults.planet.planetType,
-                    this.game.assetLoader
-                );
-                clonedObject.collisionRadius = props.collisionRadius ??
-                    (clonedObject.radius + LEVEL_DEFAULTS.planet.collisionPadding);
-                break;
-            case 'BlackHole':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.radius ?? EDITOR_CONFIG.authoringDefaults.planet.radius,
-                    props.mass ?? EDITOR_CONFIG.authoringDefaults.planet.mass,
-                    props.gravitationalReach ?? EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach
-                );
-                clonedObject.collisionRadius = 0;
-                clonedObject.collidable = false;
-                break;
-            case 'Bonus':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.value ?? EDITOR_CONFIG.authoringDefaults.bonus.value,
-                    this.game.assetLoader
-                );
-                break;
-            case 'Target':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.width ?? LEVEL_DEFAULTS.target.width,
-                    props.height ?? LEVEL_DEFAULTS.target.height,
-                    props.spriteType ?? LEVEL_DEFAULTS.target.spriteType,
-                    this.game.assetLoader
-                );
-                break;
-            case 'Slingshot':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.anchorX,
-                    props.anchorY,
-                    props.maxPullback ?? EDITOR_CONFIG.authoringDefaults.slingshot.maxPullback
-                );
-                break;
-            case 'TextObject':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    props.content ?? EDITOR_CONFIG.deserializationFallbacks.textContent,
-                    {
-                        width: props.width ?? LEVEL_DEFAULTS.text.width,
-                        height: props.height ?? LEVEL_DEFAULTS.text.height,
-                        fontSize: props.fontSize ?? LEVEL_DEFAULTS.text.fontSize,
-                        color: props.color ?? EDITOR_CONFIG.deserializationFallbacks.textColor,
-                        fontFamily: props.fontFamily,
-                        textAlign: props.textAlign,
-                        backgroundColor: props.backgroundColor,
-                        padding: props.padding,
-                        maxWidth: props.maxWidth,
-                        autoSize: props.autoSize
-                    }
-                );
-                break;
-            case 'PointingArrow':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    {
-                        baseWidth: props.baseWidth ?? LEVEL_DEFAULTS.pointingArrow.baseWidth,
-                        color: props.color,
-                        glowColor: props.glowColor,
-                        scaleWithDistance: props.scaleWithDistance
-                    }
-                );
-                if (props.pointingAt) {
-                    clonedObject.pointingAt = { x: props.pointingAt.x, y: props.pointingAt.y };
-                }
-                break;
-            case 'Portal':
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0,
-                    {
-                        width: props.width,
-                        height: props.height,
-                        rotation: props.rotation,
-                        color: props.color,
-                        pairedPortalId: props.pairedPortalId,
-                        playSound: props.playSound
-                    }
-                );
-                break;
-            default:
-                // Generic fallback
-                clonedObject = new ClassConstructor(
-                    props.position?.x ?? props.x ?? 0,
-                    props.position?.y ?? props.y ?? 0
-                );
-        }
-        
-        // Copy other properties
-        Object.keys(props).forEach(key => {
-            if (key !== 'position' && key !== 'x' && key !== 'y' && key !== 'orbitSystem') {
-                if (key === 'name' || clonedObject[key] !== undefined) {
-                    clonedObject[key] = props[key];
-                }
-            }
-        });
-        
-        // Restore orbit system
-        if (props.orbitSystem) {
-            clonedObject.orbitSystem = new OrbitSystem();
-            const orbit = props.orbitSystem;
-            clonedObject.orbitSystem.orbitCenter = orbit.orbitCenter;
-            clonedObject.orbitSystem.orbitRadius = orbit.orbitRadius;
-            clonedObject.orbitSystem.orbitSpeed = orbit.orbitSpeed;
-            clonedObject.orbitSystem.orbitAngle = orbit.orbitAngle;
-            clonedObject.orbitSystem.orbitType = orbit.orbitType;
-            clonedObject.orbitSystem.orbitParams = orbit.orbitParams;
-        }
-        
-        return clonedObject;
     }
     
     updateObjectList() {
@@ -2158,11 +1747,6 @@ class LevelEditor {
         return fingerprint !== this.cleanDocumentSnapshot;
     }
     
-    selectObjectFromList(index) {
-        const object = this.objectListView.objects[index];
-        if (object?.id) this.objectListView.selectId(object.id);
-    }
-
     selectLevelSettings() {
         this.selectObject(this.levelSettingsNode);
     }

@@ -29,11 +29,45 @@ export class EditorObjectService {
         const objects = this.listRuntimeObjects();
         for (const object of objects) {
             const className = object.constructor?.name || 'Object';
-            if (!object.id) object.id = this.editor.generateObjectId(object, className);
-            if (!object.name) object.name = this.editor.generateObjectName(object, className);
+            if (!object.id) object.id = this.allocateId(className, object);
+            if (!object.name) object.name = this.allocateName(className, object);
         }
         this.editor.runtimeProjector?.indexRuntimeObjects();
         return objects;
+    }
+
+    allocateName(className, excludedObject = null) {
+        const used = this.#usedValues('name', excludedObject);
+        let number = 1;
+        while (used.has(`${className} ${number}`)) number++;
+        return `${className} ${number}`;
+    }
+
+    allocateId(className, excludedObject = null) {
+        const prefix = className.toLowerCase();
+        const used = this.#usedValues('id', excludedObject);
+        let number = 1;
+        while (used.has(`${prefix}_${number}`)) number++;
+        return `${prefix}_${number}`;
+    }
+
+    allocateGroupNumber(prefix, suffixes) {
+        const used = this.#usedValues('id');
+        let number = 1;
+        while (suffixes.some(suffix => used.has(`${prefix}_${number}_${suffix}`))) number++;
+        return number;
+    }
+
+    #usedValues(property, excludedObject = null) {
+        if (this.editor.document) {
+            return new Set(this.editor.document.listObjects()
+                .map(record => record.properties?.[property])
+                .filter(Boolean));
+        }
+        return new Set(this.listRuntimeObjects()
+            .filter(object => object !== excludedObject)
+            .map(object => object?.[property])
+            .filter(Boolean));
     }
 
     prepareClone(clone) {

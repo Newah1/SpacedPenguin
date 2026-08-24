@@ -49,9 +49,6 @@ function fakeEditor(objects = []) {
             invalidations: 0,
             invalidateSimulationState() { this.invalidations++; }
         },
-        cloneObject() {
-            return { id: 'planet_1', name: 'Planet 1' };
-        },
         getAllGameObjects() { return objects; },
         isPointInObject() { return false; },
         getOrbitCenterAtPosition() { return { type: 'orbitCenter', object: objects[0] }; },
@@ -67,12 +64,10 @@ test('cloned editor objects discard source identity and generated name', () => {
     assert.equal(clone.mass, 20);
 });
 
-test('editor runtime controller does not replace editor methods', () => {
+test('editor runtime controller does not replace editor hit testing', () => {
     const editor = fakeEditor();
-    const cloneObject = editor.cloneObject;
     const hitTest = editor.getObjectAtPosition;
     new EditorRuntimeController(editor, { now: () => 0 });
-    assert.equal(editor.cloneObject, cloneObject);
     assert.equal(editor.getObjectAtPosition, hitTest);
 });
 

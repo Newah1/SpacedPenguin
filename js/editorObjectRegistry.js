@@ -64,6 +64,83 @@ function createPortalPairDefinitions({ x, y, allocatePairNumber }) {
     ];
 }
 
+function clonePortalPairDefinitions({ source, resolveDefinition, allocatePairNumber }) {
+    const pair = resolveDefinition(source.properties?.pairedPortalId);
+    if (!pair) return [];
+    const byColor = new Map([source, pair].map(definition => [definition.properties.color, definition]));
+    const number = allocatePairNumber('portal_pair', ['red', 'blue']);
+    const redId = `portal_pair_${number}_red`;
+    const blueId = `portal_pair_${number}_blue`;
+    const cloneEndpoint = (color, id, pairedPortalId) => {
+        const clone = structuredClone(byColor.get(color));
+        clone.position.x += EDITOR_CONFIG.cloneOffset.x;
+        clone.position.y += EDITOR_CONFIG.cloneOffset.y;
+        Object.assign(clone.properties, {
+            id,
+            pairedPortalId,
+            name: `Portal Pair ${number} ${color === 'red' ? 'Red' : 'Blue'}`
+        });
+        return clone;
+    };
+    return [cloneEndpoint('red', redId, blueId), cloneEndpoint('blue', blueId, redId)];
+}
+
+function applyTextRuntimeProperty({ object, property, value }) {
+    if (property === 'content') {
+        object.content = value;
+        object.parsedContent = object.parseHTMLContent(value);
+        return true;
+    }
+    if (property === 'width') {
+        object.width = value;
+        object.maxWidth = Math.max(1, value - object.padding * 2);
+        return true;
+    }
+    return false;
+}
+
+function applyPlanetRuntimeProperty({ object, property, value, editor }) {
+    if (property === 'planetType') {
+        object.planetType = value;
+        editor.refreshPlanetSprite(object);
+        return true;
+    }
+    if (property === 'width' || property === 'height') {
+        object[property] = value;
+        object.radius = Math.min(object.width, object.height) / 2;
+        return true;
+    }
+    return false;
+}
+
+function applyTargetRuntimeProperty({ object, property, value, editor }) {
+    if (property !== 'spriteType') return false;
+    object.spriteType = value;
+    editor.refreshTargetSprite(object);
+    return true;
+}
+
+function applyPointingArrowRuntimeProperty({ object, property, value }) {
+    if (property !== 'pointingAtX' && property !== 'pointingAtY') return false;
+    object.pointingAt ||= { x: 0, y: 0 };
+    object.pointingAt[property === 'pointingAtX' ? 'x' : 'y'] = value;
+    if (object.pointingAt.x !== 0 || object.pointingAt.y !== 0) object.visible = true;
+    return true;
+}
+
+function refreshGravityRuntime({ object, editor }) {
+    editor.game.physics?.refreshPlanet?.(object);
+}
+
+function refreshPlanetRuntime(context) {
+    refreshGravityRuntime(context);
+    context.editor.refreshPlanetSprite(context.object);
+}
+
+function refreshTargetRuntime({ object, editor }) {
+    editor.refreshTargetSprite(object);
+}
+
 function applyCommonRuntimeProperties(object, properties, applyOrbit, gameObjectLookup) {
     if (properties.name) object.name = properties.name;
     if (properties.id) object.id = properties.id;
@@ -183,12 +260,15 @@ const BASE_DEFINITIONS = {
     Planet: {
         label: 'Planet', editable: true, collections: ['planets'],
         physicsAdd: 'addPlanet', physicsRemove: 'removePlanet',
-        createRuntime: createPlanetRuntime
+        createRuntime: createPlanetRuntime,
+        applyRuntimeProperty: applyPlanetRuntimeProperty,
+        afterRuntimePropertyChanged: refreshPlanetRuntime
     },
     BlackHole: {
         label: 'Black Hole', editable: true, collections: ['planets'],
         physicsAdd: 'addPlanet', physicsRemove: 'removePlanet',
-        createRuntime: createBlackHoleRuntime
+        createRuntime: createBlackHoleRuntime,
+        afterRuntimePropertyChanged: refreshGravityRuntime
     },
     Bonus: {
         label: 'Bonus', editable: true, collections: ['bonuses'],
@@ -197,7 +277,9 @@ const BASE_DEFINITIONS = {
     },
     Target: {
         label: 'Target', editable: true, singleton: 'target',
-        createRuntime: createTargetRuntime
+        createRuntime: createTargetRuntime,
+        applyRuntimeProperty: applyTargetRuntimeProperty,
+        afterRuntimePropertyChanged: refreshTargetRuntime
     },
     Slingshot: {
         label: 'Slingshot', editable: true, singleton: 'slingshot',
@@ -205,15 +287,18 @@ const BASE_DEFINITIONS = {
     },
     TextObject: {
         label: 'Text', editable: true, collections: ['textObjects'],
-        createRuntime: createTextRuntime
+        createRuntime: createTextRuntime,
+        applyRuntimeProperty: applyTextRuntimeProperty
     },
     PointingArrow: {
         label: 'Pointing Arrow', editable: true, collections: ['pointingArrows'],
-        createRuntime: createPointingArrowRuntime
+        createRuntime: createPointingArrowRuntime,
+        applyRuntimeProperty: applyPointingArrowRuntimeProperty
     },
     Portal: {
         label: 'Portal Pair', editable: true, collections: ['portals'],
         createAuthoringDefinitions: createPortalPairDefinitions,
+        cloneAuthoringDefinitions: clonePortalPairDefinitions,
         createRuntime: createPortalRuntime
     },
     Penguin: { label: 'Penguin', editable: false, singleton: 'penguin' },
@@ -237,10 +322,13 @@ function definitionFor(className, base) {
         serializedProperties: Object.freeze([...(CLASS_SERIALIZED_OBJECT_PROPERTIES[className] || [])]),
         spriteDefault: EDITOR_OBJECT_SPRITE_DEFAULTS[className] || null,
         createRuntime: base.createRuntime || null,
+        applyRuntimeProperty: base.applyRuntimeProperty || null,
+        afterRuntimePropertyChanged: base.afterRuntimePropertyChanged || null,
         createAuthoringDefinitions: base.createAuthoringDefinitions ||
             (SINGLE_AUTHORING_FACTORIES[className]
                 ? context => [SINGLE_AUTHORING_FACTORIES[className](context)]
                 : null),
+        cloneAuthoringDefinitions: base.cloneAuthoringDefinitions || null,
         capabilities: Object.freeze({
             create: editable,
             clone: editable && !base.singleton,

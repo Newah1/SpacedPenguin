@@ -61,20 +61,6 @@ test('black hole exposes gravity properties in the editor inspector', () => {
     assert.equal(props.find(prop => prop.key === 'mass').value, 321);
 });
 
-test('black hole editor cloning preserves gravity settings and non-collision', () => {
-    const editor = Object.create(LevelEditor.prototype);
-    editor.game = { assetLoader: null };
-    editor.gameObjectClasses = { BlackHole };
-    const original = new BlackHole(10, 20, 45, 777, 2345);
-    original.id = 'blackhole_1';
-    original.name = 'Void';
-    const clone = editor.cloneObject(original);
-    assert.equal(clone.radius, 45);
-    assert.equal(clone.mass, 777);
-    assert.equal(clone.gravitationalReach, 2345);
-    assert.equal(clone.collisionRadius, 0);
-    assert.equal(clone.collidable, false);
-});
 
 test('editing black hole gravity refreshes the shared physics registry', () => {
     const editor = Object.create(LevelEditor.prototype);

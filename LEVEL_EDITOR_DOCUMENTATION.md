@@ -524,10 +524,11 @@ The level editor is built using a modular architecture:
 js/
 ├── console.js          # Console interface and command handling
 ├── levelEditor.js      # Compatibility facade and editor composition
-├── levelEditor/        # Document, state, selection, tools, projection, events, and views
+├── levelEditor/        # Document, state, selection, identity, tools, projection, events, and views
 ├── editorCommands/     # ID-based commands, live transactions, and command history
 ├── gameObjects.js      # Game object classes and properties
-├── levelLoader.js      # Level loading and object factory
+├── editorObjectRegistry.js # Object defaults, factories, capabilities, hooks, and metadata
+├── levelLoader.js      # Level loading and registry-dispatching object factory
 └── game.js             # Game engine integration
 ```
 
@@ -541,12 +542,13 @@ js/
 **Level Editor (`levelEditor.js`):**
 - Delegates ID-based selection and exclusive pointer interaction to editor services
 - Coordinates focused inspector, object-list, toolbar, canvas-input, and overlay components
-- Keeps compatibility entry points while authored state remains in `LevelDocument`
+- Exposes the editor composition API while authored state remains in `LevelDocument`
 - Reads canonical document JSON for save, download/export, play, and publish
 
 **Editor Ownership (`levelEditor/`):**
 - `EditorState` owns lifecycle, mode, camera, primary tool, and one pointer-owned discriminated interaction
 - `EditorSelection` stores `none`, `level-settings`, or an object ID and resolves rebuilt runtime mirrors
+- `EditorObjectService` discovers editable runtime mirrors and centrally allocates individual/group IDs and display names
 - `EditorToolManager` handles selection, object/orbit dragging, Space or middle-button pan, touch threshold/long press, and Gravity Sculpt waypoint capture
 - `LevelDocument` preserves authored ordering, indexes records by ID, applies patches, and supplies revision/fingerprint state
 - `DocumentMutationService` transforms cloned JSON definitions for properties, positions, level settings, orbit authoring, object actions, and Gravity Sculpt batches
@@ -554,6 +556,7 @@ js/
 - `EditorRuntimeProjector` is the only edit-mode runtime writer; it incrementally replaces changed mirrors and uses existing loader, factory, mutator, and physics paths for structural projection
 - `OrbitPreviewService` derives visualization-only orbit positions without mutating authored or runtime objects
 - `EditorEvents` exposes only selection, document, mode, history, and tool signals
+- `PublishMetadataPromptView` owns publish confirmation DOM, focus, validation, cancellation, and inert background state
 
 **Editor Commands (`editorCommands/`):**
 - A compatibility-named `LiveEditCommand` contract whose implementations mutate authored documents, never runtime object references
@@ -561,18 +564,19 @@ js/
 - `EditorCommandBus` execution, undo/redo, failure rollback, and begin/update/commit/cancel live transactions
 - Per-focus coalescing for continuous inspector input and one history entry per canvas drag
 
-**Game Object Integration:**
-- Reflection-based property discovery with special handling for nested properties
-- Real-time property updates with immediate visual feedback
-- Advanced sprite management with dropdown selection and defaults
-- Coordinate system handling for both position.x/y and direct x/y properties
+**Game Object Registry:**
+- Creates canonical authored definitions before any runtime projection
+- Owns complete JSON-to-runtime construction functions and shared object defaults
+- Registers collection, singleton, capability, inspector, clone, and transient property behavior
+- Keeps portal pair creation/cloning and type-specific post-edit refresh logic outside `LevelEditor`
 
 ### Extension Points
 
 **Adding New Object Types:**
-1. Create class in `gameObjects.js`
-2. Add factory method in `levelLoader.js`
-3. Add editor defaults/property controls, runtime collection registration, clone serialization, and export/loader support
+1. Create the runtime class in `gameObjects.js` (or its focused module)
+2. Register authoring and runtime factories in `editorObjectRegistry.js`
+3. Register property controls, collections, capabilities, and any clone/property hooks in that descriptor
+4. Add schema, validation, simulation-state, export, documentation, and tests as applicable
 
 **Custom Property Types:**
 1. Add handling in `createPropertyInput()`

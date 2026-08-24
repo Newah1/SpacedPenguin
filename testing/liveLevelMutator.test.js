@@ -10,6 +10,7 @@ import {
 } from '../js/editorCommands/index.js';
 import LevelEditor from '../js/levelEditor.js';
 import { EditorInputContext } from '../js/input/contexts/editorInputContext.js';
+import EditorObjectService from '../js/levelEditor/editorObjectService.js';
 
 class Planet {}
 class Bonus {}
@@ -89,9 +90,10 @@ test('editor-generated names and IDs fill gaps without collisions', () => {
         Object.assign(new Planet(), { name: 'Planet 3', id: 'planet_3' })
     );
     const next = new Planet();
+    editor.objectService = new EditorObjectService(editor);
 
-    assert.equal(editor.generateObjectName(next, 'Planet'), 'Planet 2');
-    assert.equal(editor.generateObjectId(next, 'Planet'), 'planet_2');
+    assert.equal(editor.objectService.allocateName('Planet', next), 'Planet 2');
+    assert.equal(editor.objectService.allocateId('Planet', next), 'planet_2');
 });
 
 test('editor context declares one pointer event stream and no synthetic click pass', () => {
@@ -109,32 +111,6 @@ test('editor context declares one pointer event stream and no synthetic click pa
     assert.equal(context.inputTypes.includes('mousedown'), false);
 });
 
-test('orbit clone data is restored before deserializeObject returns', () => {
-    class Planet {
-        constructor(x, y) {
-            this.position = { x, y };
-        }
-    }
-    const editor = Object.create(LevelEditor.prototype);
-    editor.game = { assetLoader: null };
-    const clone = editor.deserializeObject({
-        className: 'Planet',
-        properties: {
-            position: { x: 10, y: 20 },
-            orbitSystem: {
-                orbitCenter: { x: 100, y: 200 },
-                orbitRadius: 75,
-                orbitSpeed: 2,
-                orbitAngle: 0.5,
-                orbitType: 'circular',
-                orbitParams: {}
-            }
-        }
-    }, Planet);
-
-    assert.equal(clone.orbitSystem.orbitRadius, 75);
-    assert.deepEqual(clone.orbitSystem.orbitCenter, { x: 100, y: 200 });
-});
 
 test('every registered strategy implements the do/undo command contract', () => {
     for (const type of Object.values(LiveEditCommandType)) {

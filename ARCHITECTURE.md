@@ -136,7 +136,7 @@ flowchart TB
 | `LevelCatalogService` | Source-neutral discovery, cursor paging, search, detail lookup, and definition lookup | Official, local, and optional community catalog sources | Keeps card summaries separate from rich details and playable JSON; source cursors are opaque to the UI. |
 | `LevelBrowserScreen` | Async level discovery and context-aware play/open UI | `LevelCatalogService`, `Game`, `UIManager` | Owns source tabs, query/loading/error/detail state, debounced search, incremental pages, context-specific actions, unsaved-editor confirmation, focus containment, and lazy thumbnails. |
 | `LevelSaveService` | Create or update locally owned editor records | `LocalLevelRepository`, save strategy pipeline | Persists local definitions and metadata; read/discovery behavior belongs to the catalog boundary. |
-| `GameObjectFactory` | Validated JSON-to-runtime entity mapping and orbit configuration | Entity constructors, `LevelSchema` | Supports canonical types plus configured text/arrow aliases; exported penguin state is intentionally ignored. |
+| `GameObjectFactory` | Normalize validated JSON and dispatch registry-owned runtime construction | Object registry, entity constructors, `LevelSchema` | Object-specific constructors/defaults live in registry descriptors; shared orbit configuration remains in the factory. |
 | `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
 | `CompiledWorldTimeline` | Exact fixed-step world-state cache for repeated headless candidates | Orbit simulation, simulation state | Stores positions plus orbit angle/velocity in compact `Float64Array` buffers; it changes evaluation cost, not gameplay semantics. |
@@ -493,7 +493,7 @@ UI is hybrid:
 
 ## 11. Level editor architecture
 
-The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` remains the compatibility facade used by `Game`, input contexts, and browser diagnostics, but delegates interaction state, ID selection, tools, command dispatch, runtime projection, and views to focused collaborators under `js/levelEditor/`. Missing object IDs and display names are assigned when a level enters the editor and persist in subsequent saves and exports.
+The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` is the composition facade used by `Game`, input contexts, and browser diagnostics, but delegates interaction state, ID selection, identity allocation, tools, command dispatch, runtime projection, publishing UI, and other views to focused collaborators under `js/levelEditor/`. Missing object IDs and display names are assigned by `EditorObjectService` when a level enters the editor and persist in subsequent saves and exports.
 
 Every authored mutation crosses `EditorCommandBus`. Commands carry stable IDs and serializable before/after document definitions; `DocumentMutationService` derives changes without reading or changing runtime objects. Live drag and inspector transactions can update the edit projection repeatedly while committing one undo entry. `documentProjectionTransaction` validates the candidate definition before projection and restores both the prior document and the last-known-good runtime if projection fails.
 
@@ -520,6 +520,8 @@ Architectural consequences:
 - Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
 - Inspector properties, level settings, orbit edits, movement, object actions, and Gravity Sculpt acceptance transform cloned document definitions. Runtime exports are never used to synchronize accepted commands into authored state.
 - Clone reads the selected authored record, allocates a new document-visible identity, applies its offset, and submits the new record through the structural command path.
+- `editorObjectRegistry.js` owns authoring-definition factories, complete runtime constructors, group clone hooks, transient type-specific property hooks, capabilities, collections, and inspector metadata. Portal create/clone/delete behavior is dispatched through registered strategies or descriptor hooks rather than `LevelEditor` type branches.
+- `PublishMetadataPromptView` owns publish-dialog DOM, focus, validation, cancellation, and background inert state.
 - Edit to Play validates and clones `LevelDocument`, constructs a fresh simulation world, and freezes that exact definition for completion proof/publishing. Returning to Edit discards the simulated world and rebuilds from the unchanged document.
 - Save, export, thumbnail metadata, and editor publishing serialize `LevelDocument`; `Game.exportCurrentLevel()` remains the runtime/gameplay export path.
 - Orbit preview is visualization-only state. It advances a compiled preview graph and renders with Canvas transforms/global alpha without changing authored or runtime positions.
@@ -604,10 +606,10 @@ Maintain these constraints when changing the system:
 ### Add a runtime entity type
 
 1. Implement or extend an entity in `gameObjects.js` with `update(delta)` and `draw(ctx)` behavior.
-2. Export it and add a `GameObjectFactory.create` branch.
+2. Register its authoring-definition factory and complete runtime creator in `editorObjectRegistry.js`.
 3. Define JSON defaults and validation expectations.
-4. Register it in the appropriate `Game` collections and subsystem registries during load.
-5. Add constructor/default/property/serialization support in `LevelEditor` and `Game` export.
+4. Register collections, capabilities, inspector fields, and any clone/property hooks in the same descriptor.
+5. Add simulation-state and `Game` export support when gameplay-relevant.
 6. Add assets to the manifest if required, with programmatic fallback where appropriate.
 7. Add a focused browser harness and a production-level integration test.
 8. Update this document and `levels/README.md`.
