@@ -1,7 +1,7 @@
 import { makeDraggablePanel } from './draggablePanel.js';
 
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { createButton } from '../buttonFramework.js';
+import { EDITOR_CONFIG } from '../../config/editorConfig.js';
+import { createButton } from '../../buttonFramework.js';
 
 function button(label, color, action) {
     const element = createButton(label, action, {

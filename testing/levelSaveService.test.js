@@ -8,7 +8,7 @@ import {
     LevelCatalogService,
     LocalLevelCatalogSource
 } from '../js/levelCatalogService.js';
-import { readAppConfig } from '../js/appConfig.js';
+import { readAppConfig } from '../js/config/appConfig.js';
 import {
     RemoteLevelCatalogError,
     RemoteLevelCatalogSource

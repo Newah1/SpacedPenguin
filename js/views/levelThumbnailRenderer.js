@@ -1,6 +1,6 @@
-import { LevelLoader } from './levelLoader.js';
-import { Physics } from './physics.js';
-import { applyCameraTransform, createWorldCamera, STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
+import { LevelLoader } from '../levelLoader.js';
+import { Physics } from '../physics.js';
+import { applyCameraTransform, createWorldCamera, STAGE_HEIGHT, STAGE_WIDTH } from '../viewport.js';
 
 const THUMBNAIL_WIDTH = 240;
 const THUMBNAIL_HEIGHT = 160;

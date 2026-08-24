@@ -1,6 +1,6 @@
-import { advanceOrbitGraphMutable, compileOrbitGraph } from '../orbitSimulation.js';
-import { LevelOrbitType } from '../levelSchema.js';
-import { PHYSICS_CONFIG } from '../config/gameConfig.js';
+import { advanceOrbitGraphMutable, compileOrbitGraph } from '../../orbitSimulation.js';
+import { LevelOrbitType } from '../../levelSchema.js';
+import { PHYSICS_CONFIG } from '../../config/gameConfig.js';
 
 const MAX_PREVIEW_STEP_SECONDS = 1 / 20;
 

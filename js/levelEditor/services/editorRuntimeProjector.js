@@ -1,6 +1,6 @@
-import LiveLevelMutator from '../liveLevelMutator.js';
-import { GameObjectFactory, LevelRules } from '../levelLoader.js';
-import { normalizeLevelObjectType } from '../levelSchema.js';
+import LiveLevelMutator from '../../liveLevelMutator.js';
+import { GameObjectFactory, LevelRules } from '../../levelLoader.js';
+import { normalizeLevelObjectType } from '../../levelSchema.js';
 
 const RUNTIME_COLLECTIONS = Object.freeze([
     'gameObjects', 'planets', 'bonuses', 'portals', 'textObjects', 'pointingArrows'

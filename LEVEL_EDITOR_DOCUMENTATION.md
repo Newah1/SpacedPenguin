@@ -524,7 +524,14 @@ The level editor is built using a modular architecture:
 js/
 ├── console.js          # Console interface and command handling
 ├── levelEditor.js      # Compatibility facade and editor composition
-├── levelEditor/        # Document, state, selection, identity, tools, projection, events, and views
+├── levelEditor/
+│   ├── commands/       # Command bus and semantic command strategies
+│   ├── controllers/    # Canvas, tools, runtime preview, and Gravity Sculpt coordination
+│   ├── services/       # Document mutation/projection, object identity, and orbit preview
+│   ├── state/          # LevelDocument, editor state, selection, and domain events
+│   └── views/          # Inspector, toolbar, lists, overlays, prompts, and DOM helpers
+├── views/              # Shared game screens, dialogs, leaderboards, and thumbnail rendering
+├── config/             # Frozen product policy plus app/runtime configuration access
 ├── editorCommands/     # ID-based commands, live transactions, and command history
 ├── gameObjects.js      # Game object classes and properties
 ├── editorObjectRegistry.js # Object defaults, factories, capabilities, hooks, and metadata

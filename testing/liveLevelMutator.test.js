@@ -10,7 +10,7 @@ import {
 } from '../js/editorCommands/index.js';
 import LevelEditor from '../js/levelEditor.js';
 import { EditorInputContext } from '../js/input/contexts/editorInputContext.js';
-import EditorObjectService from '../js/levelEditor/editorObjectService.js';
+import EditorObjectService from '../js/levelEditor/services/editorObjectService.js';
 
 class Planet {}
 class Bonus {}

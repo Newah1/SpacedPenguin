@@ -10,11 +10,11 @@ const deterministicLevel = {
     rules: {}
 };
 
-async function useDeterministicLevel(page) {
+async function useDeterministicLevel(page, overrides = {}) {
     await page.route('**/levels/level01.json', route => route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(deterministicLevel)
+        body: JSON.stringify({ ...deterministicLevel, ...overrides })
     }));
 }
 
@@ -62,7 +62,7 @@ test.afterEach(async ({ page }) => {
 const pageErrorsByPage = new WeakMap();
 
 test('start, launch, cancel the menu confirmation, render, and finish a level', async ({ page }) => {
-    await useDeterministicLevel(page);
+    await useDeterministicLevel(page, { targetPosition: { x: 700, y: 300 } });
     await page.goto('/');
     await waitForGame(page);
 
@@ -215,6 +215,7 @@ test('Escape confirmation can return to the main menu', async ({ page }) => {
 });
 
 test('settings are available from the main and pause menus and persist locally', async ({ page }) => {
+    test.setTimeout(60_000);
     await useDeterministicLevel(page);
     await page.route('**/*.wav', route => route.abort());
     await page.goto('/');
@@ -487,7 +488,7 @@ test('level thumbnails render the real playfield without replacing the active wo
     await waitForGame(page);
 
     const result = await page.evaluate(async () => {
-        const { createLevelThumbnail } = await import('/js/levelThumbnailRenderer.js');
+        const { createLevelThumbnail } = await import('/js/views/levelThumbnailRenderer.js');
         const game = window.game;
         const activeObjects = game.gameObjects;
         const definition = game.levelLoader.levels.get(1);

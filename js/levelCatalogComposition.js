@@ -1,4 +1,4 @@
-import { readAppConfig } from './appConfig.js';
+import { readAppConfig } from './config/appConfig.js';
 import { LevelCatalogService, LocalLevelCatalogSource } from './levelCatalogService.js';
 import { RemoteLevelCatalogSource } from './remoteLevelCatalogSource.js';
 import { OfficialLevelCatalogSource } from './officialLevelCatalogSource.js';

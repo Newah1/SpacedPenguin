@@ -1,9 +1,9 @@
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { EditorEventType } from './editorEvents.js';
+import { EDITOR_CONFIG } from '../../config/editorConfig.js';
+import { EditorEventType } from '../state/editorEvents.js';
 import {
     EditorInteractionType,
     EditorTool
-} from './editorState.js';
+} from '../state/editorState.js';
 
 function point(value) {
     return value ? { x: value.x, y: value.y } : null;

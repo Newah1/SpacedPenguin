@@ -1,4 +1,4 @@
-import Utils from './utils.js';
+import Utils from '../utils.js';
 
 const STYLE_ID = 'spaced-penguin-community-leaderboard-style';
 

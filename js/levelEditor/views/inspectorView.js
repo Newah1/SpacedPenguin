@@ -1,6 +1,6 @@
-import { isCompactEditorViewport } from '../config/inputConfig.js';
-import { LevelOrbitType } from '../levelSchema.js';
-import { EditorEventType } from './editorEvents.js';
+import { isCompactEditorViewport } from '../../config/inputConfig.js';
+import { LevelOrbitType } from '../../levelSchema.js';
+import { EditorEventType } from '../state/editorEvents.js';
 import {
     createEditorActionButton,
     createEditorPropertyControl

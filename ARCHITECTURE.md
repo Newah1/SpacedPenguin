@@ -493,7 +493,7 @@ UI is hybrid:
 
 ## 11. Level editor architecture
 
-The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` is the composition facade used by `Game`, input contexts, and browser diagnostics, but delegates interaction state, ID selection, identity allocation, tools, command dispatch, runtime projection, publishing UI, and other views to focused collaborators under `js/levelEditor/`. Missing object IDs and display names are assigned by `EditorObjectService` when a level enters the editor and persist in subsequent saves and exports.
+The editor owns a canonical `LevelDocument` independently of the live `Game` aggregate. `LevelEditor` is the composition facade used by `Game`, input contexts, and browser diagnostics, but delegates to responsibility folders under `js/levelEditor/`: `commands/`, `controllers/`, `services/`, `state/`, and `views/`. Shared game screens and dialogs live under `js/views/`, while application/runtime configuration modules live with frozen policy under `js/config/`. Missing object IDs and display names are assigned by `EditorObjectService` when a level enters the editor and persist in subsequent saves and exports.
 
 Every authored mutation crosses `EditorCommandBus`. Commands carry stable IDs and serializable before/after document definitions; `DocumentMutationService` derives changes without reading or changing runtime objects. Live drag and inspector transactions can update the edit projection repeatedly while committing one undo entry. `documentProjectionTransaction` validates the candidate definition before projection and restores both the prior document and the last-known-good runtime if projection fails.
 

@@ -2,7 +2,7 @@ import {
     getRuntimeGameConfigValue,
     listGameConfigPaths,
     setRuntimeGameConfigValue
-} from './runtimeGameConfig.js';
+} from './config/runtimeGameConfig.js';
 
 export const CONSOLE_COMMANDS = Object.freeze([
     '/help',

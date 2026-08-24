@@ -1,4 +1,4 @@
-import { screenToStage, stageToScreen } from '../viewport.js';
+import { screenToStage, stageToScreen } from '../../viewport.js';
 
 export class LevelEditorCanvasInputController {
     constructor(editor) {

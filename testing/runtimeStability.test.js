@@ -20,10 +20,10 @@ const Console = (await import('../js/console.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputManager } = await import('../js/input/inputManager.js');
 const { registerDefaultInputContexts } = await import('../js/input/registerDefaultInputContexts.js');
-const { LevelEndScreen, getCompletionTitle } = await import('../js/levelEndScreen.js');
+const { LevelEndScreen, getCompletionTitle } = await import('../js/views/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
-const LevelEditorToolbarView = (await import('../js/levelEditor/toolbarView.js')).default;
-const LevelEditorCanvasInputController = (await import('../js/levelEditor/canvasInputController.js')).default;
+const LevelEditorToolbarView = (await import('../js/levelEditor/views/toolbarView.js')).default;
+const LevelEditorCanvasInputController = (await import('../js/levelEditor/controllers/canvasInputController.js')).default;
 const { Penguin } = await import('../js/penguin.js');
 const { UIManager } = await import('../js/uiManager.js');
 const {

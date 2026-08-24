@@ -1,4 +1,4 @@
-import { getEditorObjectDefinition } from '../editorObjectRegistry.js';
+import { getEditorObjectDefinition } from '../../editorObjectRegistry.js';
 
 export function prepareCloneForInsertion(clone) {
     if (!clone) return clone;

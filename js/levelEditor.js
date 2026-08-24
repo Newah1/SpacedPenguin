@@ -21,28 +21,28 @@ import {
     getEditorObjectDefinition
 } from './editorObjectRegistry.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
-import LevelEditorOverlayRenderer from './levelEditor/overlayRenderer.js';
-import LevelEditorObjectListView from './levelEditor/objectListView.js';
-import LevelEditorInspectorView from './levelEditor/inspectorView.js';
-import LevelEditorToolbarView from './levelEditor/toolbarView.js';
-import LevelEditorCanvasInputController from './levelEditor/canvasInputController.js';
-import GravitySculptView from './levelEditor/gravitySculptView.js';
-import GravitySculptController from './levelEditor/gravitySculptController.js';
-import PublishMetadataPromptView from './levelEditor/publishMetadataPromptView.js';
-import EditorEvents from './levelEditor/editorEvents.js';
-import EditorState, { EditorInteractionType } from './levelEditor/editorState.js';
-import EditorSelection from './levelEditor/editorSelection.js';
-import EditorObjectService from './levelEditor/editorObjectService.js';
-import EditorRuntimeProjector from './levelEditor/editorRuntimeProjector.js';
-import LevelDocument from './levelEditor/levelDocument.js';
-import EditorToolManager from './levelEditor/editorToolManager.js';
-import EditorCommandBus from './levelEditor/editorCommandBus.js';
+import LevelEditorOverlayRenderer from './levelEditor/views/overlayRenderer.js';
+import LevelEditorObjectListView from './levelEditor/views/objectListView.js';
+import LevelEditorInspectorView from './levelEditor/views/inspectorView.js';
+import LevelEditorToolbarView from './levelEditor/views/toolbarView.js';
+import LevelEditorCanvasInputController from './levelEditor/controllers/canvasInputController.js';
+import GravitySculptView from './levelEditor/views/gravitySculptView.js';
+import GravitySculptController from './levelEditor/controllers/gravitySculptController.js';
+import PublishMetadataPromptView from './levelEditor/views/publishMetadataPromptView.js';
+import EditorEvents from './levelEditor/state/editorEvents.js';
+import EditorState, { EditorInteractionType } from './levelEditor/state/editorState.js';
+import EditorSelection from './levelEditor/state/editorSelection.js';
+import EditorObjectService from './levelEditor/services/editorObjectService.js';
+import EditorRuntimeProjector from './levelEditor/services/editorRuntimeProjector.js';
+import LevelDocument from './levelEditor/state/levelDocument.js';
+import EditorToolManager from './levelEditor/controllers/editorToolManager.js';
+import EditorCommandBus from './levelEditor/commands/editorCommandBus.js';
 import {
     EditorCommandIntent,
     registerDeleteObjectCommandStrategies
-} from './levelEditor/deleteObjectCommandStrategies.js';
-import DocumentMutationService from './levelEditor/documentMutationService.js';
-import { projectDocumentDefinition } from './levelEditor/documentProjectionTransaction.js';
+} from './levelEditor/commands/deleteObjectCommandStrategies.js';
+import DocumentMutationService from './levelEditor/services/documentMutationService.js';
+import { projectDocumentDefinition } from './levelEditor/services/documentProjectionTransaction.js';
 import { createButton } from './buttonFramework.js';
 import {
     INPUT_CONFIG,

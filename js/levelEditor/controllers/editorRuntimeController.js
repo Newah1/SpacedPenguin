@@ -1,9 +1,9 @@
-import { EditorInteractionType } from './editorState.js';
-import { prepareCloneForInsertion } from './editorObjectService.js';
+import { EditorInteractionType } from '../state/editorState.js';
+import { prepareCloneForInsertion } from '../services/editorObjectService.js';
 import OrbitPreviewService, {
     isMovingOrbit,
     runtimeObjectPosition
-} from './orbitPreviewService.js';
+} from '../services/orbitPreviewService.js';
 
 export { prepareCloneForInsertion };
 

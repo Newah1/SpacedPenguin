@@ -1,5 +1,5 @@
-import { SettingType } from './config/settingsConfig.js';
-import { createButton } from './buttonFramework.js';
+import { SettingType } from '../config/settingsConfig.js';
+import { createButton } from '../buttonFramework.js';
 
 const controlRenderers = new Map();
 

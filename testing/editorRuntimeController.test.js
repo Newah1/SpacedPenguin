@@ -8,8 +8,8 @@ import {
     findOrbitTargetObject,
     prepareCloneForInsertion,
     shouldSuppressEditorKey
-} from '../js/levelEditor/editorRuntimeController.js';
-import EditorObjectService from '../js/levelEditor/editorObjectService.js';
+} from '../js/levelEditor/controllers/editorRuntimeController.js';
+import EditorObjectService from '../js/levelEditor/services/editorObjectService.js';
 
 class FakePlanet {
     constructor() {

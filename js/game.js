@@ -8,7 +8,7 @@ import { Physics } from './physics.js';
 import Utils from './utils.js';
 import { LevelLoader } from './levelLoader.js';
 import { UIManager } from './uiManager.js';
-import { LevelEndScreen } from './levelEndScreen.js';
+import { LevelEndScreen } from './views/levelEndScreen.js';
 import Console from './console.js';
 import LevelEditor from './levelEditor.js';
 import FullscreenManager from './fullscreenManager.js';
@@ -40,20 +40,20 @@ import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import { SETTINGS_CONFIG } from './config/settingsConfig.js';
 import { LocalSettingsStore } from './settingsStore.js';
 import { SettingsManager } from './settingsManager.js';
-import { SettingsScreen } from './settingsScreen.js';
+import { SettingsScreen } from './views/settingsScreen.js';
 import { StellarTrackStore } from './stellarTrackStore.js';
 import { HighScoreStore } from './highScoreStore.js';
-import { HighScoresScreen } from './highScoresScreen.js';
-import { LevelBrowserScreen } from './levelBrowserScreen.js';
+import { HighScoresScreen } from './views/highScoresScreen.js';
+import { LevelBrowserScreen } from './views/levelBrowserScreen.js';
 import { LevelSaveService, captureLevelThumbnail } from './levelSaveService.js';
 import { createConfiguredLevelCatalog } from './levelCatalogComposition.js';
-import { readAppConfig } from './appConfig.js';
+import { readAppConfig } from './config/appConfig.js';
 import { CommunityLevelClient, createIdempotencyKey } from './communityLevelClient.js';
 import { calculateCommunityScore } from './communityScore.js';
 import { RunTranscriptRecorder } from './runTranscript.js';
 import { assertValidLevelDefinition } from './levelValidation.js';
 import { createButton, registerButton } from './buttonFramework.js';
-import { getRuntimeGameConfigValue } from './runtimeGameConfig.js';
+import { getRuntimeGameConfigValue } from './config/runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,

@@ -1,5 +1,5 @@
-import { normalizeLevelDefinition, normalizeLevelObjectType } from '../levelSchema.js';
-import { assertValidLevelDefinition } from '../levelValidation.js';
+import { normalizeLevelDefinition, normalizeLevelObjectType } from '../../levelSchema.js';
+import { assertValidLevelDefinition } from '../../levelValidation.js';
 
 const TYPE_LABELS = Object.freeze({
     planet: 'Planet',

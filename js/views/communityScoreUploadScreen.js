@@ -1,7 +1,7 @@
-import { UIScreen } from './uiManager.js';
-import { createButton } from './buttonFramework.js';
+import { UIScreen } from '../uiManager.js';
+import { createButton } from '../buttonFramework.js';
 import { createCommunityLeaderboard } from './communityLeaderboardView.js';
-import Utils from './utils.js';
+import Utils from '../utils.js';
 
 const STYLE_ID = 'spaced-penguin-score-upload-style';
 

@@ -1,8 +1,8 @@
-import { GameState } from '../game.js';
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { captureGameSimulationState } from '../gameSimulationAdapter.js';
-import { solveGravitySculpt } from '../gravitySculptor.js';
-import { LiveEditCommandType } from '../editorCommands/index.js';
+import { GameState } from '../../game.js';
+import { EDITOR_CONFIG } from '../../config/editorConfig.js';
+import { captureGameSimulationState } from '../../gameSimulationAdapter.js';
+import { solveGravitySculpt } from '../../gravitySculptor.js';
+import { LiveEditCommandType } from '../../editorCommands/index.js';
 
 const INITIAL_STATE = Object.freeze({
     active: false,

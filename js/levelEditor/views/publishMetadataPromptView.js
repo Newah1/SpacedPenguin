@@ -1,4 +1,4 @@
-import { createButton } from '../buttonFramework.js';
+import { createButton } from '../../buttonFramework.js';
 
 export class PublishMetadataPromptView {
     constructor(editor) {

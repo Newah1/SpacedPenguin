@@ -1,10 +1,10 @@
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { PHYSICS_CONFIG } from '../config/gameConfig.js';
+import { EDITOR_CONFIG } from '../../config/editorConfig.js';
+import { PHYSICS_CONFIG } from '../../config/gameConfig.js';
 import {
     LevelOrbitType,
     ORBIT_LOOKUP_TARGET_TYPES,
     normalizeLevelObjectType
-} from '../levelSchema.js';
+} from '../../levelSchema.js';
 
 function clone(value) {
     return value === undefined ? undefined : structuredClone(value);

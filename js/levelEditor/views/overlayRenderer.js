@@ -1,8 +1,8 @@
-import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { LevelOrbitType } from '../levelSchema.js';
-import EditorRuntimeController from './editorRuntimeController.js';
-import { EditorEventType } from './editorEvents.js';
-import { getPortalOutwardDirection } from '../portalGeometry.js';
+import { EDITOR_CONFIG } from '../../config/editorConfig.js';
+import { LevelOrbitType } from '../../levelSchema.js';
+import EditorRuntimeController from '../controllers/editorRuntimeController.js';
+import { EditorEventType } from '../state/editorEvents.js';
+import { getPortalOutwardDirection } from '../../portalGeometry.js';
 
 export class LevelEditorOverlayRenderer {
     constructor(editor) {

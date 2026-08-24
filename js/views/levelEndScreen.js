@@ -1,11 +1,11 @@
 // Level End Screen - matches original game's scoring display
 // Based on the original GPS script's scoring system and UI layout
 
-import { UIScreen, BackgroundOverlay, Panel, TextElement, Button, AnimatedNumber } from './uiManager.js';
-import { GameState } from './game.js';
-import { STAGE_HEIGHT, STAGE_WIDTH } from './viewport.js';
-import { AUDIO_CONFIG, AudioCue, getAudioCue } from './config/audioConfig.js';
-import { UI_CONFIG } from './config/uiConfig.js';
+import { UIScreen, BackgroundOverlay, Panel, TextElement, Button, AnimatedNumber } from '../uiManager.js';
+import { GameState } from '../game.js';
+import { STAGE_HEIGHT, STAGE_WIDTH } from '../viewport.js';
+import { AUDIO_CONFIG, AudioCue, getAudioCue } from '../config/audioConfig.js';
+import { UI_CONFIG } from '../config/uiConfig.js';
 import { CommunityScoreUploadScreen } from './communityScoreUploadScreen.js';
 
 export function isCustomLevel(game) {

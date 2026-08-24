@@ -1,4 +1,4 @@
-import { EditorEventType } from './editorEvents.js';
+import { EditorEventType } from '../state/editorEvents.js';
 
 export class EditorCommandBus {
     constructor({ history, events, canExecute, validate } = {}) {

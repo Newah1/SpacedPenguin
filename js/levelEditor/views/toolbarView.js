@@ -1,8 +1,8 @@
-import { isCompactEditorViewport } from '../config/inputConfig.js';
+import { isCompactEditorViewport } from '../../config/inputConfig.js';
 import { makeDraggablePanel } from './draggablePanel.js';
-import { createButton } from '../buttonFramework.js';
-import { getEditorObjectDefinition } from '../editorObjectRegistry.js';
-import { EditorEventType } from './editorEvents.js';
+import { createButton } from '../../buttonFramework.js';
+import { getEditorObjectDefinition } from '../../editorObjectRegistry.js';
+import { EditorEventType } from '../state/editorEvents.js';
 
 function button(label, background, action) {
     const element = createButton(label, action, {

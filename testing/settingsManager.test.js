@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 const { SETTINGS_CONFIG } = await import('../js/config/settingsConfig.js');
 const { SettingsManager } = await import('../js/settingsManager.js');
 const { LocalSettingsStore, MemorySettingsStore } = await import('../js/settingsStore.js');
-const { resolveNumberSettingChange } = await import('../js/settingsScreen.js');
+const { resolveNumberSettingChange } = await import('../js/views/settingsScreen.js');
 
 test('settings load defaults, persist changes, and invoke configured effects', () => {
     const store = new MemorySettingsStore();

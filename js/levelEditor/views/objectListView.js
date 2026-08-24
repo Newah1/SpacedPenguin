@@ -1,7 +1,7 @@
-import { INPUT_CONFIG, isCompactEditorViewport } from '../config/inputConfig.js';
-import plog from '../penguinLogger.js';
+import { INPUT_CONFIG, isCompactEditorViewport } from '../../config/inputConfig.js';
+import plog from '../../penguinLogger.js';
 import { makeDraggablePanel } from './draggablePanel.js';
-import { EditorEventType } from './editorEvents.js';
+import { EditorEventType } from '../state/editorEvents.js';
 
 export class LevelEditorObjectListView {
     constructor(editor) {

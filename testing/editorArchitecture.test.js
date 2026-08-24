@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import EditorEvents, { EditorEventType } from '../js/levelEditor/editorEvents.js';
-import EditorSelection from '../js/levelEditor/editorSelection.js';
-import EditorState, { EditorInteractionType } from '../js/levelEditor/editorState.js';
-import EditorToolManager from '../js/levelEditor/editorToolManager.js';
-import EditorCommandBus from '../js/levelEditor/editorCommandBus.js';
-import LevelDocument from '../js/levelEditor/levelDocument.js';
-import DocumentMutationService from '../js/levelEditor/documentMutationService.js';
-import { projectDocumentDefinition } from '../js/levelEditor/documentProjectionTransaction.js';
+import EditorEvents, { EditorEventType } from '../js/levelEditor/state/editorEvents.js';
+import EditorSelection from '../js/levelEditor/state/editorSelection.js';
+import EditorState, { EditorInteractionType } from '../js/levelEditor/state/editorState.js';
+import EditorToolManager from '../js/levelEditor/controllers/editorToolManager.js';
+import EditorCommandBus from '../js/levelEditor/commands/editorCommandBus.js';
+import LevelDocument from '../js/levelEditor/state/levelDocument.js';
+import DocumentMutationService from '../js/levelEditor/services/documentMutationService.js';
+import { projectDocumentDefinition } from '../js/levelEditor/services/documentProjectionTransaction.js';
 import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
 import CommandHistory from '../js/editorCommands/commandHistory.js';
 import CommandRegistry from '../js/editorCommands/commandRegistry.js';

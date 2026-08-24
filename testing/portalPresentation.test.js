@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import './nodeShims.js';
 
 import { Penguin } from '../js/penguin.js';
-import { LevelEditorOverlayRenderer } from '../js/levelEditor/overlayRenderer.js';
+import { LevelEditorOverlayRenderer } from '../js/levelEditor/views/overlayRenderer.js';
 import { applyGameSimulationEvents } from '../js/gameSimulationAdapter.js';
 import { SimulationEventType } from '../js/simulationEngine.js';
 import { Portal } from '../js/gameObjects.js';

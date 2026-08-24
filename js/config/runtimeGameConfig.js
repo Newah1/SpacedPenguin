@@ -5,7 +5,7 @@ import {
     PHYSICS_CONFIG,
     SIMULATION_CONFIG,
     WORLD_CONFIG
-} from './config/gameConfig.js';
+} from './gameConfig.js';
 
 const configRoots = Object.freeze({
     WORLD_CONFIG,

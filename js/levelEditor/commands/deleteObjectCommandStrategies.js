@@ -1,4 +1,4 @@
-import { LiveEditCommandType } from '../editorCommands/index.js';
+import { LiveEditCommandType } from '../../editorCommands/index.js';
 
 export const EditorCommandIntent = Object.freeze({
     DELETE_SELECTED_OBJECT: 'selection.delete'

@@ -7,7 +7,7 @@ import {
     getRuntimeGameConfigValue,
     listGameConfigPaths,
     setRuntimeGameConfigValue
-} from '../js/runtimeGameConfig.js';
+} from '../js/config/runtimeGameConfig.js';
 
 test.afterEach(() => clearRuntimeGameConfigOverrides());
 

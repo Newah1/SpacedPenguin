@@ -1,5 +1,5 @@
-import { UIScreen } from './uiManager.js';
-import { createButton } from './buttonFramework.js';
+import { UIScreen } from '../uiManager.js';
+import { createButton } from '../buttonFramework.js';
 import { createCommunityLeaderboard } from './communityLeaderboardView.js';
 import { createLevelThumbnail } from './levelThumbnailRenderer.js';
 
