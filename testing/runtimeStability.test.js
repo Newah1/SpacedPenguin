@@ -447,6 +447,24 @@ test('text factory restores an explicitly exported wrap limit', () => {
     assert.equal(textObject.maxWidth, 340);
 });
 
+test('object factory preserves authored IDs for every projected runtime type', () => {
+    const definitions = [
+        { type: 'slingshot', position: { x: 100, y: 200 }, properties: { id: 'launcher_custom' } },
+        { type: 'textobject', position: { x: 200, y: 100 }, properties: { id: 'textobject_9' } },
+        { type: 'pointingarrow', position: { x: 300, y: 100 }, properties: { id: 'arrow_custom' } }
+    ];
+
+    const runtimeObjects = definitions.map(definition =>
+        GameObjectFactory.create(definition, null, null)
+    );
+
+    assert.deepEqual(runtimeObjects.map(object => object.id), [
+        'launcher_custom',
+        'textobject_9',
+        'arrow_custom'
+    ]);
+});
+
 test('tutorial text parser preserves authored breaks and decodes quoted copy', () => {
     const textObject = new TextObject(10, 20,
         '<font size=4><b>Distance Bonus<br>Planets will &quot;pull&quot; Kevin.</b></font>');

@@ -50,29 +50,41 @@ export class GameObjectFactory {
             return null;
         }
         
+        let gameObject = null;
         switch (normalizeLevelObjectType(type)) {
             case LevelObjectType.PLANET:
-                return this.createPlanet(position, properties, assetLoader, gameObjectLookup);
+                gameObject = this.createPlanet(position, properties, assetLoader, gameObjectLookup);
+                break;
             case LevelObjectType.BLACK_HOLE:
-                return this.createBlackHole(position, properties, gameObjectLookup);
+                gameObject = this.createBlackHole(position, properties, gameObjectLookup);
+                break;
             case LevelObjectType.BONUS:
-                return this.createBonus(position, properties, assetLoader, gameObjectLookup);
+                gameObject = this.createBonus(position, properties, assetLoader, gameObjectLookup);
+                break;
             case LevelObjectType.TARGET:
-                return this.createTarget(position, properties, assetLoader, gameObjectLookup);
+                gameObject = this.createTarget(position, properties, assetLoader, gameObjectLookup);
+                break;
             case LevelObjectType.SLINGSHOT:
-                return this.createSlingshot(position, properties, gameObjectLookup);
+                gameObject = this.createSlingshot(position, properties, gameObjectLookup);
+                break;
             case LevelObjectType.TEXT:
-                return this.createTextObject(position, properties, gameObjectLookup);
+                gameObject = this.createTextObject(position, properties, gameObjectLookup);
+                break;
             case LevelObjectType.POINTING_ARROW:
-                return this.createPointingArrow(position, properties, gameObjectLookup);
+                gameObject = this.createPointingArrow(position, properties, gameObjectLookup);
+                break;
             case LevelObjectType.PORTAL:
-                return this.createPortal(position, properties);
+                gameObject = this.createPortal(position, properties);
+                break;
             case LevelObjectType.PENGUIN:
                 return null;
             default:
                 plog.warn(`Unknown object type: ${type}`);
                 return null;
         }
+
+        if (gameObject && properties.id != null) gameObject.id = properties.id;
+        return gameObject;
     }
     
     static createPlanet(position, properties, assetLoader, gameObjectLookup = null) {
