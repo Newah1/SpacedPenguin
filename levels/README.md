@@ -180,7 +180,7 @@ Both `arrow` and `pointingarrow` create the tutorial `PointingArrow`. The separa
 
 ### Portals
 
-Portals are reciprocal red/blue endpoint pairs. Each endpoint requires a unique `id` and a `pairedPortalId` pointing back to the other endpoint. `rotation` is expressed in degrees; momentum is rotated from the entrance frame into the exit frame without changing speed. `playSound` defaults to `true`.
+Portals are reciprocal red/blue endpoint pairs. Each endpoint requires a unique `id` and a `pairedPortalId` pointing back to the other endpoint. `rotation` is expressed in degrees; momentum is rotated from the entrance frame into the exit frame without changing speed. The editor arrow identifies the outward, active face on one of the ellipse's long rim sides: the penguin must approach against that arrow to enter and exits through that face. A rotation of `0` faces up. `playSound` defaults to `true`.
 
 ```json
 {

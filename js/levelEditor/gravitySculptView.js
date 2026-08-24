@@ -10,13 +10,13 @@ function button(label, color, action) {
         textColor: 'white',
         borderColor: 'rgba(255, 255, 255, .25)'
     });
-    element.style.cssText += 'padding: 8px 12px; min-height: 38px; font-size: 13px;';
+    element.classList.add('gravity-sculpt-button');
     return element;
 }
 
 function checkbox(label, checked = true) {
     const wrapper = document.createElement('label');
-    wrapper.style.cssText = 'display:flex; gap:7px; align-items:center; cursor:pointer;';
+    wrapper.className = 'gravity-sculpt-checkbox';
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.checked = checked;
@@ -33,23 +33,16 @@ export class GravitySculptView {
     createElement() {
         this.panel = document.createElement('div');
         this.panel.id = 'gravity-sculpt-panel';
-        this.panel.style.cssText = `
-            position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-            width: min(560px, calc(100vw - 24px)); max-height: 48vh; overflow-y: auto;
-            box-sizing: border-box; display: none; padding: 14px; border-radius: 8px;
-            color: white; background: rgba(8, 12, 20, 0.96); border: 1px solid #ff9800;
-            box-shadow: 0 5px 20px rgba(0,0,0,.65); font: 13px Arial, sans-serif;
-            pointer-events: auto; z-index: 1005;
-        `;
+        this.panel.className = 'gravity-sculpt-panel';
         const heading = document.createElement('div');
         heading.textContent = 'Gravity Sculpt  [drag]';
         heading.dataset.editorDragHandle = '';
         heading.title = 'Drag to move';
-        heading.style.cssText = 'font-size:18px; font-weight:bold; color:#ffad33; margin-bottom:5px; cursor:grab; touch-action:none; user-select:none;';
+        heading.className = 'gravity-sculpt-heading';
         this.status = document.createElement('div');
-        this.status.style.cssText = 'margin-bottom:10px; color:#d8e6ff; line-height:1.35;';
+        this.status.className = 'gravity-sculpt-status';
         this.options = document.createElement('div');
-        this.options.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-bottom:10px;';
+        this.options.className = 'gravity-sculpt-options';
         const position = checkbox('Adjust positions');
         const mass = checkbox('Adjust gravity / mass');
         const launch = checkbox('Optimize launch angle / power');
@@ -58,7 +51,7 @@ export class GravitySculptView {
         this.adjustLaunch = launch.input;
         this.options.append(position.wrapper, mass.wrapper, launch.wrapper);
         const toleranceLabel = document.createElement('label');
-        toleranceLabel.style.cssText = 'grid-column:1 / -1; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center;';
+        toleranceLabel.className = 'gravity-sculpt-range';
         const toleranceText = document.createElement('span');
         toleranceText.textContent = 'Waypoint tolerance';
         this.checkpointTolerance = document.createElement('input');
@@ -75,7 +68,7 @@ export class GravitySculptView {
         toleranceLabel.append(toleranceText, this.checkpointTolerance, this.toleranceValue);
         this.options.appendChild(toleranceLabel);
         const budgetLabel = document.createElement('label');
-        budgetLabel.style.cssText = 'grid-column:1 / -1; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center;';
+        budgetLabel.className = 'gravity-sculpt-range';
         const budgetText = document.createElement('span');
         budgetText.textContent = 'Search budget';
         this.budgetMultiplier = document.createElement('input');
@@ -85,7 +78,7 @@ export class GravitySculptView {
         this.budgetMultiplier.step = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplierRange.step);
         this.budgetMultiplier.value = String(EDITOR_CONFIG.gravitySculpt.budgetMultiplier);
         this.budgetValue = document.createElement('span');
-        this.budgetValue.style.cssText = 'min-width:82px; text-align:right; color:#ffcf80;';
+        this.budgetValue.className = 'gravity-sculpt-budget-value';
         const updateBudgetValue = () => {
             const multiplier = Number(this.budgetMultiplier.value);
             this.budgetValue.textContent = `${multiplier.toFixed(2).replace(/\.00$/, '')}× (~${(multiplier ** 2).toFixed(2).replace(/\.00$/, '')}× time)`;
@@ -96,12 +89,12 @@ export class GravitySculptView {
         budgetLabel.append(budgetText, this.budgetMultiplier, this.budgetValue);
         this.options.appendChild(budgetLabel);
         this.goals = document.createElement('div');
-        this.goals.style.cssText = 'border-top:1px solid rgba(255,255,255,.18); padding-top:8px; margin-top:4px;';
+        this.goals.className = 'gravity-sculpt-goals';
         const goalsHeading = document.createElement('div');
         goalsHeading.textContent = 'Hard gameplay goals';
-        goalsHeading.style.cssText = 'font-weight:bold; margin-bottom:6px; color:#ffcf80;';
+        goalsHeading.className = 'gravity-sculpt-goals-heading';
         this.goalOptions = document.createElement('div');
-        this.goalOptions.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px 14px;';
+        this.goalOptions.className = 'gravity-sculpt-check-list';
         const targetGoal = checkbox('Must reach target');
         const collisionGoal = checkbox('No planet collisions');
         const boundsGoal = checkbox('Stay in bounds');
@@ -110,22 +103,22 @@ export class GravitySculptView {
         this.stayInBounds = boundsGoal.input;
         this.goalOptions.append(targetGoal.wrapper, collisionGoal.wrapper, boundsGoal.wrapper);
         const timeLabel = document.createElement('label');
-        timeLabel.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:7px;';
+        timeLabel.className = 'gravity-sculpt-time';
         timeLabel.append(document.createTextNode('Max flight seconds (0 = off)'));
         this.maxFlightSeconds = document.createElement('input');
         this.maxFlightSeconds.type = 'number';
         this.maxFlightSeconds.min = '0';
         this.maxFlightSeconds.step = '0.5';
         this.maxFlightSeconds.value = '0';
-        this.maxFlightSeconds.style.cssText = 'width:65px;';
+        this.maxFlightSeconds.className = 'gravity-sculpt-time-input';
         timeLabel.appendChild(this.maxFlightSeconds);
         this.bonusGoals = document.createElement('div');
-        this.bonusGoals.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:7px;';
+        this.bonusGoals.className = 'gravity-sculpt-bonus-goals';
         this.goals.append(goalsHeading, this.goalOptions, timeLabel, this.bonusGoals);
         this.planets = document.createElement('div');
-        this.planets.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0 12px;';
+        this.planets.className = 'gravity-sculpt-planets';
         this.actions = document.createElement('div');
-        this.actions.style.cssText = 'display:flex; flex-wrap:wrap; gap:7px;';
+        this.actions.className = 'gravity-sculpt-actions';
         this.drawButton = button('Set Waypoints', '#2196f3', () => this.editor.gravitySculptController.toggleWaypointEntry());
         this.solveButton = button('Solve', '#4caf50', () => this.editor.gravitySculptController.solve());
         this.testButton = button('Test Candidate', '#7c4dff', () => this.editor.gravitySculptController.testCandidate());
@@ -133,16 +126,16 @@ export class GravitySculptView {
         this.cancelButton = button('Close', '#667085', () => this.editor.gravitySculptController.close());
         this.actions.append(this.drawButton, this.solveButton, this.testButton, this.applyButton, this.cancelButton);
         this.testActions = document.createElement('div');
-        this.testActions.style.cssText = 'display:none; flex-wrap:wrap; gap:8px;';
+        this.testActions.className = 'gravity-sculpt-test-actions';
         this.acceptTestButton = button('Accept Tested Layout', '#4caf50', () => this.editor.gravitySculptController.finishTest(true));
         this.rejectTestButton = button('Reject & Restore', '#d04444', () => this.editor.gravitySculptController.finishTest(false));
         this.testActions.append(this.acceptTestButton, this.rejectTestButton);
         this.candidateControls = document.createElement('div');
-        this.candidateControls.style.cssText = 'display:none; align-items:center; gap:8px; margin:0 0 10px;';
+        this.candidateControls.className = 'gravity-sculpt-candidate-controls';
         this.previousCandidate = button('Previous', '#44546a', () => this.editor.gravitySculptController.cycleCandidate(-1));
         this.nextCandidate = button('Next', '#44546a', () => this.editor.gravitySculptController.cycleCandidate(1));
         this.candidateLabel = document.createElement('span');
-        this.candidateLabel.style.cssText = 'font-weight:bold; color:#59e6ff; min-width:100px; text-align:center;';
+        this.candidateLabel.className = 'gravity-sculpt-candidate-label';
         this.candidateControls.append(this.previousCandidate, this.candidateLabel, this.nextCandidate);
         this.panel.append(
             heading,
@@ -179,7 +172,7 @@ export class GravitySculptView {
             const item = checkbox(orbiting ? `${planet.name || `Planet ${index + 1}`} (orbit locked)` : (planet.name || `Planet ${index + 1}`), !orbiting);
             item.input.disabled = orbiting;
             item.input.dataset.planetIndex = String(index);
-            if (orbiting) item.wrapper.style.opacity = '0.5';
+            if (orbiting) item.wrapper.classList.add('is-disabled');
             this.planets.appendChild(item.wrapper);
             return item.input;
         });
@@ -196,7 +189,7 @@ export class GravitySculptView {
         if (this.bonusInputs.length === 0) {
             const empty = document.createElement('span');
             empty.textContent = 'No bonuses in this level';
-            empty.style.opacity = '0.55';
+            empty.className = 'gravity-sculpt-empty';
             this.bonusGoals.appendChild(empty);
         }
     }

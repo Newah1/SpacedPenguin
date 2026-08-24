@@ -4,10 +4,16 @@ export class AdjustPlanetsCommand extends LiveEditCommand {
     static type = 'planets.adjust.batch';
 
     apply(states) {
-        for (const entry of states) {
-            this.context.restoreObjectPropertyState(entry.object, entry.state);
+        const resolved = states.map(entry => ({
+            entry,
+            object: entry.object || this.context.resolveObject?.(entry.objectId)
+        }));
+        if (resolved.some(item => !item.object)) return false;
+        for (const { entry, object } of resolved) {
+            this.context.restoreObjectPropertyState(object, entry.state);
         }
-        this.context.refresh(states.at(-1)?.object ?? null);
+        const last = states.at(-1);
+        this.context.refresh(last?.object || this.context.resolveObject?.(last?.objectId) || null);
         return states.length > 0;
     }
 

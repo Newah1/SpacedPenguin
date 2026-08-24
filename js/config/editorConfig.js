@@ -36,6 +36,7 @@ export const EDITOR_CONFIG = deepFreeze({
         longPressMs: 500,
         deferredListenerMs: 100,
         orbitVerificationMs: 100,
+        touchMovementThreshold: 15,
         orbitCenterHitRadius: { pointer: 10, touch: 15 },
         minimumTouchTargetRadius: 30
     },

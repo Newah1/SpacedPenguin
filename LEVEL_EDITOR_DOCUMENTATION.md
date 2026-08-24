@@ -15,7 +15,7 @@
 
 ## Overview
 
-The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, saving, and exporting levels in the browser. It edits the live game object graph rather than a separate document model. It provides in-session undo/redo for structural edits, canvas moves, object properties, and level settings. Saves are local to the current browser; file import and server-side persistence are not implemented.
+The Spaced Penguin Level Editor is an in-game tool for creating, modifying, previewing, saving, and exporting levels in the browser. A canonical `LevelDocument` owns authored JSON while the visible game objects are a disposable runtime projection. It provides in-session undo/redo for structural edits, canvas moves, object properties, and level settings. Saves are local to the current browser; file import and server-side persistence are not implemented.
 
 ### Key Features
 - **Desktop Editing**: Mouse and keyboard editing through the centralized input router
@@ -398,11 +398,11 @@ The export system gathers current live objects and writes the primary level enve
 - **Proper Structure**: Objects nested under `properties` matching game format
 - **Position Objects**: Coordinates as `{x, y}` objects, not flat properties
 - **Sprite Fields**: Known planet and target sprite type fields are included; export does not validate the referenced asset
-- **Orbit Systems**: Current orbital parameters and centers are serialized, including mutable angle and gravity velocity after play preview.
-- **Runtime State**: A play preview can change positions, states, orbit angles, and gravity-orbit velocity before export
+- **Orbit Systems**: Authored orbital parameters and centers are serialized from `LevelDocument`; preview and Play simulation state is excluded.
+- **Runtime State**: Play can change the disposable projection, but returning to Edit rebuilds from the unchanged authored document.
 - **Asymmetry**: Some exported fields are not restored by `GameObjectFactory`
 - **Rule Omission**: `customBehaviors` is accepted by loading but omitted by `Game.exportLevelRules()`
-- **Relationships**: IDs must be unique; cloned hierarchical orbits can lose their target ID
+- **Relationships**: IDs must be unique; clones receive a new ID while retaining valid authored relationship fields.
 - **Singletons**: Validation rejects multiple target or slingshot definitions; the runtime model supports one of each.
 
 ### Import and Save Status
@@ -429,16 +429,16 @@ Objects can orbit around specified center points with various patterns:
 4. Select orbit type from dropdown
 5. Observe real-time orbital motion
 
-The editor's object-target dropdown can display IDs that the runtime does not support as orbit centers. For promotable JSON, select only planet or bonus IDs and run the shared CLI validator after export.
+Orbit target options come from the shared schema capabilities. Planet, black-hole, and bonus IDs can be lookup targets; the shared validator still runs before export and Play.
 
-### Reflection-Based Properties
+### Registry-Based Properties
 
-The editor automatically discovers object properties using JavaScript reflection:
+The editor object registry describes the supported controls and capabilities for each canonical level type:
 
-- **Dynamic Discovery**: Finds all enumerable properties
-- **Type Detection**: Determines appropriate input types
-- **Input Constraints**: Property controls apply configured min/max ranges and options; export itself does not run the complete level validator.
-- **Extensibility**: New object types require coordinated factory, editor, collection, serialization, and loader changes
+- **Declarative Controls**: Text, number, nullable number, select, color, checkbox, and action controls are built from descriptors
+- **Capabilities**: Create, clone, delete, orbit-source/target, singleton, runtime registration, and context actions are data-driven
+- **Input Constraints**: Property controls apply configured min/max ranges and options; save, export, Play, and publish run editor invariants and shared validation
+- **Extensibility**: New types still require shared schema/validation, factory/runtime, simulation when relevant, registry, and documentation coverage
 
 ### Real-time Sprite Management
 
@@ -455,9 +455,10 @@ Sprite changes apply immediately with proper defaults:
 Test levels without leaving the editor:
 
 1. **Toggle Mode**: Use the editor mode button
-2. **Play Mode**: Full game functionality active
+2. **Play Mode**: The editor validates and clones the current document into a fresh runtime world with full game functionality
 3. **Edit Mode**: Use the same button to return to editing
-4. **State Preservation**: The same live objects are retained, including simulation mutations; there is no authored-state snapshot
+4. **State Preservation**: The simulated world is discarded and rebuilt from the unchanged document; selection survives by ID when the object still exists
+5. **Publishing Proof**: Completion records the exact cloned definition that was play-tested, so later authored changes require another completion
 
 ## Troubleshooting
 
@@ -523,9 +524,9 @@ The level editor is built using a modular architecture:
 ```
 js/
 ├── console.js          # Console interface and command handling
-├── levelEditor.js      # Editor coordinator and live-edit domain logic
-├── levelEditor/        # Inspector, object list, toolbar, input, and overlay components
-├── editorCommands/     # Typed do/undo strategies and command history
+├── levelEditor.js      # Compatibility facade and editor composition
+├── levelEditor/        # Document, state, selection, tools, projection, events, and views
+├── editorCommands/     # ID-based commands, live transactions, and command history
 ├── gameObjects.js      # Game object classes and properties
 ├── levelLoader.js      # Level loading and object factory
 └── game.js             # Game engine integration
@@ -539,15 +540,25 @@ js/
 - UI overlay rendering
 
 **Level Editor (`levelEditor.js`):**
-- Object selection and manipulation with robust deletion system
+- Delegates ID-based selection and exclusive pointer interaction to editor services
 - Coordinates focused inspector, object-list, toolbar, canvas-input, and overlay components
-- Applies live edits and records typed reversible commands
-- JSON download/export with manual review and promotion workflow
+- Keeps compatibility entry points while authored state remains in `LevelDocument`
+- Reads canonical document JSON for save, download/export, play, and publish
+
+**Editor Ownership (`levelEditor/`):**
+- `EditorState` owns lifecycle, mode, camera, primary tool, and one pointer-owned discriminated interaction
+- `EditorSelection` stores `none`, `level-settings`, or an object ID and resolves rebuilt runtime mirrors
+- `EditorToolManager` handles selection, object/orbit dragging, Space or middle-button pan, touch threshold/long press, and Gravity Sculpt waypoint capture
+- `LevelDocument` preserves authored ordering, indexes records by ID, applies patches, and supplies revision/fingerprint state
+- `EditorRuntimeProjector` builds the edit/play runtime through existing validation, loader, factory, mutator, and physics paths
+- `OrbitPreviewService` derives visualization-only orbit positions without mutating authored or runtime objects
+- `EditorEvents` exposes only selection, document, mode, history, and tool signals
 
 **Editor Commands (`editorCommands/`):**
 - A `LiveEditCommand` contract with `do()` and `undo()` methods
-- Type-keyed strategies for structural, movement, object-property, and level-setting changes
-- Per-focus coalescing for continuous inspector input
+- Type-keyed, stable-ID strategies for structural, movement, object-property, and level-setting changes
+- `EditorCommandBus` execution, undo/redo, failure rollback, and begin/update/commit/cancel live transactions
+- Per-focus coalescing for continuous inspector input and one history entry per canvas drag
 
 **Game Object Integration:**
 - Reflection-based property discovery with special handling for nested properties
@@ -575,10 +586,10 @@ js/
 
 ### Performance Characteristics
 
-- Input listeners are activated according to game/editor state through the centralized input router.
-- Visual indicators and property controls operate directly on the live object graph.
-- Deletion updates the known runtime collections and invalidates render ordering.
-- There is no separate editor document cache or batched persistence layer.
+- Input listeners are activated according to game/editor state through the centralized input router; editable controls remain above the editor context.
+- Tools and views issue commands rather than mutating authored state or `Game` collections.
+- Structural projection updates all known runtime collections and invalidates render ordering.
+- Dirty state compares the document's canonical fingerprint, so undoing to saved content becomes clean.
 
 ### Browser API Usage
 

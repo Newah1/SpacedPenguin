@@ -736,6 +736,9 @@ class Game {
         plog.soar('Game launchPenguin called with velocity:', velocity);
         this.resetSimulationSpeedControl();
         this.aimAssistPoints = [];
+        const releasePosition = this.penguin
+            ? { x: this.penguin.x, y: this.penguin.y }
+            : null;
 
         if (launch) {
             this.launches.push({ angle: launch.angle, power: launch.power });
@@ -754,8 +757,9 @@ class Game {
             this.penguin.setPosition(position.x, position.y);
         }
         
-        // Create alpha mask at current launch position (matching original game's setUpSnapping)
-        this.createAlphaMaskAtLaunchPosition();
+        // Keep the shot marker at the pullback/release point. Director-model
+        // launches may move the live penguin to a separate simulated snap point.
+        this.createAlphaMaskAtLaunchPosition(releasePosition);
         
         this.penguin.launch(velocity.x, velocity.y);
         this.penguin.setState('soaring');
@@ -1292,7 +1296,7 @@ class Game {
             if (object === this.penguin) {
                 this.drawPenguinInPlayfield();
                 for (const portal of this.portals || []) portal.drawForeground?.(this.ctx);
-            } else {
+            } else if (!this.levelEditor?.shouldDeferRuntimeObjectDraw?.(object)) {
                 object.draw(this.ctx);
             }
         }
@@ -1488,7 +1492,8 @@ class Game {
     }
 
     drawKevinCam() {
-        if (!this.arrow?.visible || !this.penguin || this.penguin.state !== 'soaring') {
+        if (this.settingsManager?.get('kevinCamEnabled') === false ||
+            !this.arrow?.visible || !this.penguin || this.penguin.state !== 'soaring') {
             return;
         }
 
@@ -1917,7 +1922,9 @@ class Game {
     }
 
     async saveEditedLevel() {
-        const level = this.exportCurrentLevel();
+        const level = this.levelEditor?.active
+            ? this.levelEditor.currentDocumentDefinition()
+            : this.exportCurrentLevel();
         const record = await this.levelSaveService.save(level, {
             id: this.levelMetadata?.saveId,
             thumbnail: captureLevelThumbnail(this.canvas)
@@ -2126,7 +2133,7 @@ class Game {
         if (!this.completedRun) throw new Error('Complete this exact level in Play Mode before publishing it.');
         const level = this.levelEditor?.mode === 'play'
             ? structuredClone(this.completedRun.level)
-            : this.exportCurrentLevel();
+            : this.levelEditor?.currentDocumentDefinition?.() || this.exportCurrentLevel();
         if (JSON.stringify(level) !== JSON.stringify(this.completedRun.level)) {
             this.completedRun = null;
             throw new Error('The level changed after it was completed. Complete it again before publishing.');
@@ -2432,16 +2439,16 @@ class Game {
 
 
     
-    createAlphaMaskAtLaunchPosition() {
-        if (!this.penguin) return;
+    createAlphaMaskAtLaunchPosition(position = this.penguin) {
+        if (!position) return;
         
         // Get current trace color (matching original game's pTraceColor)
         const traceColor = this.shotColors[this.currentColorIndex];
         
         // Create alpha mask object (matching original game's k1, k2, k3 sprites)
         const alphaMask = {
-            x: this.penguin.x,
-            y: this.penguin.y,
+            x: position.x,
+            y: position.y,
             color: traceColor,
             alpha: 0.6, // Semi-transparent like original
             renderCanvas: this.getColoredAlphaMaskCanvas(traceColor)

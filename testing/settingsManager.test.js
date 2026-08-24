@@ -18,6 +18,7 @@ test('settings load defaults, persist changes, and invoke configured effects', (
     assert.equal(manager.get('soundEnabled'), true);
     assert.equal(manager.get('masterVolume'), 0.7);
     assert.equal(manager.get('aimAssistEnabled'), false);
+    assert.equal(manager.get('kevinCamEnabled'), true);
     assert.equal(manager.get('experimentalBackgroundMusic'), false);
     assert.equal(manager.get('stellarModeEnabled'), false);
     assert.deepEqual(effects, [['enabled', true], ['music', false], ['volume', 0.7]]);
@@ -27,6 +28,7 @@ test('settings load defaults, persist changes, and invoke configured effects', (
 
     assert.deepEqual(store.load(), {
         aimAssistEnabled: false,
+        kevinCamEnabled: true,
         soundEnabled: false,
         experimentalBackgroundMusic: false,
         stellarModeEnabled: false,

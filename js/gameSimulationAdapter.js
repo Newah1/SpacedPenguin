@@ -209,6 +209,7 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 if (event.playSound) game.playSound(getAudioCue(AudioCue.PORTAL_WOOSH).soundId);
                 game.beginPortalTransition?.(event);
                 game.recordPortalTransit?.(event.entryPosition, event.exitPosition);
+                game.penguin.markTrailDiscontinuity?.(event.exitPosition);
                 break;
             case SimulationEventType.TARGET_HIT:
                 game.endRecordingShotPath();

@@ -9,15 +9,14 @@ export class CommandHistory {
 
     execute(type, payload) {
         const command = this.registry.create(type, this.context, payload);
-        if (command.do() === false) return false;
+        try {
+            if (command.do() === false) return false;
+        } catch (error) {
+            try { command.undo(); } catch {}
+            throw error;
+        }
         this.recordCommand(command);
         return true;
-    }
-
-    recordExecuted(type, payload) {
-        const command = this.registry.create(type, this.context, payload);
-        this.recordCommand(command);
-        return command;
     }
 
     recordCommand(command) {
@@ -45,9 +44,15 @@ export class CommandHistory {
     redo() {
         const command = this.redoStack.pop();
         if (!command) return false;
-        if (command.do() === false) {
+        try {
+            if (command.do() === false) {
+                this.redoStack.push(command);
+                return false;
+            }
+        } catch (error) {
+            try { command.undo(); } catch {}
             this.redoStack.push(command);
-            return false;
+            throw error;
         }
         this.undoStack.push(command);
         return true;

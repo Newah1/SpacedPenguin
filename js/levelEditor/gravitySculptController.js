@@ -1,6 +1,6 @@
 import { GameState } from '../game.js';
 import { EDITOR_CONFIG } from '../config/editorConfig.js';
-import { applyGameSimulationState, captureGameSimulationState } from '../gameSimulationAdapter.js';
+import { captureGameSimulationState } from '../gameSimulationAdapter.js';
 import { solveGravitySculpt } from '../gravitySculptor.js';
 import { LiveEditCommandType } from '../editorCommands/index.js';
 
@@ -175,31 +175,30 @@ export default class GravitySculptController {
             const after = cloneValue(before);
             after.position = { ...adjustment.position };
             after.direct.mass = adjustment.mass;
-            return [{ object, before, after }];
+            return [{ objectId: object.id, before, after }];
         });
         return {
-            before: entries.map(({ object, before: state }) => ({ object, state })),
-            after: entries.map(({ object, after: state }) => ({ object, state }))
+            before: entries.map(({ objectId, before: state }) => ({ objectId, state })),
+            after: entries.map(({ objectId, after: state }) => ({ objectId, state }))
         };
     }
 
     applyStates(entries) {
-        entries.forEach(entry => this.editor.restoreObjectPropertyState(entry.object, entry.state));
+        entries.forEach(entry => {
+            const object = entry.object || this.editor.objectService.find(entry.objectId);
+            if (object) this.editor.restoreObjectPropertyState(object, entry.state);
+        });
     }
 
     testCandidate() {
         const candidate = this.activeCandidate();
         if (!candidate?.launch || this.state.testSession) return;
         const batch = this.createAdjustmentBatch(candidate);
-        const snapshot = {
-            simulation: captureGameSimulationState(this.game),
-            tries: this.game.tries,
-            launches: cloneValue(this.game.launches || []),
-            shotPathsLength: this.game.shotPaths?.length || 0,
-            crashedPenguinsLength: this.game.crashedPenguins?.length || 0
-        };
-        this.state.testSession = { candidate, batch, snapshot };
+        this.state.testSession = { candidate, batch };
+        this.editor.transientProjection = true;
         this.applyStates(batch.after);
+        const candidateDefinition = this.game.exportCurrentLevel();
+        this.editor.runtimeProjector.rebuild(candidateDefinition);
         this.editor.mode = 'play';
         this.editor.updateModeButton();
         this.editor.selectObject(null);
@@ -220,11 +219,11 @@ export default class GravitySculptController {
     finishTest(accept) {
         const session = this.state.testSession;
         if (!session) return;
-        this.restoreTestSnapshot(session.snapshot);
-        this.applyStates(accept ? session.batch.after : session.batch.before);
-        if (accept) this.editor.history.recordExecuted(LiveEditCommandType.ADJUST_PLANETS, session.batch);
+        this.editor.transientProjection = false;
         this.state.testSession = null;
         this.editor.mode = 'edit';
+        this.editor.rebuildDocumentProjection();
+        if (accept) this.editor.commandBus.execute(LiveEditCommandType.ADJUST_PLANETS, session.batch);
         this.game.uiManager?.closeAllScreens?.();
         this.game.setState?.(GameState.LEVEL_EDITOR);
         this.game.resetPenguinToSlingshot?.();
@@ -233,19 +232,6 @@ export default class GravitySculptController {
         this.view.setTestMode(false);
         this.showCandidate(this.state.candidateIndex);
         this.game.updateUI?.();
-    }
-
-    restoreTestSnapshot(snapshot) {
-        this.game.endRecordingShotPath?.();
-        applyGameSimulationState(this.game, snapshot.simulation);
-        this.game.tries = snapshot.tries;
-        this.game.launches = cloneValue(snapshot.launches);
-        if (this.game.shotPaths) this.game.shotPaths.length = snapshot.shotPathsLength;
-        if (this.game.crashedPenguins) this.game.crashedPenguins.length = snapshot.crashedPenguinsLength;
-        Object.assign(this.game.target, { isHit: false, hitFrameCount: 0, shipState: 'open' });
-        if (this.game.target.shipSprites?.open) {
-            this.game.target.currentShipSprite = this.game.target.shipSprites.open;
-        }
     }
 
     isTesting() {
@@ -264,6 +250,6 @@ export default class GravitySculptController {
         const candidate = this.activeCandidate();
         if (!candidate) return;
         const batch = this.createAdjustmentBatch(candidate);
-        if (this.editor.history.execute(LiveEditCommandType.ADJUST_PLANETS, batch)) this.close();
+        if (this.editor.commandBus.execute(LiveEditCommandType.ADJUST_PLANETS, batch)) this.close();
     }
 }

@@ -19,6 +19,13 @@ export const SETTINGS_CONFIG = deepFreeze({
             effect: 'aimAssistEnabled'
         },
         {
+            key: 'kevinCamEnabled',
+            type: SettingType.BOOLEAN,
+            label: 'Kevin Cam',
+            description: 'Show the Kevin Cam inset while Kevin is off-screen.',
+            defaultValue: true
+        },
+        {
             key: 'soundEnabled',
             type: SettingType.BOOLEAN,
             label: 'Sound effects',

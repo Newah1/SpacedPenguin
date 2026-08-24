@@ -1,35 +1,28 @@
 import { isCompactEditorViewport } from '../config/inputConfig.js';
 import { LevelOrbitType } from '../levelSchema.js';
+import { EditorEventType } from './editorEvents.js';
+import {
+    createEditorActionButton,
+    createEditorPropertyControl
+} from './editorControlFactory.js';
 import { makeDraggablePanel } from './draggablePanel.js';
-
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-}
 
 export class LevelEditorInspectorView {
     constructor(editor) {
         this.editor = editor;
         this.element = null;
+        this.unsubscribe = [
+            editor.events?.on(EditorEventType.SELECTION_CHANGED, () => this.render()),
+            editor.events?.on(EditorEventType.DOCUMENT_CHANGED, event => {
+                if (event?.source !== 'inspector-live') this.render();
+            })
+        ].filter(Boolean);
     }
 
     createElement() {
-        this.element = document.createElement('div');
-        this.element.style.cssText = `
-            position: absolute; top: 10px; right: 10px; width: 300px;
-            background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 5px;
-            color: white; font-family: Arial, sans-serif; pointer-events: auto;
-            max-height: 80vh; overflow-y: auto; touch-action: auto;
-        `;
-        if (isCompactEditorViewport()) {
-            Object.assign(this.element.style, {
-                width: 'calc(100vw - 40px)', maxWidth: '350px', right: '20px',
-                top: '80px', maxHeight: '60vh'
-            });
-        }
+        this.element = document.createElement('section');
+        this.element.className = 'editor-panel editor-inspector';
+        if (isCompactEditorViewport()) this.element.classList.add('is-compact');
         this.render();
         this.dragController = makeDraggablePanel(this.element, { handleSelector: '[data-editor-drag-handle]' });
         return this.element;
@@ -38,78 +31,62 @@ export class LevelEditorInspectorView {
     render() {
         if (!this.element) return;
         const selected = this.editor.selectedObject;
+        const heading = document.createElement('h3');
+        heading.dataset.editorDragHandle = '';
+        heading.title = 'Drag to move';
+        heading.textContent = selected
+            ? `${selected.isLevelSettings ? 'Level Settings' : `Properties — ${selected.constructor.name}`} [drag]`
+            : 'Properties [drag]';
+
         if (!selected) {
-            this.element.innerHTML = '<h3 data-editor-drag-handle title="Drag to move">Properties &nbsp;[drag]</h3><p>Select an object to edit its properties</p>';
+            const empty = document.createElement('p');
+            empty.textContent = 'Select an object to edit its properties';
+            this.element.replaceChildren(heading, empty);
             return;
         }
 
-        const settings = selected.isLevelSettings;
-        const properties = settings
+        const properties = selected.isLevelSettings
             ? this.editor.getLevelSettingsProperties()
             : this.editor.getEditableProperties(selected);
-        let html = `<h3 data-editor-drag-handle title="Drag to move">${settings ? 'Level Settings' : `Properties - ${escapeHtml(selected.constructor.name)}`} &nbsp;[drag]</h3>`;
-        for (const property of properties) html += this.createPropertyInput(property);
-
-        if (!settings) {
-            html += `<div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
-                <div style="font-weight: bold; margin-bottom: 6px;">Quick Actions</div>
-                <button class="spaced-button" data-quick-action="center" style="--button-bg: #4a90e2; --button-hover: #6aa9f2; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px; margin-bottom: 8px;">Center on Canvas</button>`;
-            if (selected.orbitSystem?.orbitType === LevelOrbitType.GRAVITY) {
-                html += '<button class="spaced-button" data-quick-action="reset-gravity" style="--button-bg: #e74c3c; --button-hover: #f06b5f; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px;">Reset Position (Keep Current Velocity)</button>';
-            }
-            html += '</div>';
-        }
-
-        this.element.innerHTML = html;
-        this.bindPropertyInputs();
-        this.element.querySelector('[data-quick-action="center"]')
-            ?.addEventListener('click', () => this.editor.centerSelectedObjectOnCanvas());
-        this.element.querySelector('[data-quick-action="reset-gravity"]')
-            ?.addEventListener('click', () => this.editor.resetGravityOrbit(selected));
-    }
-
-    createPropertyInput({ label, key, value, type, ...options }) {
-        const baseStyle = 'width: 100%; padding: 8px; border: 1px solid #555; background: #333; color: white; border-radius: 5px; font-size: 16px; min-height: 44px; touch-action: manipulation;';
-        const property = escapeHtml(key);
-        let input;
-        if (type === 'checkbox') {
-            input = `<input type="checkbox" data-property="${property}" ${value ? 'checked' : ''} style="width: auto;">`;
-        } else if (type === 'select') {
-            const optionHtml = (options.options || []).map(option => {
-                const safe = escapeHtml(option);
-                return `<option value="${safe}" ${option === value ? 'selected' : ''}>${safe}</option>`;
-            }).join('');
-            input = `<select data-property="${property}" style="${baseStyle}">${optionHtml}</select>`;
-        } else if (type === 'color') {
-            input = `<input type="color" data-property="${property}" value="${escapeHtml(value || '#ffffff')}" style="${baseStyle}">`;
-        } else if (type === 'button') {
-            input = `<button class="spaced-button" data-property="${property}" style="--button-bg: #e74c3c; --button-hover: #f06b5f; --button-fg: #fff; --button-border: transparent; width: 100%; padding: 10px; font-size: 16px;">${escapeHtml(options.buttonText || 'Click')}</button>`;
-        } else {
-            const nullable = type === 'nullableNumber';
-            const inputType = type === 'text' ? 'text' : 'number';
-            const min = options.min !== undefined ? `min="${options.min}"` : '';
-            const max = options.max !== undefined ? `max="${options.max}"` : '';
-            const step = inputType === 'number' ? `step="${options.step ?? 'any'}"` : '';
-            input = `<input type="${inputType}" data-property="${property}" ${nullable ? 'data-nullable="true"' : ''} value="${escapeHtml(value ?? '')}" ${min} ${max} ${step} style="${baseStyle}">`;
-        }
-        return `<div style="margin-bottom: 10px;"><label style="display: block; margin-bottom: 5px;">${escapeHtml(label)}:</label>${input}</div>`;
-    }
-
-    bindPropertyInputs() {
-        const inputs = this.element.querySelectorAll('[data-property]');
-        inputs.forEach(input => {
-            input.addEventListener('focus', () => {
-                input.dataset.editSession = String(++this.editor.propertyEditSession);
-            });
-            if (input.tagName === 'BUTTON') {
-                input.addEventListener('click', event => this.editor.handlePropertyChange(event));
-            } else {
-                input.addEventListener('input', event => {
-                    input.setCustomValidity?.('');
+        const fragment = document.createDocumentFragment();
+        fragment.appendChild(heading);
+        for (const definition of properties) {
+            const { row } = createEditorPropertyControl(definition, {
+                onFocus: event => {
+                    event.currentTarget.dataset.editSession = String(++this.editor.propertyEditSession);
+                },
+                onInput: event => {
+                    event.currentTarget.setCustomValidity?.('');
                     this.editor.handlePropertyChange(event);
-                });
-            }
-        });
+                },
+                onAction: event => this.editor.handlePropertyChange(event)
+            });
+            fragment.appendChild(row);
+        }
+
+        if (!selected.isLevelSettings) fragment.appendChild(this.#createQuickActions(selected));
+        this.element.replaceChildren(fragment);
+    }
+
+    #createQuickActions(selected) {
+        const actions = document.createElement('div');
+        actions.className = 'editor-quick-actions';
+        const title = document.createElement('div');
+        title.className = 'editor-quick-actions-title';
+        title.textContent = 'Quick Actions';
+        actions.appendChild(title);
+        actions.appendChild(createEditorActionButton(
+            'Center on Canvas',
+            () => this.editor.centerSelectedObjectOnCanvas()
+        ));
+        if (selected.orbitSystem?.orbitType === LevelOrbitType.GRAVITY) {
+            actions.appendChild(createEditorActionButton(
+                'Reset Position (Keep Current Velocity)',
+                () => this.editor.resetGravityOrbit(selected),
+                'is-danger'
+            ));
+        }
+        return actions;
     }
 
     query(selector) {
@@ -122,9 +99,15 @@ export class LevelEditorInspectorView {
             this.dragController?.clampToViewport();
             return;
         }
+        this.element.classList.toggle('is-compact', isCompactEditorViewport());
         Object.assign(this.element.style, isCompactEditorViewport()
-            ? { width: 'calc(100vw - 40px)', maxWidth: '350px', right: '20px', top: '120px', maxHeight: '50vh' }
-            : { width: '300px', maxWidth: '', right: '10px', top: '10px', maxHeight: '80vh' });
+            ? { right: '20px', top: '120px' }
+            : { right: '10px', top: '10px' });
+    }
+
+    destroy() {
+        this.unsubscribe.forEach(unsubscribe => unsubscribe());
+        this.unsubscribe = [];
     }
 }
 

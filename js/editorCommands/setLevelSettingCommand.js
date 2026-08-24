@@ -4,14 +4,20 @@ export class SetLevelSettingCommand extends LiveEditCommand {
     static type = 'level-setting.set';
 
     do() {
-        this.context.restoreLevelSettingsState(this.payload.after);
-        this.context.refresh(this.payload.target);
+        if (!this.payload.before) {
+            this.payload.before = this.context.captureLevelSettingsState();
+            this.context.applyLevelSetting(this.payload.property, this.payload.value);
+            this.payload.after = this.context.captureLevelSettingsState();
+        } else {
+            this.context.restoreLevelSettingsState(this.payload.after);
+        }
+        this.context.refresh(this.context.levelSettingsTarget || this.payload.target);
         return true;
     }
 
     undo() {
         this.context.restoreLevelSettingsState(this.payload.before);
-        this.context.refresh(this.payload.target);
+        this.context.refresh(this.context.levelSettingsTarget || this.payload.target);
         return true;
     }
 

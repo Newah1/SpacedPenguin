@@ -1,84 +1,96 @@
 import { INPUT_CONFIG, isCompactEditorViewport } from '../config/inputConfig.js';
 import plog from '../penguinLogger.js';
 import { makeDraggablePanel } from './draggablePanel.js';
-
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-}
+import { EditorEventType } from './editorEvents.js';
 
 export class LevelEditorObjectListView {
     constructor(editor) {
         this.editor = editor;
         this.element = null;
         this.objects = [];
+        this.unsubscribe = [
+            editor.events?.on(EditorEventType.SELECTION_CHANGED, () => this.render()),
+            editor.events?.on(EditorEventType.DOCUMENT_CHANGED, () => this.render())
+        ].filter(Boolean);
     }
 
     createElement() {
-        this.element = document.createElement('div');
-        this.element.style.cssText = `
-            position: absolute; bottom: 10px; left: 10px; width: 300px;
-            max-height: 400px; background: rgba(0, 0, 0, 0.8); padding: 15px;
-            border-radius: 5px; color: white; font-family: Arial, sans-serif;
-            pointer-events: auto; overflow-y: auto; touch-action: auto;
-        `;
-        if (isCompactEditorViewport()) {
-            Object.assign(this.element.style, {
-                width: 'calc(100vw - 40px)', maxWidth: '350px', left: '20px',
-                bottom: '80px', maxHeight: '300px'
-            });
-        }
-        this.element.innerHTML = '<h3 data-editor-drag-handle title="Drag to move">Objects &nbsp;[drag]</h3><div data-object-list-content>Loading...</div>';
+        this.element = document.createElement('section');
+        this.element.className = 'editor-panel editor-object-list';
+        this.element.classList.toggle('is-compact', isCompactEditorViewport());
+        const heading = document.createElement('h3');
+        heading.dataset.editorDragHandle = '';
+        heading.title = 'Drag to move';
+        heading.textContent = 'Objects [drag]';
+        this.content = document.createElement('div');
+        this.content.className = 'editor-object-list-content';
+        this.content.addEventListener('click', event => {
+            const item = event.target.closest('[data-object-id], [data-level-settings]');
+            if (!item || !this.content.contains(item)) return;
+            if (item.dataset.levelSettings !== undefined) this.editor.selectLevelSettings();
+            else this.selectId(item.dataset.objectId);
+        });
+        this.element.append(heading, this.content);
         this.dragController = makeDraggablePanel(this.element, { handleSelector: '[data-editor-drag-handle]' });
+        this.render();
         return this.element;
     }
 
     render() {
-        const content = this.element?.querySelector('[data-object-list-content]');
+        const content = this.content;
         if (!content) return;
         const scrollTop = content.scrollTop;
         this.objects = this.editor.getAllGameObjects();
         const settingsSelected = this.editor.selectedObject === this.editor.levelSettingsNode;
-        const settingsBackground = settingsSelected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)';
-        let html = `<div style="max-height: 300px; overflow-y: auto;">
-            <div class="object-list-item level-settings-item" data-level-settings="true"
-                 style="padding: 10px; margin: 2px 0 16px; background: ${settingsBackground}; border: 1px solid ${settingsSelected ? '#00ffff' : 'rgba(255, 255, 255, 0.35)'}; border-radius: 3px; cursor: pointer; color: ${settingsSelected ? '#00ffff' : '#ffffff'}; font-size: 12px; user-select: none; touch-action: manipulation;">
-                <div style="font-weight: bold;">Level Settings</div>
-                <div style="color: #ccc; font-size: 10px;">Level metadata, positions, and rules</div>
-            </div>`;
+        const fragment = document.createDocumentFragment();
+        fragment.appendChild(this.#createItem({
+            title: 'Level Settings',
+            subtitle: 'Level metadata, positions, and rules',
+            selected: settingsSelected,
+            levelSettings: true
+        }));
 
-        this.objects.forEach((object, index) => {
-            const selected = object === this.editor.selectedObject;
+        for (const object of this.objects) {
             const position = this.editor.getObjectPosition(object);
-            const identifier = this.getIdentifier(object);
-            html += `<div class="object-list-item" data-object-index="${index}"
-                style="padding: 8px; margin: 2px 0; background: ${selected ? 'rgba(0, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)'}; border: 1px solid ${selected ? '#00ffff' : 'rgba(255, 255, 255, 0.2)'}; border-radius: 3px; cursor: pointer; color: ${selected ? '#00ffff' : '#ffffff'}; font-size: 12px; user-select: none; touch-action: manipulation;">
-                <div style="font-weight: bold;">${escapeHtml(identifier)}</div>
-                <div style="color: #ccc; font-size: 10px;">Position: (${position ? Math.round(position.x) : '?'}, ${position ? Math.round(position.y) : '?'})</div>
-            </div>`;
-        });
-        if (this.objects.length === 0) html += '<p style="color: #999; margin-top: 0;">No objects in level</p>';
-        content.innerHTML = `${html}</div>`;
-        content.querySelector('[data-level-settings]')?.addEventListener('click', () => {
-            this.editor.selectObject(this.editor.levelSettingsNode);
-        });
-        content.querySelectorAll('[data-object-index]').forEach(item => {
-            const index = Number(item.dataset.objectIndex);
-            const base = this.objects[index] === this.editor.selectedObject
-                ? 'rgba(0, 255, 255, 0.3)'
-                : 'rgba(255, 255, 255, 0.1)';
-            item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255, 255, 255, 0.2)'; });
-            item.addEventListener('mouseleave', () => { item.style.background = base; });
-            item.addEventListener('click', () => this.selectIndex(index));
-        });
+            fragment.appendChild(this.#createItem({
+                title: this.getIdentifier(object),
+                subtitle: `Position: (${position ? Math.round(position.x) : '?'}, ${position ? Math.round(position.y) : '?'})`,
+                selected: this.editor.selection.isSelected(object.id),
+                objectId: object.id
+            }));
+        }
+        if (this.objects.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'editor-object-list-empty';
+            empty.textContent = 'No objects in level';
+            fragment.appendChild(empty);
+        }
+        content.replaceChildren(fragment);
         content.scrollTop = scrollTop;
     }
 
-    selectIndex(index) {
-        const object = this.objects[index];
+    #createItem({ title, subtitle, selected, objectId, levelSettings = false }) {
+        const item = document.createElement('div');
+        item.className = 'object-list-item';
+        item.classList.toggle('is-selected', selected);
+        if (levelSettings) {
+            item.classList.add('level-settings-item');
+            item.dataset.levelSettings = 'true';
+        } else {
+            item.dataset.objectId = objectId;
+        }
+        const label = document.createElement('div');
+        label.className = 'object-list-item-title';
+        label.textContent = title;
+        const detail = document.createElement('div');
+        detail.className = 'object-list-item-detail';
+        detail.textContent = subtitle;
+        item.append(label, detail);
+        return item;
+    }
+
+    selectId(id) {
+        const object = this.objects.find(candidate => candidate.id === id);
         if (!object) return;
         this.editor.selectObject(object);
         const position = this.editor.getObjectPosition(object);
@@ -112,9 +124,12 @@ export class LevelEditorObjectListView {
             this.dragController?.clampToViewport();
             return;
         }
-        Object.assign(this.element.style, isCompactEditorViewport()
-            ? { width: 'calc(100vw - 40px)', maxWidth: '350px', left: '20px', bottom: '80px', maxHeight: '300px' }
-            : { width: '300px', maxWidth: '', left: '10px', bottom: '10px', maxHeight: '400px' });
+        this.element.classList.toggle('is-compact', isCompactEditorViewport());
+    }
+
+    destroy() {
+        this.unsubscribe.forEach(unsubscribe => unsubscribe());
+        this.unsubscribe = [];
     }
 }
 
