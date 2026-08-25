@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getEditorObjectDefinition } from '../js/editorObjectRegistry.js';
+import { getGameObjectDefinition } from '../js/gameObjectRegistry.js';
 
 test('object descriptors create canonical authored definitions without runtime objects', () => {
-    const descriptor = getEditorObjectDefinition('Planet');
+    const descriptor = getGameObjectDefinition('Planet');
     const [definition] = descriptor.createAuthoringDefinitions({ x: 125, y: 240 });
 
     assert.equal(definition.type, 'planet');
@@ -16,7 +16,7 @@ test('object descriptors create canonical authored definitions without runtime o
 });
 
 test('portal descriptor owns paired authoring behavior', () => {
-    const descriptor = getEditorObjectDefinition('Portal');
+    const descriptor = getGameObjectDefinition('Portal');
     const definitions = descriptor.createAuthoringDefinitions({
         x: 400,
         y: 300,
@@ -35,7 +35,7 @@ test('portal descriptor owns paired authoring behavior', () => {
 });
 
 test('portal descriptor owns paired cloning behavior', () => {
-    const descriptor = getEditorObjectDefinition('Portal');
+    const descriptor = getGameObjectDefinition('Portal');
     const red = {
         type: 'portal', position: { x: 100, y: 200 },
         properties: { id: 'red', color: 'red', pairedPortalId: 'blue' }
@@ -61,12 +61,12 @@ test('object descriptors own type-specific transient property behavior', () => {
     const text = {
         width: 100, padding: 10, parseHTMLContent: content => ({ content })
     };
-    const textHook = getEditorObjectDefinition('TextObject').applyRuntimeProperty;
+    const textHook = getGameObjectDefinition('TextObject').applyRuntimeProperty;
     assert.equal(textHook({ object: text, property: 'width', value: 240 }), true);
     assert.equal(text.maxWidth, 220);
 
     const arrow = { pointingAt: null, visible: false };
-    const arrowHook = getEditorObjectDefinition('PointingArrow').applyRuntimeProperty;
+    const arrowHook = getGameObjectDefinition('PointingArrow').applyRuntimeProperty;
     assert.equal(arrowHook({ object: arrow, property: 'pointingAtX', value: 80 }), true);
     assert.deepEqual(arrow.pointingAt, { x: 80, y: 0 });
     assert.equal(arrow.visible, true);

@@ -1,7 +1,7 @@
 import { isCompactEditorViewport } from '../../config/inputConfig.js';
 import { makeDraggablePanel } from './draggablePanel.js';
 import { createButton } from '../../buttonFramework.js';
-import { getEditorObjectDefinition } from '../../editorObjectRegistry.js';
+import { getGameObjectDefinition } from '../../gameObjectRegistry.js';
 import { EditorEventType } from '../state/editorEvents.js';
 
 function button(label, background, action) {
@@ -115,7 +115,7 @@ export class LevelEditorToolbarView {
 
     updateContextActions(selection = this.editor.selectedObject) {
         const className = selection?.constructor?.name;
-        const definition = className ? getEditorObjectDefinition(className) : null;
+        const definition = className ? getGameObjectDefinition(className) : null;
         const canEditObject = Boolean(selection && !selection.isLevelSettings && definition?.editable);
         const canCloneObject = canEditObject && definition.capabilities.clone;
 

@@ -16,10 +16,10 @@ import {
     ORBIT_PROPERTY_FIELDS
 } from './config/editorInspectorConfig.js';
 import {
-    getEditableClassNames,
+    listEditableRuntimeClassNames,
     getEditorActionDefinition,
-    getEditorObjectDefinition
-} from './editorObjectRegistry.js';
+    getGameObjectDefinition
+} from './gameObjectRegistry.js';
 import { createLiveEditHistory, LiveEditCommandType } from './editorCommands/index.js';
 import LevelEditorOverlayRenderer from './levelEditor/views/overlayRenderer.js';
 import LevelEditorObjectListView from './levelEditor/views/objectListView.js';
@@ -494,7 +494,7 @@ class LevelEditor {
     }
 
     getEditableObjectClasses() {
-        return getEditableClassNames(this.gameObjectClasses);
+        return listEditableRuntimeClassNames(this.gameObjectClasses);
     }
     
     getOrbitCenterAtPosition(x, y) {
@@ -658,7 +658,7 @@ class LevelEditor {
             .filter(object => (
                 object?.id &&
                 object.id !== selectedId &&
-                getEditorObjectDefinition(object.constructor?.name).capabilities.orbitTarget
+            getGameObjectDefinition(object.levelType ?? object.constructor?.name).capabilities.orbitTarget
             ))
             .map(object => object.id);
         return ['none', ...new Set(targetIds)];
@@ -666,7 +666,7 @@ class LevelEditor {
     
     getClassSpecificProperties(obj, className) {
         const properties = [];
-        const classProps = getEditorObjectDefinition(className).properties;
+        const classProps = getGameObjectDefinition(className).properties;
         
         classProps.forEach(propDef => {
             const { optionsFrom, ...field } = propDef;
@@ -838,7 +838,7 @@ class LevelEditor {
             }
         } else if (ORBIT_EDITOR_PROPERTIES.has(property)) {
             this.updateOrbitProperty(property, value, object);
-        } else if (getEditorObjectDefinition(object.constructor.name).applyRuntimeProperty?.({
+        } else if (getGameObjectDefinition(object.levelType ?? object.constructor.name).applyRuntimeProperty?.({
             object, property, value, editor: this
         })) {
             plog.debug(`Applied ${property} to ${object.constructor.name}`);
@@ -910,7 +910,7 @@ class LevelEditor {
         }
         this.game?.invalidateSimulationState?.();
         this.overlayRenderer?.runtimeController?.invalidatePreview();
-        getEditorObjectDefinition(object.constructor.name).afterRuntimePropertyChanged?.({
+        getGameObjectDefinition(object.levelType ?? object.constructor.name).afterRuntimePropertyChanged?.({
             object,
             editor: this
         });
@@ -1409,7 +1409,7 @@ class LevelEditor {
     }
     
     getRuntimeSingleton(className) {
-        const key = getEditorObjectDefinition(className).singleton;
+        const key = getGameObjectDefinition(className).singleton;
         return key ? this.game[key] ?? null : null;
     }
     
@@ -1439,7 +1439,7 @@ class LevelEditor {
         const hit = this.objectService.hitTestBody(x, y);
         if (hit) {
             this.selectObject(hit);
-            const definition = getEditorObjectDefinition(hit.constructor.name);
+            const definition = getGameObjectDefinition(hit.levelType ?? hit.constructor.name);
             for (const actionName of definition.actions) {
                 const action = getEditorActionDefinition(actionName);
                 if (!action) continue;
@@ -1489,7 +1489,7 @@ class LevelEditor {
     }
     
     addObjectAtPosition(className, x, y) {
-        const descriptor = getEditorObjectDefinition(className);
+        const descriptor = getGameObjectDefinition(className);
         if (!descriptor.createAuthoringDefinitions) {
             plog.error('Unknown or non-creatable editor object:', className);
             return false;
@@ -1585,7 +1585,7 @@ class LevelEditor {
             return;
         }
         const selectedClassName = this.selectedObject.constructor.name;
-        const descriptor = getEditorObjectDefinition(selectedClassName);
+        const descriptor = getGameObjectDefinition(selectedClassName);
         if (descriptor.cloneAuthoringDefinitions) {
             this.cloneRegisteredObjectGroup(this.selectedObject, descriptor);
             return;
@@ -1645,7 +1645,9 @@ class LevelEditor {
             }
         }
         
-        return allObjects.filter(object => getEditorObjectDefinition(object?.constructor?.name).editable);
+        return allObjects.filter(object => getGameObjectDefinition(
+            object?.levelType ?? object?.constructor?.name
+        ).editable);
     }
 
     getDocumentObjectSnapshot(id) {

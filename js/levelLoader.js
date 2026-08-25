@@ -1,7 +1,7 @@
 // Level Loading System for Spaced Penguin
 // Supports JSON-based level definitions with object factories and custom rules
 
-import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow, Portal } from './gameObjects.js';
+import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow, Portal, OrbitSystem } from './gameObjects.js';
 import { BlackHole } from './blackHole.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
@@ -32,7 +32,8 @@ import {
     formatLevelSelector,
     levelCollectionPath
 } from './config/gameConfig.js';
-import { getEditorObjectDefinition } from './editorObjectRegistry.js';
+import { getGameObjectDefinition } from './gameObjectRegistry.js';
+import RuntimeObjectMembership from './runtimeObjectMembership.js';
 
 export class GameObjectFactory {
     static constructors = Object.freeze({
@@ -54,15 +55,14 @@ export class GameObjectFactory {
             position = { x: properties.x, y: properties.y };
         }
         
-        if (!position && [LevelObjectType.BONUS, LevelObjectType.PLANET, LevelObjectType.BLACK_HOLE, LevelObjectType.TARGET, LevelObjectType.PORTAL]
-            .includes(normalizeLevelObjectType(type))) {
+        if (!position) {
             plog.error('Object creation failed: missing position', {
                 type, position, properties, objectDefinition: normalizedDefinition
             });
             return null;
         }
         
-        const creator = getEditorObjectDefinition(type).createRuntime;
+        const creator = getGameObjectDefinition(type).createRuntime;
         if (!creator) {
             plog.warn(`Unknown object type: ${type}`);
             return null;
@@ -87,14 +87,10 @@ export class GameObjectFactory {
         const { center, targetId, speed, radius, type, angle, params } = normalized;
         if (!targetId && (!center || (center.x === 0 && center.y === 0 && radius === 0))) return;
         if (!object.orbitSystem) {
-            import('./gameObjects.js').then(module => {
-                object.orbitSystem = new module.OrbitSystem(gameObjectLookup);
-                this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
-            });
-        } else {
-            if (gameObjectLookup) object.orbitSystem.gameObjectLookup = gameObjectLookup;
-            this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
+            object.orbitSystem = new OrbitSystem(gameObjectLookup);
         }
+        if (gameObjectLookup) object.orbitSystem.gameObjectLookup = gameObjectLookup;
+        this.configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params);
     }
     
     static configureOrbitSystem(object, center, targetId, speed, radius, type, angle, params) {
@@ -237,19 +233,10 @@ export class LevelLoader {
         game.flightRect = { ...(levelDefinition.bounds?.flight || WORLD_CONFIG.flightBounds) };
         game.cameraConfig = levelDefinition.camera ? { ...levelDefinition.camera, mode: levelDefinition.camera.mode.trim().toLowerCase() } : null;
         game.arrow?.setFlightRect(game.flightRect);
-        game.gameObjects = [];
-        game.planets = [];
-        game.bonuses = [];
-        game.portals = [];
-        game.textObjects = game.textObjects || [];
-        game.pointingArrows = game.pointingArrows || [];
-        game.physics.clear();
+        const membership = new RuntimeObjectMembership(game);
+        membership.resetLevelObjects();
         game.planetCollisions = 0;
         game.simulationTime = 0;
-        game._cachedSortedObjects = null;
-        game._gameObjectsChanged = true;
-        game.textObjects.length = 0;
-        game.pointingArrows.length = 0;
         const startPos = levelDefinition.startPosition || WORLD_CONFIG.defaultStartPosition;
         game.penguin = new Penguin(this.assetLoader);
         game.penguin.setPosition(startPos.x, startPos.y);
@@ -262,14 +249,14 @@ export class LevelLoader {
             game.slingshot.velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier;
         }
         game.slingshot.setPenguin(game.penguin);
-        game.addGameObject(game.slingshot);
+        membership.add(game.slingshot, LevelObjectType.SLINGSHOT);
         const targetDef = levelDefinition.objects?.find(obj => normalizeLevelObjectType(obj.type) === LevelObjectType.TARGET);
         if (targetDef) game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
         else {
             const targetPos = levelDefinition.targetPosition || WORLD_CONFIG.defaultTargetPosition;
             game.target = new Target(targetPos.x, targetPos.y, LEVEL_DEFAULTS.target.width, LEVEL_DEFAULTS.target.height, LEVEL_DEFAULTS.target.spriteType, this.assetLoader);
         }
-        game.addGameObject(game.target);
+        membership.add(game.target, LevelObjectType.TARGET);
         const gameObjectMap = new Map();
         const gameObjectLookup = id => gameObjectMap.get(id);
         const objectsToOrbit = [];
@@ -288,16 +275,7 @@ export class LevelLoader {
             if (lookupId !== gameObject.id) gameObjectMap.set(lookupId, gameObject);
             const tempOrbit = objectDef.properties?.orbit;
             if (tempOrbit) objectsToOrbit.push({ gameObject, orbit: tempOrbit });
-            game.addGameObject(gameObject);
-            if (gameObject instanceof Planet) {
-                game.planets.push(gameObject);
-                game.physics.addPlanet(gameObject);
-            } else if (gameObject instanceof Bonus) {
-                game.bonuses.push(gameObject);
-                game.physics.addBonus(gameObject);
-            } else if (gameObject instanceof TextObject) game.textObjects.push(gameObject);
-            else if (gameObject instanceof PointingArrow) game.pointingArrows.push(gameObject);
-            else if (gameObject instanceof Portal) game.portals.push(gameObject);
+            membership.add(gameObject, objectType);
         }
         if (targetDef && targetDef.properties?.orbit) objectsToOrbit.push({ gameObject: game.target, orbit: targetDef.properties.orbit });
         for (const { gameObject, orbit } of objectsToOrbit) GameObjectFactory.applyOrbitToObject(gameObject, orbit, gameObjectLookup);

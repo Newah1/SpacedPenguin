@@ -2,10 +2,6 @@ import LiveLevelMutator from '../../liveLevelMutator.js';
 import { GameObjectFactory, LevelRules } from '../../levelLoader.js';
 import { normalizeLevelObjectType } from '../../levelSchema.js';
 
-const RUNTIME_COLLECTIONS = Object.freeze([
-    'gameObjects', 'planets', 'bonuses', 'portals', 'textObjects', 'pointingArrows'
-]);
-
 function same(left, right) {
     return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -19,13 +15,7 @@ export class EditorRuntimeProjector {
     }
 
     listRuntimeObjects() {
-        const objects = [];
-        for (const collection of RUNTIME_COLLECTIONS) {
-            for (const object of this.game[collection] || []) {
-                if (!objects.includes(object)) objects.push(object);
-            }
-        }
-        return objects;
+        return this.mutator.membership.list();
     }
 
     indexRuntimeObjects() {
@@ -74,16 +64,7 @@ export class EditorRuntimeProjector {
     #replaceRuntimeObject(id, record) {
         const current = this.getRuntimeObject(id);
         if (!current) throw new Error(`Runtime projection is missing authored object ${id}`);
-        const positions = new Map();
-        for (const collection of RUNTIME_COLLECTIONS) {
-            const index = this.game[collection]?.indexOf(current) ?? -1;
-            if (index >= 0) positions.set(collection, index);
-        }
-        const physicsPositions = new Map();
-        for (const collection of ['planets', 'bonuses']) {
-            const index = this.game.physics?.[collection]?.findIndex(entry => entry.sprite === current) ?? -1;
-            if (index >= 0) physicsPositions.set(collection, index);
-        }
+        const positions = this.mutator.membership.capturePositions(current, record.type);
         const replacement = GameObjectFactory.create(
             record,
             this.game.assetLoader,
@@ -92,28 +73,14 @@ export class EditorRuntimeProjector {
         );
         if (!replacement) throw new Error(`Could not project authored object ${id}`);
         this.#applySerializableProperties(replacement, record.properties);
-        const className = current.constructor.name;
-        if (!this.mutator.removeObject(current, className)) {
+        if (!this.mutator.membership.remove(current, record.type)) {
             throw new Error(`Could not remove stale runtime object ${id}`);
         }
-        if (!this.mutator.addObject(replacement, replacement.constructor.name)) {
-            this.mutator.addObject(current, className);
+        if (!this.mutator.membership.add(replacement, record.type)) {
+            this.mutator.membership.add(current, record.type);
             throw new Error(`Could not insert projected runtime object ${id}`);
         }
-        for (const [collection, index] of positions) {
-            const values = this.game[collection];
-            const currentIndex = values?.indexOf(replacement) ?? -1;
-            if (currentIndex < 0 || currentIndex === index) continue;
-            values.splice(currentIndex, 1);
-            values.splice(Math.min(index, values.length), 0, replacement);
-        }
-        for (const [collection, index] of physicsPositions) {
-            const values = this.game.physics?.[collection];
-            const currentIndex = values?.findIndex(entry => entry.sprite === replacement) ?? -1;
-            if (currentIndex < 0 || currentIndex === index) continue;
-            const [entry] = values.splice(currentIndex, 1);
-            values.splice(Math.min(index, values.length), 0, entry);
-        }
+        this.mutator.membership.restorePositions(replacement, positions);
         if (replacement === this.game.slingshot) {
             replacement.setPenguin?.(this.game.penguin);
             this.game.penguin?.setPosition?.(replacement.position.x, replacement.position.y);

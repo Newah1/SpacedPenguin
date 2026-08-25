@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import './nodeShims.js';
 
 import LiveLevelMutator from '../js/liveLevelMutator.js';
+import RuntimeObjectMembership from '../js/runtimeObjectMembership.js';
 import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
 import {
     LiveEditCommandType,
@@ -32,7 +33,8 @@ function createGame() {
             addPlanet(object) { this.planets.push(object); },
             removePlanet(object) { this.planets = this.planets.filter(value => value !== object); },
             addBonus(object) { this.bonuses.push(object); },
-            removeBonus(object) { this.bonuses = this.bonuses.filter(value => value !== object); }
+            removeBonus(object) { this.bonuses = this.bonuses.filter(value => value !== object); },
+            clear() { this.planets = []; this.bonuses = []; }
         },
         addGameObject(object) { this.gameObjects.push(object); },
         removeGameObject(object) {
@@ -64,6 +66,30 @@ test('live mutator keeps runtime and physics collections synchronized', () => {
     assert.deepEqual(game.physics.bonuses, []);
 });
 
+test('live mutator membership registration is idempotent', () => {
+    const game = createGame();
+    const mutator = new LiveLevelMutator(game);
+    const planet = new Planet();
+
+    assert.equal(mutator.addObject(planet), true);
+    assert.equal(mutator.addObject(planet), true);
+    assert.deepEqual(game.gameObjects, [planet]);
+    assert.deepEqual(game.planets, [planet]);
+    assert.deepEqual(game.physics.planets, [planet]);
+});
+
+test('live mutator resolves stable runtime type before constructor name', () => {
+    const game = createGame();
+    const mutator = new LiveLevelMutator(game);
+    const wrappedPlanet = Object.assign(new class WrappedRuntimeObject {}(), {
+        levelType: 'planet'
+    });
+
+    assert.equal(mutator.addObject(wrappedPlanet), true);
+    assert.deepEqual(game.planets, [wrappedPlanet]);
+    assert.deepEqual(game.physics.planets, [wrappedPlanet]);
+});
+
 test('live mutator only touches registered collections and protects singletons', () => {
     const game = createGame();
     const mutator = new LiveLevelMutator(game);
@@ -78,6 +104,30 @@ test('live mutator only touches registered collections and protects singletons',
     assert.deepEqual(game.gameObjects, [target]);
 
     mutator.removeObject(target);
+    assert.equal(game.target, null);
+    assert.deepEqual(game.unrelated, [unrelatedReference]);
+});
+
+test('runtime membership resets every registered level collection and preserves unrelated state', () => {
+    const game = createGame();
+    const membership = new RuntimeObjectMembership(game);
+    const planet = new Planet();
+    const target = new Target();
+    const unrelatedReference = { keep: true };
+    game.unrelated.push(unrelatedReference);
+    membership.add(planet);
+    membership.add(target);
+
+    membership.resetLevelObjects();
+
+    assert.deepEqual(game.gameObjects, []);
+    assert.deepEqual(game.planets, []);
+    assert.deepEqual(game.bonuses, []);
+    assert.deepEqual(game.portals, []);
+    assert.deepEqual(game.textObjects, []);
+    assert.deepEqual(game.pointingArrows, []);
+    assert.deepEqual(game.physics.planets, []);
+    assert.deepEqual(game.physics.bonuses, []);
     assert.equal(game.target, null);
     assert.deepEqual(game.unrelated, [unrelatedReference]);
 });

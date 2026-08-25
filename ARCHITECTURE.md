@@ -130,7 +130,7 @@ flowchart TB
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
 | `InputManager` | Register contexts and dispatch each DOM event in deterministic priority order | Input contexts, DOM/window | Contains no game/editor/UI activation logic. The first claiming context stops routing unless it explicitly returns `PASS`. |
-| `LevelSchema` | Shared level-format vocabulary and runtime capability configuration | Validator, loader, editor | Owns canonical object/orbit types, aliases, normalization, and orbit lookup target types. |
+| `LevelObjectVocabulary` / `LevelSchema` | Dependency-free type vocabulary and normalized level format | Registry, validator, loader, editor | Vocabulary owns canonical object/orbit/camera names and aliases; schema derives object defaults and capabilities from the domain registry and normalizes definitions. |
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
 | `LevelCatalogService` | Source-neutral discovery, cursor paging, search, detail lookup, and definition lookup | Official, local, and optional community catalog sources | Keeps card summaries separate from rich details and playable JSON; source cursors are opaque to the UI. |
@@ -345,7 +345,7 @@ flowchart TB
     Rules --> Playing[Reset counters and enter PLAYING]
 ```
 
-Validation is a precondition to mutation. `levelValidation.js` is a pure boundary shared by browser and Node loading; it accumulates stable `{ severity, code, path, message }` diagnostics. `levelSchema.js` owns the shared object/orbit vocabulary, aliases, and lookup capabilities. The loader validates fetched JSON before caching and revalidates a selected definition before the current world is cleared.
+Validation is a precondition to mutation. `levelValidation.js` is a pure boundary shared by browser and Node loading; it accumulates stable `{ severity, code, path, message }` diagnostics. `levelObjectVocabulary.js` owns stable names and aliases, while `gameObjectRegistry.js` owns type capabilities and per-type normalization/validation hooks consumed by `levelSchema.js` and the validator. The loader validates fetched JSON before caching and revalidates a selected definition before the current world is cleared.
 
 The two-pass construction design remains an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each referenced object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. The shared simulation advances planet, bonus, and target orbit sources. Only planets and bonuses may act as `orbitTargetId` centers, while active slingshot, text, and pointing-arrow orbits are rejected because those entities are not part of simulation stepping.
 
@@ -520,7 +520,7 @@ Architectural consequences:
 - Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
 - Inspector properties, level settings, orbit edits, movement, object actions, and Gravity Sculpt acceptance transform cloned document definitions. Runtime exports are never used to synchronize accepted commands into authored state.
 - Clone reads the selected authored record, allocates a new document-visible identity, applies its offset, and submits the new record through the structural command path.
-- `editorObjectRegistry.js` owns authoring-definition factories, complete runtime constructors, group clone hooks, transient type-specific property hooks, capabilities, collections, and inspector metadata. Portal create/clone/delete behavior is dispatched through registered strategies or descriptor hooks rather than `LevelEditor` type branches.
+- `gameObjectRegistry.js` owns level defaults, normalization and validation hooks, authoring-definition factories, complete runtime creators, group clone hooks, transient type-specific property hooks, capabilities, collections, and serialization metadata. `RuntimeObjectMembership` applies the same collection, physics, singleton, and reset policy during normal loading and editor projection.
 - `PublishMetadataPromptView` owns publish-dialog DOM, focus, validation, cancellation, and background inert state.
 - Edit to Play validates and clones `LevelDocument`, constructs a fresh simulation world, and freezes that exact definition for completion proof/publishing. Returning to Edit discards the simulated world and rebuilds from the unchanged document.
 - Save, export, thumbnail metadata, and editor publishing serialize `LevelDocument`; `Game.exportCurrentLevel()` remains the runtime/gameplay export path.
@@ -605,8 +605,10 @@ Maintain these constraints when changing the system:
 
 ### Add a runtime entity type
 
+See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the validated end-to-end checklist, the distinction between visual and gameplay objects, and the remaining explicit simulation boundaries.
+
 1. Implement or extend an entity in `gameObjects.js` with `update(delta)` and `draw(ctx)` behavior.
-2. Register its authoring-definition factory and complete runtime creator in `editorObjectRegistry.js`.
+2. Register its defaults, validation, authoring behavior, runtime creator, membership, editor metadata, and serialization contract in `gameObjectRegistry.js`.
 3. Define JSON defaults and validation expectations.
 4. Register collections, capabilities, inspector fields, and any clone/property hooks in the same descriptor.
 5. Add simulation-state and `Game` export support when gameplay-relevant.
@@ -645,7 +647,7 @@ There are three current test surfaces:
 2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
 3. `e2e/` contains Playwright smoke tests against a dependency-free local static server. They exercise production bootstrap, canvas input and rendering, pause/resume, scoring transition, failed-audio degradation, responsive coordinate mapping, and editor download/export. Network substitution supplies a deterministic level while leaving the production runtime path intact.
 
-The `.github/workflows/ci.yml` workflow runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests. Failed browser runs retain traces, screenshots, videos, and an HTML report.
+The `.github/workflows/ci.yml` workflow runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests. Failed browser runs retain traces, screenshots, videos, and an HTML report. Playwright uses one worker in CI and caps local execution at four workers because each page bootstraps and decodes the full audio manifest.
 
 ```mermaid
 flowchart TB
@@ -809,6 +811,7 @@ These seams support better tests and eventual TypeScript or framework adoption w
 | `ARCHITECTURE.md` | Current system design, contracts, flows, decisions, and debt | Primary architecture reference |
 | `README.md` | Project entry point, run instructions, capabilities, document links | Current overview |
 | `levels/README.md` | Current level authoring contract | Level-authoring reference |
+| `GAME_OBJECT_EXTENSION_GUIDE.md` | End-to-end object-type addition process and extension-seam review | Current implementation guide |
 | `LEVEL_EDITOR_DOCUMENTATION.md` | Detailed editor usage | Editor user guide; verify against editor code when changing behavior |
 | `AUDIO_SYSTEM_IMPLEMENTATION.md` | Audio implementation notes | Focused implementation history |
 | `BONUS_SYSTEM_IMPLEMENTATION.md` | Bonus implementation notes | Focused implementation history |

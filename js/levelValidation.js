@@ -12,6 +12,7 @@ import {
     normalizeLevelObjectType,
     normalizeOrbitDefinition
 } from './levelSchema.js';
+import { getGameObjectDefinition } from './gameObjectRegistry.js';
 
 class DiagnosticCollector {
     constructor() {
@@ -145,56 +146,12 @@ function validateObjectShape(object, index, collector) {
     );
     validatePoint(position, `${path}.position`, collector);
 
-    validateTypeSpecificProperties(type, properties, path, collector);
+    const descriptor = getGameObjectDefinition(type);
+    descriptor.validateProperties?.({
+        type, properties, objectPath: path, propertyPath: `${path}.properties`, collector,
+        helpers: { optionalNumber: validateOptionalNumber, point: validatePoint }
+    });
     return { object, index, path, type, properties };
-}
-
-function validateTypeSpecificProperties(type, properties, objectPath, collector) {
-    const propertyPath = `${objectPath}.properties`;
-    if (type === LevelObjectType.PLANET || type === LevelObjectType.BLACK_HOLE) {
-        validateOptionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.mass, `${propertyPath}.mass`, collector, { min: 0 });
-        validateOptionalNumber(properties.gravitationalReach, `${propertyPath}.gravitationalReach`, collector, { min: 0 });
-        if (type === LevelObjectType.PLANET) {
-            validateOptionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
-        } else if (properties.collisionRadius !== undefined && properties.collisionRadius !== 0) {
-            collector.error('BLACK_HOLE_COLLISION_RADIUS', `${propertyPath}.collisionRadius`, 'must be 0 because black holes are non-collidable');
-        }
-        if (type === LevelObjectType.BLACK_HOLE && properties.collidable !== undefined && properties.collidable !== false) {
-            collector.error('BLACK_HOLE_COLLIDABLE', `${propertyPath}.collidable`, 'must be false because black holes are non-collidable');
-        }
-    } else if (type === LevelObjectType.BONUS) {
-        validateOptionalNumber(properties.value, `${propertyPath}.value`, collector, { min: 0 });
-    } else if (type === LevelObjectType.TARGET) {
-        validateOptionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
-    } else if (type === LevelObjectType.SLINGSHOT) {
-        validateOptionalNumber(properties.velocityMultiplier, `${propertyPath}.velocityMultiplier`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.maxPullback, `${propertyPath}.maxPullback`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.minPullback, `${propertyPath}.minPullback`, collector, { min: 0 });
-        validateOptionalNumber(properties.stretchLimit, `${propertyPath}.stretchLimit`, collector, { exclusiveMin: 0 });
-        if (properties.anchorPosition !== undefined) validatePoint(properties.anchorPosition, `${propertyPath}.anchorPosition`, collector);
-        if (properties.launchModel !== undefined && !['modern', 'director'].includes(properties.launchModel)) {
-            collector.error('LAUNCH_MODEL_UNKNOWN', `${propertyPath}.launchModel`, 'must be "modern" or "director"');
-        }
-        validateOptionalNumber(properties.sourceFrameRate, `${propertyPath}.sourceFrameRate`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.coordinateScale, `${propertyPath}.coordinateScale`, collector, { exclusiveMin: 0 });
-    } else if (type === LevelObjectType.PORTAL) {
-        validateOptionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
-        validateOptionalNumber(properties.rotation, `${propertyPath}.rotation`, collector);
-        if (properties.color !== undefined && !['red', 'blue'].includes(properties.color)) {
-            collector.error('PORTAL_COLOR', `${propertyPath}.color`, 'must be "red" or "blue"');
-        }
-        if (properties.pairedPortalId !== undefined &&
-            (typeof properties.pairedPortalId !== 'string' || properties.pairedPortalId.trim() === '')) {
-            collector.error('PORTAL_PAIR_ID', `${propertyPath}.pairedPortalId`, 'must be a non-empty string');
-        }
-        if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
-            collector.error('PORTAL_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
-        }
-    }
 }
 
 function validatePortalPairs(objects, identifiers, collector) {
@@ -225,6 +182,20 @@ function validatePortalPairs(objects, identifiers, collector) {
         if (pair.properties.color === portal.properties.color) {
             collector.error('PORTAL_PAIR_COLOR', `${portal.path}.properties.color`, 'paired endpoints must use different colors');
         }
+    }
+}
+
+const RELATIONSHIP_VALIDATORS = Object.freeze({
+    portalPair: validatePortalPairs
+});
+
+function validateRegisteredRelationships(objects, identifiers, collector) {
+    const invoked = new Set();
+    for (const entry of objects) {
+        const key = getGameObjectDefinition(entry.type).relationshipValidator;
+        if (!key || invoked.has(key)) continue;
+        invoked.add(key);
+        RELATIONSHIP_VALIDATORS[key]?.(objects, identifiers, collector);
     }
 }
 
@@ -446,7 +417,7 @@ export function validateLevelDefinition(level) {
     validateComposition(level, objects, collector);
     const identifiers = collectIdentifiers(objects, collector);
     validateOrbits(objects, identifiers, collector);
-    validatePortalPairs(objects, identifiers, collector);
+    validateRegisteredRelationships(objects, identifiers, collector);
     validateRules(level.rules, objects.filter(entry => entry.type === LevelObjectType.BONUS).length, collector);
     return collector.result();
 }

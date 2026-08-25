@@ -7,18 +7,18 @@ import LevelEditor from '../js/levelEditor.js';
 import { BlackHole } from '../js/blackHole.js';
 import { validateLevelDefinition } from '../js/levelValidation.js';
 import {
-    getEditableClassNames,
-    getEditorObjectDefinition
-} from '../js/editorObjectRegistry.js';
+    listEditableRuntimeClassNames,
+    getGameObjectDefinition
+} from '../js/gameObjectRegistry.js';
 import { levelObjectTypeFromClassName, LevelObjectType } from '../js/levelSchema.js';
 
 test('black hole is exposed as an addable level editor object', () => {
     const gameObjectClasses = { BlackHole };
-    const editableClasses = getEditableClassNames(gameObjectClasses);
+    const editableClasses = listEditableRuntimeClassNames(gameObjectClasses);
 
     assert.equal(editableClasses.includes('BlackHole'), true);
 
-    const definition = getEditorObjectDefinition('BlackHole');
+    const definition = getGameObjectDefinition('BlackHole');
     assert.equal(definition.editable, true);
     assert.deepEqual(definition.collections, ['planets']);
     assert.equal(definition.physicsAdd, 'addPlanet');

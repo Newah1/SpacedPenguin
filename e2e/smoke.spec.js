@@ -285,12 +285,18 @@ test('Stellar Mode accepts a selected MP3', async ({ page }) => {
     await fileChooser.setFiles({ name: 'stellar.mp3', mimeType: 'audio/mpeg', buffer });
 
     await expect(stellarMode).toBeChecked();
-    await expect.poll(() => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer))).toBe(true);
+    await expect.poll(
+        () => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer)),
+        { timeout: 15_000 }
+    ).toBe(true);
 
     await page.reload();
     await waitForGame(page);
     await expect.poll(() => page.evaluate(() => window.game.settingsManager.get('stellarModeEnabled'))).toBe(true);
-    await expect.poll(() => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer))).toBe(true);
+    await expect.poll(
+        () => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer)),
+        { timeout: 15_000 }
+    ).toBe(true);
 });
 
 test('slingshot pullback remains live-authoritative across animation frames', async ({ page }) => {

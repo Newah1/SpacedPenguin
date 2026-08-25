@@ -1,4 +1,4 @@
-import { getEditorObjectDefinition } from '../../editorObjectRegistry.js';
+import { getGameObjectDefinition } from '../../gameObjectRegistry.js';
 
 export function prepareCloneForInsertion(clone) {
     if (!clone) return clone;
@@ -90,7 +90,9 @@ export class EditorObjectService {
     }
 
     isEditable(object) {
-        return Boolean(getEditorObjectDefinition(object?.constructor?.name).editable);
+        return Boolean(getGameObjectDefinition(
+            object?.levelType ?? object?.constructor?.name
+        ).editable);
     }
 }
 

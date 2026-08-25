@@ -118,6 +118,7 @@ server/                    Optional Node HTTP API, SQLite repository, replay wor
 e2e/                       Automated Playwright browser smoke tests
 OldSource/                 Decompiled Shockwave source and extracted references
 ARCHITECTURE.md             Current architect-oriented reference
+GAME_OBJECT_EXTENSION_GUIDE.md  Game-object addition process and extension-seam review
 LEVEL_EDITOR_DOCUMENTATION.md  Detailed editor guide
 SpacedPenguin_Documentation.md Original Shockwave behavior/provenance
 ```

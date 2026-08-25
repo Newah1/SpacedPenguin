@@ -22,10 +22,12 @@ import {
 import { calculateLaunchPosition, calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
 import { predictAimAssistTrajectory } from './aimAssist.js';
 import {
-    LevelObjectType,
-    LevelOrbitType,
-    levelObjectTypeFromClassName
+    LevelOrbitType
 } from './levelSchema.js';
+import {
+    isRuntimeObjectExportable,
+    serializeRuntimeObject
+} from './runtimeObjectSerialization.js';
 import {
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,
@@ -2274,132 +2276,15 @@ class Game {
     }
     
     shouldExportObject(obj) {
-        // Only schema-backed runtime objects belong in a level definition.
-        const type = levelObjectTypeFromClassName(obj.constructor.name);
-        return type !== null && type !== LevelObjectType.PENGUIN;
+        return isRuntimeObjectExportable(obj);
     }
     
     exportObjectComprehensively(obj) {
-        const className = obj.constructor.name;
-        plog.debug(`Exporting ${className}:`, obj);
-        
-        // Start with base object data
-        const type = levelObjectTypeFromClassName(className);
-        if (!type) {
-            plog.warn(`Skipping runtime object without a level schema type: ${className}`);
-            return null;
-        }
-        const exportData = {
-            type
-        };
-        
-        // Export position as object (matching level JSON format)
-        const coords = this.getObjectCoordinates(obj);
-        if (coords) {
-            exportData.position = { x: coords.x, y: coords.y };
-        }
-        
-        // Export ALL properties under 'properties' object (matching level JSON format)
-        const properties = this.extractAllProperties(obj);
-        
-        // Export orbit system if present
-        if (obj.orbitSystem) {
-            properties.orbit = this.exportOrbitSystem(obj.orbitSystem);
-        }
-        
-        // Only add properties object if it has content
-        if (Object.keys(properties).length > 0) {
-            exportData.properties = properties;
-        }
-        
-        return exportData;
-    }
-    
-    getObjectCoordinates(obj) {
-        if (typeof obj.x === 'number' && typeof obj.y === 'number') {
-            return { x: obj.x, y: obj.y };
-        } else if (obj.position && typeof obj.position.x === 'number' && typeof obj.position.y === 'number') {
-            return { x: obj.position.x, y: obj.position.y };
-        }
-        return null;
-    }
-    
-    extractAllProperties(obj) {
-        const properties = {};
-        const className = obj.constructor.name;
-        
-        // Define properties to extract for each class type
-        const propertyMaps = {
-            'Planet': ['radius', 'mass', 'collisionRadius', 'gravitationalReach', 'color', 'planetType'],
-            'BlackHole': ['radius', 'mass', 'gravitationalReach'],
-            'Bonus': ['value', 'rotationSpeed', 'state', 'collectedRotationSpeed'],
-            'Target': ['width', 'height', 'spriteType'], // Target uses width/height, not radius
-            'Slingshot': ['anchorX', 'anchorY', 'stretchLimit', 'velocityMultiplier'],
-            'TextObject': ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'padding', 'autoSize'], // content not textContent
-            'PointingArrow': ['color', 'glowColor', 'baseWidth', 'scaleWithDistance', 'minWidth', 'maxWidth', 'pulseSpeed'],
-            'Portal': ['pairedPortalId', 'color', 'playSound'],
-            'Penguin': ['state'] // Penguin shouldn't really be exported in levels
-        };
-        
-        // Common GameObject properties
-        const commonProps = ['id', 'name', 'rotation', 'alpha', 'visible', 'width', 'height', 'renderOrder'];
-        
-        // Extract class-specific properties
-        const classProps = propertyMaps[className] || [];
-        const allProps = [...commonProps, ...classProps];
-        
-        allProps.forEach(prop => {
-            if (obj[prop] !== undefined && obj[prop] !== null) {
-                properties[prop] = obj[prop];
-            }
+        const exported = serializeRuntimeObject(obj, {
+            serializeOrbit: orbit => this.exportOrbitSystem(orbit)
         });
-
-        // Auto-sized text changes its rendered width every frame. Persist the
-        // editor's configured wrap limit instead of that transient measurement.
-        if (className === 'TextObject' && obj.maxWidth !== undefined) {
-            properties.width = obj.maxWidth + (obj.padding * 2);
-        }
-        
-        // Handle special nested properties
-        if (className === 'PointingArrow' && obj.pointingAt) {
-            properties.pointingAt = { x: obj.pointingAt.x, y: obj.pointingAt.y };
-        }
-        
-        // Also do a greedy scan for any other properties that look important
-        this.addDiscoveredProperties(obj, properties);
-        
-        return properties;
-    }
-    
-    addDiscoveredProperties(obj, properties) {
-        // Scan object for additional properties that might be important
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key) && 
-                !properties.hasOwnProperty(key) && 
-                !this.isInternalProperty(key) &&
-                obj[key] !== undefined && 
-                obj[key] !== null) {
-                
-                const value = obj[key];
-                
-                // Only export simple values and avoid functions/complex objects
-                if (typeof value === 'string' || 
-                    typeof value === 'number' || 
-                    typeof value === 'boolean') {
-                    properties[key] = value;
-                    plog.debug(`Discovered property ${key} = ${value}`);
-                }
-            }
-        }
-    }
-    
-    isInternalProperty(key) {
-        // Skip internal properties that shouldn't be exported
-        const internalProps = [
-            'position', 'orbitSystem', 'assetLoader', 'bonusSprite', 'bonusHitSprite',
-            'currentSprite', 'planet', 'canvas', 'ctx', 'sprites', 'animations'
-        ];
-        return internalProps.includes(key) || key.startsWith('_');
+        if (!exported) plog.warn('Skipping runtime object without an exportable game-object descriptor:', obj);
+        return exported;
     }
     
     exportOrbitSystem(orbitSystem) {

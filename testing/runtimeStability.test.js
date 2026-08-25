@@ -539,24 +539,15 @@ test('level export persists the configured text wrap width', () => {
     // Simulate the rendered background shrinking around its current content.
     textObject.width = 140;
 
-    const game = {
-        addDiscoveredProperties: Game.prototype.addDiscoveredProperties,
-        isInternalProperty: Game.prototype.isInternalProperty
-    };
-    const properties = Game.prototype.extractAllProperties.call(game, textObject);
+    const game = { exportOrbitSystem: Game.prototype.exportOrbitSystem };
+    const properties = Game.prototype.exportObjectComprehensively.call(game, textObject).properties;
 
     assert.equal(properties.width, 360);
 });
 
 test('level export derives canonical object types from the shared schema', () => {
     const textObject = new TextObject(10, 20, 'Tutorial text');
-    const game = {
-        getObjectCoordinates: Game.prototype.getObjectCoordinates,
-        extractAllProperties: Game.prototype.extractAllProperties,
-        addDiscoveredProperties: Game.prototype.addDiscoveredProperties,
-        isInternalProperty: Game.prototype.isInternalProperty,
-        exportOrbitSystem: Game.prototype.exportOrbitSystem
-    };
+    const game = { exportOrbitSystem: Game.prototype.exportOrbitSystem };
 
     const exported = Game.prototype.exportObjectComprehensively.call(game, textObject);
 

@@ -5,13 +5,30 @@ import {
 } from './config/editorInspectorConfig.js';
 import {
     LevelObjectType,
-    LEVEL_OBJECT_TYPE_BY_CLASS_NAME,
-    ORBIT_LOOKUP_TARGET_TYPES,
-    ORBIT_SOURCE_TYPES,
     normalizeLevelObjectType
-} from './levelSchema.js';
+} from './levelObjectVocabulary.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS } from './config/gameConfig.js';
+
+export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze({
+    Planet: LevelObjectType.PLANET,
+    BlackHole: LevelObjectType.BLACK_HOLE,
+    Bonus: LevelObjectType.BONUS,
+    Target: LevelObjectType.TARGET,
+    Slingshot: LevelObjectType.SLINGSHOT,
+    TextObject: LevelObjectType.TEXT,
+    PointingArrow: LevelObjectType.POINTING_ARROW,
+    Portal: LevelObjectType.PORTAL,
+    Penguin: LevelObjectType.PENGUIN
+});
+
+const ORBIT_TARGET_TYPE_SET = new Set([
+    LevelObjectType.PLANET, LevelObjectType.BLACK_HOLE, LevelObjectType.BONUS
+]);
+const ORBIT_SOURCE_TYPE_SET = new Set([
+    LevelObjectType.PLANET, LevelObjectType.BLACK_HOLE, LevelObjectType.BONUS,
+    LevelObjectType.TARGET
+]);
 
 function objectDefinition(type, x, y, properties = {}) {
     return { type, position: { x, y }, properties: { ...properties } };
@@ -256,47 +273,135 @@ function createPortalRuntime({ constructors, position, properties }) {
     return portal;
 }
 
+function validateGravityProperties({ type, properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.mass, `${propertyPath}.mass`, collector, { min: 0 });
+    helpers.optionalNumber(properties.gravitationalReach, `${propertyPath}.gravitationalReach`, collector, { min: 0 });
+    if (type === LevelObjectType.PLANET) {
+        helpers.optionalNumber(properties.collisionRadius, `${propertyPath}.collisionRadius`, collector, { exclusiveMin: 0 });
+        return;
+    }
+    if (properties.collisionRadius !== undefined && properties.collisionRadius !== 0) {
+        collector.error('BLACK_HOLE_COLLISION_RADIUS', `${propertyPath}.collisionRadius`, 'must be 0 because black holes are non-collidable');
+    }
+    if (properties.collidable !== undefined && properties.collidable !== false) {
+        collector.error('BLACK_HOLE_COLLIDABLE', `${propertyPath}.collidable`, 'must be false because black holes are non-collidable');
+    }
+}
+
+function validateBonusProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.value, `${propertyPath}.value`, collector, { min: 0 });
+}
+
+function validateTargetProperties({ properties, propertyPath, collector, helpers }) {
+    for (const key of ['width', 'height', 'collisionRadius']) {
+        helpers.optionalNumber(properties[key], `${propertyPath}.${key}`, collector, { exclusiveMin: 0 });
+    }
+}
+
+function validateSlingshotProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.velocityMultiplier, `${propertyPath}.velocityMultiplier`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.maxPullback, `${propertyPath}.maxPullback`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.minPullback, `${propertyPath}.minPullback`, collector, { min: 0 });
+    helpers.optionalNumber(properties.stretchLimit, `${propertyPath}.stretchLimit`, collector, { exclusiveMin: 0 });
+    if (properties.anchorPosition !== undefined) helpers.point(properties.anchorPosition, `${propertyPath}.anchorPosition`, collector);
+    if (properties.launchModel !== undefined && !['modern', 'director'].includes(properties.launchModel)) {
+        collector.error('LAUNCH_MODEL_UNKNOWN', `${propertyPath}.launchModel`, 'must be "modern" or "director"');
+    }
+    helpers.optionalNumber(properties.sourceFrameRate, `${propertyPath}.sourceFrameRate`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.coordinateScale, `${propertyPath}.coordinateScale`, collector, { exclusiveMin: 0 });
+}
+
+function validatePortalProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.rotation, `${propertyPath}.rotation`, collector);
+    if (properties.color !== undefined && !['red', 'blue'].includes(properties.color)) {
+        collector.error('PORTAL_COLOR', `${propertyPath}.color`, 'must be "red" or "blue"');
+    }
+    if (properties.pairedPortalId !== undefined &&
+        (typeof properties.pairedPortalId !== 'string' || properties.pairedPortalId.trim() === '')) {
+        collector.error('PORTAL_PAIR_ID', `${propertyPath}.pairedPortalId`, 'must be a non-empty string');
+    }
+    if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
+        collector.error('PORTAL_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
+    }
+}
+
 const BASE_DEFINITIONS = {
     Planet: {
         label: 'Planet', editable: true, collections: ['planets'],
+        levelDefaults: {
+            radius: LEVEL_DEFAULTS.planet.radius, mass: LEVEL_DEFAULTS.planet.mass,
+            gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach
+        },
         physicsAdd: 'addPlanet', physicsRemove: 'removePlanet',
+        normalizeProperties(properties) {
+            if (properties.collisionRadius == null) {
+                properties.collisionRadius = properties.radius + LEVEL_DEFAULTS.planet.collisionPadding;
+            }
+        },
+        validateProperties: validateGravityProperties,
         createRuntime: createPlanetRuntime,
         applyRuntimeProperty: applyPlanetRuntimeProperty,
         afterRuntimePropertyChanged: refreshPlanetRuntime
     },
     BlackHole: {
         label: 'Black Hole', editable: true, collections: ['planets'],
+        levelDefaults: {
+            radius: LEVEL_DEFAULTS.planet.radius, mass: LEVEL_DEFAULTS.planet.mass,
+            gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach
+        },
         physicsAdd: 'addPlanet', physicsRemove: 'removePlanet',
+        normalizeProperties(properties) {
+            properties.collisionRadius = 0;
+            properties.collidable = false;
+        },
+        validateProperties: validateGravityProperties,
         createRuntime: createBlackHoleRuntime,
         afterRuntimePropertyChanged: refreshGravityRuntime
     },
     Bonus: {
         label: 'Bonus', editable: true, collections: ['bonuses'],
+        levelDefaults: {
+            value: LEVEL_DEFAULTS.bonus.value, width: LEVEL_DEFAULTS.bonus.width,
+            height: LEVEL_DEFAULTS.bonus.height
+        },
         physicsAdd: 'addBonus', physicsRemove: 'removeBonus',
+        validateProperties: validateBonusProperties,
         createRuntime: createBonusRuntime
     },
     Target: {
         label: 'Target', editable: true, singleton: 'target',
+        levelDefaults: LEVEL_DEFAULTS.target,
+        validateProperties: validateTargetProperties,
         createRuntime: createTargetRuntime,
         applyRuntimeProperty: applyTargetRuntimeProperty,
         afterRuntimePropertyChanged: refreshTargetRuntime
     },
     Slingshot: {
         label: 'Slingshot', editable: true, singleton: 'slingshot',
+        levelDefaults: LEVEL_DEFAULTS.slingshot,
+        validateProperties: validateSlingshotProperties,
         createRuntime: createSlingshotRuntime
     },
     TextObject: {
         label: 'Text', editable: true, collections: ['textObjects'],
+        levelDefaults: LEVEL_DEFAULTS.text,
         createRuntime: createTextRuntime,
         applyRuntimeProperty: applyTextRuntimeProperty
     },
     PointingArrow: {
         label: 'Pointing Arrow', editable: true, collections: ['pointingArrows'],
+        levelDefaults: LEVEL_DEFAULTS.pointingArrow,
         createRuntime: createPointingArrowRuntime,
         applyRuntimeProperty: applyPointingArrowRuntimeProperty
     },
     Portal: {
         label: 'Portal Pair', editable: true, collections: ['portals'],
+        levelDefaults: LEVEL_DEFAULTS.portal,
+        validateProperties: validatePortalProperties,
+        relationshipValidator: 'portalPair',
         createAuthoringDefinitions: createPortalPairDefinitions,
         cloneAuthoringDefinitions: clonePortalPairDefinitions,
         createRuntime: createPortalRuntime
@@ -314,7 +419,12 @@ function definitionFor(className, base) {
         type,
         label: base.label || className,
         editable,
+        exportable: Boolean(type && editable),
         collections: Object.freeze([...(base.collections || [])]),
+        levelDefaults: Object.freeze({ ...(base.levelDefaults || {}) }),
+        normalizeProperties: base.normalizeProperties || null,
+        validateProperties: base.validateProperties || null,
+        relationshipValidator: base.relationshipValidator || null,
         physicsAdd: base.physicsAdd,
         physicsRemove: base.physicsRemove,
         singleton: base.singleton,
@@ -333,8 +443,8 @@ function definitionFor(className, base) {
             create: editable,
             clone: editable && !base.singleton,
             delete: editable,
-            orbitSource: Boolean(type && ORBIT_SOURCE_TYPES.includes(type)),
-            orbitTarget: Boolean(type && ORBIT_LOOKUP_TARGET_TYPES.includes(type))
+            orbitSource: ORBIT_SOURCE_TYPE_SET.has(type),
+            orbitTarget: ORBIT_TARGET_TYPE_SET.has(type)
         }),
         actions: Object.freeze([
             ...(editable && !base.singleton ? ['clone'] : []),
@@ -343,7 +453,7 @@ function definitionFor(className, base) {
     });
 }
 
-export const EDITOR_OBJECT_DEFINITIONS = Object.freeze(
+export const GAME_OBJECT_DEFINITIONS = Object.freeze(
     Object.fromEntries(
         Object.entries(BASE_DEFINITIONS).map(([className, base]) => [
             className,
@@ -352,9 +462,9 @@ export const EDITOR_OBJECT_DEFINITIONS = Object.freeze(
     )
 );
 
-export const EDITOR_OBJECT_DEFINITIONS_BY_TYPE = Object.freeze(
+export const GAME_OBJECT_DEFINITIONS_BY_TYPE = Object.freeze(
     Object.fromEntries(
-        Object.values(EDITOR_OBJECT_DEFINITIONS)
+        Object.values(GAME_OBJECT_DEFINITIONS)
             .filter(definition => definition.type)
             .map(definition => [definition.type, definition])
     )
@@ -365,7 +475,9 @@ const UNKNOWN_DEFINITION = Object.freeze({
     type: null,
     label: 'Object',
     editable: false,
+    exportable: false,
     collections: Object.freeze([]),
+    levelDefaults: Object.freeze({}),
     properties: Object.freeze([]),
     serializedProperties: Object.freeze([]),
     capabilities: Object.freeze({
@@ -394,20 +506,39 @@ export function getEditorActionDefinition(action) {
     return EDITOR_ACTION_DEFINITIONS[action] ?? null;
 }
 
-export function getEditorObjectDefinition(classNameOrType) {
-    if (EDITOR_OBJECT_DEFINITIONS[classNameOrType]) return EDITOR_OBJECT_DEFINITIONS[classNameOrType];
+export function getGameObjectDefinition(classNameOrType) {
+    if (GAME_OBJECT_DEFINITIONS[classNameOrType]) return GAME_OBJECT_DEFINITIONS[classNameOrType];
     const type = normalizeLevelObjectType(classNameOrType);
-    return EDITOR_OBJECT_DEFINITIONS_BY_TYPE[type] ?? UNKNOWN_DEFINITION;
+    return GAME_OBJECT_DEFINITIONS_BY_TYPE[type] ?? UNKNOWN_DEFINITION;
 }
 
-export function getEditableClassNames(gameObjectClasses = {}) {
+/** Resolve runtime objects by their stable serialized type before legacy class names. */
+export function getGameObjectDefinitionForRuntime(object) {
+    if (!object) return UNKNOWN_DEFINITION;
+    const stableType = object.levelType ?? object.objectType ?? object.type;
+    if (stableType && typeof stableType === 'string') {
+        const definition = getGameObjectDefinition(stableType);
+        if (definition !== UNKNOWN_DEFINITION) return definition;
+    }
+    return getGameObjectDefinition(object.constructor?.name);
+}
+
+/** Stamp a runtime object with the canonical, serialization-safe type identity. */
+export function stampGameObjectType(object, classNameOrType = object?.constructor?.name) {
+    if (!object) return object;
+    const definition = getGameObjectDefinition(classNameOrType);
+    if (definition.type) object.levelType = definition.type;
+    return object;
+}
+
+export function listEditableRuntimeClassNames(gameObjectClasses = {}) {
     return Object.keys(gameObjectClasses)
-        .filter(className => getEditorObjectDefinition(className).editable)
+        .filter(className => getGameObjectDefinition(className).editable)
         .sort();
 }
 
-export function getEditableLevelTypes() {
-    return Object.values(EDITOR_OBJECT_DEFINITIONS_BY_TYPE)
+export function listEditableLevelObjectTypes() {
+    return Object.values(GAME_OBJECT_DEFINITIONS_BY_TYPE)
         .filter(definition => definition.editable && definition.type !== LevelObjectType.PENGUIN)
         .map(definition => definition.type);
 }

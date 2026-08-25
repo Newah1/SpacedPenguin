@@ -14,9 +14,9 @@ import CommandHistory from '../js/editorCommands/commandHistory.js';
 import CommandRegistry from '../js/editorCommands/commandRegistry.js';
 import { createLiveEditHistory, LiveEditCommandType } from '../js/editorCommands/index.js';
 import {
-    getEditableLevelTypes,
-    getEditorObjectDefinition
-} from '../js/editorObjectRegistry.js';
+    listEditableLevelObjectTypes,
+    getGameObjectDefinition
+} from '../js/gameObjectRegistry.js';
 
 function validDefinition() {
     return {
@@ -90,8 +90,8 @@ test('ID allocation fills type gaps without colliding and rejects duplicate auth
 });
 
 test('editor registry covers every editable canonical type with properties and actions', () => {
-    for (const type of getEditableLevelTypes()) {
-        const definition = getEditorObjectDefinition(type);
+    for (const type of listEditableLevelObjectTypes()) {
+        const definition = getGameObjectDefinition(type);
         assert.equal(definition.type, type);
         assert.equal(definition.editable, true);
         assert.equal(definition.capabilities.create, true);
