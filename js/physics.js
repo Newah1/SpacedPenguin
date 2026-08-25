@@ -3,7 +3,6 @@
 
 import Utils from './utils.js';
 import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from './globalConstants.js';
-import { LEVEL_DEFAULTS } from './config/gameConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
 
 export class Physics {
