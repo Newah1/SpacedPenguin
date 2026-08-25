@@ -25,10 +25,13 @@ function resolveDefinition(object, identity) {
     return identity ? getGameObjectDefinition(identity) : getGameObjectDefinitionForRuntime(object);
 }
 
+const PHYSICS_COLLECTION_BY_ADD_METHOD = Object.freeze({
+    addPlanet: 'planets',
+    addBonus: 'bonuses'
+});
+
 function physicsCollectionName(definition) {
-    if (definition.physicsCollection) return definition.physicsCollection;
-    const suffix = definition.physicsAdd?.match(/^add(.+)$/)?.[1];
-    return suffix ? `${suffix[0].toLowerCase()}${suffix.slice(1)}s` : null;
+    return definition.physicsCollection || PHYSICS_COLLECTION_BY_ADD_METHOD[definition.physicsAdd] || null;
 }
 
 /** Keeps the canonical render list and descriptor-defined runtime indexes in sync. */
