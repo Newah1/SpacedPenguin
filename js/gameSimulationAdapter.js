@@ -41,9 +41,34 @@ function applyOrbitToRuntime(system, orbit) {
     system.frameAccumulator = orbit.frameAccumulator ?? system.frameAccumulator;
 }
 
+function ensureStableRuntimeIds(objects, prefix) {
+    const usedIds = new Set(objects.map(object => object.id).filter(Boolean));
+    let nextId = 1;
+    return objects.map(object => {
+        if (object.id) return object.id;
+        while (usedIds.has(`__${prefix}_${nextId}`)) nextId++;
+        const id = `__${prefix}_${nextId++}`;
+        object.id = id;
+        usedIds.add(id);
+        return id;
+    });
+}
+
+function runtimeObjectsById(objects) {
+    return new Map(objects.map(object => [object.id, object]));
+}
+
+function runtimeObjectForSimulationIndex(game, collectionName, index) {
+    const stateObject = game._runtimeSimulationState?.[collectionName]?.[index];
+    if (!stateObject) return null;
+    return runtimeObjectsById(game[collectionName] || []).get(stateObject.id) || null;
+}
+
 export function captureGameSimulationState(game) {
-    const planetIds = game.planets.map((planet, index) => planet.id || `__planet_${index + 1}`);
-    const bonusIds = game.bonuses.map((bonus, index) => bonus.id || `__bonus_${index + 1}`);
+    const planetIds = ensureStableRuntimeIds(game.planets, 'planet');
+    const bonusIds = ensureStableRuntimeIds(game.bonuses, 'bonus');
+    const portalIds = ensureStableRuntimeIds(game.portals || [], 'portal');
+    const targetId = ensureStableRuntimeIds([game.target], 'target')[0];
     return {
         time: game.simulationTime || 0,
         runTick: game.runTick || 0,
@@ -73,7 +98,7 @@ export function captureGameSimulationState(game) {
             orbit: orbitFromRuntime(bonus.orbitSystem)
         })),
         portals: (game.portals || []).map((portal, index) => ({
-            id: portal.id || `__portal_${index + 1}`,
+            id: portalIds[index],
             position: { ...portal.position },
             width: portal.width,
             height: portal.height,
@@ -83,7 +108,7 @@ export function captureGameSimulationState(game) {
             playSound: portal.playSound
         })),
         target: {
-            id: game.target.id || '__target_1',
+            id: targetId,
             position: { ...game.target.position },
             width: game.target.width,
             height: game.target.height,
@@ -135,15 +160,17 @@ export function applyGameSimulationState(game, state) {
     game.currentAttemptScore = state.counters.currentAttemptScore;
     game.planetCollisions = state.counters.planetCollisions;
 
-    state.planets.forEach((planetState, index) => {
-        const planet = game.planets[index];
+    const planetsById = runtimeObjectsById(game.planets);
+    const bonusesById = runtimeObjectsById(game.bonuses);
+    state.planets.forEach(planetState => {
+        const planet = planetsById.get(planetState.id);
         if (!planet) return;
         planet.position.x = planetState.position.x;
         planet.position.y = planetState.position.y;
         applyOrbitToRuntime(planet.orbitSystem, planetState.orbit);
     });
-    state.bonuses.forEach((bonusState, index) => {
-        const bonus = game.bonuses[index];
+    state.bonuses.forEach(bonusState => {
+        const bonus = bonusesById.get(bonusState.id);
         if (!bonus) return;
         bonus.position.x = bonusState.position.x;
         bonus.position.y = bonusState.position.y;
@@ -188,13 +215,13 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
                 game.recordPathPoint(game.penguin.x, game.penguin.y);
                 break;
             case SimulationEventType.BONUS_COLLECTED: {
-                const bonus = game.bonuses[event.bonusIndex];
+                const bonus = runtimeObjectForSimulationIndex(game, 'bonuses', event.bonusIndex);
                 game.playSound(getAudioCue(AudioCue.BONUS).soundId);
                 if (bonus && game.bonusPopup) game.bonusPopup.show(event.value, bonus.position);
                 break;
             }
             case SimulationEventType.PLANET_COLLISION: {
-                const planet = game.planets[event.planetIndex];
+                const planet = runtimeObjectForSimulationIndex(game, 'planets', event.planetIndex);
                 game.penguin.beginCrash(planet, false);
                 game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
                 game.endRecordingShotPath();

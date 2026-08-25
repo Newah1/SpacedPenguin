@@ -27,7 +27,9 @@ const LevelEditorCanvasInputController = (await import('../js/levelEditor/contro
 const { Penguin } = await import('../js/penguin.js');
 const { UIManager } = await import('../js/uiManager.js');
 const {
+    applyGameSimulationState,
     applyGameSimulationEvents,
+    captureGameSimulationState,
     invalidateGameSimulationState,
     stepGameSimulation
 } = await import('../js/gameSimulationAdapter.js');
@@ -702,6 +704,85 @@ test('browser simulation reuses mutable state until the live world is invalidate
 
     invalidateGameSimulationState(game);
     assert.equal(game._runtimeSimulationState, null);
+});
+
+test('simulation state reconciles reordered runtime collections by stable ID', () => {
+    const planetA = { position: { x: 10, y: 20 }, radius: 10, collisionRadius: 9, mass: 1, gravitationalReach: 100, orbitSystem: null };
+    const planetB = { id: 'authored-planet', position: { x: 30, y: 40 }, radius: 12, collisionRadius: 11, mass: 2, gravitationalReach: 200, orbitSystem: null };
+    const makeBonus = (id, x) => ({
+        id,
+        position: { x, y: 50 },
+        width: 20,
+        value: 100,
+        state: 'Idle',
+        orbitSystem: null,
+        collect() { this.state = 'Hit'; },
+        reset() { this.state = 'Idle'; }
+    });
+    const bonusA = makeBonus(null, 60);
+    const bonusB = makeBonus('authored-bonus', 80);
+    const game = {
+        simulationTime: 0,
+        runTick: 0,
+        penguin: { x: 0, y: 0, vx: 0, vy: 0, radius: 8, state: 'idle', crashedFrameCount: 0 },
+        planets: [planetA, planetB],
+        bonuses: [bonusA, bonusB],
+        portals: [],
+        target: { position: { x: 700, y: 300 }, width: 50, height: 50, orbitSystem: null },
+        slingshot: { anchor: { x: 100, y: 200 }, velocityMultiplier: 10, maxPullback: 100, minPullback: 0 },
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        flightRect: { x: 0, y: 0, width: 800, height: 600 },
+        levelRules: {},
+        physics: { gravitationalConstant: 3 },
+        tries: 0,
+        planetCollisions: 0,
+        currentAttemptScore: 0,
+        distance: 0
+    };
+    const state = captureGameSimulationState(game);
+    assert.equal(planetA.id, '__planet_1');
+    assert.equal(bonusA.id, '__bonus_1');
+    assert.equal(game.target.id, '__target_1');
+
+    state.planets[0].position = { x: 111, y: 112 };
+    state.planets[1].position = { x: 211, y: 212 };
+    state.bonuses[0].position = { x: 311, y: 312 };
+    state.bonuses[0].collected = true;
+    state.bonuses[1].position = { x: 411, y: 412 };
+    game.planets.reverse();
+    game.bonuses.reverse();
+
+    applyGameSimulationState(game, state);
+
+    assert.deepEqual(planetA.position, { x: 111, y: 112 });
+    assert.deepEqual(planetB.position, { x: 211, y: 212 });
+    assert.deepEqual(bonusA.position, { x: 311, y: 312 });
+    assert.equal(bonusA.state, 'Hit');
+    assert.deepEqual(bonusB.position, { x: 411, y: 412 });
+});
+
+test('indexed simulation events resolve their runtime object through captured stable IDs', () => {
+    const planetA = { id: 'planet-a' };
+    const planetB = { id: 'planet-b' };
+    const crashedInto = [];
+    const game = {
+        _runtimeSimulationState: { planets: [{ id: 'planet-a' }, { id: 'planet-b' }], bonuses: [] },
+        planets: [planetB, planetA],
+        bonuses: [],
+        penguin: { state: 'soaring', beginCrash: planet => crashedInto.push(planet) },
+        playSound() {},
+        endRecordingShotPath() {},
+        preserveCrashedPenguin() {},
+        tryAgain() {},
+        updateUI() {}
+    };
+
+    applyGameSimulationEvents(game, [{
+        type: SimulationEventType.PLANET_COLLISION,
+        planetIndex: 0
+    }], 1 / 60);
+
+    assert.deepEqual(crashedInto, [planetA]);
 });
 
 test('shot paths retain every distinct flight position without cumulative accuracy loss', () => {

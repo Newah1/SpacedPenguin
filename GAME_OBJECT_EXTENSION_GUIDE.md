@@ -31,22 +31,23 @@ Add a class in `js/gameObjects.js` or a focused module (as `BlackHole` does). A 
 - Do not advance flight, collisions, gameplay outcomes, or normal-frame orbit physics in the class.
 - Add required image/audio files to `assets/manifest.json` and preserve graceful visual/audio fallback behavior.
 
-### 2. Add shared level vocabulary and defaults
+### 2. Define the serialized contract in the registry
 
-Update `js/levelSchema.js`:
+Add one descriptor in `js/gameObjectRegistry.js`. The descriptor owns the canonical JSON `type`, so no separate type enum or class-name map needs editing. It also owns:
 
-- Add the canonical JSON type to `LevelObjectType`.
-- Add its class-name mapping to `LEVEL_OBJECT_TYPE_BY_CLASS_NAME`.
 - Add aliases only for an intentional compatibility format.
-- Return normalized property defaults from `getLevelObjectPropertyDefaults`.
-- Add the type to `ORBIT_SOURCE_TYPES` or `ORBIT_LOOKUP_TARGET_TYPES` only if its runtime and simulation representations support that capability.
+- Property defaults and exceptional normalization for true invariants.
+- Orbit-source/orbit-target capabilities only when runtime and simulation representations support them.
+- Type-specific property validation, runtime construction, authoring construction, membership, inspector fields, and serialization fields.
 - Add exceptional normalization only when it is a true invariant, not merely a constructor convenience.
 
 Defaults shared by browser and headless execution belong in `js/config/gameConfig.js`. Preserve meaningful `0` and `false` values with nullish defaults.
 
-### 3. Register construction and editor behavior
+### 3. Compose the runtime class
 
-Add the imported constructor to `GameObjectFactory.constructors` in `js/levelLoader.js`, then add one descriptor in `js/gameObjectRegistry.js`. The descriptor is the authoritative extension seam and owns:
+Export a class from one of the modules composed by `js/runtimeConstructorCatalog.js`. Classes exported from `gameObjects.js`, `blackHole.js`, or `penguin.js` are discovered automatically. If a focused new module is appropriate, add that module once to the composition list; there is no per-class constructor map and `LevelLoader` does not import concrete object classes.
+
+The registry descriptor is the authoritative extension seam and owns:
 
 - `createRuntime`: complete runtime construction from normalized position/properties;
 - `createAuthoringDefinitions`: canonical definition(s) created by the editor;
@@ -54,7 +55,7 @@ Add the imported constructor to `GameObjectFactory.constructors` in `js/levelLoa
 - `physicsAdd` and `physicsRemove`: physics registry hooks, if any;
 - `singleton`: the owning `Game` property, if any;
 - editor capabilities, group clone behavior, and transient property hooks;
-- inspector fields and serialized property names supplied by `js/config/editorInspectorConfig.js`.
+- inspector fields and serialized property names.
 
 `GameObjectFactory` should remain generic dispatch plus shared orbit configuration. Do not add a new type switch there.
 
@@ -122,18 +123,17 @@ Use the relevant browser harness or Playwright scenario for Canvas, editor, inpu
 The 2026-08-25 refactor completed these structural changes:
 
 - `gameObjectRegistry.js` is the single domain registry; the former editor-named compatibility module was removed and all consumers cut over.
-- `levelObjectVocabulary.js` is dependency-free and contains only stable type/orbit/camera vocabulary.
+- `levelObjectVocabulary.js` is dependency-free and contains only orbit/camera vocabulary; serialized object types, aliases, and normalization are registry-owned.
 - Schema defaults, orbit capabilities, per-type normalization, property validation, construction, authoring hooks, membership metadata, inspector metadata references, and serialization allowlists are registry-derived.
 - `RuntimeObjectMembership` is shared by JSON loading and editor mutation. It owns stable type stamping, idempotent add/remove, typed collections, physics hooks, singletons, ordering restoration, and descriptor-derived level reset.
 - Runtime export uses stable `levelType` identity and explicit allowlists; the constructor-name property map and greedy primitive scan were removed.
 - Orbit fallback construction is synchronous, eliminating the unawaited dynamic-import race.
 
-Two boundaries intentionally remain explicit:
+One boundary intentionally remains explicit:
 
-1. `GameObjectFactory.constructors` is the browser composition map that injects runtime classes into the headless-safe registry creators. A new runtime class needs one import/map entry in addition to its descriptor.
-2. Gameplay participants need deliberate changes to `simulationState`, `simulationEngine`, `gameSimulationAdapter`, reset/clone logic, and compiled orbit timelines. Collision ordering and domain transitions are not generic registration concerns. The adapter still reconciles some simulation arrays by ordering; stable ID reconciliation is a future hardening opportunity.
+1. Gameplay participants need deliberate changes to `simulationState`, `simulationEngine`, `gameSimulationAdapter`, reset/clone logic, and compiled orbit timelines. Collision ordering and domain transitions are not generic registration concerns. Browser reconciliation is ID-based, so runtime collection order is not part of the adapter contract.
 
-For a presentation-only object, the steady-state addition is therefore one class, one constructor-composition entry, and one descriptor (plus assets/tests/docs). Gameplay objects add only their irreducible deterministic state and interaction policy.
+For a presentation-only object exported from an already composed runtime module, the steady-state addition is therefore one class and one descriptor (plus assets/tests/docs). Gameplay objects add only their irreducible deterministic state and interaction policy.
 
 ## Validation record
 

@@ -1,5 +1,4 @@
 import { getGameObjectDefinitionForRuntime } from './gameObjectRegistry.js';
-import { LevelObjectType } from './levelObjectVocabulary.js';
 
 // These are deliberately explicit. Runtime objects contain animation, physics,
 // asset, and cache state which must never become part of the authored format.
@@ -47,14 +46,7 @@ export function serializeRuntimeObject(object, { serializeOrbit } = {}) {
     ]);
     for (const key of keys) copyProperty(properties, object, key);
 
-    // Auto-sized text changes its rendered width every frame. Persist the
-    // configured wrap limit instead of the transient rendered measurement.
-    if (descriptor.type === LevelObjectType.TEXT && object.maxWidth !== undefined) {
-        properties.width = object.maxWidth + object.padding * 2;
-    }
-    if (descriptor.type === LevelObjectType.POINTING_ARROW && object.pointingAt) {
-        properties.pointingAt = { x: object.pointingAt.x, y: object.pointingAt.y };
-    }
+    descriptor.serializeRuntimeProperties?.({ object, properties });
     if (object.orbitSystem && serializeOrbit) {
         properties.orbit = serializeOrbit(object.orbitSystem);
     }

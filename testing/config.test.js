@@ -42,12 +42,11 @@ import { RENDER_CONFIG } from '../js/config/renderConfig.js';
 import { EDITOR_CONFIG } from '../js/config/editorConfig.js';
 import {
     BASIC_SERIALIZED_OBJECT_PROPERTIES,
-    CLASS_SERIALIZED_OBJECT_PROPERTIES,
     EDITOR_SPRITE_OPTIONS,
     LEVEL_SETTING_FIELDS,
-    OBJECT_PROPERTY_FIELDS,
     ORBIT_PROPERTY_FIELDS
 } from '../js/config/editorInspectorConfig.js';
+import { getGameObjectDefinition } from '../js/gameObjectRegistry.js';
 import { UI_CONFIG } from '../js/config/uiConfig.js';
 import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 import { AssetLoader } from '../js/assetLoader.js';
@@ -85,7 +84,7 @@ test('game configuration is deeply frozen and satisfies core invariants', () => 
     assert.equal(Object.isFrozen(INPUT_CONFIG.hapticsMs), true);
     assert.equal(Object.isFrozen(RENDER_CONFIG.starfield), true);
     assert.equal(Object.isFrozen(EDITOR_CONFIG.authoringDefaults), true);
-    assert.equal(Object.isFrozen(OBJECT_PROPERTY_FIELDS.Planet), true);
+    assert.equal(Object.isFrozen(getGameObjectDefinition('Planet').properties), true);
     assert.equal(Object.isFrozen(ORBIT_PROPERTY_FIELDS.gravityStrength), true);
     assert.equal(Object.isFrozen(UI_CONFIG.levelEnd), true);
     assert.equal(Object.isFrozen(TRAJECTORY_CONFIG.workers), true);
@@ -94,7 +93,7 @@ test('game configuration is deeply frozen and satisfies core invariants', () => 
 
 test('level editor inspector policy is cataloged by object and settings domain', () => {
     assert.deepEqual(
-        OBJECT_PROPERTY_FIELDS.BlackHole.map(field => field.key),
+        getGameObjectDefinition('BlackHole').properties.map(field => field.key),
         ['radius', 'mass', 'gravitationalReach']
     );
     assert.equal(
@@ -106,12 +105,18 @@ test('level editor inspector policy is cataloged by object and settings domain',
         ['legacy', 'fit', 'follow']
     );
     assert.equal(
-        OBJECT_PROPERTY_FIELDS.Planet.find(field => field.key === 'planetType').optionsFrom,
+        getGameObjectDefinition('Planet').properties.find(field => field.key === 'planetType').optionsFrom,
         'planetSprites'
     );
     assert.ok(EDITOR_SPRITE_OPTIONS.planetSprites.includes('planet_grey'));
     assert.ok(BASIC_SERIALIZED_OBJECT_PROPERTIES.includes('name'));
-    assert.ok(CLASS_SERIALIZED_OBJECT_PROPERTIES.Portal.includes('pairedPortalId'));
+    assert.ok(getGameObjectDefinition('Portal').serializedProperties.includes('pairedPortalId'));
+    assert.deepEqual(getGameObjectDefinition('Target').spriteDefault, {
+        property: 'spriteType',
+        value: LEVEL_DEFAULTS.target.spriteType,
+        refreshMethod: 'refreshTargetSprite'
+    });
+    assert.equal(Object.isFrozen(getGameObjectDefinition('Planet').properties[0]), true);
 });
 
 test('asset and audio policy resolve semantic resources centrally', () => {

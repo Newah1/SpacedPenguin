@@ -1,8 +1,7 @@
 // Level Loading System for Spaced Penguin
 // Supports JSON-based level definitions with object factories and custom rules
 
-import { Planet, Bonus, Target, Slingshot, TextObject, PointingArrow, Portal, OrbitSystem } from './gameObjects.js';
-import { BlackHole } from './blackHole.js';
+import { Planet, OrbitSystem } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
 import plog from './penguinLogger.js';
@@ -32,21 +31,14 @@ import {
     formatLevelSelector,
     levelCollectionPath
 } from './config/gameConfig.js';
-import { getGameObjectDefinition } from './gameObjectRegistry.js';
+import {
+    LEVEL_ROLE_GAME_OBJECT_DEFINITIONS,
+    getGameObjectDefinition
+} from './gameObjectRegistry.js';
 import RuntimeObjectMembership from './runtimeObjectMembership.js';
+import { RUNTIME_CONSTRUCTOR_CATALOG } from './runtimeConstructorCatalog.js';
 
 export class GameObjectFactory {
-    static constructors = Object.freeze({
-        Planet,
-        BlackHole,
-        Bonus,
-        Target,
-        Slingshot,
-        TextObject,
-        PointingArrow,
-        Portal
-    });
-
     static create(objectDefinition, assetLoader, game, gameObjectLookup = null) {
         const normalizedDefinition = normalizeLevelObjectDefinition(objectDefinition);
         let { type, position, properties = {} } = normalizedDefinition;
@@ -68,7 +60,7 @@ export class GameObjectFactory {
             return null;
         }
         const gameObject = creator({
-            constructors: this.constructors,
+            constructors: RUNTIME_CONSTRUCTOR_CATALOG,
             position,
             properties,
             assetLoader,
@@ -241,29 +233,32 @@ export class LevelLoader {
         game.penguin = new Penguin(this.assetLoader);
         game.penguin.setPosition(startPos.x, startPos.y);
         game.addGameObject(game.penguin);
-        const slingshotDef = levelDefinition.objects?.find(obj => normalizeLevelObjectType(obj.type) === LevelObjectType.SLINGSHOT);
-        if (slingshotDef) game.slingshot = GameObjectFactory.create(slingshotDef, this.assetLoader, game);
-        else {
-            game.slingshot = new Slingshot(startPos.x, startPos.y, startPos.x, startPos.y, LEVEL_DEFAULTS.slingshot.maxPullback);
-            game.slingshot.minPullback = LEVEL_DEFAULTS.slingshot.minPullback;
-            game.slingshot.velocityMultiplier = LEVEL_DEFAULTS.slingshot.velocityMultiplier;
-        }
-        game.slingshot.setPenguin(game.penguin);
-        membership.add(game.slingshot, LevelObjectType.SLINGSHOT);
-        const targetDef = levelDefinition.objects?.find(obj => normalizeLevelObjectType(obj.type) === LevelObjectType.TARGET);
-        if (targetDef) game.target = GameObjectFactory.create(targetDef, this.assetLoader, game);
-        else {
-            const targetPos = levelDefinition.targetPosition || WORLD_CONFIG.defaultTargetPosition;
-            game.target = new Target(targetPos.x, targetPos.y, LEVEL_DEFAULTS.target.width, LEVEL_DEFAULTS.target.height, LEVEL_DEFAULTS.target.spriteType, this.assetLoader);
-        }
-        membership.add(game.target, LevelObjectType.TARGET);
         const gameObjectMap = new Map();
         const gameObjectLookup = id => gameObjectMap.get(id);
         const objectsToOrbit = [];
         const typeCounters = {};
+        for (const descriptor of LEVEL_ROLE_GAME_OBJECT_DEFINITIONS) {
+            const authoredDefinition = levelDefinition.objects?.find(object =>
+                normalizeLevelObjectType(object.type) === descriptor.type
+            );
+            const definition = authoredDefinition || descriptor.createFallbackDefinition?.({
+                levelDefinition,
+                startPosition: startPos,
+                targetPosition: levelDefinition.targetPosition || WORLD_CONFIG.defaultTargetPosition,
+                game
+            });
+            const object = GameObjectFactory.create(
+                definition, this.assetLoader, game, gameObjectLookup
+            );
+            if (!object || !membership.add(object, descriptor)) continue;
+            descriptor.afterLevelAdd?.({ object, game, levelDefinition });
+            if (authoredDefinition?.properties?.orbit) {
+                objectsToOrbit.push({ gameObject: object, orbit: authoredDefinition.properties.orbit });
+            }
+        }
         for (const objectDef of (levelDefinition.objects || [])) {
             const objectType = normalizeLevelObjectType(objectDef.type);
-            if (objectType === LevelObjectType.SLINGSHOT || objectType === LevelObjectType.TARGET) continue;
+            if (getGameObjectDefinition(objectType).levelRole) continue;
             const gameObject = GameObjectFactory.create(objectDef, this.assetLoader, game, gameObjectLookup);
             if (!gameObject) continue;
             if (!gameObject.id) {
@@ -277,7 +272,6 @@ export class LevelLoader {
             if (tempOrbit) objectsToOrbit.push({ gameObject, orbit: tempOrbit });
             membership.add(gameObject, objectType);
         }
-        if (targetDef && targetDef.properties?.orbit) objectsToOrbit.push({ gameObject: game.target, orbit: targetDef.properties.orbit });
         for (const { gameObject, orbit } of objectsToOrbit) GameObjectFactory.applyOrbitToObject(gameObject, orbit, gameObjectLookup);
         new LevelRules(levelDefinition.rules).applyToGame(game);
         game.tries = 0;

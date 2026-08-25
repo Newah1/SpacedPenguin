@@ -23,19 +23,6 @@ export const EDITOR_SPRITE_OPTIONS = deepFreeze({
     bonusSprites: ['bonus', 'bonus_hit']
 });
 
-export const EDITOR_OBJECT_SPRITE_DEFAULTS = deepFreeze({
-    Planet: {
-        property: 'planetType',
-        value: EDITOR_CONFIG.authoringDefaults.planet.planetType,
-        refreshMethod: 'refreshPlanetSprite'
-    },
-    Target: {
-        property: 'spriteType',
-        value: LEVEL_DEFAULTS.target.spriteType,
-        refreshMethod: 'refreshTargetSprite'
-    }
-});
-
 export const EDITABLE_STATE_PROPERTIES = deepFreeze([
     'name', 'rotation', 'alpha', 'visible', 'radius', 'width', 'height', 'mass',
     'collisionRadius', 'gravitationalReach', 'color', 'planetType', 'value',
@@ -50,20 +37,6 @@ export const BASIC_SERIALIZED_OBJECT_PROPERTIES = deepFreeze([
     'rotation', 'alpha', 'visible'
 ]);
 
-export const CLASS_SERIALIZED_OBJECT_PROPERTIES = deepFreeze({
-    Planet: ['planetType', 'collisionRadius', 'gravitationalReach', 'color'],
-    BlackHole: ['gravitationalReach', 'collisionRadius', 'collidable'],
-    Bonus: ['value', 'rotationSpeed', 'state'],
-    Target: ['spriteType'],
-    Slingshot: ['maxPullback', 'velocityMultiplier', 'anchorX', 'anchorY'],
-    TextObject: [
-        'content', 'fontSize', 'color', 'fontFamily', 'textAlign',
-        'backgroundColor', 'padding', 'maxWidth', 'autoSize'
-    ],
-    PointingArrow: ['pointingAt', 'baseWidth', 'color', 'glowColor', 'scaleWithDistance'],
-    Portal: ['pairedPortalId', 'color', 'playSound']
-});
-
 export const ORBIT_EDITOR_PROPERTY_KEYS = deepFreeze([
     'orbitTargetType', 'orbitTargetId', 'orbitCenterX', 'orbitCenterY',
     'orbitRadius', 'orbitSpeed', 'orbitType', 'gravityStrength',
@@ -77,70 +50,6 @@ export const COMMON_OBJECT_PROPERTY_FIELDS = deepFreeze({
     rotation: { label: 'Rotation', key: 'rotation', type: 'number' },
     alpha: { label: 'Alpha', key: 'alpha', type: 'number', min: 0, max: 1, step: 0.1 },
     visible: { label: 'Visible', key: 'visible', type: 'checkbox' }
-});
-
-export const OBJECT_PROPERTY_FIELDS = deepFreeze({
-    Planet: [
-        { key: 'radius', label: 'Radius', type: 'number', min: 1 },
-        { key: 'width', label: 'Width', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'mass', label: 'Mass', type: 'number', min: 0 },
-        { key: 'collisionRadius', label: 'Collision Radius', type: 'number', min: 1 },
-        { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 },
-        { key: 'color', label: 'Color', type: 'color' },
-        { key: 'planetType', label: 'Planet Sprite', type: 'select', optionsFrom: EditorOptionCatalog.PLANET_SPRITES }
-    ],
-    BlackHole: [
-        { key: 'radius', label: 'Radius', type: 'number', min: 1 },
-        { key: 'mass', label: 'Mass', type: 'number', min: 0 },
-        { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 }
-    ],
-    Bonus: [
-        { key: 'width', label: 'Width', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'value', label: 'Value', type: 'number', min: 1 },
-        { key: 'rotationSpeed', label: 'Rotation Speed', type: 'number' },
-        { key: 'state', label: 'State', type: 'select', options: ['notHit', 'Hit'] }
-    ],
-    Target: [
-        { key: 'width', label: 'Width', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'spriteType', label: 'Ship Sprite', type: 'select', optionsFrom: EditorOptionCatalog.SHIP_SPRITES }
-    ],
-    Slingshot: [
-        { key: 'width', label: 'Width', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'maxPullback', label: 'Max Pullback', type: 'number', min: 10 },
-        { key: 'velocityMultiplier', label: 'Velocity Multiplier', type: 'number', min: 1 }
-    ],
-    TextObject: [
-        { key: 'content', label: 'Text Content', type: 'text' },
-        { key: 'width', label: 'Width / Wrap Limit', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 72 },
-        { key: 'color', label: 'Color', type: 'color' },
-        { key: 'fontFamily', label: 'Font Family', type: 'text' },
-        { key: 'textAlign', label: 'Text Align', type: 'select', options: ['left', 'center', 'right'] },
-        { key: 'backgroundColor', label: 'Background Color', type: 'color' },
-        { key: 'autoSize', label: 'Auto Size', type: 'checkbox' },
-        { key: 'visible', label: 'Visible', type: 'checkbox' }
-    ],
-    PointingArrow: [
-        { key: 'pointingAtX', label: 'Target X', type: 'number' },
-        { key: 'pointingAtY', label: 'Target Y', type: 'number' },
-        { key: 'width', label: 'Width', type: 'number', min: 1 },
-        { key: 'height', label: 'Height', type: 'number', min: 1 },
-        { key: 'color', label: 'Color', type: 'color' },
-        { key: 'glowColor', label: 'Glow Color', type: 'color' },
-        { key: 'baseWidth', label: 'Base Width', type: 'number', min: 10 },
-        { key: 'scaleWithDistance', label: 'Scale with Distance', type: 'checkbox' },
-        { key: 'visible', label: 'Visible', type: 'checkbox' }
-    ],
-    Portal: [
-        { key: 'width', label: 'Width', type: 'number', min: 8 },
-        { key: 'height', label: 'Height', type: 'number', min: 6 },
-        { key: 'playSound', label: 'Play Woosh Sound', type: 'checkbox' }
-    ]
 });
 
 export const LEVEL_SETTING_FIELDS = deepFreeze([

@@ -1,26 +1,35 @@
-import {
-    CLASS_SERIALIZED_OBJECT_PROPERTIES,
-    EDITOR_OBJECT_SPRITE_DEFAULTS,
-    OBJECT_PROPERTY_FIELDS
-} from './config/editorInspectorConfig.js';
-import {
-    LevelObjectType,
-    normalizeLevelObjectType
-} from './levelObjectVocabulary.js';
 import { EDITOR_CONFIG } from './config/editorConfig.js';
 import { LEVEL_DEFAULTS } from './config/gameConfig.js';
 
-export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze({
-    Planet: LevelObjectType.PLANET,
-    BlackHole: LevelObjectType.BLACK_HOLE,
-    Bonus: LevelObjectType.BONUS,
-    Target: LevelObjectType.TARGET,
-    Slingshot: LevelObjectType.SLINGSHOT,
-    TextObject: LevelObjectType.TEXT,
-    PointingArrow: LevelObjectType.POINTING_ARROW,
-    Portal: LevelObjectType.PORTAL,
-    Penguin: LevelObjectType.PENGUIN
+export const LevelObjectType = Object.freeze({
+    PLANET: 'planet',
+    BLACK_HOLE: 'blackhole',
+    BONUS: 'bonus',
+    TARGET: 'target',
+    SLINGSHOT: 'slingshot',
+    TEXT: 'textobject',
+    POINTING_ARROW: 'pointingarrow',
+    PORTAL: 'portal',
+    PENGUIN: 'penguin'
 });
+
+export const LEVEL_OBJECT_TYPE_ALIASES = Object.freeze({
+    text: LevelObjectType.TEXT,
+    arrow: LevelObjectType.POINTING_ARROW,
+    black_hole: LevelObjectType.BLACK_HOLE
+});
+
+export const LEVEL_OBJECT_TYPES = Object.freeze(Object.values(LevelObjectType));
+export const LEVEL_OBJECT_TYPE_NAMES = Object.freeze([
+    ...LEVEL_OBJECT_TYPES,
+    ...Object.keys(LEVEL_OBJECT_TYPE_ALIASES)
+]);
+
+export function normalizeLevelObjectType(type) {
+    if (typeof type !== 'string') return null;
+    const normalized = type.trim().toLowerCase();
+    return LEVEL_OBJECT_TYPE_ALIASES[normalized] || normalized;
+}
 
 const ORBIT_TARGET_TYPE_SET = new Set([
     LevelObjectType.PLANET, LevelObjectType.BLACK_HOLE, LevelObjectType.BONUS
@@ -328,9 +337,34 @@ function validatePortalProperties({ properties, propertyPath, collector, helpers
     }
 }
 
+function serializeTextRuntime({ object, properties }) {
+    if (object.maxWidth !== undefined) {
+        properties.width = object.maxWidth + object.padding * 2;
+    }
+}
+
+function serializePointingArrowRuntime({ object, properties }) {
+    if (object.pointingAt) {
+        properties.pointingAt = { x: object.pointingAt.x, y: object.pointingAt.y };
+    }
+}
+
 const BASE_DEFINITIONS = {
     Planet: {
+        type: LevelObjectType.PLANET,
         label: 'Planet', editable: true, collections: ['planets'],
+        properties: [
+            { key: 'radius', label: 'Radius', type: 'number', min: 1 },
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'mass', label: 'Mass', type: 'number', min: 0 },
+            { key: 'collisionRadius', label: 'Collision Radius', type: 'number', min: 1 },
+            { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 },
+            { key: 'color', label: 'Color', type: 'color' },
+            { key: 'planetType', label: 'Planet Sprite', type: 'select', optionsFrom: 'planetSprites' }
+        ],
+        serializedProperties: ['planetType', 'collisionRadius', 'gravitationalReach', 'color'],
+        spriteDefault: { property: 'planetType', value: EDITOR_CONFIG.authoringDefaults.planet.planetType, refreshMethod: 'refreshPlanetSprite' },
         levelDefaults: {
             radius: LEVEL_DEFAULTS.planet.radius, mass: LEVEL_DEFAULTS.planet.mass,
             gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach
@@ -347,7 +381,14 @@ const BASE_DEFINITIONS = {
         afterRuntimePropertyChanged: refreshPlanetRuntime
     },
     BlackHole: {
+        type: LevelObjectType.BLACK_HOLE,
         label: 'Black Hole', editable: true, collections: ['planets'],
+        properties: [
+            { key: 'radius', label: 'Radius', type: 'number', min: 1 },
+            { key: 'mass', label: 'Mass', type: 'number', min: 0 },
+            { key: 'gravitationalReach', label: 'Gravitational Reach', type: 'number', min: 0 }
+        ],
+        serializedProperties: ['gravitationalReach', 'collisionRadius', 'collidable'],
         levelDefaults: {
             radius: LEVEL_DEFAULTS.planet.radius, mass: LEVEL_DEFAULTS.planet.mass,
             gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach
@@ -362,7 +403,16 @@ const BASE_DEFINITIONS = {
         afterRuntimePropertyChanged: refreshGravityRuntime
     },
     Bonus: {
+        type: LevelObjectType.BONUS,
         label: 'Bonus', editable: true, collections: ['bonuses'],
+        properties: [
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'value', label: 'Value', type: 'number', min: 1 },
+            { key: 'rotationSpeed', label: 'Rotation Speed', type: 'number' },
+            { key: 'state', label: 'State', type: 'select', options: ['notHit', 'Hit'] }
+        ],
+        serializedProperties: ['value', 'rotationSpeed', 'state'],
         levelDefaults: {
             value: LEVEL_DEFAULTS.bonus.value, width: LEVEL_DEFAULTS.bonus.width,
             height: LEVEL_DEFAULTS.bonus.height
@@ -372,7 +422,21 @@ const BASE_DEFINITIONS = {
         createRuntime: createBonusRuntime
     },
     Target: {
+        type: LevelObjectType.TARGET,
         label: 'Target', editable: true, singleton: 'target',
+        levelRole: 'target',
+        createFallbackDefinition: ({ targetPosition }) => objectDefinition(
+            LevelObjectType.TARGET,
+            targetPosition.x,
+            targetPosition.y
+        ),
+        properties: [
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'spriteType', label: 'Ship Sprite', type: 'select', optionsFrom: 'shipSprites' }
+        ],
+        serializedProperties: ['spriteType'],
+        spriteDefault: { property: 'spriteType', value: LEVEL_DEFAULTS.target.spriteType, refreshMethod: 'refreshTargetSprite' },
         levelDefaults: LEVEL_DEFAULTS.target,
         validateProperties: validateTargetProperties,
         createRuntime: createTargetRuntime,
@@ -380,25 +444,76 @@ const BASE_DEFINITIONS = {
         afterRuntimePropertyChanged: refreshTargetRuntime
     },
     Slingshot: {
+        type: LevelObjectType.SLINGSHOT,
         label: 'Slingshot', editable: true, singleton: 'slingshot',
+        levelRole: 'slingshot',
+        createFallbackDefinition: ({ startPosition }) => objectDefinition(
+            LevelObjectType.SLINGSHOT,
+            startPosition.x,
+            startPosition.y
+        ),
+        afterLevelAdd: ({ object, game }) => object.setPenguin(game.penguin),
+        properties: [
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'maxPullback', label: 'Max Pullback', type: 'number', min: 10 },
+            { key: 'velocityMultiplier', label: 'Velocity Multiplier', type: 'number', min: 1 }
+        ],
+        serializedProperties: ['maxPullback', 'velocityMultiplier', 'anchorX', 'anchorY'],
         levelDefaults: LEVEL_DEFAULTS.slingshot,
         validateProperties: validateSlingshotProperties,
         createRuntime: createSlingshotRuntime
     },
     TextObject: {
+        type: LevelObjectType.TEXT,
         label: 'Text', editable: true, collections: ['textObjects'],
+        properties: [
+            { key: 'content', label: 'Text Content', type: 'text' },
+            { key: 'width', label: 'Width / Wrap Limit', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'fontSize', label: 'Font Size', type: 'number', min: 8, max: 72 },
+            { key: 'color', label: 'Color', type: 'color' },
+            { key: 'fontFamily', label: 'Font Family', type: 'text' },
+            { key: 'textAlign', label: 'Text Align', type: 'select', options: ['left', 'center', 'right'] },
+            { key: 'backgroundColor', label: 'Background Color', type: 'color' },
+            { key: 'autoSize', label: 'Auto Size', type: 'checkbox' },
+            { key: 'visible', label: 'Visible', type: 'checkbox' }
+        ],
+        serializedProperties: ['content', 'fontSize', 'color', 'fontFamily', 'textAlign', 'backgroundColor', 'padding', 'maxWidth', 'autoSize'],
         levelDefaults: LEVEL_DEFAULTS.text,
+        serializeRuntimeProperties: serializeTextRuntime,
         createRuntime: createTextRuntime,
         applyRuntimeProperty: applyTextRuntimeProperty
     },
     PointingArrow: {
+        type: LevelObjectType.POINTING_ARROW,
         label: 'Pointing Arrow', editable: true, collections: ['pointingArrows'],
+        properties: [
+            { key: 'pointingAtX', label: 'Target X', type: 'number' },
+            { key: 'pointingAtY', label: 'Target Y', type: 'number' },
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'color', label: 'Color', type: 'color' },
+            { key: 'glowColor', label: 'Glow Color', type: 'color' },
+            { key: 'baseWidth', label: 'Base Width', type: 'number', min: 10 },
+            { key: 'scaleWithDistance', label: 'Scale with Distance', type: 'checkbox' },
+            { key: 'visible', label: 'Visible', type: 'checkbox' }
+        ],
+        serializedProperties: ['pointingAt', 'baseWidth', 'color', 'glowColor', 'scaleWithDistance'],
         levelDefaults: LEVEL_DEFAULTS.pointingArrow,
+        serializeRuntimeProperties: serializePointingArrowRuntime,
         createRuntime: createPointingArrowRuntime,
         applyRuntimeProperty: applyPointingArrowRuntimeProperty
     },
     Portal: {
+        type: LevelObjectType.PORTAL,
         label: 'Portal Pair', editable: true, collections: ['portals'],
+        properties: [
+            { key: 'width', label: 'Width', type: 'number', min: 8 },
+            { key: 'height', label: 'Height', type: 'number', min: 6 },
+            { key: 'playSound', label: 'Play Woosh Sound', type: 'checkbox' }
+        ],
+        serializedProperties: ['pairedPortalId', 'color', 'playSound'],
         levelDefaults: LEVEL_DEFAULTS.portal,
         validateProperties: validatePortalProperties,
         relationshipValidator: 'portalPair',
@@ -406,13 +521,13 @@ const BASE_DEFINITIONS = {
         cloneAuthoringDefinitions: clonePortalPairDefinitions,
         createRuntime: createPortalRuntime
     },
-    Penguin: { label: 'Penguin', editable: false, singleton: 'penguin' },
+    Penguin: { type: LevelObjectType.PENGUIN, label: 'Penguin', editable: false, singleton: 'penguin' },
     BonusPopup: { label: 'Bonus Popup', editable: false },
     Arrow: { label: 'Launch Arrow', editable: false, singleton: 'arrow' }
 };
 
 function definitionFor(className, base) {
-    const type = LEVEL_OBJECT_TYPE_BY_CLASS_NAME[className] ?? null;
+    const type = base.type ?? null;
     const editable = Boolean(base.editable);
     return Object.freeze({
         className,
@@ -425,12 +540,16 @@ function definitionFor(className, base) {
         normalizeProperties: base.normalizeProperties || null,
         validateProperties: base.validateProperties || null,
         relationshipValidator: base.relationshipValidator || null,
+        levelRole: base.levelRole || null,
+        createFallbackDefinition: base.createFallbackDefinition || null,
+        afterLevelAdd: base.afterLevelAdd || null,
         physicsAdd: base.physicsAdd,
         physicsRemove: base.physicsRemove,
         singleton: base.singleton,
-        properties: Object.freeze([...(OBJECT_PROPERTY_FIELDS[className] || [])]),
-        serializedProperties: Object.freeze([...(CLASS_SERIALIZED_OBJECT_PROPERTIES[className] || [])]),
-        spriteDefault: EDITOR_OBJECT_SPRITE_DEFAULTS[className] || null,
+        properties: Object.freeze([...(base.properties || [])].map(property => Object.freeze({ ...property }))),
+        serializedProperties: Object.freeze([...(base.serializedProperties || [])]),
+        serializeRuntimeProperties: base.serializeRuntimeProperties || null,
+        spriteDefault: base.spriteDefault ? Object.freeze({ ...base.spriteDefault }) : null,
         createRuntime: base.createRuntime || null,
         applyRuntimeProperty: base.applyRuntimeProperty || null,
         afterRuntimePropertyChanged: base.afterRuntimePropertyChanged || null,
@@ -468,6 +587,18 @@ export const GAME_OBJECT_DEFINITIONS_BY_TYPE = Object.freeze(
             .filter(definition => definition.type)
             .map(definition => [definition.type, definition])
     )
+);
+
+export const LEVEL_OBJECT_TYPE_BY_CLASS_NAME = Object.freeze(
+    Object.fromEntries(
+        Object.values(GAME_OBJECT_DEFINITIONS)
+            .filter(definition => definition.type)
+            .map(definition => [definition.className, definition.type])
+    )
+);
+
+export const LEVEL_ROLE_GAME_OBJECT_DEFINITIONS = Object.freeze(
+    Object.values(GAME_OBJECT_DEFINITIONS).filter(definition => definition.levelRole)
 );
 
 const UNKNOWN_DEFINITION = Object.freeze({

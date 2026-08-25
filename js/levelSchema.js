@@ -2,13 +2,13 @@
 
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
 import {
-    LevelCameraMode, LevelObjectType, LevelOrbitType,
-    LEVEL_CAMERA_MODES, LEVEL_OBJECT_TYPE_ALIASES, LEVEL_OBJECT_TYPE_NAMES,
-    LEVEL_OBJECT_TYPES, LEVEL_ORBIT_TYPES, normalizeLevelObjectType,
+    LevelCameraMode, LevelOrbitType,
+    LEVEL_CAMERA_MODES, LEVEL_ORBIT_TYPES,
     normalizeLevelOrbitType, isLevelOrbitType
 } from './levelObjectVocabulary.js';
 import {
-    LEVEL_OBJECT_TYPE_BY_CLASS_NAME,
+    LevelObjectType, LEVEL_OBJECT_TYPE_ALIASES, LEVEL_OBJECT_TYPE_NAMES,
+    LEVEL_OBJECT_TYPES, LEVEL_OBJECT_TYPE_BY_CLASS_NAME, normalizeLevelObjectType,
     getGameObjectDefinition
 } from './gameObjectRegistry.js';
 
