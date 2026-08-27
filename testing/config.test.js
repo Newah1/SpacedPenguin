@@ -150,6 +150,50 @@ test('lazy asset loading uses the configured asset root', async () => {
     }
 });
 
+test('asset manifest entries default to blocking and accept explicit background loading', () => {
+    const loader = new AssetLoader();
+    loader.manifest = {
+        sprites: {
+            ship: 'sprites/ship.png',
+            decoration: { src: 'sprites/decoration.png', blocking: false }
+        }
+    };
+
+    loader.prepareAssetsToLoad();
+
+    assert.equal(loader.assetsToLoad.find(asset => asset.name === 'sprite_ship').blocking, true);
+    assert.equal(loader.assetsToLoad.find(asset => asset.name === 'sprite_decoration').blocking, false);
+    assert.equal(loader.assetsToLoad.find(asset => asset.name === 'sprite_decoration').url, 'assets/sprites/decoration.png');
+});
+
+test('asset bootstrap waits for blocking assets but leaves non-blocking assets loading', async () => {
+    const loader = new AssetLoader();
+    loader.assetsToLoad = [
+        { name: 'blocking', blocking: true },
+        { name: 'background', blocking: false }
+    ];
+    loader.totalCount = loader.assetsToLoad.length;
+
+    let releaseBackground;
+    const backgroundGate = new Promise(resolve => { releaseBackground = resolve; });
+    loader.loadAsset = async asset => {
+        if (!asset.blocking) await backgroundGate;
+        loader.resources[asset.name] = {};
+        loader.pendingNonBlockingAssets.delete(asset.name);
+    };
+
+    let bootstrapCompleted = false;
+    loader.onComplete = async () => { bootstrapCompleted = true; };
+    await loader.loadAllAssets();
+
+    assert.equal(bootstrapCompleted, true);
+    assert.deepEqual(loader.getPendingNonBlockingAssets(), ['background']);
+
+    releaseBackground();
+    await loader.backgroundLoadPromise;
+    assert.deepEqual(loader.getPendingNonBlockingAssets(), []);
+});
+
 test('shared asset lookups reuse image objects and coalesce animation metadata requests', async () => {
     const loader = new AssetLoader();
     const bonusSprite = { id: 'bonus-sprite' };

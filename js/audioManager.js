@@ -59,6 +59,13 @@ export class AudioManager {
             
             this.sounds.set(name, audioBuffer);
             plog.audio(`Sound loaded successfully: ${name}`);
+            if (
+                this.backgroundMusicEnabled &&
+                AUDIO_CONFIG.backgroundMusic.trackIds.includes(name) &&
+                !this.backgroundMusicSource
+            ) {
+                this.startBackgroundMusic();
+            }
             
         } catch (error) {
             plog.error(`Failed to load sound ${name}:`, error);

@@ -19,6 +19,8 @@ export class AssetLoader {
         this.onProgress = null;
         this.loadedCount = 0;
         this.totalCount = 0;
+        this.pendingNonBlockingAssets = new Set();
+        this.backgroundLoadPromise = Promise.resolve();
         this.loadAttempts = new Map(); // Track load attempts to prevent redundant loading
         this.animationMetadata = new Map();
         this.animationMetadataPromises = new Map();
@@ -55,62 +57,72 @@ export class AssetLoader {
         const essential = this.manifest.essential || {};
         
         // Essential animations
-        Object.entries(this.manifest.animations).forEach(([name, path]) => {
+        Object.entries(this.manifest.animations || {}).forEach(([name, entry]) => {
+            const { path, blocking } = this.normalizeManifestEntry(entry);
             if (assetTypeForPath(path) === 'texture') {
                 const isEssential = essential.animations && essential.animations.includes(name);
                 this.assetsToLoad.push({ 
                     name, 
                     url: assetPath(path),
                     type: 'texture', 
-                    essential: isEssential 
+                    essential: isEssential,
+                    blocking
                 });
             }
         });
 
         // Essential UI assets
-        Object.entries(this.manifest.ui).forEach(([name, path]) => {
+        Object.entries(this.manifest.ui || {}).forEach(([name, entry]) => {
+            const { path, blocking } = this.normalizeManifestEntry(entry);
             const type = assetTypeForPath(path);
             const isEssential = essential.ui && essential.ui.includes(name);
             this.assetsToLoad.push({ 
                 name: `ui_${name}`, 
                 url: assetPath(path),
                 type, 
-                essential: isEssential 
+                essential: isEssential,
+                blocking
             });
         });
 
         // Essential planet assets
-        Object.entries(this.manifest.planets).forEach(([name, path]) => {
+        Object.entries(this.manifest.planets || {}).forEach(([name, entry]) => {
+            const { path, blocking } = this.normalizeManifestEntry(entry);
             const type = assetTypeForPath(path);
             const isEssential = essential.planets && essential.planets.includes(name);
             this.assetsToLoad.push({ 
                 name: `planet_${name}`, 
                 url: assetPath(path),
                 type, 
-                essential: isEssential 
+                essential: isEssential,
+                blocking
             });
         });
 
         // Essential sprite assets
-        Object.entries(this.manifest.sprites).forEach(([name, path]) => {
+        Object.entries(this.manifest.sprites || {}).forEach(([name, entry]) => {
+            const { path, blocking } = this.normalizeManifestEntry(entry);
             const type = assetTypeForPath(path);
             const isEssential = essential.sprites && essential.sprites.includes(name);
             this.assetsToLoad.push({ 
                 name: `sprite_${name}`, 
                 url: assetPath(path),
                 type, 
-                essential: isEssential 
+                essential: isEssential,
+                blocking
             });
         });
 
         // Essential audio assets
-        Object.entries(this.manifest.audio).forEach(([name, path]) => {
+        Object.entries(this.manifest.audio || {}).forEach(([name, entry]) => {
+            const { path, blocking } = this.normalizeManifestEntry(entry);
             const isEssential = essential.audio && essential.audio.includes(name);
             this.assetsToLoad.push({ 
                 name: `audio_${name}`, 
                 url: assetPath(path),
                 type: 'audio', 
-                essential: isEssential 
+                essential: isEssential,
+                blocking
             });
         });
 
@@ -122,19 +134,38 @@ export class AssetLoader {
         plog.info(`Prepared ${this.totalCount} assets to load (${essentialCount} essential)`);
     }
 
+    normalizeManifestEntry(entry) {
+        if (typeof entry === 'string') {
+            return { path: entry, blocking: true };
+        }
+
+        if (!entry || typeof entry.src !== 'string') {
+            throw new TypeError('Asset manifest entries must be paths or { src, blocking } objects');
+        }
+
+        return { path: entry.src, blocking: entry.blocking !== false };
+    }
+
     async loadAllAssets() {
         plog.info(`Loading ${this.totalCount} assets...`);
 
-        // Start every independent request immediately. Promise.all still keeps
-        // startup blocked until the complete eager set has either loaded or
-        // received its fallback.
-        await Promise.all(this.assetsToLoad.map(asset => this.loadAsset(asset)));
+        const blockingAssets = this.assetsToLoad.filter(asset => asset.blocking);
+        const nonBlockingAssets = this.assetsToLoad.filter(asset => !asset.blocking);
+        this.pendingNonBlockingAssets = new Set(nonBlockingAssets.map(asset => asset.name));
 
-        const failedCount = this.totalCount - Object.keys(this.resources).length;
+        // Start every request immediately, but only gate bootstrap on assets
+        // whose manifest entries have not opted out with `blocking: false`.
+        const blockingLoads = blockingAssets.map(asset => this.loadAsset(asset));
+        this.backgroundLoadPromise = Promise.all(
+            nonBlockingAssets.map(asset => this.loadAsset(asset))
+        );
+        await Promise.all(blockingLoads);
+
+        const failedCount = blockingAssets.length - blockingAssets.filter(asset => this.resources[asset.name]).length;
         if (failedCount > 0) {
-            plog.warn(`Asset loading completed with ${failedCount} failures`);
+            plog.warn(`Blocking asset loading completed with ${failedCount} failures`);
         } else {
-            plog.success('All assets loaded successfully');
+            plog.success('All blocking assets loaded successfully');
         }
 
         if (this.onComplete) {
@@ -146,17 +177,20 @@ export class AssetLoader {
         // Skip if already attempted and failed.
         if (this.loadAttempts.has(asset.name)) {
             this.loadedCount++;
+            this.pendingNonBlockingAssets.delete(asset.name);
             return;
         }
         
         // Skip if already loaded.
         if (this.resources[asset.name]) {
             this.loadedCount++;
+            this.pendingNonBlockingAssets.delete(asset.name);
             return;
         }
             
         this.loadAttempts.set(asset.name, true);
             
+        let status = 'loaded';
         try {
                 if (asset.type === 'texture') {
                     // Load regular images
@@ -193,12 +227,13 @@ export class AssetLoader {
                 const progress = (this.loadedCount / this.totalCount) * 100;
                 
                 plog.debug(`Loaded: ${asset.name} (${this.loadedCount}/${this.totalCount})`);
-                
+                this.pendingNonBlockingAssets.delete(asset.name);
                 if (this.onProgress) {
-                    this.onProgress(progress, asset.name);
+                    this.onProgress(progress, asset.name, this.createProgressDetails(asset, status));
                 }
                 
         } catch (error) {
+                status = 'failed';
                 plog.warn(`Failed to load asset ${asset.name}: ${error.message}`);
                 
                 // For essential assets, provide fallbacks
@@ -209,11 +244,23 @@ export class AssetLoader {
                 // Still count as "loaded" to prevent hanging
                 this.loadedCount++;
                 const progress = (this.loadedCount / this.totalCount) * 100;
-                
+                this.pendingNonBlockingAssets.delete(asset.name);
                 if (this.onProgress) {
-                    this.onProgress(progress, asset.name + ' (fallback)');
+                    this.onProgress(progress, asset.name + ' (fallback)', this.createProgressDetails(asset, status));
                 }
         }
+    }
+
+    createProgressDetails(asset, status) {
+        return {
+            blocking: asset.blocking,
+            status,
+            pendingNonBlocking: [...this.pendingNonBlockingAssets]
+        };
+    }
+
+    getPendingNonBlockingAssets() {
+        return [...this.pendingNonBlockingAssets];
     }
 
     // Lazy load non-essential assets after initial loading
@@ -230,7 +277,8 @@ export class AssetLoader {
         for (const [category, assets] of Object.entries(this.manifest)) {
             if (category === 'essential') continue;
             
-            for (const [name, path] of Object.entries(assets)) {
+            for (const [name, entry] of Object.entries(assets)) {
+                const { path } = this.normalizeManifestEntry(entry);
                 const fullName = category === 'animations' ? name : `${category.slice(0, -1)}_${name}`;
                 if (fullName === assetName) {
                     assetInfo = {

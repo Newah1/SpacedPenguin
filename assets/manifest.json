@@ -40,8 +40,8 @@
     "17_snd_launch": "audio/17_snd_launch.wav",
     "20_snd_HitPlanet": "audio/20_snd_HitPlanet.wav",
     "21_snd_enterShip": "audio/21_snd_enterShip.wav",
-    "bgm_penguins_ska": "audio/bgm/penguins-ska.mp3",
-    "bgm_penguins_ska_2": "audio/bgm/penguins-ska-2.mp3",
-    "bgm_penguins_drum": "audio/bgm/penguins-drums.mp3"
+    "bgm_penguins_ska": { "src": "audio/bgm/penguins-ska.mp3", "blocking": false },
+    "bgm_penguins_ska_2": { "src": "audio/bgm/penguins-ska-2.mp3", "blocking": false },
+    "bgm_penguins_drum": { "src": "audio/bgm/penguins-drums.mp3", "blocking": false }
   }
 }

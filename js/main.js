@@ -28,6 +28,7 @@ class GameManager {
         this.lastTime = 0;
         this.simulationAccumulator = 0;
         this.assetsLoaded = false;
+        this.bootstrapComplete = false;
         this.isMobile = this.detectMobile();
         this.debugMode = false; // Set to true to enable debug logging
         this.lastStartScreenDraw = 0; // Throttle start screen redraws
@@ -93,11 +94,14 @@ class GameManager {
         this.game?.setViewport(this.viewport);
     }
     
-    onAssetProgress(progress, resourceName) {
+    onAssetProgress(progress, resourceName, details = null) {
         // Update loading screen with progress
         const loadingText = document.getElementById('loadingText');
         if (loadingText) {
             loadingText.textContent = `Loading ${resourceName}... ${Math.round(progress)}%`;
+        }
+        if (this.bootstrapComplete && details && !details.blocking) {
+            this.updateBackgroundLoadingCard(details.pendingNonBlocking);
         }
     }
     
@@ -147,6 +151,8 @@ class GameManager {
         
         // Hide loading screen
         this.hideLoadingScreen();
+        this.bootstrapComplete = true;
+        this.updateBackgroundLoadingCard(assetLoader.getPendingNonBlockingAssets());
         
         // Start exactly one animation-frame chain.
         this.resume();
@@ -202,6 +208,41 @@ class GameManager {
         if (loadingScreen) {
             loadingScreen.style.display = 'none';
         }
+    }
+
+    updateBackgroundLoadingCard(pendingAssets) {
+        let card = document.getElementById('backgroundAssetLoading');
+        if (!pendingAssets.length) {
+            card?.remove();
+            return;
+        }
+
+        if (!card) {
+            card = document.createElement('div');
+            card.id = 'backgroundAssetLoading';
+            card.setAttribute('role', 'status');
+            card.setAttribute('aria-live', 'polite');
+            card.style.cssText = `
+                position: fixed;
+                right: 14px;
+                bottom: 14px;
+                z-index: 900;
+                max-width: min(320px, calc(100vw - 28px));
+                padding: 10px 13px;
+                border: 1px solid rgba(126, 184, 255, .55);
+                border-radius: 9px;
+                background: rgba(2, 12, 28, .92);
+                color: #e8f3ff;
+                box-shadow: 0 7px 24px rgba(0, 0, 0, .45);
+                font: 13px/1.35 "Trebuchet MS", Arial, sans-serif;
+                pointer-events: none;
+            `;
+            document.body.appendChild(card);
+        }
+
+        const visibleNames = pendingAssets.slice(0, 2).map(name => name.replace(/^(audio|ui|planet|sprite)_/, ''));
+        const remainder = pendingAssets.length - visibleNames.length;
+        card.textContent = `Loading ${visibleNames.join(', ')}${remainder > 0 ? ` +${remainder} more` : ''}…`;
     }
     
     gameLoop(currentTime = 0) {

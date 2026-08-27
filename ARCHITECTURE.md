@@ -641,9 +641,9 @@ See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the v
 ### Add an asset
 
 1. Place it under the appropriate `assets/` category.
-2. Add the manifest mapping and, if bootstrap-critical, the normalized key to `essential`.
+2. Add the manifest mapping. String entries remain bootstrap-blocking; use `{ "src": "path", "blocking": false }` for media that may finish loading after the game starts. The separate `essential` lists control generated fallbacks and loading priority.
 3. Retrieve it through the category getter or define a stable typed getter.
-4. Verify success and missing-file fallback paths from an HTTP server.
+4. Verify success, missing-file fallback, and any non-blocking status-card behavior from an HTTP server.
 
 ## 16. Testing and quality architecture
 
