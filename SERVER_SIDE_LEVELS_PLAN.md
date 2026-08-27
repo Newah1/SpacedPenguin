@@ -55,9 +55,9 @@ The current `GameManager` already advances gameplay through an exact 1/60-second
 Recommended shared modules:
 
 ```text
-js/runTranscript.js
-js/runReplay.js
-js/communityScore.js
+js/replay/runTranscript.js
+js/replay/runReplay.js
+js/replay/communityScore.js
 js/levelPublishingPolicy.js
 ```
 

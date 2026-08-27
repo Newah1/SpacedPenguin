@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import test from 'node:test';
 
-import { CommunityLevelClient } from '../../js/communityLevelClient.js';
-import { replayRun } from '../../js/runReplay.js';
+import { CommunityLevelClient } from '../../js/catalog/communityLevelClient.js';
+import { replayRun } from '../../js/replay/runReplay.js';
 import { createLevelServer } from '../app.js';
 
 const level = {

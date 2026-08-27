@@ -6,14 +6,14 @@ import {
     launchSimulationPenguinMutable,
     SimulationEventType,
     stepSimulationMutable
-} from '../js/simulationEngine.js';
-import { LevelObjectType, normalizeLevelObjectType } from '../js/levelSchema.js';
+} from '../js/simulation/simulationEngine.js';
+import { LevelObjectType, normalizeLevelObjectType } from '../js/levels/levelSchema.js';
 import {
     cloneSimulationState,
     createSimulationStateFromLevel
-} from '../js/simulationState.js';
-import { distance, pointInRect } from '../js/simulationGeometry.js';
-import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
+} from '../js/simulation/simulationState.js';
+import { distance, pointInRect } from '../js/simulation/simulationGeometry.js';
+import { CompiledWorldTimeline } from '../js/simulation/compiledWorldTimeline.js';
 import {
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,

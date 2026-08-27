@@ -1,5 +1,5 @@
-import { normalizeLevelDefinition, normalizeLevelObjectType, LevelOrbitType } from '../../js/levelSchema.js';
-import { validateLevelDefinition } from '../../js/levelValidation.js';
+import { normalizeLevelDefinition, normalizeLevelObjectType, LevelOrbitType } from '../../js/levels/levelSchema.js';
+import { validateLevelDefinition } from '../../js/levels/levelValidation.js';
 import { SERVER_LIMITS } from '../config.js';
 import { badRequest } from '../errors.js';
 import { jsonDepth } from './apiValidation.js';

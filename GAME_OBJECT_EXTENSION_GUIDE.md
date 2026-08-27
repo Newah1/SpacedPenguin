@@ -24,7 +24,7 @@ Extending `GameObject` is appropriate for a drawable runtime entity, but inherit
 
 ### 1. Implement the runtime class
 
-Add a class in `js/gameObjects.js` or a focused module (as `BlackHole` does). A normal visual entity extends `GameObject` and supplies its rendering and non-authoritative animation behavior.
+Add a class in `js/runtime/entities/gameObjects.js` or a focused module (as `BlackHole` does). A normal visual entity extends `GameObject` and supplies its rendering and non-authoritative animation behavior.
 
 - Keep position in the representation expected by `GameObject` and the browser adapter.
 - Accept dependencies such as the shared `AssetLoader`; do not create per-object audio or browser services.
@@ -33,7 +33,7 @@ Add a class in `js/gameObjects.js` or a focused module (as `BlackHole` does). A 
 
 ### 2. Define the serialized contract in the registry
 
-Add one descriptor in `js/gameObjectRegistry.js`. The descriptor owns the canonical JSON `type`, so no separate type enum or class-name map needs editing. It also owns:
+Add one descriptor in `js/runtime/gameObjectRegistry.js`. The descriptor owns the canonical JSON `type`, so no separate type enum or class-name map needs editing. It also owns:
 
 - Add aliases only for an intentional compatibility format.
 - Property defaults and exceptional normalization for true invariants.
@@ -45,7 +45,7 @@ Defaults shared by browser and headless execution belong in `js/config/gameConfi
 
 ### 3. Compose the runtime class
 
-Export a class from one of the modules composed by `js/runtimeConstructorCatalog.js`. Classes exported from `gameObjects.js`, `blackHole.js`, or `penguin.js` are discovered automatically. If a focused new module is appropriate, add that module once to the composition list; there is no per-class constructor map and `LevelLoader` does not import concrete object classes.
+Export a class from one of the modules composed by `js/runtime/runtimeConstructorCatalog.js`. Classes exported from `gameObjects.js`, `blackHole.js`, or `penguin.js` are discovered automatically. If a focused new module is appropriate, add that module once to the composition list; there is no per-class constructor map and `LevelLoader` does not import concrete object classes.
 
 The registry descriptor is the authoritative extension seam and owns:
 
@@ -61,7 +61,7 @@ The registry descriptor is the authoritative extension seam and owns:
 
 ### 4. Validate the authored contract
 
-Add type-specific checks to `js/levelValidation.js` for properties that affect correctness. Validate shape, ranges, required IDs, and cross-object references before runtime mutation. Add examples/property documentation to `levels/README.md`.
+Add type-specific checks to `js/levels/levelValidation.js` for properties that affect correctness. Validate shape, ranges, required IDs, and cross-object references before runtime mutation. Add examples/property documentation to `levels/README.md`.
 
 Type-specific property validation is a descriptor hook. Cross-object algorithms such as unique IDs and orbit-cycle detection remain centralized; relationship-specific validation is selected by the descriptor.
 
@@ -77,10 +77,10 @@ If the object can be an orbit target, ensure it is inserted in the ID lookup bef
 
 Skip this section only for presentation-only entities.
 
-- Add a normalized plain-data shape in `createSimulationStateFromLevel` in `js/simulationState.js`.
+- Add a normalized plain-data shape in `createSimulationStateFromLevel` in `js/simulation/simulationState.js`.
 - Clone and reset that shape explicitly in `cloneSimulationState` and `resetSimulationAttempt`.
-- Capture and apply its live representation in `js/gameSimulationAdapter.js`.
-- Implement authoritative interactions in `js/simulationEngine.js`; emit domain events for sound, animation, messages, and other browser effects.
+- Capture and apply its live representation in `js/runtime/gameSimulationAdapter.js`.
+- Implement authoritative interactions in `js/simulation/simulationEngine.js`; emit domain events for sound, animation, messages, and other browser effects.
 - Translate new events in `applyGameSimulationEvents`.
 - Include moving state in `orbitSimulation.js`/`compiledWorldTimeline.js` when repeated headless trajectories depend on it.
 

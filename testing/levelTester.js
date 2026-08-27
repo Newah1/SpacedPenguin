@@ -9,8 +9,8 @@ import {
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levelValidation.js';
-import { LevelObjectType, normalizeLevelObjectType, normalizeOrbitDefinition } from '../js/levelSchema.js';
+import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levels/levelValidation.js';
+import { LevelObjectType, normalizeLevelObjectType, normalizeOrbitDefinition } from '../js/levels/levelSchema.js';
 import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
 
 class LevelTester {

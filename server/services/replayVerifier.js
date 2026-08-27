@@ -13,7 +13,7 @@ export class SharedReplayVerifier {
     async #run(level, proof, mode) {
         let module;
         try {
-            module = await import('../../js/runReplay.js');
+            module = await import('../../js/replay/runReplay.js');
         } catch (error) {
             throw new ApiError(503, 'VERIFIER_UNAVAILABLE', 'The deterministic replay verifier is unavailable.', { cause: error.code });
         }

@@ -1,22 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import EditorEvents, { EditorEventType } from '../js/levelEditor/state/editorEvents.js';
-import EditorSelection from '../js/levelEditor/state/editorSelection.js';
-import EditorState, { EditorInteractionType } from '../js/levelEditor/state/editorState.js';
-import EditorToolManager from '../js/levelEditor/controllers/editorToolManager.js';
-import EditorCommandBus from '../js/levelEditor/commands/editorCommandBus.js';
-import LevelDocument from '../js/levelEditor/state/levelDocument.js';
-import DocumentMutationService from '../js/levelEditor/services/documentMutationService.js';
-import { projectDocumentDefinition } from '../js/levelEditor/services/documentProjectionTransaction.js';
-import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
-import CommandHistory from '../js/editorCommands/commandHistory.js';
-import CommandRegistry from '../js/editorCommands/commandRegistry.js';
-import { createLiveEditHistory, LiveEditCommandType } from '../js/editorCommands/index.js';
+import EditorEvents, { EditorEventType } from '../js/editor/state/editorEvents.js';
+import EditorSelection from '../js/editor/state/editorSelection.js';
+import EditorState, { EditorInteractionType } from '../js/editor/state/editorState.js';
+import EditorToolManager from '../js/editor/controllers/editorToolManager.js';
+import EditorCommandBus from '../js/editor/commands/editorCommandBus.js';
+import LevelDocument from '../js/editor/state/levelDocument.js';
+import DocumentMutationService from '../js/editor/services/documentMutationService.js';
+import { projectDocumentDefinition } from '../js/editor/services/documentProjectionTransaction.js';
+import LiveEditCommand from '../js/editor/commands/live/liveEditCommand.js';
+import CommandHistory from '../js/editor/commands/live/commandHistory.js';
+import CommandRegistry from '../js/editor/commands/live/commandRegistry.js';
+import { createLiveEditHistory, LiveEditCommandType } from '../js/editor/commands/live/index.js';
 import {
     listEditableLevelObjectTypes,
     getGameObjectDefinition
-} from '../js/gameObjectRegistry.js';
+} from '../js/runtime/gameObjectRegistry.js';
 
 function validDefinition() {
     return {

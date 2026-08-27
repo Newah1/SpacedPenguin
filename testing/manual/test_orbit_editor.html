@@ -78,7 +78,7 @@
     </div>
 
     <script type="module">
-        import AssetLoader from './js/assetLoader.js';
+        import AssetLoader from './js/platform/assets/assetLoader.js';
         import Game from './js/game.js';
         
         let game;
@@ -122,7 +122,7 @@
                 
                 // Set up orbit system
                 if (!orbitingBonus.orbitSystem) {
-                    const OrbitSystem = (await import('./js/gameObjects.js')).OrbitSystem;
+                    const OrbitSystem = (await import('./js/runtime/entities/gameObjects.js')).OrbitSystem;
                     orbitingBonus.orbitSystem = new OrbitSystem();
                 }
                 
@@ -153,7 +153,7 @@
                 const orbitingBonus = new Bonus(x, y, 50 + Math.random() * 100, assetLoader);
                 
                 // Set up orbit system
-                import('./js/gameObjects.js').then(module => {
+                import('./js/runtime/entities/gameObjects.js').then(module => {
                     orbitingBonus.orbitSystem = new module.OrbitSystem();
                     
                     // Configure random circular orbit

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import Console from '../js/console.js';
+import Console from '../js/diagnostics/console.js';
 import {
     clearRuntimeGameConfigOverrides,
     getRuntimeGameConfigValue,

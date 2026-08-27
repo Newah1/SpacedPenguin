@@ -12,22 +12,22 @@ import {
     withGlobalOverrides
 } from './testFixtures.js';
 
-const { integratePlanetGravity } = await import('../js/simulation.js');
+const { integratePlanetGravity } = await import('../js/simulation/simulation.js');
 const { Game, GameState } = await import('../js/game.js');
-const { AudioManager } = await import('../js/audioManager.js');
+const { AudioManager } = await import('../js/platform/audio/audioManager.js');
 const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
-const Console = (await import('../js/console.js')).default;
-const FullscreenManager = (await import('../js/fullscreenManager.js')).default;
+const Console = (await import('../js/diagnostics/console.js')).default;
+const FullscreenManager = (await import('../js/platform/browser/fullscreenManager.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputManager } = await import('../js/input/inputManager.js');
 const { registerDefaultInputContexts } = await import('../js/input/registerDefaultInputContexts.js');
-const { KevinCamRenderer } = await import('../js/kevinCamRenderer.js');
-const { LevelEndScreen, getCompletionTitle } = await import('../js/views/levelEndScreen.js');
-const LevelEditor = (await import('../js/levelEditor.js')).default;
-const LevelEditorToolbarView = (await import('../js/levelEditor/views/toolbarView.js')).default;
-const LevelEditorCanvasInputController = (await import('../js/levelEditor/controllers/canvasInputController.js')).default;
-const { Penguin } = await import('../js/penguin.js');
-const { UIManager } = await import('../js/uiManager.js');
+const { KevinCamRenderer } = await import('../js/rendering/kevinCamRenderer.js');
+const { LevelEndScreen, getCompletionTitle } = await import('../js/ui/views/levelEndScreen.js');
+const LevelEditor = (await import('../js/editor/levelEditor.js')).default;
+const LevelEditorToolbarView = (await import('../js/editor/views/toolbarView.js')).default;
+const LevelEditorCanvasInputController = (await import('../js/editor/controllers/canvasInputController.js')).default;
+const { Penguin } = await import('../js/runtime/entities/penguin.js');
+const { UIManager } = await import('../js/ui/uiManager.js');
 const {
     applyGameSimulationState,
     applyGameSimulationEvents,
@@ -36,12 +36,12 @@ const {
     gameSimulationEventStrategies,
     invalidateGameSimulationState,
     stepGameSimulation
-} = await import('../js/gameSimulationAdapter.js');
-const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/gameObjects.js');
+} = await import('../js/runtime/gameSimulationAdapter.js');
+const { OrbitSystem, Slingshot, Target, TextObject } = await import('../js/runtime/entities/gameObjects.js');
 const { LEVEL_CATALOG_CONFIG, LEVEL_DEFAULTS } = await import('../js/config/gameConfig.js');
-const { SimulationEventType } = await import('../js/simulationEngine.js');
-const { GameObjectFactory } = await import('../js/levelLoader.js');
-const { LiveEditCommandType } = await import('../js/editorCommands/index.js');
+const { SimulationEventType } = await import('../js/simulation/simulationEngine.js');
+const { GameObjectFactory } = await import('../js/levels/levelLoader.js');
+const { LiveEditCommandType } = await import('../js/editor/commands/live/index.js');
 const {
     DEFAULT_MAX_SIMULATION_TIME,
     HeadlessGameEngine,
@@ -165,7 +165,7 @@ test('main menu button icons have a padded column before their labels', () => {
 
 test('level files bypass the browser cache when reloaded', async () => {
     const requests = [];
-    const loader = new (await import('../js/levelLoader.js')).LevelLoader(null);
+    const loader = new (await import('../js/levels/levelLoader.js')).LevelLoader(null);
     const level = {
         name: 'Fresh level',
         startPosition: { x: 100, y: 300 },

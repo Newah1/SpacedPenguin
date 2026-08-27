@@ -1,33 +1,33 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './gameObjects.js';
-import { BlackHole } from './blackHole.js';
-import { Penguin } from './penguin.js';
-import { Physics } from './physics.js';
-import Utils from './utils.js';
-import { LevelLoader } from './levelLoader.js';
-import { UIManager } from './uiManager.js';
-import { LevelEndScreen } from './views/levelEndScreen.js';
-import Console from './console.js';
-import LevelEditor from './levelEditor.js';
-import FullscreenManager from './fullscreenManager.js';
-import plog from './penguinLogger.js';
+import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './runtime/entities/gameObjects.js';
+import { BlackHole } from './runtime/entities/blackHole.js';
+import { Penguin } from './runtime/entities/penguin.js';
+import { Physics } from './runtime/physics.js';
+import Utils from './platform/utils.js';
+import { LevelLoader } from './levels/levelLoader.js';
+import { UIManager } from './ui/uiManager.js';
+import { LevelEndScreen } from './ui/views/levelEndScreen.js';
+import Console from './diagnostics/console.js';
+import LevelEditor from './editor/levelEditor.js';
+import FullscreenManager from './platform/browser/fullscreenManager.js';
+import plog from './diagnostics/penguinLogger.js';
 import {
     captureGameSimulationState,
     applyGameSimulationEvents,
     invalidateGameSimulationState,
     stepGameSimulation
-} from './gameSimulationAdapter.js';
-import { calculateLaunchPosition, calculateLaunchVelocity, calculateLevelScore } from './simulationEngine.js';
-import { predictAimAssistTrajectory } from './aimAssist.js';
+} from './runtime/gameSimulationAdapter.js';
+import { calculateLaunchPosition, calculateLaunchVelocity, calculateLevelScore } from './simulation/simulationEngine.js';
+import { predictAimAssistTrajectory } from './simulation/aimAssist.js';
 import {
     LevelOrbitType
-} from './levelSchema.js';
+} from './levels/levelSchema.js';
 import {
     isRuntimeObjectExportable,
     serializeRuntimeObject
-} from './runtimeObjectSerialization.js';
+} from './runtime/runtimeObjectSerialization.js';
 import {
     LEVEL_CATALOG_CONFIG,
     LEVEL_DEFAULTS,
@@ -40,21 +40,21 @@ import { assetPath } from './config/assetConfig.js';
 import { AudioCue, getAudioCue } from './config/audioConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import { SETTINGS_CONFIG } from './config/settingsConfig.js';
-import { LocalSettingsStore } from './settingsStore.js';
-import { SettingsManager } from './settingsManager.js';
-import { SettingsScreen } from './views/settingsScreen.js';
-import { StellarTrackStore } from './stellarTrackStore.js';
-import { HighScoreStore } from './highScoreStore.js';
-import { HighScoresScreen } from './views/highScoresScreen.js';
-import { LevelBrowserScreen } from './views/levelBrowserScreen.js';
-import { LevelSaveService, captureLevelThumbnail } from './levelSaveService.js';
-import { createConfiguredLevelCatalog } from './levelCatalogComposition.js';
+import { LocalSettingsStore } from './platform/settings/settingsStore.js';
+import { SettingsManager } from './platform/settings/settingsManager.js';
+import { SettingsScreen } from './ui/views/settingsScreen.js';
+import { StellarTrackStore } from './platform/persistence/stellarTrackStore.js';
+import { HighScoreStore } from './platform/persistence/highScoreStore.js';
+import { HighScoresScreen } from './ui/views/highScoresScreen.js';
+import { LevelBrowserScreen } from './ui/views/levelBrowserScreen.js';
+import { LevelSaveService, captureLevelThumbnail } from './platform/persistence/levelSaveService.js';
+import { createConfiguredLevelCatalog } from './catalog/levelCatalogComposition.js';
 import { readAppConfig } from './config/appConfig.js';
-import { CommunityLevelClient, createIdempotencyKey } from './communityLevelClient.js';
-import { calculateCommunityScore } from './communityScore.js';
-import { RunTranscriptRecorder } from './runTranscript.js';
-import { assertValidLevelDefinition } from './levelValidation.js';
-import { createButton, registerButton } from './buttonFramework.js';
+import { CommunityLevelClient, createIdempotencyKey } from './catalog/communityLevelClient.js';
+import { calculateCommunityScore } from './replay/communityScore.js';
+import { RunTranscriptRecorder } from './replay/runTranscript.js';
+import { assertValidLevelDefinition } from './levels/levelValidation.js';
+import { createButton, registerButton } from './ui/buttonFramework.js';
 import { getRuntimeGameConfigValue } from './config/runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
@@ -66,9 +66,9 @@ import {
     createViewport,
     screenToStage,
     updateFollowCamera
-} from './viewport.js';
-import { GameState } from './gameState.js';
-import { KevinCamRenderer } from './kevinCamRenderer.js';
+} from './rendering/viewport.js';
+import { GameState } from './runtime/gameState.js';
+import { KevinCamRenderer } from './rendering/kevinCamRenderer.js';
 
 const FAST_FORWARD_UNLOCK_SECONDS = 5;
 

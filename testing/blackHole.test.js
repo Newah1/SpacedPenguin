@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createSimulationStateFromLevel } from '../js/simulationState.js';
-import { stepSimulationMutable } from '../js/simulationEngine.js';
-import { LevelObjectType } from '../js/levelSchema.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
+import { stepSimulationMutable } from '../js/simulation/simulationEngine.js';
+import { LevelObjectType } from '../js/levels/levelSchema.js';
 
 function blackHoleLevel(position = { x: 300, y: 300 }) {
     return {

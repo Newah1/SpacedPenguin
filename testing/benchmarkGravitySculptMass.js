@@ -3,7 +3,7 @@ import {
     createExistingPlanetVariables,
     evaluateSculptCandidate,
     solveGravitySculpt
-} from '../js/gravitySculptor.js';
+} from '../js/simulation/gravitySculptor.js';
 
 function benchmarkState() {
     return {

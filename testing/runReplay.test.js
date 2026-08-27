@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { calculateCommunityScore } from '../js/communityScore.js';
+import { calculateCommunityScore } from '../js/replay/communityScore.js';
 import {
     launchSimulationPenguinMutable,
     SimulationEventType,
     stepSimulationTickMutable
-} from '../js/simulationEngine.js';
-import { createSimulationStateFromLevel } from '../js/simulationState.js';
-import { replayRun } from '../js/runReplay.js';
+} from '../js/simulation/simulationEngine.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
+import { replayRun } from '../js/replay/runReplay.js';
 import {
     PROOF_VERSION,
     RunTranscriptError,
     RunTranscriptRecorder,
     SIMULATION_VERSION,
     validateRunTranscript
-} from '../js/runTranscript.js';
+} from '../js/replay/runTranscript.js';
 
 function simpleLevel(overrides = {}) {
     return {

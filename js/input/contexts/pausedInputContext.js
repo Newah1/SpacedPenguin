@@ -1,4 +1,4 @@
-import { GameState } from '../../gameState.js';
+import { GameState } from '../../runtime/gameState.js';
 import { InputPriority } from '../inputPriorities.js';
 import { InputResponse } from '../inputResult.js';
 import { InputType } from '../inputTypes.js';

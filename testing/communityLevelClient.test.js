@@ -6,7 +6,7 @@ import {
     CommunityLevelClient,
     createIdempotencyKey,
     resolveCommunityApiRoot
-} from '../js/communityLevelClient.js';
+} from '../js/catalog/communityLevelClient.js';
 
 function jsonResponse(body, status = 200) {
     return new Response(JSON.stringify(body), {

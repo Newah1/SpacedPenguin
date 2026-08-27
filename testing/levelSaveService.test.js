@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import {
     LevelSaveService,
     LocalLevelRepository
-} from '../js/levelSaveService.js';
+} from '../js/platform/persistence/levelSaveService.js';
 import {
     LevelCatalogService,
     LocalLevelCatalogSource
-} from '../js/levelCatalogService.js';
+} from '../js/catalog/levelCatalogService.js';
 import { readAppConfig } from '../js/config/appConfig.js';
 import {
     RemoteLevelCatalogError,
     RemoteLevelCatalogSource
-} from '../js/remoteLevelCatalogSource.js';
-import { createConfiguredLevelCatalog } from '../js/levelCatalogComposition.js';
-import { OfficialLevelCatalogSource } from '../js/officialLevelCatalogSource.js';
+} from '../js/catalog/remoteLevelCatalogSource.js';
+import { createConfiguredLevelCatalog } from '../js/catalog/levelCatalogComposition.js';
+import { OfficialLevelCatalogSource } from '../js/catalog/officialLevelCatalogSource.js';
 
 function createStorage() {
     const values = new Map();

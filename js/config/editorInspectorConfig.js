@@ -1,8 +1,8 @@
 import { deepFreeze } from './configUtils.js';
 import { EDITOR_CONFIG } from './editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './gameConfig.js';
-import { LEVEL_CAMERA_MODES, LEVEL_ORBIT_TYPES, LevelOrbitType } from '../levelObjectVocabulary.js';
-import { WAYPOINT_PATH_MODES } from '../waypointSimulation.js';
+import { LEVEL_CAMERA_MODES, LEVEL_ORBIT_TYPES, LevelOrbitType } from '../levels/levelObjectVocabulary.js';
+import { WAYPOINT_PATH_MODES } from '../simulation/waypointSimulation.js';
 
 const EDITOR_CAMERA_MODES = deepFreeze(['legacy', ...LEVEL_CAMERA_MODES]);
 

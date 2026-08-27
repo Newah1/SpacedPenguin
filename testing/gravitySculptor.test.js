@@ -7,7 +7,7 @@ import {
     evaluateSculptCandidate,
     scoreSculptTrajectory,
     solveGravitySculpt
-} from '../js/gravitySculptor.js';
+} from '../js/simulation/gravitySculptor.js';
 
 function simulationState() {
     return {

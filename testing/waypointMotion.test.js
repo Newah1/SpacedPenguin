@@ -4,16 +4,16 @@ import assert from 'node:assert/strict';
 import {
     WaypointPathMode,
     stepWaypointPath
-} from '../js/waypointSimulation.js';
-import { validateLevelDefinition } from '../js/levelValidation.js';
-import { createSimulationStateFromLevel } from '../js/simulationState.js';
+} from '../js/simulation/waypointSimulation.js';
+import { validateLevelDefinition } from '../js/levels/levelValidation.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
 import {
     FIXED_TICK_SECONDS,
     stepSimulationMutable
-} from '../js/simulationEngine.js';
-import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
-import DocumentMutationService from '../js/levelEditor/services/documentMutationService.js';
-import { serializeRuntimeObject } from '../js/runtimeObjectSerialization.js';
+} from '../js/simulation/simulationEngine.js';
+import { CompiledWorldTimeline } from '../js/simulation/compiledWorldTimeline.js';
+import DocumentMutationService from '../js/editor/services/documentMutationService.js';
+import { serializeRuntimeObject } from '../js/runtime/runtimeObjectSerialization.js';
 
 const path = (mode = WaypointPathMode.PING_PONG) => ({
     waypoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }],

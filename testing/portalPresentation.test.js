@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import './nodeShims.js';
 
-import { Penguin } from '../js/penguin.js';
-import { LevelEditorOverlayRenderer } from '../js/levelEditor/views/overlayRenderer.js';
-import { applyGameSimulationEvents } from '../js/gameSimulationAdapter.js';
-import { SimulationEventType } from '../js/simulationEngine.js';
-import { Portal } from '../js/gameObjects.js';
+import { Penguin } from '../js/runtime/entities/penguin.js';
+import { LevelEditorOverlayRenderer } from '../js/editor/views/overlayRenderer.js';
+import { applyGameSimulationEvents } from '../js/runtime/gameSimulationAdapter.js';
+import { SimulationEventType } from '../js/simulation/simulationEngine.js';
+import { Portal } from '../js/runtime/entities/gameObjects.js';
 import { createRecordingContext } from './testFixtures.js';
 
 test('editor portal arrow points out of the active face', () => {

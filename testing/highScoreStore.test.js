@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HighScoreStore } from '../js/highScoreStore.js';
+import { HighScoreStore } from '../js/platform/persistence/highScoreStore.js';
 
 function memoryStorage() {
     const values = new Map();

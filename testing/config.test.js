@@ -17,13 +17,13 @@ import {
     DEFAULT_GRAVITATIONAL_REACH,
     GRAVITATIONAL_CONSTANT,
     TOTAL_LEVELS
-} from '../js/globalConstants.js';
-import { STAGE_HEIGHT, STAGE_WIDTH } from '../js/viewport.js';
+} from '../js/config/legacyConstants.js';
+import { STAGE_HEIGHT, STAGE_WIDTH } from '../js/rendering/viewport.js';
 import {
     DEFAULT_FLIGHT_BOUNDS,
     DEFAULT_STAGE_BOUNDS,
     createSimulationStateFromLevel
-} from '../js/simulationState.js';
+} from '../js/simulation/simulationState.js';
 import {
     INPUT_CONFIG,
     RESPONSIVE_CONFIG,
@@ -46,11 +46,11 @@ import {
     LEVEL_SETTING_FIELDS,
     ORBIT_PROPERTY_FIELDS
 } from '../js/config/editorInspectorConfig.js';
-import { getGameObjectDefinition } from '../js/gameObjectRegistry.js';
+import { getGameObjectDefinition } from '../js/runtime/gameObjectRegistry.js';
 import { UI_CONFIG } from '../js/config/uiConfig.js';
 import { TRAJECTORY_CONFIG } from './trajectoryConfig.js';
-import { AssetLoader } from '../js/assetLoader.js';
-import Utils from '../js/utils.js';
+import { AssetLoader } from '../js/platform/assets/assetLoader.js';
+import Utils from '../js/platform/utils.js';
 
 test('game configuration is deeply frozen and satisfies core invariants', () => {
     for (const config of [

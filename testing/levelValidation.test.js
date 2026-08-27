@@ -6,7 +6,7 @@ import {
     LevelValidationError,
     assertValidLevelDefinition,
     validateLevelDefinition
-} from '../js/levelValidation.js';
+} from '../js/levels/levelValidation.js';
 import {
     LEVEL_OBJECT_TYPE_NAMES,
     LEVEL_ORBIT_TYPES,
@@ -21,7 +21,7 @@ import {
     normalizeLevelObjectDefinition,
     normalizeLevelOrbitType,
     normalizeOrbitDefinition
-} from '../js/levelSchema.js';
+} from '../js/levels/levelSchema.js';
 
 function object(type, x, y, properties = {}) {
     return { type, position: { x, y }, properties };

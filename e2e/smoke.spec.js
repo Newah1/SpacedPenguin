@@ -1,6 +1,6 @@
 import { devices, expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { validateLevelDefinition } from '../js/levelValidation.js';
+import { validateLevelDefinition } from '../js/levels/levelValidation.js';
 
 const deterministicLevel = {
     name: 'Browser Smoke Level',
@@ -514,7 +514,7 @@ test('level thumbnails render the real playfield without replacing the active wo
     await waitForGame(page);
 
     const result = await page.evaluate(async () => {
-        const { createLevelThumbnail } = await import('/js/views/levelThumbnailRenderer.js');
+        const { createLevelThumbnail } = await import('/js/ui/views/levelThumbnailRenderer.js');
         const game = window.game;
         const activeObjects = game.gameObjects;
         const definition = game.levelLoader.levels.get(1);

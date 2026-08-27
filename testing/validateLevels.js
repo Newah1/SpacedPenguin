@@ -6,7 +6,7 @@ import {
     builtInLevelPath,
     levelCollectionPath
 } from '../js/config/gameConfig.js';
-import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levelValidation.js';
+import { formatLevelDiagnostics, validateLevelDefinition } from '../js/levels/levelValidation.js';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let failedLevels = 0;

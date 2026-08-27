@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { Game } from '../js/game.js';
-import { CommunityScoreUploadScreen } from '../js/views/communityScoreUploadScreen.js';
+import { CommunityScoreUploadScreen } from '../js/ui/views/communityScoreUploadScreen.js';
 
 function gameFixture(overrides = {}) {
     return Object.assign(Object.create(Game.prototype), {

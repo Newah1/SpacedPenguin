@@ -3,7 +3,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateLevelDefinition } from '../js/levelValidation.js';
+import { validateLevelDefinition } from '../js/levels/levelValidation.js';
 import { LevelTester } from './levelTester.js';
 
 const candidateDirectory = fileURLToPath(new URL('../levels/', import.meta.url));

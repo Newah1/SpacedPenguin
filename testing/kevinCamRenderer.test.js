@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KevinCamRenderer } from '../js/kevinCamRenderer.js';
+import { KevinCamRenderer } from '../js/rendering/kevinCamRenderer.js';
 
 function createContext() {
     const calls = [];

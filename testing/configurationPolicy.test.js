@@ -45,8 +45,8 @@ test('critical product policy is not duplicated outside configuration modules', 
 });
 
 test('runtime and deterministic level construction use shared schema normalization', () => {
-    const loaderSource = fs.readFileSync(path.join(productionRoot, 'levelLoader.js'), 'utf8');
-    const stateSource = fs.readFileSync(path.join(productionRoot, 'simulationState.js'), 'utf8');
+    const loaderSource = fs.readFileSync(path.join(productionRoot, 'levels', 'levelLoader.js'), 'utf8');
+    const stateSource = fs.readFileSync(path.join(productionRoot, 'simulation', 'simulationState.js'), 'utf8');
 
     assert.match(loaderSource, /normalizeLevelObjectDefinition\(objectDefinition\)/);
     assert.match(stateSource, /normalizeLevelDefinition\(level\)/);

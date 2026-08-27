@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { LiveEditCommandType } from '../js/editorCommands/index.js';
-import EditorCommandBus from '../js/levelEditor/commands/editorCommandBus.js';
+import { LiveEditCommandType } from '../js/editor/commands/live/index.js';
+import EditorCommandBus from '../js/editor/commands/editorCommandBus.js';
 import {
     EditorCommandIntent,
     registerDeleteObjectCommandStrategies
-} from '../js/levelEditor/commands/deleteObjectCommandStrategies.js';
+} from '../js/editor/commands/deleteObjectCommandStrategies.js';
 
 function createHarness(portals = []) {
     const calls = [];

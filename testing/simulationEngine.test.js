@@ -10,19 +10,19 @@ import {
     SimulationEventType,
     stepSimulation,
     stepSimulationMutable
-} from '../js/simulationEngine.js';
+} from '../js/simulation/simulationEngine.js';
 import {
     cloneSimulationState,
     createSimulationStateFromLevel,
     resetSimulationAttempt
-} from '../js/simulationState.js';
+} from '../js/simulation/simulationState.js';
 import { HeadlessGameEngine } from './headlessEngine.js';
-import { CompiledWorldTimeline } from '../js/compiledWorldTimeline.js';
+import { CompiledWorldTimeline } from '../js/simulation/compiledWorldTimeline.js';
 import {
     advanceOrbitGraph,
     advanceOrbitGraphMutable,
     compileOrbitGraph
-} from '../js/orbitSimulation.js';
+} from '../js/simulation/orbitSimulation.js';
 import {
     MAX_TRAJECTORY_WORKERS,
     resolveTrajectoryWorkerCount

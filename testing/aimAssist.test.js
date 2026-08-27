@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { predictAimAssistTrajectory } from '../js/aimAssist.js';
-import { createSimulationStateFromLevel } from '../js/simulationState.js';
+import { predictAimAssistTrajectory } from '../js/simulation/aimAssist.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
 
 function createState(objects = []) {
     return createSimulationStateFromLevel({

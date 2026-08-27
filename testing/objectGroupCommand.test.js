@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createLiveEditHistory, LiveEditCommandType } from '../js/editorCommands/index.js';
+import { createLiveEditHistory, LiveEditCommandType } from '../js/editor/commands/live/index.js';
 
 test('grouped document mutations publish no partial state when projection fails', () => {
     const applied = [];

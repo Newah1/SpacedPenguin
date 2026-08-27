@@ -30,14 +30,14 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 
 - `js/main.js`: composition root, browser lifecycle, one animation-frame owner, responsive sizing, and input-context updates.
 - `js/game.js`: live runtime aggregate, attempt/level transitions, rendering, UI coordination, editor integration, and effects.
-- `js/simulationEngine.js`: authoritative deterministic gameplay transitions, launch math, collisions, bonuses, target outcomes, rules, and scoring.
-- `js/gameSimulationAdapter.js`: browser object snapshots/state application and translation of domain events into sound, animation, messages, and scoring flow.
-- `js/orbitSimulation.js`: pure circular, elliptical, figure-8, gravity, and hierarchical orbit advancement.
-- `js/simulationState.js`: normalized serializable simulation state and reset/clone operations.
-- `js/compiledWorldTimeline.js`: exact headless-only cache of candidate-independent world motion.
-- `js/physics.js`: entity registries, trace data, and legacy helper compatibility; it is not the active gameplay integrator.
-- `js/levelSchema.js` and `js/levelValidation.js`: shared level vocabulary, normalization, capabilities, and executable diagnostics.
-- `js/levelLoader.js`: validated JSON loading and runtime entity construction.
+- `js/simulation/simulationEngine.js`: authoritative deterministic gameplay transitions, launch math, collisions, bonuses, target outcomes, rules, and scoring.
+- `js/runtime/gameSimulationAdapter.js`: browser object snapshots/state application and translation of domain events into sound, animation, messages, and scoring flow.
+- `js/simulation/orbitSimulation.js`: pure circular, elliptical, figure-8, gravity, and hierarchical orbit advancement.
+- `js/simulation/simulationState.js`: normalized serializable simulation state and reset/clone operations.
+- `js/simulation/compiledWorldTimeline.js`: exact headless-only cache of candidate-independent world motion.
+- `js/runtime/physics.js`: entity registries, trace data, and legacy helper compatibility; it is not the active gameplay integrator.
+- `js/levels/levelSchema.js` and `js/levels/levelValidation.js`: shared level vocabulary, normalization, capabilities, and executable diagnostics.
+- `js/levels/levelLoader.js`: validated JSON loading and runtime entity construction.
 - `testing/headlessEngine.js`: exact trajectory runner over the shared transition kernel.
 
 The browser calls the immutable `stepSimulation()` API. Headless sweeps use the same mutable transition kernel with exact precompiled world frames and movement-only events disabled. Do not introduce separate headless physics.

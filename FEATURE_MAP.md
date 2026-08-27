@@ -44,7 +44,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - A launch increments the attempt counter and is recordable as a versioned run action for replay verification.
 - `/launch <angle> <power>` provides a precise developer launch, and `/last` repeats the previous launch.
 
-**Owners:** `js/game.js`, `js/inputActions.js`, `js/simulationEngine.js`, `js/runTranscript.js`.  
+**Owners:** `js/game.js`, `js/input/inputActions.js`, `js/simulation/simulationEngine.js`, `js/replay/runTranscript.js`.  
 **Verification:** `testing/simulationEngine.test.js`, `testing/inputActions.test.js`, `testing/goldenTrajectory.test.js`, Playwright smoke coverage.
 
 ### 2.2 Deterministic flight and gravity
@@ -57,7 +57,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - The browser and headless runner invoke the same mutable transition kernel; the immutable browser API clones state around it.
 - World coordinates remain independent of CSS size, device-pixel ratio, and camera transforms.
 
-**Owners:** `js/simulationEngine.js`, `js/simulationState.js`, `js/simulation.js`, `js/orbitSimulation.js`, `js/gameSimulationAdapter.js`.
+**Owners:** `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/simulation.js`, `js/simulation/orbitSimulation.js`, `js/runtime/gameSimulationAdapter.js`.
 
 ### 2.3 Planet collisions and crash recovery
 
@@ -69,7 +69,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - When the countdown completes, the browser resets the attempt through a domain event rather than independent visual-object physics.
 - A level may fail when the collision count exceeds `allowedMisses`.
 
-**Owners:** `js/simulationEngine.js`, `js/gameSimulationAdapter.js`, `js/config/gameConfig.js`.
+**Owners:** `js/simulation/simulationEngine.js`, `js/runtime/gameSimulationAdapter.js`, `js/config/gameConfig.js`.
 
 ### 2.4 Bonuses
 
@@ -81,7 +81,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - `requiredBonuses` can block target completion until enough bonuses have been collected.
 - Headless searches can require every bonus with `--all-bonuses`.
 
-**Owners:** `js/simulationEngine.js`, `js/gameObjects.js`, `js/gameSimulationAdapter.js`.  
+**Owners:** `js/simulation/simulationEngine.js`, `js/runtime/entities/gameObjects.js`, `js/runtime/gameSimulationAdapter.js`.  
 **Verification:** simulation tests, bonus manual harness, shipped-level validation.
 
 ### 2.5 Target success, attempts, and scoring
@@ -94,7 +94,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - The last allowed try runs to a terminal outcome before `maxTries` failure is evaluated.
 - Retry, advance, level completion, and high-score qualification are coordinated by the game/session layer.
 
-**Owners:** `js/simulationEngine.js`, `js/game.js`, `js/levelEndScreen.js`, `js/highScoreStore.js`.
+**Owners:** `js/simulation/simulationEngine.js`, `js/game.js`, `js/levelEndScreen.js`, `js/platform/persistence/highScoreStore.js`.
 
 ### 2.6 Portals
 
@@ -107,7 +107,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - A portal lock prevents immediate re-entry until Kevin leaves the paired endpoint.
 - The simulation emits the teleport; the browser renders clipped source/destination penguin imagery and optionally plays the woosh cue.
 
-**Owners:** `js/simulationEngine.js`, `js/gameObjects.js`, `js/gameSimulationAdapter.js`, `js/levelValidation.js`.  
+**Owners:** `js/simulation/simulationEngine.js`, `js/runtime/entities/gameObjects.js`, `js/runtime/gameSimulationAdapter.js`, `js/levels/levelValidation.js`.  
 **Verification:** `testing/portalDirection.test.js`, simulation tests, browser integration paths.
 
 ### 2.7 Black holes
@@ -120,7 +120,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - Level JSON accepts canonical `blackhole` and compatibility alias `black_hole`.
 - Black holes are loadable and playable but are not currently registered as a creatable/editable object in the embedded editor.
 
-**Owners:** `js/blackHole.js`, `js/levelSchema.js`, `js/simulationState.js`, `js/levelLoader.js`.  
+**Owners:** `js/runtime/entities/blackHole.js`, `js/levels/levelSchema.js`, `js/simulation/simulationState.js`, `js/levels/levelLoader.js`.  
 **Verification:** `testing/blackHole.test.js`.
 
 ### 2.8 Aim assist
@@ -132,7 +132,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - Preview duration and sample rate come from simulation configuration and can be overridden at runtime for diagnostics.
 - The setting is persisted in browser settings and clearing it removes the preview immediately.
 
-**Owners:** `js/aimAssist.js`, `js/game.js`, `js/settingsManager.js`.  
+**Owners:** `js/simulation/aimAssist.js`, `js/game.js`, `js/platform/settings/settingsManager.js`.  
 **Verification:** `testing/aimAssist.test.js`, settings tests.
 
 ### 2.9 Pause, quit, reset, and fast-forward
@@ -145,7 +145,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - A long flight unlocks 2× simulation consumption after five seconds. Tick size remains 1/60 second, preserving deterministic results.
 - Stellar Mode can tie custom music playback to the long-flight/fast-forward experience.
 
-**Owners:** `js/main.js`, `js/game.js`, `js/inputActions.js`.
+**Owners:** `js/main.js`, `js/game.js`, `js/input/inputActions.js`.
 
 ## 3. Levels and authored world features
 
@@ -153,7 +153,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 
 **Status:** Implemented
 
-Levels define start and target positions, object entries, rules, optional bounds, and optional camera metadata. Every browser, editor, and headless consumer normalizes through `js/levelSchema.js` and validates through `js/levelValidation.js` before the current world is cleared or mutated.
+Levels define start and target positions, object entries, rules, optional bounds, and optional camera metadata. Every browser, editor, and headless consumer normalizes through `js/levels/levelSchema.js` and validates through `js/levels/levelValidation.js` before the current world is cleared or mutated.
 
 Validation covers finite coordinates, supported types, composition, numeric ranges, unique IDs, orbit references and cycles, portal pairing, cameras, bounds, and rule constraints. It accumulates stable diagnostics containing severity, code, JSON-style path, and message.
 
@@ -201,7 +201,7 @@ Object-referenced orbits require unique IDs and an acyclic graph. Planets, black
 - The editor has an independent pan/zoom camera that is never exported as gameplay state.
 - Pointer conversion applies inverse display and world-camera transforms.
 
-**Owners:** `js/viewport.js`, `js/game.js`, editor canvas input/controller code.  
+**Owners:** `js/rendering/viewport.js`, `js/game.js`, editor canvas input/controller code.  
 **Verification:** `testing/viewport.test.js`, responsive/mobile Playwright coverage.
 
 ### 3.5 Level rules
@@ -253,8 +253,8 @@ Key controls include backquote for console, `Escape` for editor exit or quit dia
 - Experimental background music shuffles bundled tracks when enabled.
 - Stellar Mode stores and plays a user-selected MP3 after the long-flight unlock condition.
 
-**Persistence:** Settings use `localStorage`; Stellar MP3 data uses IndexedDB through `js/stellarTrackStore.js`.  
-**Owners:** `js/audioManager.js`, `js/assetLoader.js`, `js/config/audioConfig.js`, `js/stellarTrackStore.js`.
+**Persistence:** Settings use `localStorage`; Stellar MP3 data uses IndexedDB through `js/platform/persistence/stellarTrackStore.js`.  
+**Owners:** `js/platform/audio/audioManager.js`, `js/platform/assets/assetLoader.js`, `js/config/audioConfig.js`, `js/platform/persistence/stellarTrackStore.js`.
 
 ### 4.4 Settings
 
@@ -307,7 +307,7 @@ Design implication: play-mode previews can mutate positions and orbit state. Exp
 
 Typed command strategies support add, remove, group operations, object moves, orbit-center moves, object-property edits, level-setting edits, and planet adjustments. Undo/redo is session-local; repeated events from one focused property edit coalesce into one history entry.
 
-**Owners:** `js/editorCommands/`, `js/liveLevelMutator.js`.  
+**Owners:** `js/editor/commands/live/`, `js/runtime/liveLevelMutator.js`.  
 **Verification:** command, mutator, and editor runtime controller tests.
 
 ### 5.4 Editor camera and play testing
@@ -331,7 +331,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - The staged search uses waypoint curricula, influence-guided differential evolution, comfort penalties, robustness scoring, progress reporting, and multiple candidates.
 - Applying a result uses editor commands so planet changes participate in undo/redo; a test mode verifies the proposed route in the live editor.
 
-**Owners:** `js/gravitySculptor.js`, `js/levelEditor/gravitySculptController.js`, `js/levelEditor/gravitySculptView.js`.  
+**Owners:** `js/simulation/gravitySculptor.js`, `js/editor/gravitySculptController.js`, `js/editor/gravitySculptView.js`.  
 **Verification:** `testing/gravitySculptor.test.js`, mass benchmark.
 
 ### 5.6 Save, browse, and export
@@ -367,7 +367,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - Server failure leaves official/local browsing, saves, editing, and play available.
 - Community records are immutable and expose play/open-copy behavior rather than ownership.
 
-**Owners:** `js/appConfig.js`, `js/levelCatalogComposition.js`, `js/remoteLevelCatalogSource.js`, `js/communityLevelClient.js`.
+**Owners:** `js/appConfig.js`, `js/catalog/levelCatalogComposition.js`, `js/catalog/remoteLevelCatalogSource.js`, `js/catalog/communityLevelClient.js`.
 
 ### 6.3 Community publication
 
@@ -392,7 +392,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - Idempotency prevents a retry from creating duplicate submissions.
 - Accepted responses report ranking state and current rank when applicable.
 
-**Owners:** `js/communityScore.js`, `js/communityScoreUploadScreen.js`, `js/communityLeaderboardView.js`, `server/services/submitScore.js`.
+**Owners:** `js/replay/communityScore.js`, `js/communityScoreUploadScreen.js`, `js/communityLeaderboardView.js`, `server/services/submitScore.js`.
 
 ### 6.5 Community HTTP API
 
@@ -440,7 +440,7 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 - Longer time horizons replace undersized caches; out-of-range application throws rather than consuming undefined frames.
 - Large grids can use up to four worker threads by default and restore canonical candidate order.
 
-**Owners:** `js/compiledWorldTimeline.js`, `testing/headlessEngine.js`, `testing/parallelTrajectoryRunner.js`, trajectory workers.
+**Owners:** `js/simulation/compiledWorldTimeline.js`, `testing/headlessEngine.js`, `testing/parallelTrajectoryRunner.js`, trajectory workers.
 
 ### 7.3 Level tester
 
@@ -461,7 +461,7 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 - Recording captures supported player actions; replay reproduces observable deterministic events and terminal outcomes.
 - The server executes verification in shared or worker-isolated runners.
 
-**Owners:** `js/runTranscript.js`, `js/runReplay.js`, `server/services/replayVerifier.js`, verifier worker/pool code.
+**Owners:** `js/replay/runTranscript.js`, `js/replay/runReplay.js`, `server/services/replayVerifier.js`, verifier worker/pool code.
 
 ### 7.5 Debug console and runtime configuration
 
@@ -524,22 +524,22 @@ The full `npm test` gate runs unit, server, policy, shipped-level, original-port
 
 | Domain | Primary modules |
 |---|---|
-| Browser lifecycle and frame ownership | `js/main.js`, `js/performanceUtils.js` |
+| Browser lifecycle and frame ownership | `js/main.js`, `js/diagnostics/performanceUtils.js` |
 | Game/session coordination | `js/game.js`, `js/levelEndScreen.js` |
-| Deterministic gameplay | `js/simulationEngine.js`, `js/simulationState.js`, `js/simulationGeometry.js`, `js/simulation.js` |
-| Browser simulation adaptation | `js/gameSimulationAdapter.js` |
-| Orbits and optimized timelines | `js/orbitSimulation.js`, `js/compiledWorldTimeline.js` |
-| Runtime objects and visuals | `js/gameObjects.js`, `js/blackHole.js`, `js/penguin.js` |
-| Levels and validation | `js/levelSchema.js`, `js/levelValidation.js`, `js/levelLoader.js` |
-| Cameras and coordinates | `js/viewport.js` |
-| Input and fullscreen | `js/inputActions.js`, `js/fullscreenManager.js` |
-| Assets and audio | `js/assetLoader.js`, `js/audioManager.js`, `js/stellarTrackStore.js` |
-| Settings and local scores | `js/settingsManager.js`, `js/settingsStore.js`, `js/settingsScreen.js`, `js/highScoreStore.js` |
-| Editor | `js/levelEditor.js`, `js/levelEditor/`, `js/editorCommands/`, `js/liveLevelMutator.js` |
-| Gravity Sculpt | `js/gravitySculptor.js`, gravity-sculpt controller/view modules |
-| Catalog and local saves | `js/levelCatalogService.js`, catalog sources/composition, `js/levelSaveService.js` |
+| Deterministic gameplay | `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/simulationGeometry.js`, `js/simulation/simulation.js` |
+| Browser simulation adaptation | `js/runtime/gameSimulationAdapter.js` |
+| Orbits and optimized timelines | `js/simulation/orbitSimulation.js`, `js/simulation/compiledWorldTimeline.js` |
+| Runtime objects and visuals | `js/runtime/entities/gameObjects.js`, `js/runtime/entities/blackHole.js`, `js/runtime/entities/penguin.js` |
+| Levels and validation | `js/levels/levelSchema.js`, `js/levels/levelValidation.js`, `js/levels/levelLoader.js` |
+| Cameras and coordinates | `js/rendering/viewport.js` |
+| Input and fullscreen | `js/input/inputActions.js`, `js/platform/browser/fullscreenManager.js` |
+| Assets and audio | `js/platform/assets/assetLoader.js`, `js/platform/audio/audioManager.js`, `js/platform/persistence/stellarTrackStore.js` |
+| Settings and local scores | `js/platform/settings/settingsManager.js`, `js/platform/settings/settingsStore.js`, `js/settingsScreen.js`, `js/platform/persistence/highScoreStore.js` |
+| Editor | `js/editor/levelEditor.js`, `js/editor/`, `js/editor/commands/live/`, `js/runtime/liveLevelMutator.js` |
+| Gravity Sculpt | `js/simulation/gravitySculptor.js`, gravity-sculpt controller/view modules |
+| Catalog and local saves | `js/catalog/levelCatalogService.js`, catalog sources/composition, `js/platform/persistence/levelSaveService.js` |
 | Community client/UI | community client, score, upload, leaderboard, and remote catalog modules |
-| Replay proof | `js/runTranscript.js`, `js/runReplay.js` |
+| Replay proof | `js/replay/runTranscript.js`, `js/replay/runReplay.js` |
 | Community server | `server/app.js`, `server/routes.js`, services, validation, database, worker pool |
 | Headless and CI tooling | `testing/headlessEngine.js`, `testing/levelTester.js`, workers, validators, Playwright |
 

@@ -1,6 +1,6 @@
 # Spaced Penguin Level Authoring Reference
 
-This directory contains the 25 JSON levels loaded by the default HTML5 runtime. The archived `manual/` catalog contains 20 earlier hand-authored levels. Shared vocabulary lives in `js/levelSchema.js`, executable validation in `js/levelValidation.js`, and construction in `js/levelLoader.js`. There is not yet a generated JSON Schema artifact.
+This directory contains the 25 JSON levels loaded by the default HTML5 runtime. The archived `manual/` catalog contains 20 earlier hand-authored levels. Shared vocabulary lives in `js/levels/levelSchema.js`, executable validation in `js/levels/levelValidation.js`, and construction in `js/levels/levelLoader.js`. There is not yet a generated JSON Schema artifact.
 
 Every browser, editor, and headless consumer passes a level through the shared `LevelSchema` normalizer. Omitted fields receive the same configured defaults everywhere; explicit `0`, `false`, and empty-string values are retained unless validation rejects them for that specific field.
 
@@ -475,9 +475,9 @@ node .\levelTester.js --validate-only --level ..\levels\level10.json
 
 ## Adding a new object type (maintainers)
 
-An authored object crosses both the browser runtime and the deterministic simulation. Keep the shared vocabulary in `js/levelSchema.js` and `js/levelValidation.js`; create the visual class and factory branch; then add one `editorObjectRegistry.js` definition for its typed runtime collection and optional legacy physics registration. The loader, live editor mutations, game resets, and export enumerate that registry, so do not duplicate collection bookkeeping in each consumer.
+An authored object crosses both the browser runtime and the deterministic simulation. Keep the shared vocabulary in `js/levels/levelSchema.js` and `js/levels/levelValidation.js`; create the visual class and factory branch; then add one `editorObjectRegistry.js` definition for its typed runtime collection and optional legacy physics registration. The loader, live editor mutations, game resets, and export enumerate that registry, so do not duplicate collection bookkeeping in each consumer.
 
-If the object changes gameplay, add its normalized state to `js/simulationState.js`, transition/event logic to `js/simulationEngine.js`, and browser snapshot/effect translation to `js/gameSimulationAdapter.js`. Sound, Canvas animation, DOM, and timers remain browser-side. Finish with validation, factory/editor round-trip, and shared-kernel tests, then add the object’s author-facing JSON example under **Supported types**.
+If the object changes gameplay, add its normalized state to `js/simulation/simulationState.js`, transition/event logic to `js/simulation/simulationEngine.js`, and browser snapshot/effect translation to `js/runtime/gameSimulationAdapter.js`. Sound, Canvas animation, DOM, and timers remain browser-side. Finish with validation, factory/editor round-trip, and shared-kernel tests, then add the object’s author-facing JSON example under **Supported types**.
 
 ## Editor export and round-trip caveats
 

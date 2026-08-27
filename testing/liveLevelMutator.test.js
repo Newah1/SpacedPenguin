@@ -2,16 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import './nodeShims.js';
 
-import LiveLevelMutator from '../js/liveLevelMutator.js';
-import RuntimeObjectMembership from '../js/runtimeObjectMembership.js';
-import LiveEditCommand from '../js/editorCommands/liveEditCommand.js';
+import LiveLevelMutator from '../js/runtime/liveLevelMutator.js';
+import RuntimeObjectMembership from '../js/runtime/runtimeObjectMembership.js';
+import LiveEditCommand from '../js/editor/commands/live/liveEditCommand.js';
 import {
     LiveEditCommandType,
     liveEditCommandRegistry
-} from '../js/editorCommands/index.js';
-import LevelEditor from '../js/levelEditor.js';
+} from '../js/editor/commands/live/index.js';
+import LevelEditor from '../js/editor/levelEditor.js';
 import { EditorInputContext } from '../js/input/contexts/editorInputContext.js';
-import EditorObjectService from '../js/levelEditor/services/editorObjectService.js';
+import EditorObjectService from '../js/editor/services/editorObjectService.js';
 
 class Planet {}
 class Bonus {}

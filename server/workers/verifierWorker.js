@@ -1,5 +1,5 @@
 import { parentPort } from 'node:worker_threads';
-import { replayRun } from '../../js/runReplay.js';
+import { replayRun } from '../../js/replay/runReplay.js';
 
 parentPort.on('message', ({ id, level, proof, mode }) => {
     try {

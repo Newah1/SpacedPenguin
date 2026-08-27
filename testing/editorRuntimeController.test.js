@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LevelOrbitType } from '../js/levelSchema.js';
+import { LevelOrbitType } from '../js/levels/levelSchema.js';
 import {
     EditorRuntimeController,
     findObjectBodyAtPosition,
     findOrbitTargetObject,
     prepareCloneForInsertion,
     shouldSuppressEditorKey
-} from '../js/levelEditor/controllers/editorRuntimeController.js';
-import EditorObjectService from '../js/levelEditor/services/editorObjectService.js';
+} from '../js/editor/controllers/editorRuntimeController.js';
+import EditorObjectService from '../js/editor/services/editorObjectService.js';
 
 class FakePlanet {
     constructor() {

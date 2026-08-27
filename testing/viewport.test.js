@@ -7,7 +7,7 @@ import {
     screenToStage,
     stageToScreen,
     updateFollowCamera
-} from '../js/viewport.js';
+} from '../js/rendering/viewport.js';
 
 test('16:9 viewport preserves the stage and centers horizontal gutters', () => {
     const viewport = createViewport(1920, 1080, 1);

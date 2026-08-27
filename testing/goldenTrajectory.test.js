@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { replayRun } from '../js/runReplay.js';
+import { replayRun } from '../js/replay/runReplay.js';
 
 const level = {
     name: 'Golden straight shot',

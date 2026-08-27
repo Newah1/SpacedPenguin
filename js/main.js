@@ -2,20 +2,20 @@
 // Initializes the game and runs the game loop
 
 import { Game } from './game.js';
-import { GameState } from './gameState.js';
-import { AssetLoader } from './assetLoader.js';
-import { AudioManager } from './audioManager.js';
+import { GameState } from './runtime/gameState.js';
+import { AssetLoader } from './platform/assets/assetLoader.js';
+import { AudioManager } from './platform/audio/audioManager.js';
 import { InputManager } from './input/inputManager.js';
 import { registerDefaultInputContexts } from './input/registerDefaultInputContexts.js';
-import { Penguin } from './penguin.js';
-import plog from './penguinLogger.js';
-import Utils from './utils.js';
-import PerformanceUtils from './performanceUtils.js';
-import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './viewport.js';
+import { Penguin } from './runtime/entities/penguin.js';
+import plog from './diagnostics/penguinLogger.js';
+import Utils from './platform/utils.js';
+import PerformanceUtils from './diagnostics/performanceUtils.js';
+import { STAGE_HEIGHT, STAGE_WIDTH, createViewport, screenToStage } from './rendering/viewport.js';
 import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG, parseLevelSelector } from './config/gameConfig.js';
 import { isMobileViewport } from './config/inputConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
-import { CanvasButton, createButton } from './buttonFramework.js';
+import { CanvasButton, createButton } from './ui/buttonFramework.js';
 
 plog.info('main.js loaded');
 

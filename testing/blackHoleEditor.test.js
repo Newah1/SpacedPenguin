@@ -2,15 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import './nodeShims.js';
 
-import LiveLevelMutator from '../js/liveLevelMutator.js';
-import LevelEditor from '../js/levelEditor.js';
-import { BlackHole } from '../js/blackHole.js';
-import { validateLevelDefinition } from '../js/levelValidation.js';
+import LiveLevelMutator from '../js/runtime/liveLevelMutator.js';
+import LevelEditor from '../js/editor/levelEditor.js';
+import { BlackHole } from '../js/runtime/entities/blackHole.js';
+import { validateLevelDefinition } from '../js/levels/levelValidation.js';
 import {
     listEditableRuntimeClassNames,
     getGameObjectDefinition
-} from '../js/gameObjectRegistry.js';
-import { levelObjectTypeFromClassName, LevelObjectType } from '../js/levelSchema.js';
+} from '../js/runtime/gameObjectRegistry.js';
+import { levelObjectTypeFromClassName, LevelObjectType } from '../js/levels/levelSchema.js';
 
 test('black hole is exposed as an addable level editor object', () => {
     const gameObjectClasses = { BlackHole };

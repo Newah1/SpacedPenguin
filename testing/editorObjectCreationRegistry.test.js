@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getGameObjectDefinition } from '../js/gameObjectRegistry.js';
+import { getGameObjectDefinition } from '../js/runtime/gameObjectRegistry.js';
 
 test('object descriptors create canonical authored definitions without runtime objects', () => {
     const descriptor = getGameObjectDefinition('Planet');

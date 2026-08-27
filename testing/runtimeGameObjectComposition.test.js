@@ -2,17 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import './nodeShims.js';
 
-const { GameObjectFactory } = await import('../js/levelLoader.js');
+const { GameObjectFactory } = await import('../js/levels/levelLoader.js');
 const {
     RUNTIME_CONSTRUCTOR_CATALOG,
     getRuntimeConstructor
-} = await import('../js/runtimeConstructorCatalog.js');
+} = await import('../js/runtime/runtimeConstructorCatalog.js');
 const {
     GAME_OBJECT_DEFINITIONS,
     GAME_OBJECT_DEFINITIONS_BY_TYPE,
     LEVEL_OBJECT_TYPES,
     LEVEL_OBJECT_TYPE_BY_CLASS_NAME
-} = await import('../js/gameObjectRegistry.js');
+} = await import('../js/runtime/gameObjectRegistry.js');
 
 test('browser runtime constructors are composed outside LevelLoader', () => {
     assert.equal(Object.hasOwn(GameObjectFactory, 'constructors'), false);
@@ -78,7 +78,7 @@ test('the registry completely owns every serialized game-object extension', () =
 });
 
 test('non-object level vocabulary does not retain a compatibility facade', async () => {
-    const vocabulary = await import('../js/levelObjectVocabulary.js');
+    const vocabulary = await import('../js/levels/levelObjectVocabulary.js');
     assert.equal(Object.hasOwn(vocabulary, 'LevelObjectType'), false);
     assert.equal(Object.hasOwn(vocabulary, 'normalizeLevelObjectType'), false);
 });

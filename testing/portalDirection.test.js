@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import './nodeShims.js';
 
-import { SimulationEventType, stepSimulation } from '../js/simulationEngine.js';
-import { createSimulationStateFromLevel } from '../js/simulationState.js';
-import { getPortalOutwardDirection } from '../js/portalGeometry.js';
+import { SimulationEventType, stepSimulation } from '../js/simulation/simulationEngine.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
+import { getPortalOutwardDirection } from '../js/simulation/portalGeometry.js';
 
 function portalLevel(rotation = 0) {
     return {

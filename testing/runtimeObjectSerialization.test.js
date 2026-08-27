@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
     isRuntimeObjectExportable,
     serializeRuntimeObject
-} from '../js/runtimeObjectSerialization.js';
+} from '../js/runtime/runtimeObjectSerialization.js';
 
 test('runtime serialization uses stable level type identity instead of constructor names', () => {
     const object = {
