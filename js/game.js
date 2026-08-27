@@ -68,6 +68,7 @@ import {
     updateFollowCamera
 } from './viewport.js';
 import { GameState } from './gameState.js';
+import { KevinCamRenderer } from './kevinCamRenderer.js';
 
 const FAST_FORWARD_UNLOCK_SECONDS = 5;
 
@@ -167,6 +168,7 @@ class Game {
         this.viewport = canvas.viewport || createViewport(STAGE_WIDTH, STAGE_HEIGHT, 1);
         this.worldCamera = createWorldCamera(this.stageRect);
         this.viewRect = this.worldCamera.viewRect;
+        this.kevinCamRenderer = options.kevinCamRenderer || new KevinCamRenderer();
         
         // Game objects
         this.penguin = null;
@@ -196,11 +198,6 @@ class Game {
         this.arrow.setFlightRect(this.flightRect);
         this.gameObjects.push(this.arrow);
 
-        // Responsive picture-in-picture view shown while Kevin is off-screen.
-        // Ratios are based on the logical canvas, so the inset scales with the
-        // parent viewport everywhere the main canvas does.
-        this.kevinCam = RENDER_CONFIG.kevinCam;
-        
         // Initialize console and level editor
         this.console = new Console(this);
         this.levelEditor = new LevelEditor(this);
@@ -1318,7 +1315,12 @@ class Game {
         this.ctx.restore();
 
         // These overlays live on the fixed logical display surface.
-        this.drawKevinCam();
+        this.kevinCamRenderer.draw({
+            ctx: this.ctx,
+            enabled: this.settingsManager?.get('kevinCamEnabled') !== false,
+            arrowVisible: Boolean(this.arrow?.visible),
+            penguin: this.penguin
+        });
         this.drawUI();
         this.uiManager.render();
     }
@@ -1495,88 +1497,6 @@ class Game {
         return true;
     }
 
-    drawKevinCam() {
-        if (this.settingsManager?.get('kevinCamEnabled') === false ||
-            !this.arrow?.visible || !this.penguin || this.penguin.state !== 'soaring') {
-            return;
-        }
-
-        const config = { ...RENDER_CONFIG.kevinCam, ...this.kevinCam };
-        const viewRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
-        const width = Math.max(
-            config.minWidth,
-            Math.min(viewRect.width * config.widthRatio, config.maxWidth)
-        );
-        const height = width / config.aspectRatio;
-        const x = viewRect.x + config.margin;
-        const y = viewRect.y + viewRect.height - height - config.margin;
-        const contentY = y + config.headerHeight;
-        const contentHeight = height - config.headerHeight;
-        const centerX = x + width / 2;
-        const centerY = contentY + contentHeight / 2;
-
-        this.ctx.save();
-
-        // Frame and header.
-        this.ctx.shadowColor = config.shadowColor;
-        this.ctx.shadowBlur = config.shadowBlur;
-        this.ctx.fillStyle = config.backgroundColor;
-        this.ctx.fillRect(x, y, width, height);
-        this.ctx.shadowBlur = 0;
-        this.ctx.fillStyle = config.headerColor;
-        this.ctx.fillRect(x, y, width, config.headerHeight);
-
-        // A deliberately goofy, hand-lettered label.
-        const label = config.label;
-        const colors = config.labelColors;
-        this.ctx.font = config.labelFont;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        const letterSpacing = config.labelLetterSpacing;
-        const labelStart = centerX - ((label.length - 1) * letterSpacing) / 2;
-        for (let i = 0; i < label.length; i++) {
-            this.ctx.save();
-            this.ctx.translate(labelStart + i * letterSpacing, y + config.headerHeight / 2 + (i % 2 ? 2 : -1));
-            this.ctx.rotate((i % 2 ? 1 : -1) * 0.08);
-            this.ctx.fillStyle = colors[i % colors.length];
-            this.ctx.fillText(label[i], 0, 0);
-            this.ctx.restore();
-        }
-
-        // Clip the live view so Kevin and his trail cannot cover the frame.
-        this.ctx.beginPath();
-        this.ctx.rect(x + 3, contentY, width - 6, contentHeight - 3);
-        this.ctx.clip();
-
-        // Parallax stars keep the inset visibly moving even far beyond the
-        // authored stage. Wrapping makes the field continuous in every direction.
-        this.ctx.fillStyle = config.starColor;
-        for (let i = 0; i < config.starCount; i++) {
-            const rawX = i * 67.31 - this.penguin.x * 0.12;
-            const rawY = i * i * 19.17 - this.penguin.y * 0.12;
-            const starX = x + 4 + ((rawX % (width - 8)) + (width - 8)) % (width - 8);
-            const starY = contentY + 3 + ((rawY % (contentHeight - 6)) + (contentHeight - 6)) % (contentHeight - 6);
-            const size = i % 7 === 0 ? 2 : 1;
-            this.ctx.globalAlpha = i % 3 === 0 ? 0.9 : 0.55;
-            this.ctx.fillRect(starX, starY, size, size);
-        }
-        this.ctx.globalAlpha = 1;
-
-        // Reuse Kevin's current animation frame and trail, translated into the
-        // center of this local camera rather than advancing a separate animation.
-        this.ctx.translate(centerX - this.penguin.x * config.zoom, centerY - this.penguin.y * config.zoom);
-        this.ctx.scale(config.zoom, config.zoom);
-        this.penguin.draw(this.ctx);
-        this.ctx.restore();
-
-        // Crisp border is drawn last so it remains above the clipped camera view.
-        this.ctx.save();
-        this.ctx.strokeStyle = config.borderColor;
-        this.ctx.lineWidth = config.borderWidth;
-        this.ctx.strokeRect(x + 1.5, y + 1.5, width - 3, height - 3);
-        this.ctx.restore();
-    }
-    
     generateStars() {
         // Generate 100 random, spaced-out stars
         const numStars = RENDER_CONFIG.starfield.count;
