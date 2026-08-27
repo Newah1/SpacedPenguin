@@ -133,7 +133,7 @@ test('fullscreen exit restores the container stacking styles used by the level e
     assert.equal(viewportChanges.length, 1);
 });
 
-test('main menu button icons have a padded column before their labels', () => {
+test('main menu button centers its icon and label with a consistent gap', () => {
     let renderedIcon = null;
     let renderedText = null;
     const manager = {
@@ -144,9 +144,21 @@ test('main menu button icons have a padded column before their labels', () => {
     };
     const context = {
         textBaseline: 'alphabetic',
+        save() {},
+        restore() {},
         fill() {},
+        measureText(text) {
+            return { width: text.length * 8 };
+        },
         fillText(text, x, y) {
-            renderedText = { text, x, y, textBaseline: this.textBaseline };
+            renderedText = {
+                text,
+                x,
+                y,
+                textAlign: this.textAlign,
+                textBaseline: this.textBaseline,
+                letterSpacing: this.letterSpacing
+            };
         }
     };
 
@@ -154,12 +166,14 @@ test('main menu button icons have a padded column before their labels', () => {
         manager, context, 40, 517, 166, 54, 'High Scores', 15, 'trophy'
     );
 
-    assert.deepEqual(renderedIcon, { icon: 'trophy', x: 65, y: 544, size: 16 });
+    assert.deepEqual(renderedIcon, { icon: 'trophy', x: 74, y: 544, size: 16 });
     assert.deepEqual(renderedText, {
         text: 'High Scores',
-        x: 140.5,
+        x: 92,
         y: 544,
-        textBaseline: 'middle'
+        textAlign: 'left',
+        textBaseline: 'middle',
+        letterSpacing: '0.375px'
     });
 });
 

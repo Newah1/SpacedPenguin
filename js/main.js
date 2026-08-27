@@ -814,6 +814,7 @@ class GameManager {
     }
 
     drawOriginalMenuButton(ctx, x, y, width, height, text, fontSize, icon, button = {}) {
+        ctx.save();
         this.roundedRectPath(ctx, x, y, width, height, 8);
         ctx.fillStyle = button.isPressed ? '#e46d12' : button.isHovered ? '#ffb24d' : '#f79433';
         ctx.fill();
@@ -821,15 +822,20 @@ class GameManager {
         ctx.fillStyle = '#fff3bb';
         ctx.fill();
         ctx.fillStyle = '#f47b20';
-        ctx.font = `900 ${fontSize}px Arial, sans-serif`;
-        ctx.textAlign = 'center';
+        ctx.font = `900 ${fontSize}px "Trebuchet MS", Arial, sans-serif`;
+        ctx.letterSpacing = `${Math.max(0.3, fontSize * 0.025)}px`;
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const centerY = y + height / 2;
-        const iconX = x + 25;
-        this.drawMenuIcon(ctx, icon, iconX, centerY, 16);
-        const labelStartX = x + 43;
-        const labelEndX = x + width - 8;
-        ctx.fillText(text, (labelStartX + labelEndX) / 2, centerY);
+        const iconSize = 16;
+        const iconLabelGap = 10;
+        const labelWidth = ctx.measureText(text).width;
+        const contentWidth = iconSize + iconLabelGap + labelWidth;
+        const contentX = x + (width - contentWidth) / 2;
+
+        this.drawMenuIcon(ctx, icon, contentX + iconSize / 2, centerY, iconSize);
+        ctx.fillText(text, contentX + iconSize + iconLabelGap, centerY);
+        ctx.restore();
     }
 
     drawTipsBadge(ctx, x, y) {
@@ -939,6 +945,7 @@ class GameManager {
         ctx.fill();
         ctx.fillStyle = '#f47b20';
         ctx.font = '900 39px Arial, sans-serif';
+        ctx.letterSpacing = '0.8px';
         ctx.textAlign = 'center';
         // Canvas text state is shared across screens. Keep this label's baseline
         // explicit so gameplay/editor rendering cannot shift it between frames.

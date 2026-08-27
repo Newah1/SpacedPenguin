@@ -187,24 +187,26 @@
             bottom: 5%;
             z-index: 110;
             display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             min-width: 150px;
             padding: 12px 20px;
             border-radius: 24px;
             font: 900 16px/1 "Trebuchet MS", Arial, sans-serif;
-            letter-spacing: .08em;
+            letter-spacing: .03em;
             box-shadow: 0 0 0 2px #ffca69;
             touch-action: manipulation;
         }
 
         #menuSettingsButton .button-icon {
-            display: inline-block;
-            margin-right: 8px;
+            display: block;
+            flex: 0 0 auto;
             font-size: 18px;
-            line-height: 0;
-            vertical-align: -1px;
+            line-height: 1;
         }
 
-        body.is-menu #menuSettingsButton { display: block; }
+        body.is-menu #menuSettingsButton { display: inline-flex; }
 
         body:has(.high-scores-overlay) #menuSettingsButton { display: none; }
 
