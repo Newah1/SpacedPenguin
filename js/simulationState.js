@@ -3,10 +3,12 @@ import {
     LevelObjectType,
     normalizeLevelDefinition,
     normalizeLevelObjectType,
-    normalizeOrbitDefinition
+    normalizeOrbitDefinition,
+    normalizeWaypointPathDefinition
 } from './levelSchema.js';
 import { assertValidLevelDefinition } from './levelValidation.js';
 import { cloneOrbitState } from './orbitSimulation.js';
+import { cloneWaypointPathState } from './waypointSimulation.js';
 import { clonePoint } from './simulationGeometry.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG, WORLD_CONFIG } from './config/gameConfig.js';
 
@@ -41,6 +43,11 @@ function orbitFromDefinition(definition) {
     };
 }
 
+function waypointPathFromDefinition(definition) {
+    const source = definition.properties?.waypointPath;
+    return source ? cloneWaypointPathState(normalizeWaypointPathDefinition(source)) : null;
+}
+
 export function createSimulationStateFromLevel(level, options = {}) {
     if (options.validate !== false) assertValidLevelDefinition(level, options.source || 'simulation level');
     const normalizedLevel = normalizeLevelDefinition(level);
@@ -62,6 +69,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
     const bonuses = [];
     const portals = [];
     const speedBoosters = [];
+    const decorations = [];
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
         const properties = definition.properties || {};
@@ -77,7 +85,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 collidable: !isBlackHole && properties.collidable !== false,
                 mass: properties.mass ?? LEVEL_DEFAULTS.planet.mass,
                 gravitationalReach: effectiveGravitationalReach(properties.gravitationalReach),
-                orbit: orbitFromDefinition(definition)
+                orbit: orbitFromDefinition(definition),
+                waypointPath: waypointPathFromDefinition(definition)
             });
         } else if (type === LevelObjectType.BONUS) {
             const width = properties.width ?? LEVEL_DEFAULTS.bonus.width;
@@ -88,7 +97,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 value: properties.value ?? LEVEL_DEFAULTS.bonus.value,
                 collected: properties.collected === true || properties.state === 'Hit',
                 collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + width / 2,
-                orbit: orbitFromDefinition(definition)
+                orbit: orbitFromDefinition(definition),
+                waypointPath: waypointPathFromDefinition(definition)
             });
         } else if (type === LevelObjectType.PORTAL) {
             portals.push({
@@ -99,7 +109,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 rotation: properties.rotation ?? 0,
                 color: properties.color ?? LEVEL_DEFAULTS.portal.color,
                 pairedPortalId: properties.pairedPortalId,
-                playSound: properties.playSound ?? LEVEL_DEFAULTS.portal.playSound
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.portal.playSound,
+                waypointPath: waypointPathFromDefinition(definition)
             });
         } else if (type === LevelObjectType.SPEED_BOOSTER) {
             speedBoosters.push({
@@ -109,7 +120,14 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 height: properties.height ?? LEVEL_DEFAULTS.speedBooster.height,
                 rotation: properties.rotation ?? 0,
                 speedMultiplier: properties.speedMultiplier ?? LEVEL_DEFAULTS.speedBooster.speedMultiplier,
-                playSound: properties.playSound ?? LEVEL_DEFAULTS.speedBooster.playSound
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.speedBooster.playSound,
+                waypointPath: waypointPathFromDefinition(definition)
+            });
+        } else if (type === LevelObjectType.TEXT || type === LevelObjectType.POINTING_ARROW) {
+            decorations.push({
+                id: nextId(type, properties.id),
+                position: clonePoint(objectPosition(definition)),
+                waypointPath: waypointPathFromDefinition(definition)
             });
         }
     }
@@ -125,7 +143,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
         height: targetProperties.height ?? LEVEL_DEFAULTS.target.height,
         collisionRadius: targetProperties.collisionRadius ??
             (targetProperties.width ?? LEVEL_DEFAULTS.target.width) / 2,
-        orbit: targetDefinition ? orbitFromDefinition(targetDefinition) : null
+        orbit: targetDefinition ? orbitFromDefinition(targetDefinition) : null,
+        waypointPath: targetDefinition ? waypointPathFromDefinition(targetDefinition) : null
     };
     const slingshotProperties = slingshotDefinition?.properties || {};
 
@@ -147,6 +166,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
         bonuses,
         portals,
         speedBoosters,
+        decorations,
         target,
         slingshot: {
             position: clonePoint(startPosition),
@@ -158,7 +178,8 @@ export function createSimulationStateFromLevel(level, options = {}) {
             coordinateScale: slingshotProperties.coordinateScale ?? 1,
             velocityMultiplier: slingshotProperties.velocityMultiplier ?? LEVEL_DEFAULTS.slingshot.velocityMultiplier,
             maxPullback: slingshotProperties.maxPullback ?? slingshotProperties.stretchLimit ?? LEVEL_DEFAULTS.slingshot.maxPullback,
-            minPullback: slingshotProperties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback
+            minPullback: slingshotProperties.minPullback ?? LEVEL_DEFAULTS.slingshot.minPullback,
+            waypointPath: slingshotDefinition ? waypointPathFromDefinition(slingshotDefinition) : null
         },
         bounds: {
             stage: { ...(options.stageBounds || normalizedLevel.bounds?.stage || DEFAULT_STAGE_BOUNDS) },
@@ -191,30 +212,41 @@ export function cloneSimulationState(state) {
         planets: state.planets.map(planet => ({
             ...planet,
             position: clonePoint(planet.position),
-            orbit: cloneOrbitState(planet.orbit)
+            orbit: cloneOrbitState(planet.orbit),
+            waypointPath: cloneWaypointPathState(planet.waypointPath)
         })),
         bonuses: state.bonuses.map(bonus => ({
             ...bonus,
             position: clonePoint(bonus.position),
-            orbit: cloneOrbitState(bonus.orbit)
+            orbit: cloneOrbitState(bonus.orbit),
+            waypointPath: cloneWaypointPathState(bonus.waypointPath)
         })),
         portals: (state.portals || []).map(portal => ({
             ...portal,
-            position: clonePoint(portal.position)
+            position: clonePoint(portal.position),
+            waypointPath: cloneWaypointPathState(portal.waypointPath)
         })),
         speedBoosters: (state.speedBoosters || []).map(speedBooster => ({
             ...speedBooster,
-            position: clonePoint(speedBooster.position)
+            position: clonePoint(speedBooster.position),
+            waypointPath: cloneWaypointPathState(speedBooster.waypointPath)
+        })),
+        decorations: (state.decorations || []).map(decoration => ({
+            ...decoration,
+            position: clonePoint(decoration.position),
+            waypointPath: cloneWaypointPathState(decoration.waypointPath)
         })),
         target: {
             ...state.target,
             position: clonePoint(state.target.position),
-            orbit: cloneOrbitState(state.target.orbit)
+            orbit: cloneOrbitState(state.target.orbit),
+            waypointPath: cloneWaypointPathState(state.target.waypointPath)
         },
         slingshot: {
             ...state.slingshot,
             position: clonePoint(state.slingshot.position),
-            anchorPosition: clonePoint(state.slingshot.anchorPosition || state.slingshot.position)
+            anchorPosition: clonePoint(state.slingshot.anchorPosition || state.slingshot.position),
+            waypointPath: cloneWaypointPathState(state.slingshot.waypointPath)
         },
         bounds: { stage: { ...state.bounds.stage }, flight: { ...state.bounds.flight } },
         rules: { ...state.rules },

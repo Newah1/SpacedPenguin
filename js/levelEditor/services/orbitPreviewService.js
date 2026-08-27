@@ -1,6 +1,10 @@
 import { advanceOrbitGraphMutable, compileOrbitGraph } from '../../orbitSimulation.js';
 import { LevelOrbitType } from '../../levelSchema.js';
 import { PHYSICS_CONFIG } from '../../config/gameConfig.js';
+import {
+    advanceWaypointPathsMutable,
+    cloneWaypointPathState
+} from '../../waypointSimulation.js';
 
 const MAX_PREVIEW_STEP_SECONDS = 1 / 20;
 
@@ -45,6 +49,16 @@ export function isMovingOrbit(orbitSystem) {
     if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) return true;
     return Number.isFinite(orbitSystem.orbitRadius) && orbitSystem.orbitRadius > 0 &&
         Number.isFinite(orbitSystem.orbitSpeed) && orbitSystem.orbitSpeed !== 0;
+}
+
+export function isMovingWaypointPath(waypointSystem) {
+    return Boolean(
+        waypointSystem &&
+        Array.isArray(waypointSystem.waypoints) &&
+        waypointSystem.waypoints.length >= 2 &&
+        Number.isFinite(waypointSystem.speed) &&
+        waypointSystem.speed !== 0
+    );
 }
 
 function orbitSnapshot(orbitSystem, targetId) {
@@ -120,7 +134,10 @@ export class OrbitPreviewService {
                 radius: object.radius,
                 mass: object.mass,
                 gravitationalReach: object.gravitationalReach,
-                orbit
+                orbit,
+                waypointPath: isMovingWaypointPath(object.waypointSystem)
+                    ? cloneWaypointPathState(object.waypointSystem)
+                    : null
             };
             if (object.id) this.entityIndexById.set(object.id, this.entities.length);
             this.entities.push(entity);
@@ -159,6 +176,7 @@ export class OrbitPreviewService {
         this.lastPreviewTime = now;
         if (deltaTime > 0 && this.previewGraph) {
             advanceOrbitGraphMutable(this.entities, deltaTime, this.previewGraph);
+            advanceWaypointPathsMutable(this.entities, deltaTime);
         }
     }
 
@@ -168,7 +186,7 @@ export class OrbitPreviewService {
         const index = this.entityIndexById.get(id);
         if (index === undefined) return null;
         const entity = this.entities[index];
-        return entity?.orbit ? clonePoint(entity.position) : null;
+        return entity?.orbit || entity?.waypointPath ? clonePoint(entity.position) : null;
     }
 }
 

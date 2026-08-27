@@ -1,8 +1,17 @@
 import { advanceOrbitGraph } from './orbitSimulation.js';
 import { cloneSimulationState } from './simulationState.js';
+import { advanceWaypointPathsMutable } from './waypointSimulation.js';
 
 function worldEntities(state) {
-    return [...state.planets, ...state.bonuses, state.target];
+    return [
+        ...state.planets,
+        ...state.bonuses,
+        ...(state.portals || []),
+        ...(state.speedBoosters || []),
+        ...(state.decorations || []),
+        state.target,
+        state.slingshot
+    ];
 }
 
 /**
@@ -24,9 +33,14 @@ export class CompiledWorldTimeline {
         this.maxSteps = maxSteps;
         this.planetCount = initialState.planets.length;
         this.bonusCount = initialState.bonuses.length;
-        this.entityCount = this.planetCount + this.bonusCount + 1;
+        this.portalCount = initialState.portals?.length || 0;
+        this.speedBoosterCount = initialState.speedBoosters?.length || 0;
+        this.decorationCount = initialState.decorations?.length || 0;
+        this.entityCount = this.planetCount + this.bonusCount + this.portalCount +
+            this.speedBoosterCount + this.decorationCount + 2;
         this.positions = new Float64Array(maxSteps * this.entityCount * 2);
         this.orbitStates = new Float64Array(maxSteps * this.entityCount * 4);
+        this.waypointPhases = new Float64Array(maxSteps * this.entityCount);
         this.compile(initialState);
     }
 
@@ -34,6 +48,7 @@ export class CompiledWorldTimeline {
         let entities = worldEntities(cloneSimulationState(initialState));
         for (let step = 0; step < this.maxSteps; step++) {
             entities = advanceOrbitGraph(entities, this.timeStep);
+            advanceWaypointPathsMutable(entities, this.timeStep);
             const frameOffset = step * this.entityCount * 2;
             const orbitFrameOffset = step * this.entityCount * 4;
             for (let index = 0; index < entities.length; index++) {
@@ -46,6 +61,8 @@ export class CompiledWorldTimeline {
                 this.orbitStates[orbitOffset + 1] = orbit?.velocity.x ?? 0;
                 this.orbitStates[orbitOffset + 2] = orbit?.velocity.y ?? 0;
                 this.orbitStates[orbitOffset + 3] = orbit?.frameAccumulator ?? 0;
+                this.waypointPhases[step * this.entityCount + index] =
+                    entities[index].waypointPath?.phase ?? 0;
             }
         }
     }
@@ -60,16 +77,42 @@ export class CompiledWorldTimeline {
         for (const planet of state.planets) {
             applyPosition(planet.position, this.positions, frameOffset + entityIndex * 2);
             applyOrbitState(planet.orbit, this.orbitStates, orbitFrameOffset + entityIndex * 4);
+            applyWaypointPhase(planet.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
             entityIndex++;
         }
         for (const bonus of state.bonuses) {
             applyPosition(bonus.position, this.positions, frameOffset + entityIndex * 2);
             applyOrbitState(bonus.orbit, this.orbitStates, orbitFrameOffset + entityIndex * 4);
+            applyWaypointPhase(bonus.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
+            entityIndex++;
+        }
+        for (const portal of state.portals || []) {
+            applyPosition(portal.position, this.positions, frameOffset + entityIndex * 2);
+            applyWaypointPhase(portal.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
+            entityIndex++;
+        }
+        for (const speedBooster of state.speedBoosters || []) {
+            applyPosition(speedBooster.position, this.positions, frameOffset + entityIndex * 2);
+            applyWaypointPhase(speedBooster.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
+            entityIndex++;
+        }
+        for (const decoration of state.decorations || []) {
+            applyPosition(decoration.position, this.positions, frameOffset + entityIndex * 2);
+            applyWaypointPhase(decoration.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
             entityIndex++;
         }
         applyPosition(state.target.position, this.positions, frameOffset + entityIndex * 2);
         applyOrbitState(state.target.orbit, this.orbitStates, orbitFrameOffset + entityIndex * 4);
+        applyWaypointPhase(state.target.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
+        entityIndex++;
+        applyPosition(state.slingshot.position, this.positions, frameOffset + entityIndex * 2);
+        applyPosition(state.slingshot.anchorPosition, this.positions, frameOffset + entityIndex * 2);
+        applyWaypointPhase(state.slingshot.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
     }
+}
+
+function applyWaypointPhase(path, phases, offset) {
+    if (path) path.phase = phases[offset];
 }
 
 function applyPosition(target, positions, offset) {

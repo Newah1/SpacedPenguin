@@ -9,6 +9,7 @@ import { effectiveGravitationalReach } from './globalConstants.js';
 import { LevelOrbitType } from './levelSchema.js';
 import { LEVEL_DEFAULTS } from './config/gameConfig.js';
 import { AudioCue, getAudioCue } from './config/audioConfig.js';
+import { cloneWaypointPathState } from './waypointSimulation.js';
 
 function orbitFromRuntime(system) {
     if (!system) return null;
@@ -41,6 +42,15 @@ function applyOrbitToRuntime(system, orbit) {
     system.frameAccumulator = orbit.frameAccumulator ?? system.frameAccumulator;
 }
 
+function waypointPathFromRuntime(system) {
+    return system ? cloneWaypointPathState(system) : null;
+}
+
+function applyWaypointPathToRuntime(system, path) {
+    if (!system || !path) return;
+    system.phase = path.phase;
+}
+
 function ensureStableRuntimeIds(objects, prefix) {
     const usedIds = new Set(objects.map(object => object.id).filter(Boolean));
     let nextId = 1;
@@ -68,6 +78,9 @@ export function captureGameSimulationState(game) {
     const planetIds = ensureStableRuntimeIds(game.planets, 'planet');
     const bonusIds = ensureStableRuntimeIds(game.bonuses, 'bonus');
     const portalIds = ensureStableRuntimeIds(game.portals || [], 'portal');
+    const speedBoosterIds = ensureStableRuntimeIds(game.speedBoosters || [], 'speedbooster');
+    const decorationObjects = [...(game.textObjects || []), ...(game.pointingArrows || [])];
+    const decorationIds = ensureStableRuntimeIds(decorationObjects, 'decoration');
     const targetId = ensureStableRuntimeIds([game.target], 'target')[0];
     return {
         time: game.simulationTime || 0,
@@ -86,7 +99,8 @@ export function captureGameSimulationState(game) {
             collisionRadius: planet.collisionRadius,
             mass: planet.mass,
             gravitationalReach: effectiveGravitationalReach(planet.gravitationalReach),
-            orbit: orbitFromRuntime(planet.orbitSystem)
+            orbit: orbitFromRuntime(planet.orbitSystem),
+            waypointPath: waypointPathFromRuntime(planet.waypointSystem)
         })),
         bonuses: game.bonuses.map((bonus, index) => ({
             id: bonusIds[index],
@@ -95,7 +109,8 @@ export function captureGameSimulationState(game) {
             value: bonus.value,
             collected: bonus.state === 'Hit',
             collectionRadius: LEVEL_DEFAULTS.bonus.collectionPadding + bonus.width / 2,
-            orbit: orbitFromRuntime(bonus.orbitSystem)
+            orbit: orbitFromRuntime(bonus.orbitSystem),
+            waypointPath: waypointPathFromRuntime(bonus.waypointSystem)
         })),
         portals: (game.portals || []).map((portal, index) => ({
             id: portalIds[index],
@@ -105,16 +120,23 @@ export function captureGameSimulationState(game) {
             rotation: portal.rotation,
             color: portal.color,
             pairedPortalId: portal.pairedPortalId,
-            playSound: portal.playSound
+            playSound: portal.playSound,
+            waypointPath: waypointPathFromRuntime(portal.waypointSystem)
         })),
         speedBoosters: (game.speedBoosters || []).map((speedBooster, index) => ({
-            id: speedBooster.id || `__speedbooster_${index + 1}`,
+            id: speedBoosterIds[index],
             position: { ...speedBooster.position },
             width: speedBooster.width,
             height: speedBooster.height,
             rotation: speedBooster.rotation,
             speedMultiplier: speedBooster.speedMultiplier,
-            playSound: speedBooster.playSound
+            playSound: speedBooster.playSound,
+            waypointPath: waypointPathFromRuntime(speedBooster.waypointSystem)
+        })),
+        decorations: decorationObjects.map((object, index) => ({
+            id: decorationIds[index],
+            position: { ...object.position },
+            waypointPath: waypointPathFromRuntime(object.waypointSystem)
         })),
         target: {
             id: targetId,
@@ -122,7 +144,8 @@ export function captureGameSimulationState(game) {
             width: game.target.width,
             height: game.target.height,
             collisionRadius: game.target.collisionRadius ?? game.target.width / 2,
-            orbit: orbitFromRuntime(game.target.orbitSystem)
+            orbit: orbitFromRuntime(game.target.orbitSystem),
+            waypointPath: waypointPathFromRuntime(game.target.waypointSystem)
         },
         slingshot: {
             position: { ...(game.slingshot.launchModel === 'director'
@@ -134,7 +157,8 @@ export function captureGameSimulationState(game) {
             coordinateScale: game.slingshot.coordinateScale ?? 1,
             velocityMultiplier: game.slingshot.velocityMultiplier,
             maxPullback: game.slingshot.maxPullback,
-            minPullback: game.slingshot.minPullback
+            minPullback: game.slingshot.minPullback,
+            waypointPath: waypointPathFromRuntime(game.slingshot.waypointSystem)
         },
         bounds: {
             stage: { ...game.stageRect },
@@ -177,6 +201,7 @@ export function applyGameSimulationState(game, state) {
         planet.position.x = planetState.position.x;
         planet.position.y = planetState.position.y;
         applyOrbitToRuntime(planet.orbitSystem, planetState.orbit);
+        applyWaypointPathToRuntime(planet.waypointSystem, planetState.waypointPath);
     });
     state.bonuses.forEach(bonusState => {
         const bonus = bonusesById.get(bonusState.id);
@@ -184,12 +209,48 @@ export function applyGameSimulationState(game, state) {
         bonus.position.x = bonusState.position.x;
         bonus.position.y = bonusState.position.y;
         applyOrbitToRuntime(bonus.orbitSystem, bonusState.orbit);
+        applyWaypointPathToRuntime(bonus.waypointSystem, bonusState.waypointPath);
         if (bonusState.collected && bonus.state !== 'Hit') bonus.collect();
         else if (!bonusState.collected && bonus.state === 'Hit') bonus.reset();
     });
     game.target.position.x = state.target.position.x;
     game.target.position.y = state.target.position.y;
     applyOrbitToRuntime(game.target.orbitSystem, state.target.orbit);
+    applyWaypointPathToRuntime(game.target.waypointSystem, state.target.waypointPath);
+    const portalsById = runtimeObjectsById(game.portals || []);
+    state.portals?.forEach(portalState => {
+        const portal = portalsById.get(portalState.id);
+        if (!portal) return;
+        Object.assign(portal.position, portalState.position);
+        applyWaypointPathToRuntime(portal.waypointSystem, portalState.waypointPath);
+    });
+    const speedBoostersById = runtimeObjectsById(game.speedBoosters || []);
+    state.speedBoosters?.forEach(speedBoosterState => {
+        const speedBooster = speedBoostersById.get(speedBoosterState.id);
+        if (!speedBooster) return;
+        Object.assign(speedBooster.position, speedBoosterState.position);
+        applyWaypointPathToRuntime(speedBooster.waypointSystem, speedBoosterState.waypointPath);
+    });
+    const decorationsById = runtimeObjectsById([
+        ...(game.textObjects || []),
+        ...(game.pointingArrows || [])
+    ]);
+    state.decorations?.forEach(decorationState => {
+        const decoration = decorationsById.get(decorationState.id);
+        if (!decoration) return;
+        Object.assign(decoration.position, decorationState.position);
+        applyWaypointPathToRuntime(decoration.waypointSystem, decorationState.waypointPath);
+    });
+    if (state.slingshot?.waypointPath) {
+        Object.assign(game.slingshot.position, state.slingshot.position);
+        Object.assign(game.slingshot.anchor, state.slingshot.position);
+        Object.assign(game.slingshot.resetPosition, state.slingshot.position);
+        applyWaypointPathToRuntime(game.slingshot.waypointSystem, state.slingshot.waypointPath);
+        if (game.penguin.state !== 'soaring' && game.penguin.state !== 'crashed') {
+            game.penguin.setPosition?.(state.slingshot.position.x, state.slingshot.position.y);
+            state.penguin.position = { ...state.slingshot.position };
+        }
+    }
 }
 
 export function stepGameSimulation(game, deltaTime) {

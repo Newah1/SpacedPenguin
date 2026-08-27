@@ -30,7 +30,7 @@ The Spaced Penguin Level Editor is an in-game tool for creating, modifying, prev
 - **Play Mode Testing**: Switch between edit and play modes to test levels immediately
 - **Editor-native Completion**: Completing a play-test stays in the editor, reports success in the toolbar, and unlocks publishing when a community server is configured
 - **Publish Confirmation**: Publishing opens a compact form to confirm the public level name and description before upload
-- **Visual Indicators**: Shows orbit centers, arrow targets, and selection highlights
+- **Visual Indicators**: Shows orbit centers, waypoint paths and handles, arrow targets, and selection highlights
 
 ## Getting Started
 
@@ -141,7 +141,7 @@ Portal endpoints can be dragged and rotated independently. Selecting either endp
 ### Selection and Movement
 
 - **Click to Select**: Left-click any object to select it
-- **Drag to Move**: Click and drag selected objects to new positions
+- **Drag to Move**: Click and drag selected objects to new positions; drag numbered waypoint handles to reshape fixed paths
 - **Coordinate Precision**: Use property panel for exact positioning
 
 ### Object Deletion
@@ -406,7 +406,7 @@ Editor save, export, Play, and publishing clone the canonical `LevelDocument`; s
 
 ### Import and Save Status
 
-There is no file picker, arbitrary-path loader, server save, or autosave. Save stores or updates an editable record in browser storage, including a thumbnail; Export remains the explicit JSON download path for review and manual promotion. Browse opens the asynchronous local catalog, which supports search, bounded cursor pages, details, Play, and capability-controlled Edit. The catalog boundary separates card summaries from playable definitions and can accept future cloud sources without changing the browser UI. The built-in loader separately fetches the 25 default files `levels/level01.json` through `levels/level25.json` during startup; the archived manual catalog is selected with `?level=manual:N`. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, centering, object-property edits, and level-setting edits during the current editor session. Continuous input events from one focused field are coalesced into one undo step.
+There is no file picker, arbitrary-path loader, server save, or autosave. Save stores or updates an editable record in browser storage, including a thumbnail; Export remains the explicit JSON download path for review and manual promotion. Browse opens the asynchronous local catalog, which supports search, bounded cursor pages, details, Play, and capability-controlled Edit. The catalog boundary separates card summaries from playable definitions and can accept future cloud sources without changing the browser UI. The built-in loader separately fetches the 25 default files `levels/level01.json` through `levels/level25.json` during startup; the archived manual catalog is selected with `?level=manual:N`. Undo/redo applies to add, delete, clone, canvas movement, orbit-center movement, waypoint-handle movement, centering, object-property edits, and level-setting edits during the current editor session. Continuous input events from one focused field are coalesced into one undo step.
 
 ## Advanced Features
 

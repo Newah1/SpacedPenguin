@@ -4,13 +4,15 @@
 import {
     LevelObjectType,
     LevelOrbitType,
+    WAYPOINT_PATH_MODES,
     LEVEL_CAMERA_MODES,
     ORBIT_LOOKUP_TARGET_TYPES,
     ORBIT_SOURCE_TYPES,
     isLevelObjectType,
     isLevelOrbitType,
     normalizeLevelObjectType,
-    normalizeOrbitDefinition
+    normalizeOrbitDefinition,
+    normalizeWaypointPathDefinition
 } from './levelSchema.js';
 import { getGameObjectDefinition } from './gameObjectRegistry.js';
 
@@ -319,6 +321,41 @@ function validateOrbits(objects, identifiers, collector) {
     validateOrbitCycles(edges, identifiers, collector);
 }
 
+function validateWaypointPaths(objects, collector) {
+    for (const entry of objects) {
+        const value = entry.properties.waypointPath;
+        if (value === undefined || value === null) continue;
+        const path = `${entry.path}.properties.waypointPath`;
+        if (!isRecord(value)) {
+            collector.error('WAYPOINT_PATH_TYPE', path, 'must be an object');
+            continue;
+        }
+        const waypointPath = normalizeWaypointPathDefinition(value);
+        if (!Array.isArray(waypointPath.waypoints)) {
+            collector.error('WAYPOINTS_TYPE', `${path}.waypoints`, 'must be an array');
+        } else {
+            if (waypointPath.waypoints.length < 2) {
+                collector.error('WAYPOINTS_TOO_SHORT', `${path}.waypoints`, 'must contain at least two points');
+            }
+            waypointPath.waypoints.forEach((point, index) =>
+                validatePoint(point, `${path}.waypoints[${index}]`, collector)
+            );
+        }
+        validateOptionalNumber(waypointPath.speed, `${path}.speed`, collector, { min: 0 });
+        validateOptionalNumber(waypointPath.phase, `${path}.phase`, collector, { min: 0 });
+        if (!WAYPOINT_PATH_MODES.includes(waypointPath.mode)) {
+            collector.error(
+                'WAYPOINT_MODE_UNKNOWN',
+                `${path}.mode`,
+                `must be one of: ${WAYPOINT_PATH_MODES.join(', ')}`
+            );
+        }
+        if (entry.properties.orbit !== undefined && entry.properties.orbit !== null) {
+            collector.error('MOTION_CONFLICT', path, 'cannot be combined with an orbit on the same object');
+        }
+    }
+}
+
 function validateOrbitCycles(edges, identifiers, collector) {
     const visiting = new Set();
     const completed = new Set();
@@ -417,6 +454,7 @@ export function validateLevelDefinition(level) {
     validateComposition(level, objects, collector);
     const identifiers = collectIdentifiers(objects, collector);
     validateOrbits(objects, identifiers, collector);
+    validateWaypointPaths(objects, collector);
     validateRegisteredRelationships(objects, identifiers, collector);
     validateRules(level.rules, objects.filter(entry => entry.type === LevelObjectType.BONUS).length, collector);
     return collector.result();

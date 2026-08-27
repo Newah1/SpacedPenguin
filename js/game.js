@@ -2283,7 +2283,8 @@ class Game {
     
     exportObjectComprehensively(obj) {
         const exported = serializeRuntimeObject(obj, {
-            serializeOrbit: orbit => this.exportOrbitSystem(orbit)
+            serializeOrbit: orbit => this.exportOrbitSystem(orbit),
+            serializeWaypointPath: path => this.exportWaypointPath(path)
         });
         if (!exported) plog.warn('Skipping runtime object without an exportable game-object descriptor:', obj);
         return exported;
@@ -2316,6 +2317,15 @@ class Game {
         }
         
         return exportData;
+    }
+
+    exportWaypointPath(waypointSystem) {
+        return {
+            waypoints: waypointSystem.waypoints.map(point => ({ x: point.x, y: point.y })),
+            speed: waypointSystem.speed,
+            mode: waypointSystem.mode,
+            phase: waypointSystem.phase
+        };
     }
     
     exportLevelRules() {

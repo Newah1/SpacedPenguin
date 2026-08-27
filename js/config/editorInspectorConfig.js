@@ -2,6 +2,7 @@ import { deepFreeze } from './configUtils.js';
 import { EDITOR_CONFIG } from './editorConfig.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG } from './gameConfig.js';
 import { LEVEL_CAMERA_MODES, LEVEL_ORBIT_TYPES, LevelOrbitType } from '../levelObjectVocabulary.js';
+import { WAYPOINT_PATH_MODES } from '../waypointSimulation.js';
 
 const EDITOR_CAMERA_MODES = deepFreeze(['legacy', ...LEVEL_CAMERA_MODES]);
 
@@ -41,6 +42,10 @@ export const ORBIT_EDITOR_PROPERTY_KEYS = deepFreeze([
     'orbitTargetType', 'orbitTargetId', 'orbitCenterX', 'orbitCenterY',
     'orbitRadius', 'orbitSpeed', 'orbitType', 'gravityStrength',
     'velocityX', 'velocityY', 'validateObject'
+]);
+
+export const WAYPOINT_EDITOR_PROPERTY_KEYS = deepFreeze([
+    'waypointMode', 'waypointSpeed', 'waypointAdd', 'waypointRemove'
 ]);
 
 export const COMMON_OBJECT_PROPERTY_FIELDS = deepFreeze({
@@ -97,6 +102,16 @@ export const ORBIT_PROPERTY_FIELDS = deepFreeze({
     }
 });
 
+export const WAYPOINT_PROPERTY_FIELDS = deepFreeze({
+    mode: {
+        label: 'Waypoint Motion', key: 'waypointMode', type: 'select',
+        options: ['none', ...WAYPOINT_PATH_MODES]
+    },
+    speed: { label: 'Waypoint Speed', key: 'waypointSpeed', type: 'number', min: 0 },
+    add: { label: 'Waypoints', key: 'waypointAdd', type: 'button', buttonText: 'Add Waypoint' },
+    remove: { label: 'Waypoints', key: 'waypointRemove', type: 'button', buttonText: 'Remove Last Waypoint' }
+});
+
 export const EDITOR_NUMERIC_FALLBACKS = deepFreeze({
     radius: LEVEL_DEFAULTS.planet.radius,
     mass: LEVEL_DEFAULTS.planet.mass,
@@ -110,6 +125,7 @@ export const EDITOR_NUMERIC_FALLBACKS = deepFreeze({
     gravityStrength: EDITOR_CONFIG.authoringDefaults.orbit.gravityStrength,
     velocityX: EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.x,
     velocityY: EDITOR_CONFIG.authoringDefaults.orbit.initialVelocity.y,
+    waypointSpeed: 60,
     stretchLimit: LEVEL_DEFAULTS.slingshot.maxPullback,
     velocityMultiplier: LEVEL_DEFAULTS.slingshot.velocityMultiplier,
     fontSize: LEVEL_DEFAULTS.text.fontSize,

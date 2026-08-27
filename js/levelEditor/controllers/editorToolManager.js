@@ -49,7 +49,9 @@ export class EditorToolManager {
             return true;
         }
 
-        const hit = this.editor.objectService.hitTest(world.x, world.y);
+        const hit = this.editor.objectService.hitTest(world.x, world.y, {
+            pointerType: event.pointerType
+        });
         if (event.pointerType === 'touch') {
             this.#startTouchPending(id, input, hit);
             return true;
@@ -59,7 +61,11 @@ export class EditorToolManager {
 
     handlePointerMove(input) {
         const interaction = this.editor.state.interaction;
-        if (interaction.type === EditorInteractionType.IDLE || interaction.pointerId !== pointerId(input.event)) {
+        if (interaction.type === EditorInteractionType.IDLE) {
+            this.#updateHoverCursor(input);
+            return false;
+        }
+        if (interaction.pointerId !== pointerId(input.event)) {
             return false;
         }
         if (interaction.type === EditorInteractionType.TOUCH_PENDING) {
@@ -83,6 +89,8 @@ export class EditorToolManager {
             this.#updateObjectDrag(input.world);
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
             this.#updateOrbitCenterDrag(input.world);
+        } else if (interaction.type === EditorInteractionType.DRAG_WAYPOINT) {
+            this.#updateWaypointDrag(input.world);
         }
         return true;
     }
@@ -98,6 +106,9 @@ export class EditorToolManager {
             this.editor.commandBus.commit();
             this.editor.updateObjectList();
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
+            this.editor.commandBus.commit();
+            this.editor.updateObjectList();
+        } else if (interaction.type === EditorInteractionType.DRAG_WAYPOINT) {
             this.editor.commandBus.commit();
             this.editor.updateObjectList();
         }
@@ -129,6 +140,8 @@ export class EditorToolManager {
             this.editor.commandBus.cancel();
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
             this.editor.commandBus.cancel();
+        } else if (interaction.type === EditorInteractionType.DRAG_WAYPOINT) {
+            this.editor.commandBus.cancel();
         }
         this.editor.state.clearInteraction();
         this.editor.game.canvas.style.cursor = this.editor.state.spacePan ? 'grab' : '';
@@ -137,7 +150,7 @@ export class EditorToolManager {
     }
 
     #startTouchPending(id, input, hit) {
-        if (hit?.type === 'orbitCenter') this.editor.selectObject(hit.object);
+        if (hit?.type === 'orbitCenter' || hit?.type === 'waypoint') this.editor.selectObject(hit.object);
         else this.editor.selectObject(hit || null);
         this.editor.state.setInteraction({
             type: EditorInteractionType.TOUCH_PENDING,
@@ -159,6 +172,10 @@ export class EditorToolManager {
     }
 
     #startFromHit(id, world, screen, hit) {
+        if (hit?.type === 'waypoint') {
+            this.editor.selectObject(hit.object);
+            return this.#startWaypointDrag(id, world, hit);
+        }
         if (hit?.type === 'orbitCenter') {
             this.editor.selectObject(hit.object);
             return this.#startOrbitCenterDrag(id, world, hit.object);
@@ -209,6 +226,28 @@ export class EditorToolManager {
         return true;
     }
 
+    #startWaypointDrag(id, world, hit) {
+        const waypoint = hit.object?.waypointSystem?.waypoints?.[hit.waypointIndex];
+        if (!waypoint) return false;
+        this.editor.state.setInteraction({
+            type: EditorInteractionType.DRAG_WAYPOINT,
+            pointerId: id,
+            objectId: hit.object.id,
+            waypointIndex: hit.waypointIndex,
+            startPosition: point(waypoint),
+            offset: { x: world.x - waypoint.x, y: world.y - waypoint.y }
+        });
+        this.editor.commandBus.begin('waypoint.move', {
+            objectId: hit.object.id,
+            waypointIndex: hit.waypointIndex,
+            before: point(waypoint),
+            after: point(waypoint),
+            label: `Move waypoint ${hit.waypointIndex + 1}`
+        }, { source: 'waypoint-drag' });
+        this.editor.game.canvas.style.cursor = 'grabbing';
+        return true;
+    }
+
     #startPan(id, screen) {
         if (!this.editor.editorCamera) this.editor.fitEditorCamera();
         const view = this.editor.editorCamera.viewRect;
@@ -255,6 +294,34 @@ export class EditorToolManager {
         this.editor.commandBus.update({ after: center });
         this.editor.setDisplayedPropertyValue('orbitCenterX', center.x);
         this.editor.setDisplayedPropertyValue('orbitCenterY', center.y);
+    }
+
+    #updateWaypointDrag(world) {
+        const interaction = this.editor.state.interaction;
+        const position = {
+            x: world.x - interaction.offset.x,
+            y: world.y - interaction.offset.y
+        };
+        this.editor.commandBus.update({ after: position });
+        this.editor.setDisplayedPropertyValue(`waypoint${interaction.waypointIndex}X`, position.x);
+        this.editor.setDisplayedPropertyValue(`waypoint${interaction.waypointIndex}Y`, position.y);
+    }
+
+    #updateHoverCursor(input) {
+        if (this.editor.state.spacePan) {
+            this.editor.game.canvas.style.cursor = 'grab';
+            return;
+        }
+        const hit = this.editor.objectService.hitTest(input.world.x, input.world.y, {
+            pointerType: input.event.pointerType
+        });
+        this.editor.game.canvas.style.cursor = hit?.type === 'waypoint'
+            ? 'grab'
+            : hit?.type === 'orbitCenter'
+                ? 'crosshair'
+                : hit
+                    ? 'move'
+                    : '';
     }
 
     #clearLongPress() {

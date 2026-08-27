@@ -1,7 +1,7 @@
 // Level Loading System for Spaced Penguin
 // Supports JSON-based level definitions with object factories and custom rules
 
-import { Planet, OrbitSystem } from './gameObjects.js';
+import { Planet, OrbitSystem, WaypointSystem } from './gameObjects.js';
 import { Penguin } from './penguin.js';
 import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from './globalConstants.js';
 import plog from './penguinLogger.js';
@@ -71,6 +71,10 @@ export class GameObjectFactory {
         });
 
         if (gameObject && properties.id != null) gameObject.id = properties.id;
+        if (gameObject && properties.waypointPath) {
+            gameObject.orbitSystem = null;
+            gameObject.waypointSystem = new WaypointSystem(properties.waypointPath);
+        }
         return gameObject;
     }
     

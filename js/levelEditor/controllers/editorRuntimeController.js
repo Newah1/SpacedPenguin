@@ -2,6 +2,7 @@ import { EditorInteractionType } from '../state/editorState.js';
 import { prepareCloneForInsertion } from '../services/editorObjectService.js';
 import OrbitPreviewService, {
     isMovingOrbit,
+    isMovingWaypointPath,
     runtimeObjectPosition
 } from '../services/orbitPreviewService.js';
 
@@ -60,11 +61,12 @@ export class EditorRuntimeController {
     }
 
     shouldRenderPreviewObject(object) {
-        if (!isMovingOrbit(object?.orbitSystem)) return false;
+        if (!isMovingOrbit(object?.orbitSystem) && !isMovingWaypointPath(object?.waypointSystem)) return false;
         const interaction = this.editor.state?.interaction;
         if (
             (interaction?.type === EditorInteractionType.DRAG_OBJECT ||
-                interaction?.type === EditorInteractionType.DRAG_ORBIT_CENTER) &&
+                interaction?.type === EditorInteractionType.DRAG_ORBIT_CENTER ||
+                interaction?.type === EditorInteractionType.DRAG_WAYPOINT) &&
             interaction.objectId === object.id
         ) return false;
         this.preview.sync();

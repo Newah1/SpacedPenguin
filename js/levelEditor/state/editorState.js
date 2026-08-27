@@ -14,6 +14,7 @@ export const EditorInteractionType = Object.freeze({
     PAN: 'pan',
     DRAG_OBJECT: 'drag-object',
     DRAG_ORBIT_CENTER: 'drag-orbit-center',
+    DRAG_WAYPOINT: 'drag-waypoint',
     GRAVITY_WAYPOINT: 'gravity-waypoint'
 });
 

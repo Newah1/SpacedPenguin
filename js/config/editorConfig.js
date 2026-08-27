@@ -38,6 +38,7 @@ export const EDITOR_CONFIG = deepFreeze({
         orbitVerificationMs: 100,
         touchMovementThreshold: 15,
         orbitCenterHitRadius: { pointer: 10, touch: 15 },
+        waypointHitRadius: { pointer: 12, touch: 20 },
         minimumTouchTargetRadius: 30
     },
     orbitReset: {

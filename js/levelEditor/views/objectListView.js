@@ -115,6 +115,7 @@ export class LevelEditorObjectListView {
             identifier += ` ("${preview}")`;
         } else if (!object.name && className === 'Target' && object.spriteType) identifier += ` (${object.spriteType})`;
         if (object.orbitSystem?.orbitRadius > 0) identifier += ' ↻';
+        if (object.waypointSystem?.waypoints?.length > 1) identifier += ' ⇄';
         return identifier;
     }
 

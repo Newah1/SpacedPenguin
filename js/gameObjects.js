@@ -8,6 +8,7 @@ import { calculateLaunchScale, calculateLaunchVelocity } from './simulationEngin
 import { LevelOrbitType } from './levelSchema.js';
 import { LEVEL_DEFAULTS, PHYSICS_CONFIG, SIMULATION_CONFIG } from './config/gameConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
+import { WaypointSystem } from './waypointSimulation.js';
 
 function colorForThreshold(value, thresholds, fallback) {
     return thresholds.find(({ below }) => value < below)?.color ?? fallback;
@@ -358,6 +359,7 @@ class GameObject {
         this.renderOrder = 0; // Default render order (0 = background, higher = foreground)
         this.id = null; // Unique identifier for object references
         this.name = ''; // Human-readable name for level editor
+        this.waypointSystem = null;
     }
     
     update(deltaTime) {
@@ -1829,4 +1831,4 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster };
+export { GameObject, OrbitSystem, WaypointSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster };

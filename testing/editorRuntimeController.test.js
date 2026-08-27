@@ -81,6 +81,28 @@ test('object bodies take selection priority over orbit-center handles', () => {
     assert.equal(findObjectBodyAtPosition(editor, 10, 0), planet);
 });
 
+test('selected waypoint handles take priority over the object body', () => {
+    const planet = new FakePlanet();
+    planet.levelType = 'planet';
+    planet.waypointSystem = {
+        waypoints: [{ x: 10, y: 0 }, { x: 100, y: 0 }],
+        speed: 10,
+        mode: 'pingpong',
+        phase: 0
+    };
+    const editor = fakeEditor([planet]);
+    editor.selectedObject = planet;
+    editor.editorCamera = { scale: 1 };
+    editor.runtimeProjector = { listRuntimeObjects: () => [planet] };
+    editor.isPointInObject = () => true;
+    const service = new EditorObjectService(editor);
+
+    const hit = service.hitTest(10, 0);
+    assert.equal(hit.type, 'waypoint');
+    assert.equal(hit.object, planet);
+    assert.equal(hit.waypointIndex, 0);
+});
+
 test('orbit preview advances without mutating authored position', () => {
     const planet = new FakePlanet();
     const editor = fakeEditor([planet]);

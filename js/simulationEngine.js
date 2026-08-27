@@ -4,6 +4,7 @@ import { cloneSimulationState } from './simulationState.js';
 import { circlesOverlap, clonePoint, distance, pointInRect } from './simulationGeometry.js';
 import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from './config/gameConfig.js';
 import { getPortalOutwardDirection } from './portalGeometry.js';
+import { advanceWaypointPathsMutable } from './waypointSimulation.js';
 
 export const SimulationEventType = Object.freeze({
     PENGUIN_MOVED: 'penguin_moved',
@@ -136,7 +137,7 @@ export function stepSimulationTickMutable(state, options = {}) {
 
 function stepSimulationSlice(state, deltaTime, events, options) {
     state.time += deltaTime;
-    if (options.advanceWorld !== false) advanceWorldOrbits(state, deltaTime);
+    if (options.advanceWorld !== false) advanceWorldMotion(state, deltaTime);
     if (state.penguin.state === 'soaring') {
         stepSoaringPenguin(state, deltaTime, events, options);
     } else if (state.penguin.state === 'crashed') {
@@ -154,14 +155,29 @@ function appendFailureEvent(state, events) {
     }
 }
 
-function advanceWorldOrbits(state, deltaTime) {
+function advanceWorldMotion(state, deltaTime) {
     let cached = compiledOrbitGraphs.get(state);
     if (!cached) {
-        const entities = [...state.planets, ...state.bonuses, state.target];
+        const entities = [
+            ...state.planets,
+            ...state.bonuses,
+            ...(state.portals || []),
+            ...(state.speedBoosters || []),
+            ...(state.decorations || []),
+            state.target,
+            state.slingshot
+        ];
         cached = { entities, graph: compileOrbitGraph(entities) };
         compiledOrbitGraphs.set(state, cached);
     }
     advanceOrbitGraphMutable(cached.entities, deltaTime, cached.graph);
+    advanceWaypointPathsMutable(cached.entities, deltaTime);
+    if (state.slingshot.waypointPath &&
+        state.penguin.state !== 'soaring' &&
+        state.penguin.state !== 'crashed' &&
+        state.penguin.state !== 'hitTarget') {
+        state.penguin.position = clonePoint(state.slingshot.position);
+    }
 }
 
 function stepSoaringPenguin(state, deltaTime, events, options) {

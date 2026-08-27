@@ -3,6 +3,7 @@ import CommandHistory from './commandHistory.js';
 import CommandRegistry from './commandRegistry.js';
 import MoveObjectCommand from './moveObjectCommand.js';
 import MoveOrbitCenterCommand from './moveOrbitCenterCommand.js';
+import MoveWaypointCommand from './moveWaypointCommand.js';
 import RemoveObjectCommand from './removeObjectCommand.js';
 import SetLevelSettingCommand from './setLevelSettingCommand.js';
 import SetObjectPropertyCommand from './setObjectPropertyCommand.js';
@@ -15,6 +16,7 @@ export const LiveEditCommandType = Object.freeze({
     REMOVE_OBJECT: RemoveObjectCommand.type,
     MOVE_OBJECT: MoveObjectCommand.type,
     MOVE_ORBIT_CENTER: MoveOrbitCenterCommand.type,
+    MOVE_WAYPOINT: MoveWaypointCommand.type,
     SET_OBJECT_PROPERTY: SetObjectPropertyCommand.type,
     SET_LEVEL_SETTING: SetLevelSettingCommand.type,
     ADJUST_PLANETS: AdjustPlanetsCommand.type,
@@ -27,6 +29,7 @@ export const liveEditCommandRegistry = new CommandRegistry([
     RemoveObjectCommand,
     MoveObjectCommand,
     MoveOrbitCenterCommand,
+    MoveWaypointCommand,
     SetObjectPropertyCommand,
     SetLevelSettingCommand,
     AdjustPlanetsCommand,
@@ -44,6 +47,7 @@ export {
     CommandRegistry,
     MoveObjectCommand,
     MoveOrbitCenterCommand,
+    MoveWaypointCommand,
     RemoveObjectCommand,
     SetLevelSettingCommand,
     SetObjectPropertyCommand,

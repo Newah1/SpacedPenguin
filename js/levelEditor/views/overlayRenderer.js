@@ -22,6 +22,7 @@ export class LevelEditorOverlayRenderer {
         this.drawGravitySculpt(ctx);
         this.drawAllOrbitCenters(ctx);
         this.runtimeController.draw(ctx);
+        this.drawAllWaypointPaths(ctx);
         this.drawAllPortalDirectionArrows(ctx);
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
             this.drawPortalPairLine(ctx, editor.selectedObject);
@@ -180,6 +181,50 @@ export class LevelEditorOverlayRenderer {
             if (object.orbitSystem?.orbitCenter && object.orbitSystem.orbitRadius > 0) {
                 this.drawOrbitCenter(ctx, object);
             }
+        }
+    }
+
+    drawAllWaypointPaths(ctx) {
+        for (const object of this.editor.getAllGameObjects()) {
+            const path = object.waypointSystem;
+            if (!path || path.waypoints?.length < 2) continue;
+            const selected = object === this.editor.selectedObject;
+            const scale = this.editor.editorCamera?.scale || 1;
+            ctx.save();
+            ctx.strokeStyle = selected ? '#ffcf4a' : 'rgba(255, 207, 74, 0.55)';
+            ctx.fillStyle = selected ? '#ffcf4a' : 'rgba(255, 207, 74, 0.8)';
+            ctx.lineWidth = (selected ? 3 : 2) / scale;
+            ctx.setLineDash(path.mode === 'pingpong' ? [8 / scale, 5 / scale] : []);
+            ctx.beginPath();
+            ctx.moveTo(path.waypoints[0].x, path.waypoints[0].y);
+            for (const point of path.waypoints.slice(1)) ctx.lineTo(point.x, point.y);
+            if (path.mode === 'loop') ctx.closePath();
+            ctx.stroke();
+            ctx.setLineDash([]);
+            path.waypoints.forEach((point, index) => {
+                const interaction = this.editor.state?.interaction;
+                const active = interaction?.type === 'drag-waypoint' &&
+                    interaction.objectId === object.id &&
+                    interaction.waypointIndex === index;
+                const radius = (active ? 11 : selected ? 9 : 7) / scale;
+                ctx.fillStyle = active
+                    ? '#ff7a33'
+                    : selected
+                        ? '#ffcf4a'
+                        : 'rgba(255, 207, 74, 0.8)';
+                ctx.strokeStyle = active || selected ? '#fff3bd' : 'rgba(30, 30, 30, 0.8)';
+                ctx.lineWidth = 2 / scale;
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#111827';
+                ctx.font = `bold ${Math.max(9, 11 / scale)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(index + 1), point.x, point.y);
+            });
+            ctx.restore();
         }
     }
 

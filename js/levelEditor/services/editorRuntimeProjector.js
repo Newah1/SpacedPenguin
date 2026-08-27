@@ -90,7 +90,7 @@ export class EditorRuntimeProjector {
 
     #applySerializableProperties(object, properties = {}) {
         for (const [key, value] of Object.entries(properties)) {
-            if (key === 'orbit' || key === 'id') continue;
+            if (key === 'orbit' || key === 'waypointPath' || key === 'id') continue;
             if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) {
                 object[key] = value;
             } else if (key === 'pointingAt' && value) {

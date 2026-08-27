@@ -54,6 +54,8 @@ export class DocumentMutationService {
         } else if (property.startsWith('orbit') || property === 'gravityStrength' ||
             property === 'velocityX' || property === 'velocityY') {
             this.#setOrbitProperty(next, record, property, value);
+        } else if (property.startsWith('waypoint')) {
+            this.#setWaypointProperty(record, property, value);
         } else if (property === 'validateObject') {
             this.#sanitizeRecord(record);
         } else {
@@ -229,6 +231,47 @@ export class DocumentMutationService {
                 orbit.params.initialVelocity[axis] = value;
                 break;
             }
+        }
+    }
+
+    setWaypoint(definition, objectId, waypointIndex, position) {
+        if (!Number.isInteger(waypointIndex)) return null;
+        const next = clone(definition);
+        const record = findRecord(next, objectId);
+        const waypoint = record?.properties?.waypointPath?.waypoints?.[waypointIndex];
+        if (!waypoint) return null;
+        waypoint.x = position.x;
+        waypoint.y = position.y;
+        return next;
+    }
+
+    #setWaypointProperty(record, property, value) {
+        if (property === 'waypointMode' && value === 'none') {
+            delete record.properties.waypointPath;
+            return;
+        }
+        const position = record.position || this.getPlayfieldCenter();
+        const path = record.properties.waypointPath ||= {
+            waypoints: [
+                { x: position.x, y: position.y },
+                { x: position.x + 100, y: position.y }
+            ],
+            speed: 60,
+            mode: 'pingpong',
+            phase: 0
+        };
+        delete record.properties.orbit;
+        if (property === 'waypointMode') path.mode = value;
+        else if (property === 'waypointSpeed') path.speed = value;
+        else if (property === 'waypointAdd') {
+            const last = path.waypoints.at(-1) || position;
+            path.waypoints.push({ x: last.x + 100, y: last.y });
+        } else if (property === 'waypointRemove' && path.waypoints.length > 2) {
+            path.waypoints.pop();
+        } else {
+            const match = property.match(/^waypoint(\d+)([XY])$/);
+            const point = match ? path.waypoints[Number(match[1])] : null;
+            if (point) point[match[2].toLowerCase()] = value;
         }
     }
 

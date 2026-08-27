@@ -11,12 +11,17 @@ import {
     LEVEL_OBJECT_TYPES, LEVEL_OBJECT_TYPE_BY_CLASS_NAME, normalizeLevelObjectType,
     getGameObjectDefinition
 } from './gameObjectRegistry.js';
+import {
+    WAYPOINT_PATH_MODES, WaypointPathMode,
+    normalizeWaypointPathDefinition, normalizeWaypointPathMode
+} from './waypointSimulation.js';
 
 export {
     LevelCameraMode, LevelObjectType, LevelOrbitType,
     LEVEL_CAMERA_MODES, LEVEL_OBJECT_TYPE_ALIASES, LEVEL_OBJECT_TYPE_NAMES,
     LEVEL_OBJECT_TYPES, LEVEL_ORBIT_TYPES, LEVEL_OBJECT_TYPE_BY_CLASS_NAME,
-    normalizeLevelObjectType, normalizeLevelOrbitType, isLevelOrbitType
+    normalizeLevelObjectType, normalizeLevelOrbitType, isLevelOrbitType,
+    WAYPOINT_PATH_MODES, WaypointPathMode, normalizeWaypointPathMode
 };
 
 // The current runtime injects ID lookup only into these object implementations.
@@ -49,6 +54,8 @@ export function normalizeOrbitDefinition(orbit = {}) {
     };
 }
 
+export { normalizeWaypointPathDefinition };
+
 export function getLevelObjectPropertyDefaults(type) {
     return { ...getGameObjectDefinition(normalizeLevelObjectType(type)).levelDefaults };
 }
@@ -67,6 +74,9 @@ export function normalizeLevelObjectDefinition(definition = {}) {
     descriptor.normalizeProperties?.(properties, { definition });
     if (sourceProperties.orbit) {
         properties.orbit = normalizeOrbitDefinition(sourceProperties.orbit);
+    }
+    if (sourceProperties.waypointPath) {
+        properties.waypointPath = normalizeWaypointPathDefinition(sourceProperties.waypointPath);
     }
     const position = definition.position ?? (
         sourceProperties.x !== undefined || sourceProperties.y !== undefined

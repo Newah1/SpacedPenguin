@@ -27,7 +27,7 @@ export function isRuntimeObjectExportable(object) {
     return getGameObjectDefinitionForRuntime(object).exportable === true;
 }
 
-export function serializeRuntimeObject(object, { serializeOrbit } = {}) {
+export function serializeRuntimeObject(object, { serializeOrbit, serializeWaypointPath } = {}) {
     const descriptor = getGameObjectDefinitionForRuntime(object);
     if (!descriptor.exportable || !descriptor.type) return null;
 
@@ -49,6 +49,9 @@ export function serializeRuntimeObject(object, { serializeOrbit } = {}) {
     descriptor.serializeRuntimeProperties?.({ object, properties });
     if (object.orbitSystem && serializeOrbit) {
         properties.orbit = serializeOrbit(object.orbitSystem);
+    }
+    if (object.waypointSystem && serializeWaypointPath) {
+        properties.waypointPath = serializeWaypointPath(object.waypointSystem);
     }
     if (Object.keys(properties).length) result.properties = properties;
     return result;

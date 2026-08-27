@@ -127,6 +127,7 @@ function createDocumentCommandHarness() {
         mutateObjectProperty: (...args) => mutations.setObjectProperty(...args),
         mutateObjectPosition: (...args) => mutations.setObjectPosition(...args),
         mutateOrbitCenter: (...args) => mutations.setOrbitCenter(...args),
+        mutateWaypoint: (...args) => mutations.setWaypoint(...args),
         mutateLevelSetting: (...args) => mutations.setLevelSetting(...args),
         mutatePlanetAdjustments: (...args) => mutations.applyPlanetAdjustments(...args),
         getObjectDefinition(id) {
@@ -199,6 +200,39 @@ test('document-first live movement commits one entry and cancel restores the aut
     assert.deepEqual(harness.document.getObject(planetId).position, { x: 300, y: 300 });
 });
 
+test('waypoint drags commit one document-first undo entry', () => {
+    const harness = createDocumentCommandHarness();
+    const planetId = harness.document.listObjects()[0].properties.id;
+    assert.equal(harness.bus.execute(LiveEditCommandType.SET_OBJECT_PROPERTY, {
+        objectId: planetId,
+        property: 'waypointMode',
+        value: 'pingpong',
+        sessionId: 3
+    }), true);
+    const before = harness.document.getObject(planetId)
+        .properties.waypointPath.waypoints[1];
+    const undoEntriesBeforeDrag = harness.history.undoStack.length;
+    assert.equal(harness.bus.begin(LiveEditCommandType.MOVE_WAYPOINT, {
+        objectId: planetId,
+        waypointIndex: 1,
+        before,
+        after: before
+    }), true);
+    assert.equal(harness.bus.update({ after: { x: 460, y: 375 } }), true);
+    assert.equal(harness.bus.update({ after: { x: 480, y: 390 } }), true);
+    assert.equal(harness.bus.commit(), true);
+    assert.equal(harness.history.undoStack.length, undoEntriesBeforeDrag + 1);
+    assert.deepEqual(
+        harness.document.getObject(planetId).properties.waypointPath.waypoints[1],
+        { x: 480, y: 390 }
+    );
+    assert.equal(harness.bus.undo(), true);
+    assert.deepEqual(
+        harness.document.getObject(planetId).properties.waypointPath.waypoints[1],
+        before
+    );
+});
+
 test('document-first grouped portal mutations remain atomic through undo and redo', () => {
     const harness = createDocumentCommandHarness();
     const entries = [
@@ -267,7 +301,7 @@ test('invalid authored candidates are rejected before the runtime projector is t
 function createToolHarness(hit = null) {
     const calls = [];
     const selected = [];
-    const object = hit?.type === 'orbitCenter' ? hit.object : hit;
+    const object = hit?.type === 'orbitCenter' || hit?.type === 'waypoint' ? hit.object : hit;
     const editor = {
         state: new EditorState(),
         events: new EditorEvents(),
@@ -340,6 +374,28 @@ test('tool manager commits one drag and supports middle-button and Space panning
     pan.manager.setSpacePan(true);
     pan.manager.handlePointerDown(pointer(3, { x: 100, y: 100 }));
     assert.equal(pan.editor.state.interaction.type, EditorInteractionType.PAN);
+});
+
+test('tool manager drags waypoint handles and synchronizes inspector coordinates', () => {
+    const object = {
+        id: 'planet_1',
+        position: { x: 20, y: 30 },
+        waypointSystem: { waypoints: [{ x: 20, y: 30 }, { x: 120, y: 30 }] },
+        constructor: { name: 'Planet' }
+    };
+    const hit = {
+        type: 'waypoint', object, waypointIndex: 1,
+        point: { x: 120, y: 30 }
+    };
+    const drag = createToolHarness(hit);
+    drag.manager.handlePointerDown(pointer(11, { x: 122, y: 32 }));
+    assert.equal(drag.editor.state.interaction.type, EditorInteractionType.DRAG_WAYPOINT);
+    assert.equal(drag.editor.game.canvas.style.cursor, 'grabbing');
+    drag.manager.handlePointerMove(pointer(11, { x: 172, y: 82 }));
+    assert.deepEqual(drag.calls.find(call => call[0] === 'update')[1].after, { x: 170, y: 80 });
+    assert.equal(drag.calls.find(call => call[0] === 'begin')[1], 'waypoint.move');
+    drag.manager.handlePointerUp(pointer(11, { x: 172, y: 82 }));
+    assert.equal(drag.calls.at(-1)[0], 'commit');
 });
 
 test('touch threshold transitions exclusively to object drag or empty-space pan', () => {

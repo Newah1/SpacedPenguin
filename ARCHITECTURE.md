@@ -431,6 +431,12 @@ flowchart LR
 
 Validation explicitly rejects duplicate IDs, missing or unavailable references, self-references, and reference cycles. The simulation graph also resolves a parent before its children, making results independent of declaration order.
 
+### Waypoint motion contract
+
+`properties.waypointPath` is the shared fixed-path motion definition for every authored object. It contains at least two absolute `waypoints`, a world-units-per-second `speed`, a `pingpong` or `loop` mode, and an optional distance `phase`. `waypointSimulation.js` owns normalization-independent pure stepping and the lightweight runtime facade. Orbit and waypoint motion are mutually exclusive for one object.
+
+The simulation engine advances waypoint-controlled planets, bonuses, portals, speed boosters, the target, slingshot, and decorative objects at the same fixed-step boundary used for orbits. `CompiledWorldTimeline` stores their positions and waypoint phase so headless sweeps remain exact. The browser adapter only applies those positions to runtime objects. The editor uses the same pure step for previews and renders numbered fixed paths; its inspector mutations remain canonical `LevelDocument` commands.
+
 ### Level rules
 
 | Rule | Current behavior | Caveat |
@@ -515,7 +521,7 @@ flowchart LR
 
 Architectural consequences:
 
-- `EditorState.interaction` is discriminated, owns its pointer ID, and permits only one of idle, touch-pending, pan, object drag, orbit-center drag, or Gravity Sculpt waypoint capture.
+- `EditorState.interaction` is discriminated, owns its pointer ID, and permits only one of idle, touch-pending, pan, object drag, orbit-center drag, authored waypoint drag, or Gravity Sculpt waypoint capture.
 - `EditorSelection` stores an object ID or the level-settings sentinel and resolves the current runtime mirror after rebuilds.
 - Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
 - Inspector properties, level settings, orbit edits, movement, object actions, and Gravity Sculpt acceptance transform cloned document definitions. Runtime exports are never used to synchronize accepted commands into authored state.

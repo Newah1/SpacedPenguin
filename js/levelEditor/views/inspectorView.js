@@ -15,8 +15,9 @@ export class LevelEditorInspectorView {
             editor.events?.on(EditorEventType.SELECTION_CHANGED, () => this.render()),
             editor.events?.on(EditorEventType.DOCUMENT_CHANGED, event => {
                 const changesInspectorShape = [
-                    'orbitTargetType', 'orbitType', 'validateObject'
-                ].includes(event?.property);
+                    'orbitTargetType', 'orbitType', 'validateObject',
+                    'waypointMode', 'waypointAdd', 'waypointRemove'
+                ].includes(event?.property) || /^waypoint\d+[XY]$/.test(event?.property || '');
                 if (event?.source !== 'inspector-live' || changesInspectorShape) this.render();
             })
         ].filter(Boolean);

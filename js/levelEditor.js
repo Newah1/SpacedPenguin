@@ -11,7 +11,9 @@ import {
     EDITOR_SPRITE_OPTIONS,
     LEVEL_SETTING_FIELDS,
     ORBIT_EDITOR_PROPERTY_KEYS,
-    ORBIT_PROPERTY_FIELDS
+    ORBIT_PROPERTY_FIELDS,
+    WAYPOINT_EDITOR_PROPERTY_KEYS,
+    WAYPOINT_PROPERTY_FIELDS
 } from './config/editorInspectorConfig.js';
 import {
     listEditableRuntimeClassNames,
@@ -42,6 +44,7 @@ import {
 import DocumentMutationService from './levelEditor/services/documentMutationService.js';
 import { projectDocumentDefinition } from './levelEditor/services/documentProjectionTransaction.js';
 import { createButton } from './buttonFramework.js';
+import { WaypointSystem } from './waypointSimulation.js';
 import {
     INPUT_CONFIG,
     isCompactEditorViewport,
@@ -49,6 +52,7 @@ import {
 } from './config/inputConfig.js';
 
 const ORBIT_EDITOR_PROPERTIES = new Set(ORBIT_EDITOR_PROPERTY_KEYS);
+const WAYPOINT_EDITOR_PROPERTIES = new Set(WAYPOINT_EDITOR_PROPERTY_KEYS);
 
 class LevelEditor {
     constructor(game) {
@@ -106,6 +110,11 @@ class LevelEditor {
                 get: () => this.state.interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER,
                 set: () => {}
             },
+            draggingWaypoint: {
+                configurable: true,
+                get: () => this.state.interaction.type === EditorInteractionType.DRAG_WAYPOINT,
+                set: () => {}
+            },
             panning: {
                 configurable: true,
                 get: () => this.state.interaction.type === EditorInteractionType.PAN,
@@ -134,6 +143,8 @@ class LevelEditor {
                 this.documentMutations.setObjectPosition(definition, id, position),
             mutateOrbitCenter: (definition, id, center) =>
                 this.documentMutations.setOrbitCenter(definition, id, center),
+            mutateWaypoint: (definition, id, index, position) =>
+                this.documentMutations.setWaypoint(definition, id, index, position),
             mutateLevelSetting: (definition, property, value) =>
                 this.documentMutations.setLevelSetting(definition, property, value),
             mutateObjectAction: (definition, id, action) => action === 'gravity-orbit.reset'
@@ -615,6 +626,7 @@ class LevelEditor {
             const orbitProps = this.getOrbitProperties(obj);
             properties.push(...orbitProps);
         }
+        properties.push(...this.getWaypointProperties(obj));
         
         return properties;
     }
@@ -749,6 +761,27 @@ class LevelEditor {
         
         return properties;
     }
+
+    getWaypointProperties(obj) {
+        const system = obj.waypointSystem;
+        const properties = [{
+            ...WAYPOINT_PROPERTY_FIELDS.mode,
+            value: system?.mode || 'none'
+        }];
+        if (!system) return properties;
+        properties.push({ ...WAYPOINT_PROPERTY_FIELDS.speed, value: system.speed });
+        system.waypoints.forEach((point, index) => {
+            properties.push({
+                label: `Waypoint ${index + 1} X`, key: `waypoint${index}X`, type: 'number', value: point.x
+            });
+            properties.push({
+                label: `Waypoint ${index + 1} Y`, key: `waypoint${index}Y`, type: 'number', value: point.y
+            });
+        });
+        properties.push(WAYPOINT_PROPERTY_FIELDS.add);
+        if (system.waypoints.length > 2) properties.push(WAYPOINT_PROPERTY_FIELDS.remove);
+        return properties;
+    }
     
     centerSelectedObjectOnCanvas() {
         if (!this.selectedObject || !this.game || !this.game.canvas) return;
@@ -836,6 +869,8 @@ class LevelEditor {
             }
         } else if (ORBIT_EDITOR_PROPERTIES.has(property)) {
             this.updateOrbitProperty(property, value, object);
+        } else if (WAYPOINT_EDITOR_PROPERTIES.has(property) || /^waypoint\d+[XY]$/.test(property)) {
+            this.updateWaypointProperty(property, value, object);
         } else if (getGameObjectDefinition(object.levelType ?? object.constructor.name).applyRuntimeProperty?.({
             object, property, value, editor: this
         })) {
@@ -1064,6 +1099,36 @@ class LevelEditor {
         }
         
         plog.debug(`Updated orbit ${property} to ${value}`);
+    }
+
+    updateWaypointProperty(property, value, obj = this.selectedObject) {
+        if (property === 'waypointMode' && value === 'none') {
+            obj.waypointSystem = null;
+        } else {
+            if (!obj.waypointSystem) {
+                const position = this.getObjectPosition(obj) || this.getPlayfieldCenter();
+                obj.waypointSystem = new WaypointSystem({
+                    waypoints: [position, { x: position.x + 100, y: position.y }],
+                    speed: 60,
+                    mode: value === 'loop' ? 'loop' : 'pingpong'
+                });
+                obj.orbitSystem = null;
+            }
+            const system = obj.waypointSystem;
+            if (property === 'waypointMode') system.mode = value;
+            else if (property === 'waypointSpeed') system.speed = value;
+            else if (property === 'waypointAdd') {
+                const last = system.waypoints.at(-1) || this.getObjectPosition(obj);
+                system.waypoints.push({ x: last.x + 100, y: last.y });
+            } else if (property === 'waypointRemove' && system.waypoints.length > 2) {
+                system.waypoints.pop();
+            } else {
+                const match = property.match(/^waypoint(\d+)([XY])$/);
+                if (match) system.waypoints[Number(match[1])][match[2].toLowerCase()] = value;
+            }
+        }
+        this.synchronizeEditedObject(obj);
+        this.updatePropertiesPanel();
     }
     
     updateOrbitSystem(obj) {
