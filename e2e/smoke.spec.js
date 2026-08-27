@@ -306,6 +306,9 @@ test('Stellar Mode accepts a selected MP3', async ({ page }) => {
         () => page.evaluate(() => Boolean(window.game.audioManager.stellarMusicBuffer)),
         { timeout: 15_000 }
     ).toBe(true);
+    await expect.poll(
+        () => page.evaluate(() => window.game.settingsManager.get('stellarModeEnabled'))
+    ).toBe(true);
 
     await page.reload();
     await waitForGame(page);

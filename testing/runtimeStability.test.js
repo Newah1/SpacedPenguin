@@ -17,9 +17,11 @@ const { Game, GameState } = await import('../js/game.js');
 const { AudioManager } = await import('../js/audioManager.js');
 const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
 const Console = (await import('../js/console.js')).default;
+const FullscreenManager = (await import('../js/fullscreenManager.js')).default;
 const { GameManager } = await import('../js/main.js');
 const { InputManager } = await import('../js/input/inputManager.js');
 const { registerDefaultInputContexts } = await import('../js/input/registerDefaultInputContexts.js');
+const { KevinCamRenderer } = await import('../js/kevinCamRenderer.js');
 const { LevelEndScreen, getCompletionTitle } = await import('../js/views/levelEndScreen.js');
 const LevelEditor = (await import('../js/levelEditor.js')).default;
 const LevelEditorToolbarView = (await import('../js/levelEditor/views/toolbarView.js')).default;
@@ -82,6 +84,53 @@ test('main menu Start label ignores an inherited canvas text baseline', () => {
         y: 13,
         textBaseline: 'alphabetic'
     });
+});
+
+test('fullscreen exit restores the container stacking styles used by the level editor', () => {
+    const viewportChanges = [];
+    const manager = {
+        gameContainer: {
+            style: {
+                position: 'fixed',
+                top: '0px',
+                left: '0px',
+                width: '100vw',
+                height: '100vh',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                minWidth: 'none',
+                minHeight: 'none',
+                border: 'none',
+                zIndex: '9999'
+            }
+        },
+        canvas: { style: { width: '100%', height: '100%', maxWidth: 'none', maxHeight: 'none' } },
+        originalStyles: {
+            gameContainer: {
+                position: 'relative',
+                top: '',
+                left: '',
+                width: '',
+                height: '',
+                maxWidth: '',
+                maxHeight: '',
+                minWidth: '',
+                minHeight: '',
+                border: '',
+                zIndex: ''
+            },
+            canvas: { width: '100%', height: '100%', maxWidth: '', maxHeight: '' }
+        },
+        notifyViewportChange() { viewportChanges.push(true); }
+    };
+
+    FullscreenManager.prototype.restoreOriginalStyles.call(manager);
+
+    assert.equal(manager.gameContainer.style.position, 'relative');
+    assert.equal(manager.gameContainer.style.top, '');
+    assert.equal(manager.gameContainer.style.left, '');
+    assert.equal(manager.gameContainer.style.zIndex, '');
+    assert.equal(viewportChanges.length, 1);
 });
 
 test('main menu button icons have a padded column before their labels', () => {
@@ -1237,12 +1286,13 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
         }
     });
 
-    Game.prototype.drawKevinCam.call(game);
+    const renderer = new KevinCamRenderer(game.kevinCam);
+    renderer.draw({ ctx: game.ctx, arrowVisible: game.arrow.visible, penguin: game.penguin });
     assert.equal(calls.length, 0);
     assert.equal(penguinDraws, 0);
 
     game.arrow.visible = true;
-    Game.prototype.drawKevinCam.call(game);
+    renderer.draw({ ctx: game.ctx, arrowVisible: game.arrow.visible, penguin: game.penguin });
 
     assert.equal(penguinDraws, 1);
     assert.deepEqual(calls.find(call => call[0] === 'strokeRect'), ['strokeRect', 13.5, 457.5, 173, 129]);
@@ -1253,7 +1303,12 @@ test('Kevin cam follows the off-screen arrow and renders in the bottom-left inse
 
     const callsBeforeDisabling = calls.length;
     game.settingsManager = { get: key => key !== 'kevinCamEnabled' };
-    Game.prototype.drawKevinCam.call(game);
+    renderer.draw({
+        ctx: game.ctx,
+        enabled: game.settingsManager.get('kevinCamEnabled') !== false,
+        arrowVisible: game.arrow.visible,
+        penguin: game.penguin
+    });
     assert.equal(calls.length, callsBeforeDisabling);
     assert.equal(penguinDraws, 1);
 });

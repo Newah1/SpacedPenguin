@@ -17,13 +17,16 @@ class FullscreenManager {
         this.originalStyles = {
             gameContainer: {
                 position: gameContainer.style.position,
+                top: gameContainer.style.top,
+                left: gameContainer.style.left,
                 width: gameContainer.style.width,
                 height: gameContainer.style.height,
                 maxWidth: gameContainer.style.maxWidth,
                 maxHeight: gameContainer.style.maxHeight,
                 minWidth: gameContainer.style.minWidth,
                 minHeight: gameContainer.style.minHeight,
-                border: gameContainer.style.border
+                border: gameContainer.style.border,
+                zIndex: gameContainer.style.zIndex
             },
             canvas: {
                 width: canvas.style.width,
