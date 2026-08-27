@@ -30,6 +30,8 @@ const {
     applyGameSimulationState,
     applyGameSimulationEvents,
     captureGameSimulationState,
+    GameSimulationEventStrategyRegistry,
+    gameSimulationEventStrategies,
     invalidateGameSimulationState,
     stepGameSimulation
 } = await import('../js/gameSimulationAdapter.js');
@@ -1171,6 +1173,25 @@ test('planet collision preserves the crashed penguin and immediately resets the 
 
     assert.equal(penguin.state, 'idle');
     assert.deepEqual(calls, ['crash', 'path-ended', 'preserved-crashed', 'ready']);
+});
+
+test('game simulation event strategies are typed and dispatch through their execute method', () => {
+    assert.deepEqual(
+        new Set(gameSimulationEventStrategies.map(strategy => strategy.type)),
+        new Set(Object.values(SimulationEventType))
+    );
+    assert.equal(gameSimulationEventStrategies.every(strategy => typeof strategy.execute === 'function'), true);
+
+    const calls = [];
+    const registry = new GameSimulationEventStrategyRegistry([{
+        type: 'test_event',
+        execute: (game, event, deltaTime) => calls.push({ game, event, deltaTime })
+    }]);
+    const game = {};
+    const event = { type: 'test_event' };
+
+    registry.execute(game, event, 1 / 60);
+    assert.deepEqual(calls, [{ game, event, deltaTime: 1 / 60 }]);
 });
 
 test('detached crashed penguins continue moving without controlling the launcher', () => {

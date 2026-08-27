@@ -207,57 +207,155 @@ export function invalidateGameSimulationState(game) {
     game._runtimeSimulationState = null;
 }
 
+class GameSimulationEventStrategy {
+    constructor(type) {
+        this.type = type;
+    }
+}
+
+class PenguinMovedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.PENGUIN_MOVED);
+    }
+
+    execute(game, event, deltaTime) {
+        game.penguin.update(event.deltaTime ?? deltaTime, false);
+        game.recordPathPoint(game.penguin.x, game.penguin.y);
+    }
+}
+
+class BonusCollectedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.BONUS_COLLECTED);
+    }
+
+    execute(game, event) {
+        const bonus = runtimeObjectForSimulationIndex(game, 'bonuses', event.bonusIndex);
+        game.playSound(getAudioCue(AudioCue.BONUS).soundId);
+        if (bonus && game.bonusPopup) game.bonusPopup.show(event.value, bonus.position);
+    }
+}
+
+class PlanetCollisionEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.PLANET_COLLISION);
+    }
+
+    execute(game, event) {
+        const planet = runtimeObjectForSimulationIndex(game, 'planets', event.planetIndex);
+        game.penguin.beginCrash(planet, false);
+        game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
+        game.endRecordingShotPath();
+        game.preserveCrashedPenguin();
+        game.tryAgain({ recordAction: false });
+    }
+}
+
+class PlanetBounceEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.PLANET_BOUNCE);
+    }
+
+    execute(game) {
+        game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
+    }
+}
+
+class PortalTeleportedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.PORTAL_TELEPORTED);
+    }
+
+    execute(game, event) {
+        if (event.playSound) game.playSound(getAudioCue(AudioCue.PORTAL_WOOSH).soundId);
+        game.beginPortalTransition?.(event);
+        game.recordPortalTransit?.(event.entryPosition, event.exitPosition);
+        game.penguin.markTrailDiscontinuity?.(event.exitPosition);
+    }
+}
+
+class TargetHitEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.TARGET_HIT);
+    }
+
+    execute(game) {
+        game.endRecordingShotPath();
+        game.target.onHit();
+        game.handleTargetHit();
+    }
+}
+
+class TargetBlockedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.TARGET_BLOCKED);
+    }
+
+    execute(game, event) {
+        game.endRecordingShotPath();
+        game.showMessage(`Collect ${event.remaining} more bonuses!`);
+    }
+}
+
+class OutOfBoundsEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.OUT_OF_BOUNDS);
+    }
+
+    execute(game) {
+        game.endRecordingShotPath();
+    }
+}
+
+class AttemptResetRequiredEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.ATTEMPT_RESET_REQUIRED);
+    }
+
+    execute(game) {
+        game.tryAgain({ recordAction: false });
+    }
+}
+
+class RuleFailureEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.RULE_FAILURE);
+    }
+
+    execute(game, event) {
+        game.showMessage(event.reason);
+        game.setState('gameOver');
+    }
+}
+
+export class GameSimulationEventStrategyRegistry {
+    constructor(strategies) {
+        this.strategiesByType = new Map(strategies.map(strategy => [strategy.type, strategy]));
+    }
+
+    execute(game, event, deltaTime) {
+        this.strategiesByType.get(event.type)?.execute(game, event, deltaTime);
+    }
+}
+
+export const gameSimulationEventStrategies = Object.freeze([
+    new PenguinMovedEventStrategy(),
+    new BonusCollectedEventStrategy(),
+    new PlanetCollisionEventStrategy(),
+    new PlanetBounceEventStrategy(),
+    new PortalTeleportedEventStrategy(),
+    new TargetHitEventStrategy(),
+    new TargetBlockedEventStrategy(),
+    new OutOfBoundsEventStrategy(),
+    new AttemptResetRequiredEventStrategy(),
+    new RuleFailureEventStrategy()
+]);
+
+const gameSimulationEventStrategyRegistry = new GameSimulationEventStrategyRegistry(gameSimulationEventStrategies);
+
 export function applyGameSimulationEvents(game, events, deltaTime) {
     for (const event of events) {
-        switch (event.type) {
-            case SimulationEventType.PENGUIN_MOVED:
-                game.penguin.update(event.deltaTime ?? deltaTime, false);
-                game.recordPathPoint(game.penguin.x, game.penguin.y);
-                break;
-            case SimulationEventType.BONUS_COLLECTED: {
-                const bonus = runtimeObjectForSimulationIndex(game, 'bonuses', event.bonusIndex);
-                game.playSound(getAudioCue(AudioCue.BONUS).soundId);
-                if (bonus && game.bonusPopup) game.bonusPopup.show(event.value, bonus.position);
-                break;
-            }
-            case SimulationEventType.PLANET_COLLISION: {
-                const planet = runtimeObjectForSimulationIndex(game, 'planets', event.planetIndex);
-                game.penguin.beginCrash(planet, false);
-                game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
-                game.endRecordingShotPath();
-                game.preserveCrashedPenguin();
-                game.tryAgain({ recordAction: false });
-                break;
-            }
-            case SimulationEventType.PLANET_BOUNCE:
-                game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
-                break;
-            case SimulationEventType.PORTAL_TELEPORTED:
-                if (event.playSound) game.playSound(getAudioCue(AudioCue.PORTAL_WOOSH).soundId);
-                game.beginPortalTransition?.(event);
-                game.recordPortalTransit?.(event.entryPosition, event.exitPosition);
-                game.penguin.markTrailDiscontinuity?.(event.exitPosition);
-                break;
-            case SimulationEventType.TARGET_HIT:
-                game.endRecordingShotPath();
-                game.target.onHit();
-                game.handleTargetHit();
-                break;
-            case SimulationEventType.TARGET_BLOCKED:
-                game.endRecordingShotPath();
-                game.showMessage(`Collect ${event.remaining} more bonuses!`);
-                break;
-            case SimulationEventType.OUT_OF_BOUNDS:
-                game.endRecordingShotPath();
-                break;
-            case SimulationEventType.ATTEMPT_RESET_REQUIRED:
-                game.tryAgain({ recordAction: false });
-                break;
-            case SimulationEventType.RULE_FAILURE:
-                game.showMessage(event.reason);
-                game.setState('gameOver');
-                break;
-        }
+        gameSimulationEventStrategyRegistry.execute(game, event, deltaTime);
     }
     game.updateUI();
 }
