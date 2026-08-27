@@ -160,6 +160,23 @@
             outline-offset: 3px;
         }
 
+        #pauseMenuButton {
+            --button-bg: rgba(0, 0, 0, 0.7);
+            --button-hover: rgba(30, 55, 30, 0.9);
+            --button-fg: rgb(72, 247, 72);
+            --button-border: rgb(72, 247, 72);
+            position: absolute;
+            top: 10px;
+            right: 58px;
+            z-index: 15;
+            display: none;
+            min-width: 42px;
+            min-height: 41px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font: 16px/1 monospace;
+        }
+
         #menuSettingsButton {
             --button-bg: #fff3bb;
             --button-hover: #fff9d7;
@@ -304,6 +321,7 @@
 <body>
     <div id="gameContainer">
         <button id="menuSettingsButton" class="spaced-button" type="button"><span class="button-icon" aria-hidden="true">⚙</span>SETTINGS</button>
+        <button id="pauseMenuButton" class="spaced-button" type="button" aria-label="Open pause menu" title="Open Pause Menu (ESC)">⚙</button>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="ui">
             <div>Level: <span id="level">1</span></div>

@@ -104,6 +104,11 @@ class Game {
             textColor: '#c95616',
             borderColor: '#f79433'
         });
+        this.pauseMenuButton = document.getElementById('pauseMenuButton');
+        registerButton(this.pauseMenuButton, event => {
+            event.stopPropagation();
+            if (this.state === GameState.PLAYING) this.showPauseMenu();
+        });
         
         // Canvas scaling for responsive design
         this.canvasScaleX = 1;
@@ -289,6 +294,10 @@ class Game {
             plog.info(`Game state changing from ${this.state} to ${newState}`);
             this.state = newState;
             this.updateBackgroundMusicDimming();
+
+            if (this.pauseMenuButton) {
+                this.pauseMenuButton.style.display = newState === GameState.PLAYING ? 'block' : 'none';
+            }
 
             document.body.classList.toggle('is-menu', newState === GameState.MENU);
             if (newState !== GameState.MENU) {

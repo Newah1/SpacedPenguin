@@ -214,6 +214,23 @@ test('Escape confirmation can return to the main menu', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(0);
 });
 
+test('gear button opens the same pause menu as Escape', async ({ page }) => {
+    await useDeterministicLevel(page);
+    await page.goto('/');
+    await waitForGame(page);
+
+    const pauseMenuButton = page.getByRole('button', { name: 'Open pause menu' });
+    await expect(pauseMenuButton).toBeHidden();
+    await page.keyboard.press('Space');
+    await waitForGame(page, 'playing');
+    await expect(pauseMenuButton).toBeVisible();
+
+    await pauseMenuButton.click();
+    await expect.poll(() => page.evaluate(() => window.game.state)).toBe('paused');
+    await expect.poll(() => page.evaluate(() => window.game.uiManager.activeScreens.length)).toBe(1);
+    await expect(pauseMenuButton).toBeHidden();
+});
+
 test('settings are available from the main and pause menus and persist locally', async ({ page }) => {
     test.setTimeout(60_000);
     await useDeterministicLevel(page);
