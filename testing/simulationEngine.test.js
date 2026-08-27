@@ -55,6 +55,40 @@ function assertPointClose(actual, expected, epsilon = 1e-8) {
     assert.ok(Math.abs(actual.y - expected.y) < epsilon, `${actual.y} != ${expected.y}`);
 }
 
+test('speed boosters redirect momentum along their rotation and apply their multiplier once per contact', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        { type: 'speedbooster', position: { x: 50, y: 0 }, properties: {
+            id: 'boost', width: 20, height: 20, rotation: 90, speedMultiplier: 1.5
+        } }
+    ], { gravitationalConstant: 0 }));
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 120, y: 0 };
+
+    const result = stepSimulation(state, 0.5);
+    const boost = result.events.find(event => event.type === SimulationEventType.SPEED_BOOSTER_ACTIVATED);
+
+    assert.ok(boost);
+    assertPointClose(boost.incomingVelocity, { x: 120, y: 0 });
+    assertPointClose(boost.velocity, { x: 0, y: 180 });
+    assertPointClose(result.state.penguin.velocity, { x: 0, y: 180 });
+    assert.equal(result.events.filter(event => event.type === SimulationEventType.SPEED_BOOSTER_ACTIVATED).length, 1);
+});
+
+test('speed booster contacts are swept, so fast penguins cannot pass through a panel', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        { type: 'speedbooster', position: { x: 100, y: 0 }, properties: {
+            id: 'boost', width: 12, height: 20, rotation: 180, speedMultiplier: 1
+        } }
+    ], { gravitationalConstant: 0 }));
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 1000, y: 0 };
+
+    const result = stepSimulation(state, 0.2);
+
+    assert.equal(result.events.some(event => event.type === SimulationEventType.SPEED_BOOSTER_ACTIVATED), true);
+    assertPointClose(result.state.penguin.velocity, { x: -1000, y: 0 });
+});
+
 test('compiled mutable orbit graphs preserve dependency ordering across repeated steps', () => {
     const entities = [
         {

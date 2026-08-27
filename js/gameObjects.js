@@ -463,6 +463,47 @@ class Portal extends GameObject {
     }
 }
 
+class SpeedBooster extends GameObject {
+    constructor(x, y, options = {}) {
+        super(x, y, options.width ?? LEVEL_DEFAULTS.speedBooster.width, options.height ?? LEVEL_DEFAULTS.speedBooster.height);
+        this.speedMultiplier = options.speedMultiplier ?? LEVEL_DEFAULTS.speedBooster.speedMultiplier;
+        this.playSound = options.playSound ?? LEVEL_DEFAULTS.speedBooster.playSound;
+        this.rotation = options.rotation ?? 0;
+        this.renderOrder = RENDER_CONFIG.layers.speedBooster;
+    }
+
+    drawSprite(ctx) {
+        const config = RENDER_CONFIG.entities.speedBooster;
+        const halfWidth = this.width / 2;
+        const halfHeight = this.height / 2;
+        ctx.shadowColor = config.border;
+        ctx.shadowBlur = config.glowBlur;
+        ctx.fillStyle = config.fill;
+        ctx.fillRect(-halfWidth, -halfHeight, this.width, this.height);
+        ctx.lineWidth = config.borderWidth;
+        ctx.strokeStyle = config.border;
+        ctx.strokeRect(-halfWidth, -halfHeight, this.width, this.height);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = config.arrow;
+        const spacing = this.width / (config.arrowCount + 1);
+        const arrowLength = Math.min(14, spacing * 0.7);
+        const arrowHalfHeight = Math.min(8, this.height * 0.28);
+        for (let index = 1; index <= config.arrowCount; index++) {
+            const x = -halfWidth + spacing * index;
+            ctx.beginPath();
+            ctx.moveTo(x + arrowLength / 2, 0);
+            ctx.lineTo(x - arrowLength / 2, -arrowHalfHeight);
+            ctx.lineTo(x - arrowLength / 2, -arrowHalfHeight / 2);
+            ctx.lineTo(x - arrowLength, -arrowHalfHeight / 2);
+            ctx.lineTo(x - arrowLength, arrowHalfHeight / 2);
+            ctx.lineTo(x - arrowLength / 2, arrowHalfHeight / 2);
+            ctx.lineTo(x - arrowLength / 2, arrowHalfHeight);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+}
+
 // Penguin class moved to penguin.js
 
 class PenguinOld extends GameObject {
@@ -1788,4 +1829,4 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal };
+export { GameObject, OrbitSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster };

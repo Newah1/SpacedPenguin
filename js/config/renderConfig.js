@@ -15,6 +15,7 @@ export const RENDER_CONFIG = deepFreeze({
         slingshot: 3,
         target: 4,
         portal: 4.5,
+        speedBooster: 4.6,
         penguin: 5,
         arrow: 6,
         popup: 7,
@@ -75,6 +76,14 @@ export const RENDER_CONFIG = deepFreeze({
             particleCount: 9,
             particleRadius: 1.6,
             transitionSeconds: 0.14
+        },
+        speedBooster: {
+            fill: '#164b71',
+            border: '#71edff',
+            arrow: '#f7fbff',
+            glowBlur: 10,
+            borderWidth: 2,
+            arrowCount: 3
         },
         slingshot: {
             size: 100,

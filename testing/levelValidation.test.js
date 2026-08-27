@@ -194,3 +194,19 @@ test('portal pairs require reciprocal red and blue endpoints', () => {
     assert.equal(validation.errors.some(error => error.code === 'PORTAL_PAIR_NOT_RECIPROCAL'), true);
     assert.equal(validation.errors.some(error => error.code === 'PORTAL_PAIR_UNKNOWN'), true);
 });
+
+test('speed boosters accept directional multiplier and sound configuration', () => {
+    const valid = {
+        objects: [
+            object('slingshot', 0, 0),
+            object('target', 700, 300),
+            object('speedbooster', 100, 100, { rotation: 45, speedMultiplier: 1.75, playSound: false })
+        ]
+    };
+    assert.equal(validateLevelDefinition(valid).valid, true);
+
+    const invalid = structuredClone(valid);
+    invalid.objects[2].properties.speedMultiplier = -1;
+    assert.equal(validateLevelDefinition(invalid).valid, false);
+    assert.equal(validateLevelDefinition(invalid).errors.some(error => error.path.endsWith('.speedMultiplier')), true);
+});

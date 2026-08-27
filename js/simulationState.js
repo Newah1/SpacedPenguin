@@ -61,6 +61,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
     const planets = [];
     const bonuses = [];
     const portals = [];
+    const speedBoosters = [];
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
         const properties = definition.properties || {};
@@ -100,6 +101,16 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 pairedPortalId: properties.pairedPortalId,
                 playSound: properties.playSound ?? LEVEL_DEFAULTS.portal.playSound
             });
+        } else if (type === LevelObjectType.SPEED_BOOSTER) {
+            speedBoosters.push({
+                id: nextId(type, properties.id),
+                position: clonePoint(objectPosition(definition)),
+                width: properties.width ?? LEVEL_DEFAULTS.speedBooster.width,
+                height: properties.height ?? LEVEL_DEFAULTS.speedBooster.height,
+                rotation: properties.rotation ?? 0,
+                speedMultiplier: properties.speedMultiplier ?? LEVEL_DEFAULTS.speedBooster.speedMultiplier,
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.speedBooster.playSound
+            });
         }
     }
 
@@ -129,11 +140,13 @@ export function createSimulationStateFromLevel(level, options = {}) {
             radius: options.penguinRadius ?? LEVEL_DEFAULTS.penguin.radius,
             state: 'idle',
             crashFramesRemaining: 0,
-            portalLockId: null
+            portalLockId: null,
+            speedBoosterLockId: null
         },
         planets,
         bonuses,
         portals,
+        speedBoosters,
         target,
         slingshot: {
             position: clonePoint(startPosition),
@@ -188,6 +201,10 @@ export function cloneSimulationState(state) {
         portals: (state.portals || []).map(portal => ({
             ...portal,
             position: clonePoint(portal.position)
+        })),
+        speedBoosters: (state.speedBoosters || []).map(speedBooster => ({
+            ...speedBooster,
+            position: clonePoint(speedBooster.position)
         })),
         target: {
             ...state.target,

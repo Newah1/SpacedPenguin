@@ -146,6 +146,12 @@ export const LEVEL_DEFAULTS = deepFreeze({
         color: 'red',
         playSound: true
     },
+    speedBooster: {
+        width: 64,
+        height: 32,
+        speedMultiplier: 1,
+        playSound: true
+    },
     target: {
         width: 60,
         height: 60,

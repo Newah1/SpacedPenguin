@@ -198,6 +198,25 @@ Portals are reciprocal red/blue endpoint pairs. Each endpoint requires a unique 
 }
 ```
 
+### Speed booster panels
+
+Speed boosters redirect Kevin's full incoming momentum along their `rotation` (in degrees, where `0` points right) and then multiply its magnitude by `speedMultiplier`. Use the default multiplier of `1` to redirect without adding speed. `playSound` defaults to `true` and uses the standard woosh.
+
+```json
+{
+  "type": "speedbooster",
+  "position": { "x": 420, "y": 250 },
+  "properties": {
+    "id": "boost_1",
+    "width": 64,
+    "height": 32,
+    "rotation": 90,
+    "speedMultiplier": 1.5,
+    "playSound": true
+  }
+}
+```
+
 ```json
 {
   "type": "pointingarrow",
@@ -419,6 +438,12 @@ Validation returns all discovered diagnostics in one pass. Each diagnostic has a
 cd testing
 node .\levelTester.js --validate-only --level ..\levels\level10.json
 ```
+
+## Adding a new object type (maintainers)
+
+An authored object crosses both the browser runtime and the deterministic simulation. Keep the shared vocabulary in `js/levelSchema.js` and `js/levelValidation.js`; create the visual class and factory branch; then add one `editorObjectRegistry.js` definition for its typed runtime collection and optional legacy physics registration. The loader, live editor mutations, game resets, and export enumerate that registry, so do not duplicate collection bookkeeping in each consumer.
+
+If the object changes gameplay, add its normalized state to `js/simulationState.js`, transition/event logic to `js/simulationEngine.js`, and browser snapshot/effect translation to `js/gameSimulationAdapter.js`. Sound, Canvas animation, DOM, and timers remain browser-side. Finish with validation, factory/editor round-trip, and shared-kernel tests, then add the object’s author-facing JSON example under **Supported types**.
 
 ## Editor export and round-trip caveats
 

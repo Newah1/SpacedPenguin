@@ -10,6 +10,7 @@ export const LevelObjectType = Object.freeze({
     TEXT: 'textobject',
     POINTING_ARROW: 'pointingarrow',
     PORTAL: 'portal',
+    SPEED_BOOSTER: 'speedbooster',
     PENGUIN: 'penguin'
 });
 
@@ -70,6 +71,9 @@ const SINGLE_AUTHORING_FACTORIES = Object.freeze({
     TextObject: ({ x, y }) => objectDefinition(LevelObjectType.TEXT, x, y, LEVEL_DEFAULTS.text),
     PointingArrow: ({ x, y }) => objectDefinition(
         LevelObjectType.POINTING_ARROW, x, y, LEVEL_DEFAULTS.pointingArrow
+    ),
+    SpeedBooster: ({ x, y }) => objectDefinition(
+        LevelObjectType.SPEED_BOOSTER, x, y, LEVEL_DEFAULTS.speedBooster
     )
 });
 
@@ -282,6 +286,13 @@ function createPortalRuntime({ constructors, position, properties }) {
     return portal;
 }
 
+function createSpeedBoosterRuntime({ constructors, position, properties }) {
+    const speedBooster = new constructors.SpeedBooster(position.x, position.y, properties);
+    speedBooster.id = properties.id ?? null;
+    speedBooster.name = properties.name ?? '';
+    return speedBooster;
+}
+
 function validateGravityProperties({ type, properties, propertyPath, collector, helpers }) {
     helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
     helpers.optionalNumber(properties.mass, `${propertyPath}.mass`, collector, { min: 0 });
@@ -334,6 +345,16 @@ function validatePortalProperties({ properties, propertyPath, collector, helpers
     }
     if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
         collector.error('PORTAL_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
+    }
+}
+
+function validateSpeedBoosterProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.rotation, `${propertyPath}.rotation`, collector);
+    helpers.optionalNumber(properties.speedMultiplier, `${propertyPath}.speedMultiplier`, collector, { min: 0 });
+    if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
+        collector.error('SPEED_BOOSTER_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
     }
 }
 
@@ -520,6 +541,20 @@ const BASE_DEFINITIONS = {
         createAuthoringDefinitions: createPortalPairDefinitions,
         cloneAuthoringDefinitions: clonePortalPairDefinitions,
         createRuntime: createPortalRuntime
+    },
+    SpeedBooster: {
+        type: LevelObjectType.SPEED_BOOSTER,
+        label: 'Speed Booster', editable: true, collections: ['speedBoosters'],
+        properties: [
+            { key: 'width', label: 'Width', type: 'number', min: 1 },
+            { key: 'height', label: 'Height', type: 'number', min: 1 },
+            { key: 'speedMultiplier', label: 'Speed Multiplier', type: 'number', min: 0, step: 0.1 },
+            { key: 'playSound', label: 'Play Sound', type: 'checkbox' }
+        ],
+        serializedProperties: ['speedMultiplier', 'playSound'],
+        levelDefaults: LEVEL_DEFAULTS.speedBooster,
+        validateProperties: validateSpeedBoosterProperties,
+        createRuntime: createSpeedBoosterRuntime
     },
     Penguin: { type: LevelObjectType.PENGUIN, label: 'Penguin', editable: false, singleton: 'penguin' },
     BonusPopup: { label: 'Bonus Popup', editable: false },

@@ -11,6 +11,7 @@ export const SimulationEventType = Object.freeze({
     PLANET_COLLISION: 'planet_collision',
     PLANET_BOUNCE: 'planet_bounce',
     PORTAL_TELEPORTED: 'portal_teleported',
+    SPEED_BOOSTER_ACTIVATED: 'speed_booster_activated',
     TARGET_HIT: 'target_hit',
     TARGET_BLOCKED: 'target_blocked',
     OUT_OF_BOUNDS: 'out_of_bounds',
@@ -187,6 +188,7 @@ function stepSoaringPenguin(state, deltaTime, events, options) {
     );
     state.penguin.position = gravity.position;
     state.penguin.velocity = gravity.velocity;
+    applySpeedBoosters(state, previousPosition, events);
     applyPortalTeleports(state, previousPosition, events);
     const traveled = distance(previousPosition, gravity.position);
     state.counters.distance += traveled;
@@ -231,6 +233,79 @@ function pointInsidePortal(point, portal, padding = 0) {
     const rx = portal.width / 2 + padding;
     const ry = portal.height / 2 + padding;
     return (local.x * local.x) / (rx * rx) + (local.y * local.y) / (ry * ry) <= 1;
+}
+
+function pointInsideSpeedBooster(point, speedBooster, padding = 0) {
+    const local = toPortalLocal(point, speedBooster);
+    return Math.abs(local.x) <= speedBooster.width / 2 + padding &&
+        Math.abs(local.y) <= speedBooster.height / 2 + padding;
+}
+
+function segmentSpeedBoosterEntry(start, end, speedBooster, padding) {
+    if (pointInsideSpeedBooster(start, speedBooster, padding)) return null;
+    const a = toPortalLocal(start, speedBooster);
+    const b = toPortalLocal(end, speedBooster);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const halfWidth = speedBooster.width / 2 + padding;
+    const halfHeight = speedBooster.height / 2 + padding;
+    let enter = 0;
+    let exit = 1;
+    for (const [origin, delta, min, max] of [
+        [a.x, dx, -halfWidth, halfWidth],
+        [a.y, dy, -halfHeight, halfHeight]
+    ]) {
+        if (Math.abs(delta) < Number.EPSILON) {
+            if (origin < min || origin > max) return null;
+            continue;
+        }
+        const first = (min - origin) / delta;
+        const second = (max - origin) / delta;
+        enter = Math.max(enter, Math.min(first, second));
+        exit = Math.min(exit, Math.max(first, second));
+        if (enter > exit) return null;
+    }
+    return enter >= 0 && enter <= 1 ? enter : null;
+}
+
+function applySpeedBoosters(state, originalStart, events) {
+    const speedBoosters = state.speedBoosters || [];
+    if (!speedBoosters.length) return;
+    const locked = speedBoosters.find(speedBooster => speedBooster.id === state.penguin.speedBoosterLockId);
+    if (locked && !pointInsideSpeedBooster(originalStart, locked, state.penguin.radius + 1)) {
+        state.penguin.speedBoosterLockId = null;
+    }
+
+    let hit = null;
+    for (let index = 0; index < speedBoosters.length; index++) {
+        const speedBooster = speedBoosters[index];
+        if (speedBooster.id === state.penguin.speedBoosterLockId) continue;
+        const fraction = segmentSpeedBoosterEntry(originalStart, state.penguin.position, speedBooster, state.penguin.radius);
+        if (fraction !== null && (!hit || fraction < hit.fraction)) hit = { speedBooster, index, fraction };
+    }
+    if (!hit) return;
+
+    const incomingVelocity = clonePoint(state.penguin.velocity);
+    const incomingSpeed = Math.hypot(incomingVelocity.x, incomingVelocity.y);
+    const angle = (hit.speedBooster.rotation || 0) * Math.PI / 180;
+    const multiplier = hit.speedBooster.speedMultiplier ?? 1;
+    state.penguin.velocity = {
+        x: Math.cos(angle) * incomingSpeed * multiplier,
+        y: Math.sin(angle) * incomingSpeed * multiplier
+    };
+    state.penguin.speedBoosterLockId = hit.speedBooster.id;
+    events.push({
+        type: SimulationEventType.SPEED_BOOSTER_ACTIVATED,
+        speedBoosterId: hit.speedBooster.id,
+        speedBoosterIndex: hit.index,
+        position: {
+            x: originalStart.x + (state.penguin.position.x - originalStart.x) * hit.fraction,
+            y: originalStart.y + (state.penguin.position.y - originalStart.y) * hit.fraction
+        },
+        incomingVelocity,
+        velocity: clonePoint(state.penguin.velocity),
+        playSound: hit.speedBooster.playSound !== false
+    });
 }
 
 function segmentPortalEntry(start, end, portal, padding) {

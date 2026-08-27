@@ -107,6 +107,15 @@ export function captureGameSimulationState(game) {
             pairedPortalId: portal.pairedPortalId,
             playSound: portal.playSound
         })),
+        speedBoosters: (game.speedBoosters || []).map((speedBooster, index) => ({
+            id: speedBooster.id || `__speedbooster_${index + 1}`,
+            position: { ...speedBooster.position },
+            width: speedBooster.width,
+            height: speedBooster.height,
+            rotation: speedBooster.rotation,
+            speedMultiplier: speedBooster.speedMultiplier,
+            playSound: speedBooster.playSound
+        })),
         target: {
             id: targetId,
             position: { ...game.target.position },
@@ -274,6 +283,16 @@ class PortalTeleportedEventStrategy extends GameSimulationEventStrategy {
     }
 }
 
+class SpeedBoosterActivatedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.SPEED_BOOSTER_ACTIVATED);
+    }
+
+    execute(game, event) {
+        if (event.playSound) game.playSound(getAudioCue(AudioCue.SPEED_BOOSTER_WOOSH).soundId);
+    }
+}
+
 class TargetHitEventStrategy extends GameSimulationEventStrategy {
     constructor() {
         super(SimulationEventType.TARGET_HIT);
@@ -344,6 +363,7 @@ export const gameSimulationEventStrategies = Object.freeze([
     new PlanetCollisionEventStrategy(),
     new PlanetBounceEventStrategy(),
     new PortalTeleportedEventStrategy(),
+    new SpeedBoosterActivatedEventStrategy(),
     new TargetHitEventStrategy(),
     new TargetBlockedEventStrategy(),
     new OutOfBoundsEventStrategy(),

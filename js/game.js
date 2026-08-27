@@ -1,7 +1,7 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal } from './gameObjects.js';
+import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './gameObjects.js';
 import { BlackHole } from './blackHole.js';
 import { Penguin } from './penguin.js';
 import { Physics } from './physics.js';
@@ -177,6 +177,7 @@ class Game {
         this.planets = [];
         this.bonuses = [];
         this.portals = [];
+        this.speedBoosters = [];
         this.textObjects = [];
         this.pointingArrows = [];
         this.gameObjects = [];
@@ -222,7 +223,8 @@ class Game {
             Slingshot,
             TextObject,
             PointingArrow,
-            Portal
+            Portal,
+            SpeedBooster
         };
         
         // Shot path tracing system (like original game)
