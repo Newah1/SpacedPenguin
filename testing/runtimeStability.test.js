@@ -1546,6 +1546,29 @@ test('main starfield wraps with layered drift independent of Kevin', () => {
     assert.equal(game.ctx.globalAlpha, 1);
 });
 
+test('main starfield extends beyond the authored playfield', () => {
+    const { calls, context } = createRecordingContext();
+    const game = createGameFixture({
+        ctx: context,
+        starfieldTime: 0,
+        starDriftSpeed: { x: 0, y: 0 },
+        stars: [{ x: 5, y: 6, size: 1 }],
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        getActiveCamera: () => ({
+            viewRect: { x: -100, y: 0, width: 1000, height: 600 }
+        })
+    });
+
+    Game.prototype.drawStars.call(game);
+
+    assert.deepEqual(calls.filter(call => call[0] === 'fillRect'), [
+        ['fillRect', -795, 6, 1, 1],
+        ['fillRect', 5, 6, 1, 1],
+        ['fillRect', 805, 6, 1, 1]
+    ]);
+    assert.equal(calls.some(call => call[0] === 'clip'), false);
+});
+
 test('main playfield star generator populates a visible background', () => {
     const game = createGameFixture({
         canvas: { width: 800, height: 600 },

@@ -1320,7 +1320,6 @@ class Game {
         // Draw level editor overlay
         this.levelEditor.render(this.ctx);
 
-        this.drawPlayfieldBorder();
         this.ctx.restore();
 
         // These overlays live on the fixed logical display surface.
@@ -1332,16 +1331,6 @@ class Game {
         });
         this.drawUI();
         this.uiManager.render();
-    }
-
-    drawPlayfieldBorder() {
-        if (!this.cameraConfig) return;
-        const config = RENDER_CONFIG.camera;
-        this.ctx.save();
-        this.ctx.strokeStyle = config.playfieldBorderColor;
-        this.ctx.lineWidth = config.playfieldBorderWidth / this.getActiveCamera().scale;
-        this.ctx.strokeRect(this.stageRect.x, this.stageRect.y, this.stageRect.width, this.stageRect.height);
-        this.ctx.restore();
     }
 
     drawPlayfieldTraces() {
@@ -1541,17 +1530,14 @@ class Game {
         // Each size is a depth layer: larger/nearer stars drift faster.
         const elapsed = this.starfieldTime || 0;
         const drift = this.starDriftSpeed || RENDER_CONFIG.starfield.drift;
-        const stage = this.stageRect || { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
-        const view = this.getActiveCamera?.().viewRect || this.viewRect || stage;
+        const view = this.getActiveCamera?.().viewRect || this.viewRect ||
+            this.stageRect || { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
         const firstTileX = Math.floor(view.x / STAGE_WIDTH);
         const lastTileX = Math.floor((view.x + view.width - 1e-9) / STAGE_WIDTH);
         const firstTileY = Math.floor(view.y / STAGE_HEIGHT);
         const lastTileY = Math.floor((view.y + view.height - 1e-9) / STAGE_HEIGHT);
 
         this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(stage.x, stage.y, stage.width, stage.height);
-        this.ctx.clip();
         this.ctx.fillStyle = RENDER_CONFIG.starfield.color;
         for (let tileY = firstTileY; tileY <= lastTileY; tileY++) {
             for (let tileX = firstTileX; tileX <= lastTileX; tileX++) {

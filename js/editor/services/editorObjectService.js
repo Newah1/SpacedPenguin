@@ -86,6 +86,34 @@ export class EditorObjectService {
         return null;
     }
 
+    getRotationHandlePosition(object = this.editor.selectedObject) {
+        if (!object || object.isLevelSettings || !Number.isFinite(object.rotation)) return null;
+        const position = this.editor.overlayRenderer?.runtimeController
+            ?.getDisplayPosition(object) || this.editor.getObjectPosition(object);
+        if (!position) return null;
+        const scale = this.editor.editorCamera?.scale || 1;
+        const halfWidth = Math.max(object.width / 2 || 0, object.radius || object.collisionRadius || 20);
+        const halfHeight = Math.max(object.height / 2 || 0, object.radius || object.collisionRadius || 20);
+        const offset = EDITOR_CONFIG.interaction.rotationHandleOffset / scale;
+        return {
+            x: position.x - halfWidth - offset,
+            y: position.y - halfHeight - offset
+        };
+    }
+
+    hitTestRotationHandle(x, y, { pointerType = 'mouse' } = {}) {
+        const object = this.editor.selectedObject;
+        const point = this.getRotationHandlePosition(object);
+        if (!point) return null;
+        const configuredRadius = pointerType === 'touch'
+            ? EDITOR_CONFIG.interaction.rotationHandleRadius.touch
+            : EDITOR_CONFIG.interaction.rotationHandleRadius.pointer;
+        const radius = configuredRadius / (this.editor.editorCamera?.scale || 1);
+        return Math.hypot(x - point.x, y - point.y) <= radius
+            ? { type: 'rotationHandle', object, point }
+            : null;
+    }
+
     hitTestWaypoint(x, y, { selectedOnly = false, pointerType = 'mouse' } = {}) {
         const selectedId = this.editor.selectedObject?.id;
         const objects = this.listRuntimeObjects();
@@ -111,7 +139,8 @@ export class EditorObjectService {
     }
 
     hitTest(x, y, options = {}) {
-        return this.hitTestWaypoint(x, y, { ...options, selectedOnly: true }) ||
+        return this.hitTestRotationHandle(x, y, options) ||
+            this.hitTestWaypoint(x, y, { ...options, selectedOnly: true }) ||
             this.hitTestBody(x, y) ||
             this.hitTestWaypoint(x, y, options) ||
             this.editor.getOrbitCenterAtPosition(x, y);

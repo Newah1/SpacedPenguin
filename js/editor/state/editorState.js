@@ -13,6 +13,7 @@ export const EditorInteractionType = Object.freeze({
     TOUCH_PENDING: 'touch-pending',
     PAN: 'pan',
     DRAG_OBJECT: 'drag-object',
+    ROTATE_OBJECT: 'rotate-object',
     DRAG_ORBIT_CENTER: 'drag-orbit-center',
     DRAG_WAYPOINT: 'drag-waypoint',
     GRAVITY_WAYPOINT: 'gravity-waypoint'

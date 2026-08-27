@@ -27,6 +27,7 @@ export class LevelEditorOverlayRenderer {
         if (editor.selectedObject && !editor.selectedObject.isLevelSettings) {
             this.drawPortalPairLine(ctx, editor.selectedObject);
             this.drawSelectionHighlight(ctx, editor.selectedObject);
+            this.drawRotationHandle(ctx, editor.selectedObject);
             this.drawArrowTarget(ctx, editor.selectedObject);
         }
     }
@@ -115,6 +116,58 @@ export class LevelEditorOverlayRenderer {
         } else {
             ctx.arc(position.x, position.y, radius + 10, 0, Math.PI * 2);
         }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawRotationHandle(ctx, object) {
+        const handle = this.editor.objectService.getRotationHandlePosition(object);
+        const position = this.runtimeController.getDisplayPosition(object);
+        if (!handle || !position) return;
+        const scale = this.editor.editorCamera?.scale || 1;
+        const radius = EDITOR_CONFIG.interaction.rotationHandleRadius.pointer / scale;
+        const active = this.editor.state?.interaction?.type === 'rotate-object';
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = active ? '#fff27a' : '#5ff2ff';
+        ctx.fillStyle = active ? '#ff9d28' : '#123947';
+        ctx.lineWidth = 2 / scale;
+        ctx.beginPath();
+        ctx.moveTo(handle.x, handle.y);
+        ctx.lineTo(position.x, position.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        const iconRadius = radius * 0.52;
+        const start = -Math.PI * 0.15;
+        const end = Math.PI * 1.35;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.7 / scale;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, iconRadius, start, end);
+        const tipX = handle.x + Math.cos(end) * iconRadius;
+        const tipY = handle.y + Math.sin(end) * iconRadius;
+        const tangentX = -Math.sin(end);
+        const tangentY = Math.cos(end);
+        const normalX = Math.cos(end);
+        const normalY = Math.sin(end);
+        const headLength = 4.2 / scale;
+        const headWidth = 2.8 / scale;
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(
+            tipX - tangentX * headLength + normalX * headWidth,
+            tipY - tangentY * headLength + normalY * headWidth
+        );
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(
+            tipX - tangentX * headLength - normalX * headWidth,
+            tipY - tangentY * headLength - normalY * headWidth
+        );
         ctx.stroke();
         ctx.restore();
     }

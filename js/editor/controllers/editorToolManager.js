@@ -13,6 +13,18 @@ function pointerId(event) {
     return Number.isInteger(event.pointerId) ? event.pointerId : 0;
 }
 
+function pointerAngle(center, pointer) {
+    return Math.atan2(pointer.y - center.y, pointer.x - center.x) * 180 / Math.PI;
+}
+
+function shortestAngleDelta(from, to) {
+    return ((to - from + 540) % 360) - 180;
+}
+
+function normalizedRotation(rotation) {
+    return ((rotation % 360) + 360) % 360;
+}
+
 export class EditorToolManager {
     constructor(editor) {
         this.editor = editor;
@@ -87,6 +99,8 @@ export class EditorToolManager {
             this.#updatePan(input.screen);
         } else if (interaction.type === EditorInteractionType.DRAG_OBJECT) {
             this.#updateObjectDrag(input.world);
+        } else if (interaction.type === EditorInteractionType.ROTATE_OBJECT) {
+            this.#updateObjectRotation(input.world);
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
             this.#updateOrbitCenterDrag(input.world);
         } else if (interaction.type === EditorInteractionType.DRAG_WAYPOINT) {
@@ -103,6 +117,9 @@ export class EditorToolManager {
         this.#clearLongPress();
         this.editor.canvasInput?.hideLongPressIndicator();
         if (interaction.type === EditorInteractionType.DRAG_OBJECT) {
+            this.editor.commandBus.commit();
+            this.editor.updateObjectList();
+        } else if (interaction.type === EditorInteractionType.ROTATE_OBJECT) {
             this.editor.commandBus.commit();
             this.editor.updateObjectList();
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
@@ -138,6 +155,8 @@ export class EditorToolManager {
         this.editor.canvasInput?.hideLongPressIndicator();
         if (interaction.type === EditorInteractionType.DRAG_OBJECT) {
             this.editor.commandBus.cancel();
+        } else if (interaction.type === EditorInteractionType.ROTATE_OBJECT) {
+            this.editor.commandBus.cancel();
         } else if (interaction.type === EditorInteractionType.DRAG_ORBIT_CENTER) {
             this.editor.commandBus.cancel();
         } else if (interaction.type === EditorInteractionType.DRAG_WAYPOINT) {
@@ -150,7 +169,9 @@ export class EditorToolManager {
     }
 
     #startTouchPending(id, input, hit) {
-        if (hit?.type === 'orbitCenter' || hit?.type === 'waypoint') this.editor.selectObject(hit.object);
+        if (hit?.type === 'orbitCenter' || hit?.type === 'waypoint' || hit?.type === 'rotationHandle') {
+            this.editor.selectObject(hit.object);
+        }
         else this.editor.selectObject(hit || null);
         this.editor.state.setInteraction({
             type: EditorInteractionType.TOUCH_PENDING,
@@ -172,6 +193,10 @@ export class EditorToolManager {
     }
 
     #startFromHit(id, world, screen, hit) {
+        if (hit?.type === 'rotationHandle') {
+            this.editor.selectObject(hit.object);
+            return this.#startObjectRotation(id, world, hit.object);
+        }
         if (hit?.type === 'waypoint') {
             this.editor.selectObject(hit.object);
             return this.#startWaypointDrag(id, world, hit);
@@ -205,6 +230,29 @@ export class EditorToolManager {
             after: point(position),
             label: `Move ${object.constructor?.name || 'object'}`
         }, { source: 'canvas-drag' });
+        return true;
+    }
+
+    #startObjectRotation(id, world, object) {
+        const center = this.editor.overlayRenderer?.runtimeController
+            ?.getDisplayPosition(object) || this.editor.getObjectPosition(object);
+        if (!center || !Number.isFinite(object.rotation)) return false;
+        const rotation = normalizedRotation(object.rotation);
+        this.editor.state.setInteraction({
+            type: EditorInteractionType.ROTATE_OBJECT,
+            pointerId: id,
+            objectId: object.id,
+            center: point(center),
+            lastPointerAngle: pointerAngle(center, world),
+            currentRotation: rotation
+        });
+        this.editor.commandBus.begin('object.rotate', {
+            objectId: object.id,
+            before: rotation,
+            after: rotation,
+            label: `Rotate ${object.constructor?.name || 'object'}`
+        }, { source: 'canvas-rotate' });
+        this.editor.game.canvas.style.cursor = 'grabbing';
         return true;
     }
 
@@ -285,6 +333,21 @@ export class EditorToolManager {
         this.editor.setDisplayedPropertyValue('y', position.y);
     }
 
+    #updateObjectRotation(world) {
+        const interaction = this.editor.state.interaction;
+        const nextPointerAngle = pointerAngle(interaction.center, world);
+        const rotation = normalizedRotation(
+            interaction.currentRotation + shortestAngleDelta(interaction.lastPointerAngle, nextPointerAngle)
+        );
+        this.editor.state.setInteraction({
+            ...interaction,
+            lastPointerAngle: nextPointerAngle,
+            currentRotation: rotation
+        });
+        this.editor.commandBus.update({ after: rotation });
+        this.editor.setDisplayedPropertyValue('rotation', Math.round(rotation * 10) / 10);
+    }
+
     #updateOrbitCenterDrag(world) {
         const interaction = this.editor.state.interaction;
         const center = {
@@ -315,7 +378,9 @@ export class EditorToolManager {
         const hit = this.editor.objectService.hitTest(input.world.x, input.world.y, {
             pointerType: input.event.pointerType
         });
-        this.editor.game.canvas.style.cursor = hit?.type === 'waypoint'
+        this.editor.game.canvas.style.cursor = hit?.type === 'rotationHandle'
+            ? 'grab'
+            : hit?.type === 'waypoint'
             ? 'grab'
             : hit?.type === 'orbitCenter'
                 ? 'crosshair'

@@ -103,6 +103,29 @@ test('selected waypoint handles take priority over the object body', () => {
     assert.equal(hit.waypointIndex, 0);
 });
 
+test('selected rotation handle takes priority over the object body', () => {
+    const planet = new FakePlanet();
+    planet.levelType = 'planet';
+    planet.rotation = 0;
+    planet.width = 20;
+    planet.height = 20;
+    const editor = fakeEditor([planet]);
+    editor.selectedObject = planet;
+    editor.editorCamera = { scale: 1 };
+    editor.runtimeProjector = { listRuntimeObjects: () => [planet] };
+    editor.getObjectPosition = object => object.position;
+    editor.isPointInObject = () => true;
+    const service = new EditorObjectService(editor);
+    editor.overlayRenderer = {
+        runtimeController: { getDisplayPosition: object => object.position }
+    };
+
+    const handle = service.getRotationHandlePosition(planet);
+    const hit = service.hitTest(handle.x, handle.y);
+    assert.equal(hit.type, 'rotationHandle');
+    assert.equal(hit.object, planet);
+});
+
 test('orbit preview advances without mutating authored position', () => {
     const planet = new FakePlanet();
     const editor = fakeEditor([planet]);

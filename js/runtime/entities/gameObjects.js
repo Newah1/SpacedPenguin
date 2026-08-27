@@ -474,7 +474,13 @@ class SpeedBooster extends GameObject {
         this.renderOrder = RENDER_CONFIG.layers.speedBooster;
     }
 
-    drawSprite(ctx) {
+    getArrowMarqueeOffset(timeMilliseconds, spacing) {
+        const config = RENDER_CONFIG.entities.speedBooster;
+        const speed = config.marqueePixelsPerSecond * Math.max(0, this.speedMultiplier);
+        return ((timeMilliseconds / 1000) * speed) % spacing;
+    }
+
+    drawSprite(ctx, timeMilliseconds = globalThis.performance?.now?.() ?? 0) {
         const config = RENDER_CONFIG.entities.speedBooster;
         const halfWidth = this.width / 2;
         const halfHeight = this.height / 2;
@@ -486,12 +492,25 @@ class SpeedBooster extends GameObject {
         ctx.strokeStyle = config.border;
         ctx.strokeRect(-halfWidth, -halfHeight, this.width, this.height);
         ctx.shadowBlur = 0;
+
+        // Clip a repeating row of arrows inside the frame. Keeping one arrow
+        // beyond each edge makes the strip wrap without a visible jump.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(
+            -halfWidth + config.borderWidth,
+            -halfHeight + config.borderWidth,
+            this.width - config.borderWidth * 2,
+            this.height - config.borderWidth * 2
+        );
+        ctx.clip();
         ctx.fillStyle = config.arrow;
         const spacing = this.width / (config.arrowCount + 1);
         const arrowLength = Math.min(14, spacing * 0.7);
         const arrowHalfHeight = Math.min(8, this.height * 0.28);
-        for (let index = 1; index <= config.arrowCount; index++) {
-            const x = -halfWidth + spacing * index;
+        const marqueeOffset = this.getArrowMarqueeOffset(timeMilliseconds, spacing);
+        for (let index = -1; index <= config.arrowCount + 1; index++) {
+            const x = -halfWidth + spacing * index + marqueeOffset;
             ctx.beginPath();
             ctx.moveTo(x + arrowLength / 2, 0);
             ctx.lineTo(x - arrowLength / 2, -arrowHalfHeight);
@@ -503,6 +522,7 @@ class SpeedBooster extends GameObject {
             ctx.closePath();
             ctx.fill();
         }
+        ctx.restore();
     }
 }
 

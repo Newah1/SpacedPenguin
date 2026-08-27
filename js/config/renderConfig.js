@@ -83,7 +83,8 @@ export const RENDER_CONFIG = deepFreeze({
             arrow: '#f7fbff',
             glowBlur: 10,
             borderWidth: 2,
-            arrowCount: 3
+            arrowCount: 3,
+            marqueePixelsPerSecond: 24
         },
         slingshot: {
             size: 100,

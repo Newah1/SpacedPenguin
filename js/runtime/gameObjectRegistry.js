@@ -174,6 +174,7 @@ function refreshTargetRuntime({ object, editor }) {
 function applyCommonRuntimeProperties(object, properties, applyOrbit, gameObjectLookup) {
     if (properties.name) object.name = properties.name;
     if (properties.id) object.id = properties.id;
+    if (properties.rotation !== undefined) object.rotation = properties.rotation;
     if (properties.orbit) applyOrbit(object, properties.orbit, gameObjectLookup);
     return object;
 }

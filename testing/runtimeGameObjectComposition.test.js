@@ -39,6 +39,16 @@ test('factory creates a registered runtime object through composition', () => {
     assert.deepEqual(planet.position, { x: 25, y: 40 });
 });
 
+test('factory projects authored rotation onto common runtime objects', () => {
+    const planet = GameObjectFactory.create({
+        type: 'planet',
+        position: { x: 25, y: 40 },
+        properties: { radius: 12, mass: 50, rotation: 135 }
+    }, null, null);
+
+    assert.equal(planet.rotation, 135);
+});
+
 test('the registry completely owns every serialized game-object extension', () => {
     const serializedDefinitions = Object.values(GAME_OBJECT_DEFINITIONS)
         .filter(definition => definition.type);

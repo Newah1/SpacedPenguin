@@ -301,7 +301,7 @@ test('invalid authored candidates are rejected before the runtime projector is t
 function createToolHarness(hit = null) {
     const calls = [];
     const selected = [];
-    const object = hit?.type === 'orbitCenter' || hit?.type === 'waypoint' ? hit.object : hit;
+    const object = ['orbitCenter', 'waypoint', 'rotationHandle'].includes(hit?.type) ? hit.object : hit;
     const editor = {
         state: new EditorState(),
         events: new EditorEvents(),
@@ -395,6 +395,41 @@ test('tool manager drags waypoint handles and synchronizes inspector coordinates
     assert.deepEqual(drag.calls.find(call => call[0] === 'update')[1].after, { x: 170, y: 80 });
     assert.equal(drag.calls.find(call => call[0] === 'begin')[1], 'waypoint.move');
     drag.manager.handlePointerUp(pointer(11, { x: 172, y: 82 }));
+    assert.equal(drag.calls.at(-1)[0], 'commit');
+});
+
+test('document-first rotation commits one entry and restores the authored angle on undo', () => {
+    const harness = createDocumentCommandHarness();
+    const planetId = harness.document.listObjects()[0].properties.id;
+    assert.equal(harness.bus.begin(LiveEditCommandType.ROTATE_OBJECT, {
+        objectId: planetId,
+        before: 0,
+        after: 0
+    }), true);
+    assert.equal(harness.bus.update({ after: 135 }), true);
+    assert.equal(harness.bus.commit(), true);
+    assert.equal(harness.document.getObject(planetId).properties.rotation, 135);
+    assert.equal(harness.bus.undo(), true);
+    assert.equal(harness.document.getObject(planetId).properties.rotation, undefined);
+});
+
+test('rotation handle drag continuously updates degrees and commits one undo entry', () => {
+    const object = {
+        id: 'portal_1', position: { x: 100, y: 100 }, rotation: 0,
+        constructor: { name: 'Portal' }
+    };
+    const hit = { type: 'rotationHandle', object, point: { x: 70, y: 70 } };
+    const drag = createToolHarness(hit);
+    drag.editor.overlayRenderer.runtimeController.getDisplayPosition = () => ({ x: 100, y: 100 });
+
+    drag.manager.handlePointerDown(pointer(12, { x: 70, y: 70 }));
+    assert.equal(drag.editor.state.interaction.type, EditorInteractionType.ROTATE_OBJECT);
+    assert.equal(drag.calls.find(call => call[0] === 'begin')[1], LiveEditCommandType.ROTATE_OBJECT);
+
+    drag.manager.handlePointerMove(pointer(12, { x: 130, y: 70 }));
+    const rotation = drag.calls.find(call => call[0] === 'update')[1].after;
+    assert.equal(Math.round(rotation), 90);
+    drag.manager.handlePointerUp(pointer(12, { x: 130, y: 70 }));
     assert.equal(drag.calls.at(-1)[0], 'commit');
 });
 
