@@ -1115,6 +1115,31 @@ test('Target visual updates accept simulation options and do not advance orbit t
     assert.equal(target.hitFrameCount, 1);
 });
 
+test('Target renders ship pixel art without smoothing on integer destination bounds', () => {
+    const calls = [];
+    const sprite = { complete: true, width: 53, height: 38 };
+    const context = {
+        save: () => calls.push(['save']),
+        restore: () => calls.push(['restore']),
+        set imageSmoothingEnabled(value) {
+            calls.push(['imageSmoothingEnabled', value]);
+        },
+        drawImage: (...args) => calls.push(['drawImage', ...args])
+    };
+    const target = new Target(100, 100, 60, 60);
+    target.shipSprites = { open: sprite, closed: sprite };
+    target.currentShipSprite = sprite;
+
+    target.drawSprite(context);
+
+    assert.deepEqual(calls, [
+        ['save'],
+        ['imageSmoothingEnabled', false],
+        ['drawImage', sprite, -30, -21, 60, 43],
+        ['restore']
+    ]);
+});
+
 test('runtime orbit setup uses shared normalization and preserves canonical zero values', () => {
     const lookup = () => null;
     const object = {

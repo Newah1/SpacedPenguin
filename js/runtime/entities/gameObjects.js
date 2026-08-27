@@ -1201,18 +1201,21 @@ class Target extends GameObject {
                 return;
             }
             
-            // Scale the sprite to fit our target size
+            // Scale the sprite to fit our target size. Keep the destination on
+            // whole pixels and use nearest-neighbor sampling so the original
+            // pixel art is not softened by fractional canvas scaling.
             const scaleX = this.width / sprite.width;
             const scaleY = this.height / sprite.height;
             const scale = Math.min(scaleX, scaleY);
+            const drawWidth = Math.max(1, Math.round(sprite.width * scale));
+            const drawHeight = Math.max(1, Math.round(sprite.height * scale));
+            const drawX = Math.round(-drawWidth / 2);
+            const drawY = Math.round(-drawHeight / 2);
             
             ctx.save();
-            ctx.scale(scale, scale);
+            ctx.imageSmoothingEnabled = false;
             
-            // Draw the ship sprite directly (no alpha processing)
-            ctx.drawImage(sprite, 
-                -sprite.width/2, -sprite.height/2, 
-                sprite.width, sprite.height);
+            ctx.drawImage(sprite, drawX, drawY, drawWidth, drawHeight);
             
             ctx.restore();
         } else {
