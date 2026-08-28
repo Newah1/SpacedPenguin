@@ -1,4 +1,4 @@
-import { GameState } from '../../game.js';
+import { GameState } from '../../runtime/gameState.js';
 import { EDITOR_CONFIG } from '../../config/editorConfig.js';
 import { captureGameSimulationState } from '../../runtime/gameSimulationAdapter.js';
 import { solveGravitySculpt } from '../../simulation/gravitySculptor.js';

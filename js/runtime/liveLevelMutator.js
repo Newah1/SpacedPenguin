@@ -1,14 +1,12 @@
 import RuntimeObjectMembership from './runtimeObjectMembership.js';
 
 /**
- * Owns structural edits to the running level. The live Game remains the source
- * of truth; this class only keeps its render, type-specific, singleton, and
- * physics collections in sync.
+ * Owns structural edits to the running level through RuntimeWorld.
  */
 export class LiveLevelMutator {
     constructor(game) {
         this.game = game;
-        this.membership = new RuntimeObjectMembership(game);
+        this.membership = game.runtimeWorld?.().membership || new RuntimeObjectMembership(game);
     }
 
     addObject(object, identity) {

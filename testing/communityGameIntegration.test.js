@@ -104,7 +104,7 @@ test('score upload rejects invalid native-UI initials before creating a submissi
     });
 
     await assert.rejects(game.offerCommunityScoreUpload('K1'), /exactly three letters/);
-    assert.equal(game.pendingCommunityScoreSubmission, undefined);
+    assert.equal(game.pendingCommunityScoreSubmission, null);
 });
 
 test('score upload view loads the current community leaderboard', async () => {

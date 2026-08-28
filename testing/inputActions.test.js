@@ -323,20 +323,26 @@ test('gameplay context preserves mouse/touch commands and keyboard outcomes in n
 test('paused and menu contexts preserve resume, menu pointer capture, and start behavior', () => {
     const calls = [];
     const game = { state: 'paused', levelEditor: { active: false }, setState: value => calls.push(['state', value]) };
+    const menuScreen = {
+        handlePointerDown: () => true,
+        handlePointerMove: () => true,
+        handlePointerUp: () => true,
+        handleClick: () => {
+            calls.push(['start']);
+            return true;
+        },
+        start: () => calls.push(['start'])
+    };
     const rootOverrides = {
         game,
-        handleMenuPointerDown: () => true,
-        handleMenuPointerMove: () => true,
-        handleMenuPointerUp: () => true,
-        handleMenuButtonClick: () => false,
-        shouldStartGameFromMenu: () => true
+        menuScreen
     };
     const { manager, root } = managerFixture(rootOverrides);
     registerDefaultInputContexts(manager, root);
     manager.dispatch('keydown', event('Enter'));
     assert.deepEqual(calls, [['state', 'playing']]);
 
-    game.state = 'menu'; game.startGame = () => calls.push(['start']);
+    game.state = 'menu';
     const pointer = event(); pointer.pointerId = 4; pointer.target = { setPointerCapture: id => calls.push(['capture', id]) };
     manager.dispatch('pointerdown', pointer);
     manager.dispatch('pointermove', event());
@@ -348,18 +354,19 @@ test('paused and menu contexts preserve resume, menu pointer capture, and start 
     assert.equal(manager.dispatch('keydown', event('KeyA')).result, InputResult.CONSUMED);
     game.state = 'menu';
     const blockedClick = event();
-    root.consumeMenuInteraction = () => true;
+    menuScreen.handleClick = () => false;
     assert.equal(manager.dispatch('click', blockedClick).result, InputResult.CONSUMED);
-    root.consumeMenuInteraction = () => false;
-    root.shouldStartGameFromMenu = () => false;
     assert.equal(manager.dispatch('click', event()).result, InputResult.CONSUMED);
-    root.handleMenuPointerDown = () => false;
+    menuScreen.handlePointerDown = () => false;
     assert.equal(manager.dispatch('pointerdown', event()).result, InputResult.CONSUMED);
 });
 
 test('menu context owns unmapped keys, passes modified keys, and consumes undeclared dispatches', () => {
     let starts = 0;
-    const context = new MenuInputContext({ game: { state: 'menu', startGame: () => starts++ } });
+    const context = new MenuInputContext({
+        game: { state: 'menu' },
+        menuScreen: { start: () => starts++ }
+    });
     const modified = event('KeyA'); modified.ctrlKey = true;
     assert.equal(context.handle('keydown', modified).result, InputResult.PASS);
     assert.equal(context.handle('keydown', event('KeyA')).result, InputResult.CONSUMED);

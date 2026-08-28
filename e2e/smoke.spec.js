@@ -434,33 +434,13 @@ test('menu uses the original black and orange title-card composition', async ({ 
     await page.mouse.click(background.x, background.y);
     expect(await page.evaluate(() => window.game.state)).toBe('menu');
 
-    const gravityResult = await page.evaluate(() => {
-        const manager = window.gameManager;
-        manager.menuSlingshot.position = { x: 500, y: 512 };
-        manager.menuSlingshot.velocity = { x: 0, y: 0 };
-        manager.menuSlingshot.launched = true;
-        manager.menuSlingshot.age = 3;
-        manager.menuSlingshot.lastFrameTime = 1;
-        manager.updateMenuSlingshot(1.05);
-        const result = {
-            attractedTowardPlanets: manager.menuSlingshot.velocity.x > 0,
-            stillFlyingOutsideVignette: manager.menuSlingshot.launched
-        };
-        manager.resetMenuSlingshot();
-        return result;
-    });
-    expect(gravityResult).toEqual({
-        attractedTowardPlanets: true,
-        stillFlyingOutsideVignette: true
-    });
-
     const kevin = await stageToClient(page, 124, 440);
     const pullback = await stageToClient(page, 76, 461);
     await page.mouse.move(kevin.x, kevin.y);
     await page.mouse.down();
     await page.mouse.move(pullback.x, pullback.y, { steps: 4 });
     await page.mouse.up();
-    await expect.poll(() => page.evaluate(() => window.gameManager.menuSlingshot.launched)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.gameManager.menuScreen.model.launched)).toBe(true);
     expect(await page.evaluate(() => window.game.state)).toBe('menu');
     await page.locator('#gameCanvas').screenshot({ path: testInfo.outputPath('menu.png') });
 

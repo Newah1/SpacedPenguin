@@ -1,10 +1,8 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { GameObject, Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './runtime/entities/gameObjects.js';
+import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './runtime/entities/gameObjects.js';
 import { BlackHole } from './runtime/entities/blackHole.js';
-import { Penguin } from './runtime/entities/penguin.js';
-import { Physics } from './runtime/physics.js';
 import Utils from './platform/utils.js';
 import { LevelLoader } from './levels/levelLoader.js';
 import { UIManager } from './ui/uiManager.js';
@@ -22,77 +20,179 @@ import {
 import { calculateLaunchPosition, calculateLaunchVelocity, calculateLevelScore } from './simulation/simulationEngine.js';
 import { predictAimAssistTrajectory } from './simulation/aimAssist.js';
 import {
-    LevelOrbitType
-} from './levels/levelSchema.js';
-import {
-    isRuntimeObjectExportable,
-    serializeRuntimeObject
-} from './runtime/runtimeObjectSerialization.js';
-import {
     LEVEL_CATALOG_CONFIG,
-    LEVEL_DEFAULTS,
-    PHYSICS_CONFIG,
     WORLD_CONFIG
 } from './config/gameConfig.js';
-import { INPUT_CONFIG, isMobileViewport } from './config/inputConfig.js';
 import { RENDER_CONFIG } from './config/renderConfig.js';
-import { assetPath } from './config/assetConfig.js';
 import { AudioCue, getAudioCue } from './config/audioConfig.js';
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
-import { SETTINGS_CONFIG } from './config/settingsConfig.js';
-import { LocalSettingsStore } from './platform/settings/settingsStore.js';
-import { SettingsManager } from './platform/settings/settingsManager.js';
+import { GameSettingsController } from './platform/settings/gameSettingsController.js';
 import { SettingsScreen } from './ui/views/settingsScreen.js';
-import { StellarTrackStore } from './platform/persistence/stellarTrackStore.js';
 import { HighScoreStore } from './platform/persistence/highScoreStore.js';
 import { HighScoresScreen } from './ui/views/highScoresScreen.js';
 import { LevelBrowserScreen } from './ui/views/levelBrowserScreen.js';
 import { LevelSaveService, captureLevelThumbnail } from './platform/persistence/levelSaveService.js';
 import { createConfiguredLevelCatalog } from './catalog/levelCatalogComposition.js';
 import { readAppConfig } from './config/appConfig.js';
-import { CommunityLevelClient, createIdempotencyKey } from './catalog/communityLevelClient.js';
-import { calculateCommunityScore } from './replay/communityScore.js';
-import { RunTranscriptRecorder } from './replay/runTranscript.js';
+import { CommunityLevelClient } from './catalog/communityLevelClient.js';
+import { CommunityRunCoordinator } from './replay/communityRunCoordinator.js';
 import { assertValidLevelDefinition } from './levels/levelValidation.js';
-import { createButton, registerButton } from './ui/buttonFramework.js';
+import { registerButton } from './ui/buttonFramework.js';
 import { getRuntimeGameConfigValue } from './config/runtimeGameConfig.js';
 import {
     STAGE_WIDTH,
     STAGE_HEIGHT,
-    applyCameraTransform,
-    applyViewportTransform,
-    clearViewport,
     createWorldCamera,
     createViewport,
-    screenToStage,
     updateFollowCamera
 } from './rendering/viewport.js';
 import { GameState } from './runtime/gameState.js';
+import { GameSession } from './runtime/gameSession.js';
+import { RuntimeWorld } from './runtime/runtimeWorld.js';
+import { GameEffectsCoordinator } from './runtime/gameEffectsCoordinator.js';
+import { GameplayController } from './input/gameplayController.js';
 import { KevinCamRenderer } from './rendering/kevinCamRenderer.js';
+import { GameRenderer } from './rendering/gameRenderer.js';
+import { FlightPresentation } from './rendering/flightPresentation.js';
+import {
+    RuntimeLevelSerializer,
+    serializeLevelRules,
+    serializeOrbitSystem,
+    serializeWaypointPath
+} from './levels/runtimeLevelSerializer.js';
 
 const FAST_FORWARD_UNLOCK_SECONDS = 5;
 
-class Game {
+export class Game {
+    sessionState() { return this.session ||= new GameSession(); }
+    runtimeWorld() {
+        return this.world ||= new RuntimeWorld({
+            onSimulationInvalidated: () => invalidateGameSimulationState(this)
+        });
+    }
+    communityRunCoordinator() {
+        return this.communityRun ||= new CommunityRunCoordinator(this, this.communityLevelClient);
+    }
+
+    get state() { return this.sessionState().state; }
+    set state(value) { this.sessionState().state = value; }
+    get level() { return this.sessionState().level; }
+    set level(value) { this.sessionState().level = value; }
+    get score() { return this.sessionState().score; }
+    set score(value) { this.sessionState().score = value; }
+    get currentLevelBestScore() { return this.sessionState().currentLevelBestScore; }
+    set currentLevelBestScore(value) { this.sessionState().currentLevelBestScore = value; }
+    get currentAttemptScore() { return this.sessionState().currentAttemptScore; }
+    set currentAttemptScore(value) { this.sessionState().currentAttemptScore = value; }
+    get distance() { return this.sessionState().distance; }
+    set distance(value) { this.sessionState().distance = value; }
+    get tries() { return this.sessionState().tries; }
+    set tries(value) { this.sessionState().tries = value; }
+    get highScore() { return this.sessionState().highScore; }
+    set highScore(value) { this.sessionState().highScore = value; }
+    get planetCollisions() { return this.sessionState().planetCollisions; }
+    set planetCollisions(value) { this.sessionState().planetCollisions = value; }
+    get levelRules() { return this.sessionState().levelRules; }
+    set levelRules(value) { this.sessionState().levelRules = value; }
+    get levelMetadata() { return this.sessionState().levelMetadata; }
+    set levelMetadata(value) { this.sessionState().levelMetadata = value; }
+    get currentRunScoreSaved() { return this.sessionState().currentRunScoreSaved; }
+    set currentRunScoreSaved(value) { this.sessionState().currentRunScoreSaved = value; }
+    get lastScoreImprovement() { return this.sessionState().lastScoreImprovement; }
+    set lastScoreImprovement(value) { this.sessionState().lastScoreImprovement = value; }
+
+    get physics() { return this.runtimeWorld().physics; }
+    get stageRect() { return this.runtimeWorld().stageRect; }
+    set stageRect(value) { this.runtimeWorld().stageRect = value; this.runtimeWorld().touch(); }
+    get flightRect() { return this.runtimeWorld().flightRect; }
+    set flightRect(value) { this.runtimeWorld().flightRect = value; this.runtimeWorld().touch(); }
+    get cameraConfig() { return this.runtimeWorld().cameraConfig; }
+    set cameraConfig(value) { this.runtimeWorld().cameraConfig = value; }
+    get gameObjects() { return this.runtimeWorld().gameObjects; }
+    set gameObjects(value) { this.runtimeWorld().gameObjects = value; this.runtimeWorld().touch(); }
+    get planets() { return this.runtimeWorld().planets; }
+    set planets(value) { this.runtimeWorld().planets = value; this.runtimeWorld().touch(); }
+    get bonuses() { return this.runtimeWorld().bonuses; }
+    set bonuses(value) { this.runtimeWorld().bonuses = value; this.runtimeWorld().touch(); }
+    get portals() { return this.runtimeWorld().portals; }
+    set portals(value) { this.runtimeWorld().portals = value; this.runtimeWorld().touch(); }
+    get speedBoosters() { return this.runtimeWorld().speedBoosters; }
+    set speedBoosters(value) { this.runtimeWorld().speedBoosters = value; this.runtimeWorld().touch(); }
+    get textObjects() { return this.runtimeWorld().textObjects; }
+    set textObjects(value) { this.runtimeWorld().textObjects = value; this.runtimeWorld().touch(); }
+    get pointingArrows() { return this.runtimeWorld().pointingArrows; }
+    set pointingArrows(value) { this.runtimeWorld().pointingArrows = value; this.runtimeWorld().touch(); }
+    get penguin() { return this.runtimeWorld().penguin; }
+    set penguin(value) { this.runtimeWorld().penguin = value; this.runtimeWorld().touch(); }
+    get slingshot() { return this.runtimeWorld().slingshot; }
+    set slingshot(value) { this.runtimeWorld().slingshot = value; this.runtimeWorld().touch(); }
+    get target() { return this.runtimeWorld().target; }
+    set target(value) { this.runtimeWorld().target = value; this.runtimeWorld().touch(); }
+    get arrow() { return this.runtimeWorld().arrow; }
+    set arrow(value) { this.runtimeWorld().arrow = value; this.runtimeWorld().touch({ simulation: false }); }
+    get bonusPopup() { return this.runtimeWorld().bonusPopup; }
+    set bonusPopup(value) { this.runtimeWorld().bonusPopup = value; this.runtimeWorld().touch({ simulation: false }); }
+
+    get runTick() { return this.communityRunCoordinator().runTick; }
+    set runTick(value) { this.communityRunCoordinator().runTick = value; }
+    get runTranscriptRecorder() { return this.communityRunCoordinator().recorder; }
+    set runTranscriptRecorder(value) { this.communityRunCoordinator().recorder = value; }
+    get completedRun() { return this.communityRunCoordinator().completedRun; }
+    set completedRun(value) { this.communityRunCoordinator().completedRun = value; }
+    get recordedRunLevel() { return this.communityRunCoordinator().recordedLevel; }
+    set recordedRunLevel(value) { this.communityRunCoordinator().recordedLevel = value; }
+    get pendingCommunityScoreSubmission() { return this.communityRunCoordinator().pendingScoreSubmission; }
+    set pendingCommunityScoreSubmission(value) { this.communityRunCoordinator().pendingScoreSubmission = value; }
+    get shotPaths() { return this.flightPresentation?.shotPaths || []; }
+    set shotPaths(value) { if (this.flightPresentation) this.flightPresentation.shotPaths = value; }
+    get currentShotPath() { return this.flightPresentation?.currentShotPath || []; }
+    set currentShotPath(value) { if (this.flightPresentation) this.flightPresentation.currentShotPath = value; }
+    get currentShotRenderPath() { return this.flightPresentation?.currentShotRenderPath || null; }
+    set currentShotRenderPath(value) { if (this.flightPresentation) this.flightPresentation.currentShotRenderPath = value; }
+    get portalTransition() { return this.flightPresentation?.portalTransition || null; }
+    set portalTransition(value) { if (this.flightPresentation) this.flightPresentation.portalTransition = value; }
+    get shotColors() { return this.flightPresentation?.shotColors || RENDER_CONFIG.shotTrails.colors; }
+    set shotColors(value) { if (this.flightPresentation) this.flightPresentation.shotColors = value; }
+    get currentColorIndex() { return this.flightPresentation?.currentColorIndex || 0; }
+    set currentColorIndex(value) { if (this.flightPresentation) this.flightPresentation.currentColorIndex = value; }
+    get isRecordingPath() { return this.flightPresentation?.isRecordingPath || false; }
+    set isRecordingPath(value) { if (this.flightPresentation) this.flightPresentation.isRecordingPath = value; }
+    get alphaMasks() { return this.flightPresentation?.alphaMasks || []; }
+    set alphaMasks(value) { if (this.flightPresentation) this.flightPresentation.alphaMasks = value; }
+    get stars() { return this.flightPresentation?.stars || []; }
+    set stars(value) { if (this.flightPresentation) this.flightPresentation.stars = value; }
+    get starfieldTime() { return this.flightPresentation?.starfieldTime || 0; }
+    set starfieldTime(value) { if (this.flightPresentation) this.flightPresentation.starfieldTime = value; }
+    get starDriftSpeed() { return this.flightPresentation?.starDriftSpeed || RENDER_CONFIG.starfield.drift; }
+    set starDriftSpeed(value) { if (this.flightPresentation) this.flightPresentation.starDriftSpeed = value; }
+    get mouseDown() { return this.gameplayController?.mouseDown ?? false; }
+    set mouseDown(value) { if (this.gameplayController) this.gameplayController.mouseDown = value; }
+    get mousePosition() { return this.gameplayController?.mousePosition || { x: 0, y: 0 }; }
+    set mousePosition(value) { if (this.gameplayController) this.gameplayController.mousePosition = value; }
+    get isDragging() { return this.gameplayController?.isDragging ?? false; }
+    set isDragging(value) { if (this.gameplayController) this.gameplayController.isDragging = value; }
+
     constructor(canvas, assetLoader, audioManager, options = {}) {
         plog.info('Game constructor called');
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.physics = new Physics();
+        this.onStateChanged = options.onStateChanged;
+        this.session = options.session || new GameSession();
+        this._runtimeSimulationState = null;
+        this.world = options.world || new RuntimeWorld({
+            onSimulationInvalidated: () => invalidateGameSimulationState(this)
+        });
+        this.effects = options.effects || new GameEffectsCoordinator(this);
+        this.gameplayController = options.gameplayController || new GameplayController(this);
         this.assetLoader = assetLoader;
         this.audioManager = audioManager;
-        this.stellarTrackStore = new StellarTrackStore();
-        this.settingsManager = new SettingsManager(
-            SETTINGS_CONFIG,
-            new LocalSettingsStore(SETTINGS_CONFIG.storageKey),
-            {
-                audioEnabled: value => this.audioManager?.setEnabled(value),
-                backgroundMusicEnabled: value => this.audioManager?.setBackgroundMusicEnabled(value),
-                masterVolume: value => this.audioManager?.setMasterVolume(value),
-                aimAssistEnabled: value => {
-                    if (!value) this.aimAssistPoints = [];
-                }
-            }
-        );
+        this.flightPresentation = options.flightPresentation || new FlightPresentation(this);
+        this.settingsController = options.settingsController || new GameSettingsController({
+            audioManager,
+            onAimAssistDisabled: () => { this.aimAssistPoints = []; },
+            showMessage: message => this.showMessage(message)
+        });
+        this.settingsManager = this.settingsController.manager;
         this.restoreStellarMode();
         const menuSettingsButton = document.getElementById('menuSettingsButton');
         registerButton(menuSettingsButton, event => {
@@ -120,19 +220,12 @@ class Game {
         });
         
         // Game state
-        this.state = GameState.MENU;
         this.updateBackgroundMusicDimming();
-        this.level = 1;
-        this.score = 0;
-        this.currentLevelBestScore = 0;
-        this.currentAttemptScore = 0; // Track score for current attempt only
-        this.distance = 0;
-        this.tries = 0;
-        this.highScore = 0;
         this.highScoreStore = new HighScoreStore(
             typeof localStorage === 'undefined' ? null : localStorage
         );
         this.levelLoader = new LevelLoader(assetLoader);
+        this.runtimeLevelSerializer = options.runtimeLevelSerializer || new RuntimeLevelSerializer();
         this.levelSaveService = options.levelSaveService || new LevelSaveService();
         this.appConfig = readAppConfig(options.appConfig);
         if (options.levelCatalogService) {
@@ -151,57 +244,28 @@ class Game {
                 })
                 : null
         );
-        this.runTick = 0;
-        this.runTranscriptRecorder = null;
-        this.completedRun = null;
-        this.recordedRunLevel = null;
-        this.pendingCommunityScoreSubmission = null;
-        this.currentRunScoreSaved = false;
-        this.planetCollisions = 0; // Track planet collisions for rules
-        
-        // Level system
-        this.levelRules = null;
-        this.levelMetadata = {
-            name: 'Custom Level 1',
-            description: 'Generated by Level Editor'
-        };
+        this.communityRun = options.communityRun || new CommunityRunCoordinator(this, this.communityLevelClient);
         
         // Bounds system (matching original game's pFlightRect/pStageRect)
-        this.stageRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
-        this.flightRect = { ...WORLD_CONFIG.flightBounds };
-        this.cameraConfig = null;
         this.viewport = canvas.viewport || createViewport(STAGE_WIDTH, STAGE_HEIGHT, 1);
         this.worldCamera = createWorldCamera(this.stageRect);
         this.viewRect = this.worldCamera.viewRect;
         this.kevinCamRenderer = options.kevinCamRenderer || new KevinCamRenderer();
+        this.renderer = options.renderer || new GameRenderer(this);
         
         // Game objects
-        this.penguin = null;
         this.crashedPenguins = [];
-        this.slingshot = null;
         this.launches = [];
-        this.target = null;
-        this.planets = [];
-        this.bonuses = [];
-        this.portals = [];
-        this.speedBoosters = [];
-        this.textObjects = [];
-        this.pointingArrows = [];
-        this.gameObjects = [];
-        
-        // Rendering optimizations
-        this._cachedSortedObjects = null;
-        this._gameObjectsChanged = true;
         
         // Bonus popup system
         this.bonusPopup = new BonusPopup(0, 0, 0);
-        this.gameObjects.push(this.bonusPopup);
+        this.world.addGameObject(this.bonusPopup);
         
         // Initialize arrow after stage rect is set up
         this.arrow = new Arrow(0, 0);
         this.arrow.setStageRect(this.viewRect);
         this.arrow.setFlightRect(this.flightRect);
-        this.gameObjects.push(this.arrow);
+        this.world.addGameObject(this.arrow);
 
         // Initialize console and level editor
         this.console = new Console(this);
@@ -229,28 +293,7 @@ class Game {
             SpeedBooster
         };
         
-        // Shot path tracing system (like original game)
-        this.shotPaths = []; // Array of complete shot paths
-        this.currentShotPath = []; // Current shot being recorded
-        this.currentShotRenderPath = null;
-        this.portalTransition = null;
         this.aimAssistPoints = [];
-        this.shotColors = RENDER_CONFIG.shotTrails.colors;
-        this.currentColorIndex = 0;
-        this.isRecordingPath = false;
-        this._runtimeSimulationState = null;
-        
-        // Alpha mask system (matching original game's k1, k2, k3 sprites)
-        this.alphaMasks = []; // Array of last 3 launch positions with alpha masks
-        this.alphaMaskImage = null; // The Kev_Alph alpha mask image
-        this.alphaMaskStencil = null;
-        this.coloredAlphaMaskCanvases = new Map();
-        this.loadAlphaMask();
-        
-        // Input handling
-        this.mouseDown = false;
-        this.mousePosition = { x: 0, y: 0 };
-        this.isDragging = false;
         
         // Animation
         this.lastTime = 0;
@@ -282,30 +325,24 @@ class Game {
         
         // Note: Input handling is managed by InputManager contexts.
         plog.success('Game constructor completed');
-        // Don't load level immediately - wait for start
-        this.stars = [];
-        this.starfieldTime = 0;
-        this.starDriftSpeed = RENDER_CONFIG.starfield.drift;
-        this.generateStars();
+        // Don't load a level immediately; bootstrap owns the start transition.
     }
     
     setState(newState) {
-        if (this.state !== newState) {
-            plog.info(`Game state changing from ${this.state} to ${newState}`);
-            this.state = newState;
+        const transition = this.sessionState().setState(newState);
+        if (transition.changed) {
+            plog.info(`Game state changing from ${transition.previousState} to ${newState}`);
             this.updateBackgroundMusicDimming();
 
             if (this.pauseMenuButton) {
                 this.pauseMenuButton.style.display = newState === GameState.PLAYING ? 'block' : 'none';
             }
 
-            document.body.classList.toggle('is-menu', newState === GameState.MENU);
-            if (newState !== GameState.MENU) {
-                document.getElementById('mobileStartButton')?.remove();
-            }
             if (newState === GameState.MENU || newState === GameState.GAME_OVER || newState === GameState.SCORING) {
                 this.resetSimulationSpeedControl();
             }
+
+            this.onStateChanged?.(newState);
             
             // Input contexts inspect live state when each event is dispatched,
             // so state transitions do not require listener reconciliation.
@@ -316,211 +353,13 @@ class Game {
     // These methods are kept for backwards compatibility but input routing
     // is now handled by the InputManager context system
     
-    setupEventListeners() {
-        // This method is deprecated; input handling is managed by InputManager.
-        console.warn('Game.setupEventListeners() is deprecated - input now managed by InputManager');
-        
-        // Still set touch action for mobile compatibility
-        this.canvas.style.touchAction = 'none';
-        
-        // Add mobile-specific controls
-        this.setupMobileControls();
-    }
-    
-    setupMobileControls() {
-        // Create mobile control buttons if on mobile
-        if (this.isMobileDevice()) {
-            this.createMobileControlButtons();
-        }
-    }
-    
-    isMobileDevice() {
-        return isMobileViewport();
-    }
-    
-    createMobileControlButtons() {
-        // Remove existing buttons if any
-        const existingButtons = document.querySelectorAll('.mobile-control-button, .mobile-ui-overlay');
-        existingButtons.forEach(btn => btn.remove());
-        
-        // Create mobile UI overlay container
-        this.mobileUIOverlay = document.createElement('div');
-        this.mobileUIOverlay.className = 'mobile-ui-overlay';
-        this.mobileUIOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 150;
-            font-family: Arial, sans-serif;
-        `;
-        
-        // Create mobile control panel
-        const controlPanel = document.createElement('div');
-        controlPanel.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            pointer-events: auto;
-        `;
-        
-        // Create reset button
-        const resetButton = createButton('TRY AGAIN', () => {
-            if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
-                this.tryAgain();
-                if ('vibrate' in navigator) navigator.vibrate(INPUT_CONFIG.hapticsMs.mobileControl);
-            }
-        }, { backgroundColor: 'rgba(255, 100, 100, 0.9)', hoverColor: 'rgba(255, 135, 135, 0.96)', textColor: 'white' });
-        resetButton.classList.add('mobile-control-button');
-        resetButton.textContent = '↻ TRY AGAIN';
-        resetButton.style.cssText += `
-            border: none;
-            padding: 12px 16px;
-            border-radius: 25px;
-            font-size: 14px;
-            font-weight: bold;
-            touch-action: manipulation;
-            min-height: 44px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-        `;
-        
-        
-        // Create quit button
-        const quitButton = createButton('QUIT', () => {
-            if (this.state === GameState.PLAYING || (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play')) {
-                this.showQuitDialog();
-            }
-        }, { backgroundColor: 'rgba(128, 128, 128, 0.9)', hoverColor: 'rgba(160, 160, 160, 0.96)', textColor: 'white' });
-        quitButton.classList.add('mobile-control-button');
-        quitButton.textContent = '✕ QUIT';
-        quitButton.style.cssText += `
-            border: none;
-            padding: 12px 16px;
-            border-radius: 25px;
-            font-size: 14px;
-            font-weight: bold;
-            touch-action: manipulation;
-            min-height: 44px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-        `;
-        
-        
-        controlPanel.appendChild(resetButton);
-        controlPanel.appendChild(quitButton);
-        
-        // Create mobile instruction overlay
-        this.mobileInstructions = document.createElement('div');
-        this.mobileInstructions.style.cssText = `
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 25px;
-            font-size: 14px;
-            text-align: center;
-            pointer-events: none;
-            max-width: 90%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-            transition: opacity 0.3s ease;
-        `;
-        
-        // Create launch visual feedback
-        this.createLaunchFeedback();
-        
-        this.mobileUIOverlay.appendChild(controlPanel);
-        this.mobileUIOverlay.appendChild(this.mobileInstructions);
-        document.body.appendChild(this.mobileUIOverlay);
-        
-        // Update instructions based on current state
-        this.updateMobileInstructions();
-        
-        // Auto-hide instructions after 5 seconds
-        setTimeout(() => {
-            if (this.mobileInstructions) {
-                this.mobileInstructions.style.opacity = '0.6';
-            }
-        }, RUNTIME_CONFIG.mobileInstructionsFadeDelayMs);
-    }
-    
-    createLaunchFeedback() {
-        // Create visual feedback for slingshot aiming
-        this.launchIndicator = document.createElement('div');
-        this.launchIndicator.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100px;
-            height: 100px;
-            border: 3px solid rgba(0, 255, 255, 0.8);
-            border-radius: 50%;
-            pointer-events: none;
-            opacity: 0;
-            transition: all 0.2s ease;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        `;
-        
-        this.mobileUIOverlay.appendChild(this.launchIndicator);
-    }
-    
-    updateMobileInstructions() {
-        if (!this.mobileInstructions || !this.isMobileDevice()) return;
-        
-        let instructionText = '';
-        
-        switch (this.state) {
-            case GameState.MENU:
-                instructionText = '👆 Tap anywhere to start';
-                break;
-            case GameState.PLAYING:
-                if (this.penguin && this.penguin.state === 'idle') {
-                    instructionText = '🎯 Drag penguin to aim, release to launch';
-                } else if (this.penguin && this.penguin.state === 'pullback') {
-                    instructionText = '🎯 Release to launch!';
-                } else if (this.penguin && this.penguin.state === 'soaring') {
-                    instructionText = '👆 Tap to try again';
-                } else {
-                    instructionText = '🐧 Ready to launch!';
-                }
-                break;
-            case GameState.LEVEL_EDITOR:
-                if (this.levelEditor && this.levelEditor.mode === 'play') {
-                    instructionText = '🎮 Testing level - drag to launch';
-                } else {
-                    instructionText = '✏️ Level Editor - long press to add objects';
-                }
-                break;
-            default:
-                instructionText = '👆 Touch to interact';
-        }
-        
-        this.mobileInstructions.textContent = instructionText;
-    }
-    
-    showLaunchFeedback(show = true) {
-        if (this.launchIndicator) {
-            this.launchIndicator.style.opacity = show ? '1' : '0';
-            this.launchIndicator.style.transform = show ? 
-                'translate(-50%, -50%) scale(1.2)' : 
-                'translate(-50%, -50%) scale(1)';
-        }
-    }
-    
-    getMousePosition(e) {
-        return screenToStage(this.canvas, this.viewport, e.clientX, e.clientY, this.getActiveCamera());
-    }
-    
+    setupMobileControls() { this.gameplayController.setupMobileControls(); }
+    isMobileDevice() { return this.gameplayController.isMobileDevice(); }
+    createMobileControlButtons() { return this.gameplayController.createMobileControlButtons(); }
+    createLaunchFeedback() { return this.gameplayController.createLaunchFeedback(); }
+    updateMobileInstructions() { return this.gameplayController.updateMobileInstructions(); }
+    showLaunchFeedback(show = true) { return this.gameplayController.showLaunchFeedback(show); }
+    getMousePosition(event) { return this.gameplayController.getMousePosition(event); }
     setCanvasScale(scaleX, scaleY) {
         this.canvasScaleX = scaleX;
         this.canvasScaleY = scaleY;
@@ -563,185 +402,16 @@ class Game {
     }
 
     beginFrame() {
-        clearViewport(this.ctx, this.canvas);
-        applyViewportTransform(this.ctx, this.viewport);
+        this.renderer.beginFrame();
     }
     
-    handleMouseDown(e) {
-        this.mouseDown = true;
-        this.mousePosition = this.getMousePosition(e);
-
-        if (this.state === GameState.MENU) {
-            this.startGame();
-            return;
-        }
-        
-        // Delegate to level editor if active AND in edit mode
-        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
-            this.levelEditor.handleMouseDown(e);
-            return;
-        }
-        
-        // Allow slingshot in both playing state and level editor play mode
-        const canUseSlingshot = (this.state === GameState.PLAYING) || 
-                              (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-        
-        if (canUseSlingshot && this.penguin.state === 'idle') {
-            this.isDragging = true;
-            this.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
-            this.penguin.setState('pullback');
-            this.updateAimAssistPreview();
-            
-            // Show visual feedback for mobile
-            if (this.isMobileDevice()) {
-                this.showLaunchFeedback(true);
-                this.updateMobileInstructions();
-            }
-        }
-    }
-    
-    handleMouseMove(e) {
-        this.mousePosition = this.getMousePosition(e);
-        
-        // Delegate to level editor if active AND in edit mode
-        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
-            this.levelEditor.handleMouseMove(e);
-            return;
-        }
-        
-        if (this.isDragging && this.slingshot.isPulling) {
-            this.slingshot.updatePullback(this.mousePosition.x, this.mousePosition.y);
-            this.updateAimAssistPreview();
-        }
-    }
-    
-    handleMouseUp(e) {
-        this.mouseDown = false;
-        
-        // Delegate to level editor if active AND in edit mode
-        if (this.state === GameState.LEVEL_EDITOR && this.levelEditor.active && this.levelEditor.mode === 'edit') {
-            this.levelEditor.handleMouseUp(e);
-            return;
-        }
-        
-        if (this.isDragging) {
-            this.isDragging = false;
-            this.aimAssistPoints = [];
-            const velocity = this.slingshot.release();
-            this.launchPenguin(velocity, this.slingshot.lastLaunch);
-            
-            // Hide visual feedback for mobile
-            if (this.isMobileDevice()) {
-                this.showLaunchFeedback(false);
-                this.updateMobileInstructions();
-            }
-        } else {
-            // Mouse click during soaring triggers tryAgain (like original)
-            const canUseSlingshot = (this.state === GameState.PLAYING) || 
-                                  (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-            if (canUseSlingshot && this.penguin && this.penguin.state === 'soaring') {
-                this.tryAgain();
-            }
-        }
-    }
-    
-    handleTouchStart(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (e.touches.length > 0) {
-            const touch = e.touches[0];
-            
-            // Create a synthetic mouse event
-            const mouseEvent = {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                preventDefault: () => {},
-                stopPropagation: () => {}
-            };
-            
-            this.handleMouseDown(mouseEvent);
-        }
-    }
-    
-    handleTouchMove(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (e.touches.length > 0) {
-            const touch = e.touches[0];
-            
-            // Create a synthetic mouse event
-            const mouseEvent = {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                preventDefault: () => {},
-                stopPropagation: () => {}
-            };
-            
-            this.handleMouseMove(mouseEvent);
-        }
-    }
-    
-    handleTouchEnd(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Create a synthetic mouse event
-        const mouseEvent = {
-            clientX: 0,
-            clientY: 0,
-            preventDefault: () => {},
-            stopPropagation: () => {}
-        };
-        
-        this.handleMouseUp(mouseEvent);
-    }
-    
-    handleKeyDown(e) {
-        // Handle console toggle first
-        if (e.key === '`') {
-            e.preventDefault();
-            this.console.toggle();
-            return;
-        }
-        
-        // Don't process other keys if console is open
-        if (this.console.visible) {
-            return;
-        }
-        
-        // Check if we should allow play mode keys
-        const canUsePlayKeys = (this.state === GameState.PLAYING) || 
-                              (this.state === GameState.LEVEL_EDITOR && this.levelEditor.mode === 'play');
-        
-        switch (e.key.toLowerCase()) {
-            case 'q':
-                if (canUsePlayKeys) {
-                    this.showQuitDialog();
-                }
-                break;
-            case 'r':
-                if (canUsePlayKeys) {
-                    this.tryAgain();
-                }
-                break;
-            case ' ':
-                // Only allow spacebar to start game on desktop
-                // But don't interfere if InputManager already handled it
-                if (this.state === GameState.MENU && !this.isMobileDevice() && !e.defaultPrevented) {
-                    this.startGame();
-                }
-                break;
-            default:
-                // Any other key during playing triggers tryAgain (like original)
-                if (canUsePlayKeys && this.penguin && this.penguin.state === 'soaring') {
-                    this.tryAgain();
-                }
-                break;
-        }
-    }
-    
+    handleMouseDown(event) { return this.gameplayController.handleMouseDown(event); }
+    handleMouseMove(event) { return this.gameplayController.handleMouseMove(event); }
+    handleMouseUp(event) { return this.gameplayController.handleMouseUp(event); }
+    handleTouchStart(event) { return this.gameplayController.handleTouchStart(event); }
+    handleTouchMove(event) { return this.gameplayController.handleTouchMove(event); }
+    handleTouchEnd(event) { return this.gameplayController.handleTouchEnd(event); }
+    handleKeyDown(event) { return this.gameplayController.handleKeyDown(event); }
     launchPenguin(velocity, launch = null) {
         plog.soar('Game launchPenguin called with velocity:', velocity);
         this.resetSimulationSpeedControl();
@@ -813,143 +483,13 @@ class Game {
     }
     
     // Shot path recording methods (matching original game behavior)
-    startRecordingShotPath() {
-        this.isRecordingPath = true;
-        this.currentShotPath = [];
-        this.currentShotRenderPath = typeof Path2D === 'function' ? new Path2D() : null;
-        plog.waddle(`Started recording shot path ${this.shotPaths.length + 1} with color ${this.shotColors[this.currentColorIndex]}`);
-    }
-    
-    recordPathPoint(x, y) {
-        if (!this.isRecordingPath || this.penguin.state === 'crashed') return;
-        const previous = this.currentShotPath.at(-1);
-        if (previous && x === previous.x && y === previous.y) {
-            return;
-        }
-
-        if (this.currentShotRenderPath) {
-            if (previous) {
-                this.currentShotRenderPath.lineTo(x, y);
-            } else {
-                this.currentShotRenderPath.moveTo(x, y);
-            }
-        }
-        this.currentShotPath.push({ x, y });
-    }
-
-    recordPortalTransit(entryPosition, exitPosition) {
-        if (!this.isRecordingPath) return;
-        this.recordPathPoint(entryPosition.x, entryPosition.y);
-        this.currentShotRenderPath?.moveTo(exitPosition.x, exitPosition.y);
-        this.currentShotPath.push({ x: exitPosition.x, y: exitPosition.y, move: true });
-    }
-    
-    endRecordingShotPath() {
-        if (this.isRecordingPath && this.currentShotPath.length > 1) {
-            // Store the complete path with its color
-            const shotPath = {
-                points: this.currentShotPath,
-                renderPath: this.currentShotRenderPath,
-                color: this.shotColors[this.currentColorIndex],
-                shotNumber: this.shotPaths.length + 1
-            };
-            
-            this.shotPaths.push(shotPath);
-            if (this.shotPaths.length > RENDER_CONFIG.shotTrails.maximumCompletedPaths) {
-                this.shotPaths.shift();
-            }
-            plog.waddle(`Saved shot path ${shotPath.shotNumber} with ${shotPath.points.length} points in color ${shotPath.color}`);
-            
-            // Cycle to next color
-            this.currentColorIndex = (this.currentColorIndex + 1) % this.shotColors.length;
-        }
-        
-        this.isRecordingPath = false;
-        this.currentShotPath = [];
-        this.currentShotRenderPath = null;
-    }
-    
-    clearAllShotPaths() {
-        this.shotPaths = [];
-        this.currentShotPath = [];
-        this.currentShotRenderPath = null;
-        this.currentColorIndex = 0;
-        this.isRecordingPath = false;
-        plog.debug('Cleared all shot paths');
-    }
-    
-    drawAllShotPaths(ctx) {
-        // Draw all completed shot paths
-        for (const shotPath of this.shotPaths) {
-            if (shotPath.points.length < 2) continue;
-            
-            ctx.save();
-            ctx.strokeStyle = shotPath.color;
-            ctx.lineWidth = RENDER_CONFIG.shotTrails.lineWidth;
-            ctx.globalAlpha = RENDER_CONFIG.shotTrails.completedAlpha;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            ctx.beginPath();
-            if (shotPath.renderPath) {
-                ctx.stroke(shotPath.renderPath);
-            } else {
-                ctx.moveTo(shotPath.points[0].x, shotPath.points[0].y);
-                for (let i = 1; i < shotPath.points.length; i++) {
-                    const point = shotPath.points[i];
-                    if (point.move) ctx.moveTo(point.x, point.y);
-                    else ctx.lineTo(point.x, point.y);
-                }
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-        
-        // Draw current shot path being recorded (if any) with slightly different style
-        if (this.isRecordingPath && this.currentShotPath.length > 1) {
-            ctx.save();
-            ctx.strokeStyle = this.shotColors[this.currentColorIndex];
-            ctx.lineWidth = RENDER_CONFIG.shotTrails.lineWidth;
-            ctx.globalAlpha = RENDER_CONFIG.shotTrails.activeAlpha;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            ctx.beginPath();
-            if (this.currentShotRenderPath) {
-                ctx.stroke(this.currentShotRenderPath);
-            } else {
-                ctx.moveTo(this.currentShotPath[0].x, this.currentShotPath[0].y);
-                for (let i = 1; i < this.currentShotPath.length; i++) {
-                    const point = this.currentShotPath[i];
-                    if (point.move) ctx.moveTo(point.x, point.y);
-                    else ctx.lineTo(point.x, point.y);
-                }
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-    }
-    
-    drawAlphaMasks(ctx) {
-        if (this.alphaMasks.length === 0) return;
-        
-        // Draw alpha masks in reverse order (oldest first, newest last)
-        for (let i = this.alphaMasks.length - 1; i >= 0; i--) {
-            const mask = this.alphaMasks[i];
-            if (!mask.renderCanvas) continue;
-            
-            ctx.save();
-            ctx.globalAlpha = mask.alpha;
-            ctx.translate(mask.x, mask.y);
-
-            // Draw the result centered on the launch position
-            // Use the registration point from the original game: [8, 13]
-            ctx.drawImage(mask.renderCanvas, -8, -13);
-            
-            ctx.restore();
-        }
-    }
-    
+    startRecordingShotPath() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).startPath(); }
+    recordPathPoint(x, y) { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).recordPoint(x, y); }
+    recordPortalTransit(entryPosition, exitPosition) { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).recordPortalTransit(entryPosition, exitPosition); }
+    endRecordingShotPath() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).endPath(); }
+    clearAllShotPaths() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).clearPaths(); }
+    drawAllShotPaths(ctx) { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).drawPaths(ctx); }
+    drawAlphaMasks(ctx) { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).drawAlphaMasks(ctx); }
     update(deltaTime) {
         this.deltaTime = deltaTime;
         this.starfieldTime = (this.starfieldTime || 0) + deltaTime;
@@ -1105,9 +645,7 @@ class Game {
             multiplier: this.levelRules?.scoreMultiplier ?? 1
         });
         const levelScore = result.levelScore;
-        this.currentLevelBestScore = result.levelContribution;
-        this.score = result.totalScore;
-        this.lastScoreImprovement = result.scoreImprovement;
+        this.sessionState().applyLevelScore(result);
         
         this.updateUI();
         
@@ -1135,11 +673,7 @@ class Game {
     }
     
     nextLevel() {
-        this.level++;
-        this.currentLevelBestScore = 0;
-        this.tries = 0;
-        this.distance = 0;
-        this.planetCollisions = 0;
+        this.sessionState().advanceLevel();
         
         // Close any UI screens
         this.uiManager.closeAllScreens();
@@ -1218,14 +752,10 @@ class Game {
         this.resetSimulationSpeedControl();
         this.invalidateSimulationState();
 
-        // Clear existing game state
-        this.gameObjects = [];
-        this.planets = [];
-        this.bonuses = [];
-        this.portals = [];
+        // Reset presentation state. LevelLoader commits the validated runtime
+        // world atomically through RuntimeWorld.membership.
         this.portalTransition = null;
         this.crashedPenguins = [];
-        this.physics.clear();
         this.planetCollisions = 0;
         this.tries = 0;
         this.launches = [];
@@ -1236,10 +766,6 @@ class Game {
         this.clearAllShotPaths();
         this.clearAlphaMasks();
         
-        // IMPORTANT: Invalidate render cache when clearing gameObjects
-        this._cachedSortedObjects = null;
-        this._gameObjectsChanged = true;
-        
         // Load level through level loader first
         const result = this.levelLoader.loadLevel(level, this);
         
@@ -1247,14 +773,12 @@ class Game {
         this.arrow = new Arrow(0, 0);
         this.arrow.setStageRect(this.viewRect);
         this.arrow.setFlightRect(this.flightRect);
-        this.gameObjects.push(this.arrow);
+        this.world.addGameObject(this.arrow);
         
         // Re-add bonus popup system
         this.bonusPopup = new BonusPopup(0, 0, 0);
-        this.gameObjects.push(this.bonusPopup);
+        this.world.addGameObject(this.bonusPopup);
         
-        // Force render cache update since we added objects
-        this._gameObjectsChanged = true;
         this.loadedLevelDefinition = this.exportCurrentLevel();
         this.beginRecordedRun(this.loadedLevelDefinition);
         
@@ -1263,96 +787,18 @@ class Game {
     
     // Helper methods for game object management
     addGameObject(obj) {
-        this.gameObjects.push(obj);
-        this._gameObjectsChanged = true;
+        return this.runtimeWorld().addGameObject(obj);
     }
     
     removeGameObject(obj) {
-        const index = this.gameObjects.indexOf(obj);
-        if (index !== -1) {
-            this.gameObjects.splice(index, 1);
-            this._gameObjectsChanged = true;
-        }
+        return this.runtimeWorld().removeGameObject(obj);
     }
     
     render() {
-        this.beginFrame();
-        const camera = this.getActiveCamera();
-        this.viewRect = camera.viewRect;
-        this.arrow?.setStageRect(this.viewRect);
-        this.ctx.save();
-        applyCameraTransform(this.ctx, camera);
-        
-        // Draw background stars (cached)
-        this.drawStars();
-        
-        // Keep trajectory lines and trail marks inside the authored playfield.
-        this.drawPlayfieldTraces();
-        
-        // Cache sorted objects if game objects haven't changed
-        if (!this._cachedSortedObjects || this._gameObjectsChanged) {
-            this._cachedSortedObjects = [...this.gameObjects].sort((a, b) => {
-                const orderA = a.renderOrder || 0;
-                const orderB = b.renderOrder || 0;
-                return orderA - orderB;
-            });
-            this._gameObjectsChanged = false;
-        }
-        
-        // Draw all game objects in render order
-        const objCount = this._cachedSortedObjects.length;
-        for (let i = 0; i < objCount; i++) {
-            const object = this._cachedSortedObjects[i];
-            if (object === this.penguin) {
-                this.drawPenguinInPlayfield();
-                for (const portal of this.portals || []) portal.drawForeground?.(this.ctx);
-            } else if (!this.levelEditor?.shouldDeferRuntimeObjectDraw?.(object)) {
-                object.draw(this.ctx);
-            }
-        }
-
-        if (this.levelEditor?.gravitySculptController?.isTesting()) {
-            this.levelEditor.gravitySculptController.onTestTargetHit();
-            this.ctx.restore();
-            return;
-        }
-
-        // Draw level editor overlay
-        this.levelEditor.render(this.ctx);
-
-        this.ctx.restore();
-
-        // These overlays live on the fixed logical display surface.
-        this.kevinCamRenderer.draw({
-            ctx: this.ctx,
-            enabled: this.settingsManager?.get('kevinCamEnabled') !== false,
-            arrowVisible: Boolean(this.arrow?.visible),
-            penguin: this.penguin
-        });
-        this.drawUI();
-        this.uiManager.render();
+        this.renderer.render();
     }
 
-    drawPlayfieldTraces() {
-        const playfield = this.stageRect || {
-            x: 0,
-            y: 0,
-            width: STAGE_WIDTH,
-            height: STAGE_HEIGHT
-        };
-
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(playfield.x, playfield.y, playfield.width, playfield.height);
-        this.ctx.clip();
-
-        this.drawAllShotPaths(this.ctx);
-        this.drawAlphaMasks(this.ctx);
-        this.physics.drawTrace(this.ctx);
-        this.drawAimAssist?.(this.ctx);
-
-        this.ctx.restore();
-    }
+    drawPlayfieldTraces() { return (this.renderer ||= new GameRenderer(this)).drawPlayfieldTraces(); }
 
     updateAimAssistPreview() {
         if (!this.settingsManager.get('aimAssistEnabled') ||
@@ -1392,170 +838,14 @@ class Game {
         }
     }
 
-    drawAimAssist(ctx) {
-        if (this.aimAssistPoints.length < 2 ||
-            !this.settingsManager.get('aimAssistEnabled') ||
-            this.penguin?.state !== 'pullback') return;
+    drawAimAssist(ctx) { return (this.renderer ||= new GameRenderer(this)).drawAimAssist(ctx); }
 
-        const config = RENDER_CONFIG.aimAssist;
-        ctx.save();
-        ctx.globalAlpha = config.alpha;
-        ctx.strokeStyle = config.color;
-        ctx.lineWidth = config.lineWidth;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = config.color;
-        ctx.shadowBlur = config.glowBlur;
-        ctx.setLineDash(config.dash);
-        ctx.beginPath();
-        ctx.moveTo(this.aimAssistPoints[0].x, this.aimAssistPoints[0].y);
-        for (let index = 1; index < this.aimAssistPoints.length; index++) {
-            const point = this.aimAssistPoints[index];
-            if (point.move) ctx.moveTo(point.x, point.y);
-            else ctx.lineTo(point.x, point.y);
-        }
-        ctx.stroke();
-        ctx.restore();
-    }
+    drawPenguinInPlayfield() { return (this.renderer ||= new GameRenderer(this)).drawPenguinInPlayfield(); }
 
-    drawPenguinInPlayfield() {
-        if (!this.penguin) {
-            return;
-        }
-
-        const playfield = this.stageRect || {
-            x: 0,
-            y: 0,
-            width: STAGE_WIDTH,
-            height: STAGE_HEIGHT
-        };
-
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(playfield.x, playfield.y, playfield.width, playfield.height);
-        this.ctx.clip();
-        for (const crashedPenguin of this.crashedPenguins || []) {
-            crashedPenguin.draw(this.ctx);
-        }
-        if (!this.drawPortalTransition?.(this.ctx)) this.penguin.draw(this.ctx);
-        this.ctx.restore();
-    }
-
-    beginPortalTransition(event) {
-        this.portalTransition = {
-            ...event,
-            startedAt: globalThis.performance?.now?.() ?? Date.now()
-        };
-    }
-
-    drawPortalTransition(ctx) {
-        const transition = this.portalTransition;
-        if (!transition || !this.penguin) return false;
-        const now = globalThis.performance?.now?.() ?? Date.now();
-        const durationMs = RENDER_CONFIG.entities.portal.transitionSeconds * 1000;
-        const progress = Math.min(1, (now - transition.startedAt) / durationMs);
-        if (progress >= 1) {
-            this.portalTransition = null;
-            return false;
-        }
-        const source = this.portals.find(portal => portal.id === transition.sourcePortalId);
-        const destination = this.portals.find(portal => portal.id === transition.destinationPortalId);
-        if (!source || !destination) return false;
-        const unit = velocity => {
-            const length = Math.hypot(velocity?.x || 0, velocity?.y || 0) || 1;
-            return { x: (velocity?.x || 1) / length, y: (velocity?.y || 0) / length };
-        };
-        const incoming = unit(transition.incomingVelocity);
-        const entryDistance = this.penguin.radius * 2.2 * (1 - progress);
-        const entry = {
-            x: transition.entryPosition.x - incoming.x * entryDistance,
-            y: transition.entryPosition.y - incoming.y * entryDistance
-        };
-        const exit = {
-            x: destination.position.x + (transition.exitPosition.x - destination.position.x) * progress,
-            y: destination.position.y + (transition.exitPosition.y - destination.position.y) * progress
-        };
-        const drawInsideAperture = (portal, position) => {
-            ctx.save();
-            ctx.translate(portal.position.x, portal.position.y);
-            ctx.rotate(Utils.toRadians(portal.rotation));
-            ctx.beginPath();
-            ctx.ellipse(0, 0, portal.width / 2, portal.height / 2, 0, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.rotate(-Utils.toRadians(portal.rotation));
-            ctx.translate(-portal.position.x, -portal.position.y);
-            this.penguin.drawBodyAt(ctx, position.x, position.y);
-            ctx.restore();
-        };
-        // The entering copy disappears into the aperture. The exiting copy is
-        // deliberately drawn in ordinary world space: the destination's front
-        // lip is rendered immediately afterward, which makes Kevin cross the
-        // rim instead of looking trapped behind an aperture-shaped mask.
-        drawInsideAperture(source, entry);
-        this.penguin.drawBodyAt(ctx, exit.x, exit.y);
-        return true;
-    }
-
-    generateStars() {
-        // Generate 100 random, spaced-out stars
-        const numStars = RENDER_CONFIG.starfield.count;
-        const minDist = RENDER_CONFIG.starfield.minimumDistance;
-        const maxTries = RENDER_CONFIG.starfield.placementAttempts;
-        this.stars = [];
-        for (let i = 0; i < numStars; i++) {
-            let tries = 0;
-            let x, y, size;
-            let ok = false;
-            while (!ok && tries < maxTries) {
-                x = Math.random() * STAGE_WIDTH;
-                y = Math.random() * STAGE_HEIGHT;
-                size = RENDER_CONFIG.starfield.minimumSize +
-                    Math.floor(Math.random() * RENDER_CONFIG.starfield.sizeVariants);
-                ok = true;
-                for (const s of this.stars) {
-                    const dx = s.x - x;
-                    const dy = s.y - y;
-                    if (Math.sqrt(dx*dx + dy*dy) < minDist) {
-                        ok = false;
-                        break;
-                    }
-                }
-                tries++;
-            }
-            this.stars.push({ x, y, size });
-        }
-    }
-    
-    drawStars() {
-        // Repeat the deterministic 800 x 600 star tile across expanded worlds.
-        // Each size is a depth layer: larger/nearer stars drift faster.
-        const elapsed = this.starfieldTime || 0;
-        const drift = this.starDriftSpeed || RENDER_CONFIG.starfield.drift;
-        const view = this.getActiveCamera?.().viewRect || this.viewRect ||
-            this.stageRect || { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
-        const firstTileX = Math.floor(view.x / STAGE_WIDTH);
-        const lastTileX = Math.floor((view.x + view.width - 1e-9) / STAGE_WIDTH);
-        const firstTileY = Math.floor(view.y / STAGE_HEIGHT);
-        const lastTileY = Math.floor((view.y + view.height - 1e-9) / STAGE_HEIGHT);
-
-        this.ctx.save();
-        this.ctx.fillStyle = RENDER_CONFIG.starfield.color;
-        for (let tileY = firstTileY; tileY <= lastTileY; tileY++) {
-            for (let tileX = firstTileX; tileX <= lastTileX; tileX++) {
-                for (const star of this.stars) {
-                    const rawX = star.x + elapsed * drift.x * star.size;
-                    const rawY = star.y + elapsed * drift.y * star.size;
-                    const x = tileX * STAGE_WIDTH + ((rawX % STAGE_WIDTH) + STAGE_WIDTH) % STAGE_WIDTH;
-                    const y = tileY * STAGE_HEIGHT + ((rawY % STAGE_HEIGHT) + STAGE_HEIGHT) % STAGE_HEIGHT;
-                    this.ctx.globalAlpha = RENDER_CONFIG.starfield.baseAlpha +
-                        star.size * RENDER_CONFIG.starfield.sizeAlpha;
-                    this.ctx.fillRect(x, y, star.size, star.size);
-                }
-            }
-        }
-        this.ctx.globalAlpha = 1.0;
-        this.ctx.restore();
-    }
-    
+    beginPortalTransition(event) { return this.flightPresentation.beginPortalTransition(event); }
+    drawPortalTransition(ctx) { return this.flightPresentation.drawPortalTransition(ctx); }
+    generateStars() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).generateStars(); }
+    drawStars() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).drawStars(); }
     drawUI() {
         // Draw shot path info (debugging/status display)
         if (this.state === GameState.PLAYING) {
@@ -1672,57 +962,15 @@ class Game {
     }
 
     async changeSetting(definition, value) {
-        if (definition.key !== 'stellarModeEnabled') {
-            return this.settingsManager.set(definition.key, value);
-        }
-
-        if (!value) {
-            this.audioManager?.clearStellarTrack();
-            await this.stellarTrackStore.clear();
-            return this.settingsManager.set(definition.key, false);
-        }
-
-        const file = await this.selectStellarMp3();
-        const loaded = file && await this.audioManager?.loadStellarTrack(file);
-        if (!loaded) {
-            this.showMessage('We need a Stellar MP3 to continue.');
-            return this.settingsManager.set(definition.key, false);
-        }
-        if (!await this.stellarTrackStore.save(file)) {
-            this.audioManager?.clearStellarTrack();
-            this.showMessage('We could not save that Stellar MP3. Please check that browser storage is available.');
-            return this.settingsManager.set(definition.key, false);
-        }
-        return this.settingsManager.set(definition.key, true);
+        return this.settingsController.change(definition, value);
     }
 
     async restoreStellarMode() {
-        if (!this.settingsManager.get('stellarModeEnabled')) return false;
-        const file = await this.stellarTrackStore.load();
-        const loaded = file && await this.audioManager?.loadStellarTrack(file);
-        if (loaded) return true;
-        this.settingsManager.set('stellarModeEnabled', false);
-        return false;
+        return this.settingsController.restore();
     }
 
     selectStellarMp3() {
-        return new Promise(resolve => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.mp3,audio/mpeg';
-            input.style.display = 'none';
-            document.body.appendChild(input);
-            let settled = false;
-            const finish = file => {
-                if (settled) return;
-                settled = true;
-                input.remove();
-                resolve(file || null);
-            };
-            input.addEventListener('change', () => finish(input.files?.[0]));
-            input.addEventListener('cancel', () => finish(null));
-            input.click();
-        });
+        return this.settingsController.selectStellarMp3();
     }
     
     showMessage(message) {
@@ -1742,13 +990,7 @@ class Game {
     }
     
     startGame() {
-        this.level = 1;
-        this.score = 0;
-        this.currentLevelBestScore = 0;
-        this.currentAttemptScore = 0;
-        this.distance = 0;
-        this.tries = 0;
-        this.currentRunScoreSaved = false;
+        this.sessionState().startCampaign();
         this.uiManager.closeAllScreens();
         this.loadLevel(this.level);
         this.setState(GameState.PLAYING);
@@ -1766,13 +1008,8 @@ class Game {
         plog.info(`Jumping to level ${targetLevel}`);
         
         // Set up game state for the target level
-        this.level = targetLevel;
+        this.sessionState().beginLevel(targetLevel);
         this.score = 0; // Start fresh for testing purposes
-        this.currentLevelBestScore = 0;
-        this.currentAttemptScore = 0;
-        this.distance = 0;
-        this.tries = 0;
-        this.planetCollisions = 0;
         
         // Close any UI screens
         this.uiManager.closeAllScreens();
@@ -1968,10 +1205,7 @@ class Game {
         this.resetBonuses(); // Reset bonuses between tries
         
         // Reset current attempt score (don't add bonuses until level is completed)
-        this.currentAttemptScore = 0;
-        
-        // Reset distance (prevents accumulation across retries affecting score)
-        this.distance = 0;
+        this.sessionState().resetAttemptCounters();
         
         // Update mobile UI feedback
         if (this.isMobileDevice()) {
@@ -1983,30 +1217,16 @@ class Game {
     }
 
     beginRecordedRun(levelDefinition = null) {
-        this.runTick = 0;
-        this.runTranscriptRecorder = new RunTranscriptRecorder();
-        this.completedRun = null;
-        this.pendingCommunityScoreSubmission = null;
-        const definition = levelDefinition || (this.penguin && this.target && this.slingshot
-            ? this.exportCurrentLevel()
-            : null);
-        this.recordedRunLevel = definition ? structuredClone(definition) : null;
-        this.levelEditor?.updatePublishAvailability?.();
-        this.invalidateSimulationState();
+        return this.communityRunCoordinator().begin(levelDefinition);
     }
 
     invalidateRecordedRun() {
-        this.runTranscriptRecorder = null;
-        this.completedRun = null;
-        this.recordedRunLevel = null;
-        this.pendingCommunityScoreSubmission = null;
-        this.levelEditor?.updatePublishAvailability?.();
+        return this.communityRunCoordinator().invalidate();
     }
 
     recordRunLaunch(angle, power) {
-        if (!this.runTranscriptRecorder) this.beginRecordedRun();
         try {
-            this.runTranscriptRecorder.recordLaunch(this.runTick, angle, power);
+            this.communityRunCoordinator().recordLaunch(angle, power);
         } catch (error) {
             plog.warn('This run cannot be submitted as a deterministic proof:', error.message);
             this.invalidateRecordedRun();
@@ -2014,9 +1234,8 @@ class Game {
     }
 
     recordRunRetry() {
-        if (!this.runTranscriptRecorder || this.runTranscriptRecorder.actions.length === 0) return;
         try {
-            this.runTranscriptRecorder.recordRetry(this.runTick);
+            this.communityRunCoordinator().recordRetry();
         } catch (error) {
             plog.warn('This retry invalidated the deterministic run proof:', error.message);
             this.invalidateRecordedRun();
@@ -2024,14 +1243,8 @@ class Game {
     }
 
     completeRecordedRun() {
-        if (!this.runTranscriptRecorder || this.runTranscriptRecorder.actions.length === 0) return null;
         try {
-            this.completedRun = {
-                proof: this.runTranscriptRecorder.freeze(),
-                level: structuredClone(this.recordedRunLevel || this.exportCurrentLevel())
-            };
-            this.levelEditor?.updatePublishAvailability?.();
-            return this.completedRun;
+            return this.communityRunCoordinator().complete();
         } catch (error) {
             plog.warn('Unable to freeze the completed run proof:', error.message);
             this.invalidateRecordedRun();
@@ -2040,62 +1253,27 @@ class Game {
     }
 
     isCommunityLevel() {
-        return this.levelMetadata?.catalogReference?.source === 'community';
+        return this.communityRunCoordinator().isCommunityLevel();
     }
 
     currentCommunityScore() {
-        return calculateCommunityScore({
-            distance: this.distance,
-            tries: this.tries,
-            bonusScore: this.currentAttemptScore,
-            multiplier: this.levelRules?.scoreMultiplier ?? 1
-        });
+        return this.communityRunCoordinator().currentScore();
     }
 
     async publishEditedLevel() {
-        if (!this.communityLevelClient) throw new Error('No community level server is configured.');
-        if (!this.completedRun) throw new Error('Complete this exact level in Play Mode before publishing it.');
-        const level = this.levelEditor?.mode === 'play'
-            ? structuredClone(this.completedRun.level)
-            : this.levelEditor?.currentDocumentDefinition?.() || this.exportCurrentLevel();
-        if (JSON.stringify(level) !== JSON.stringify(this.completedRun.level)) {
-            this.completedRun = null;
-            throw new Error('The level changed after it was completed. Complete it again before publishing.');
-        }
-        const result = await this.communityLevelClient.publishLevel(level, this.completedRun.proof);
-        const published = result.item || result;
-        this.levelMetadata.catalogReference = { id: published.id, source: 'community' };
-        return published;
+        return this.communityRunCoordinator().publishEditedLevel();
     }
 
     getCommunityScoreInitials() {
-        const storage = typeof localStorage === 'undefined' ? null : localStorage;
-        return storage?.getItem('spacedPenguinCommunityInitials') || '';
+        return this.communityRunCoordinator().getInitials();
     }
 
     async offerCommunityScoreUpload(initials) {
-        if (!this.communityLevelClient || !this.isCommunityLevel() || !this.completedRun) return null;
-        const storage = typeof localStorage === 'undefined' ? null : localStorage;
-        const normalizedInitials = String(initials || '').trim().toUpperCase();
-        if (!/^[A-Z]{3}$/.test(normalizedInitials)) throw new Error('Initials must be exactly three letters.');
-        storage?.setItem('spacedPenguinCommunityInitials', normalizedInitials);
-        const score = this.currentCommunityScore();
-        this.pendingCommunityScoreSubmission = {
-            levelId: this.levelMetadata.catalogReference.id,
-            initials: normalizedInitials,
-            claimedScore: score.score,
-            proof: this.completedRun.proof,
-            idempotencyKey: createIdempotencyKey()
-        };
-        return this.submitPendingCommunityScore();
+        return this.communityRunCoordinator().offerScoreUpload(initials);
     }
 
     async submitPendingCommunityScore() {
-        const submission = this.pendingCommunityScoreSubmission;
-        if (!submission || !this.communityLevelClient) return null;
-        const response = await this.communityLevelClient.submitScore(submission.levelId, submission);
-        this.pendingCommunityScoreSubmission = null;
-        return response;
+        return this.communityRunCoordinator().submitPendingScore();
     }
     
     // Level Editor Methods
@@ -2108,258 +1286,44 @@ class Game {
     }
     
     exportCurrentLevel() {
-        plog.info('=== STARTING COMPREHENSIVE LEVEL EXPORT ===');
-        
-        // Prefer slingshot anchor for the canonical start position. If no slingshot,
-        // fall back to penguin position, then defaults.
-        const exportedSlingshotPosition = this.slingshot?.launchModel === 'director'
-            ? this.slingshot.resetPosition
-            : this.slingshot?.position;
-        const startPosForExport = exportedSlingshotPosition
-            ? { ...exportedSlingshotPosition }
-            : (this.penguin
-                ? { x: this.penguin.x, y: this.penguin.y }
-                : { ...WORLD_CONFIG.defaultStartPosition });
-
-        const levelData = {
-            name: this.levelMetadata?.name || `Custom Level ${this.level}`,
-            description: this.levelMetadata?.description ?? '',
-            startPosition: startPosForExport,
-            targetPosition: this.target
-                ? { x: this.target.position.x, y: this.target.position.y }
-                : { ...WORLD_CONFIG.defaultTargetPosition },
-            bounds: {
-                stage: { ...this.stageRect },
-                flight: { ...this.flightRect }
-            },
-            ...(this.cameraConfig ? { camera: { ...this.cameraConfig } } : {}),
-            objects: [],
-            rules: this.levelRules ? this.exportLevelRules() : {
-                maxTries: null,
-                timeLimit: null,
-                scoreMultiplier: LEVEL_DEFAULTS.rules.scoreMultiplier
-            }
-        };
-        
-        // GREEDY EXPORT: Get ALL objects from ALL arrays
-        const allObjects = this.getAllObjectsForExport();
-        
-        plog.info(`Found ${allObjects.length} total objects to export`);
-        
-        // Export each object with ALL its properties
-        for (const obj of allObjects) {
-            const exportedObj = this.exportObjectComprehensively(obj);
-            if (exportedObj) {
-                levelData.objects.push(exportedObj);
-            }
-        }
-        
-        plog.success(`Export complete: ${levelData.objects.length} objects exported`);
-        plog.debug('Level data structure:', levelData);
-        return levelData;
+        this.runtimeLevelSerializer ||= new RuntimeLevelSerializer();
+        return this.runtimeLevelSerializer.serialize({
+            world: this.runtimeWorld(),
+            session: this.sessionState()
+        });
     }
     
     getAllObjectsForExport() {
-        const allObjects = new Set(); // Use Set to avoid duplicates
-        
-        // Add from gameObjects array
-        this.gameObjects.forEach(obj => {
-            if (this.shouldExportObject(obj)) {
-                allObjects.add(obj);
-            }
-        });
-        
-        // Add from specific arrays (in case something's missing from gameObjects)
-        this.planets.forEach(obj => allObjects.add(obj));
-        this.bonuses.forEach(obj => allObjects.add(obj));
-        this.portals.forEach(obj => allObjects.add(obj));
-        this.textObjects.forEach(obj => allObjects.add(obj));
-        this.pointingArrows.forEach(obj => allObjects.add(obj));
-        
-        // Add penguin if it exists
-        if (this.penguin && this.shouldExportObject(this.penguin)) {
-            allObjects.add(this.penguin);
-        }
-        
-        plog.debug('Objects found in arrays:');
-        plog.debug('- gameObjects:', this.gameObjects.length);
-        plog.debug('- planets:', this.planets.length);
-        plog.debug('- bonuses:', this.bonuses.length);
-        plog.debug('- textObjects:', this.textObjects.length);
-        plog.debug('- pointingArrows:', this.pointingArrows.length);
-        plog.debug('- penguin:', this.penguin ? 1 : 0);
-        
-        return Array.from(allObjects);
+        return this.runtimeWorld().membership.list().filter(object => this.shouldExportObject(object));
     }
     
     shouldExportObject(obj) {
-        return isRuntimeObjectExportable(obj);
+        return Boolean(this.runtimeLevelSerializer.serializeObject(obj));
     }
     
     exportObjectComprehensively(obj) {
-        const exported = serializeRuntimeObject(obj, {
-            serializeOrbit: orbit => this.exportOrbitSystem(orbit),
-            serializeWaypointPath: path => this.exportWaypointPath(path)
-        });
-        if (!exported) plog.warn('Skipping runtime object without an exportable game-object descriptor:', obj);
-        return exported;
+        return this.runtimeLevelSerializer?.serializeObject(obj) || new RuntimeLevelSerializer().serializeObject(obj);
     }
     
     exportOrbitSystem(orbitSystem) {
-        const exportData = {
-            orbitCenter: orbitSystem.orbitCenter ? { 
-                x: orbitSystem.orbitCenter.x, 
-                y: orbitSystem.orbitCenter.y 
-            } : null,
-            orbitTargetId: orbitSystem.orbitTargetId || null,
-            orbitRadius: orbitSystem.orbitRadius,
-            orbitSpeed: orbitSystem.orbitSpeed,
-            orbitAngle: orbitSystem.orbitAngle,
-            orbitType: orbitSystem.orbitType,
-            orbitParams: orbitSystem.orbitParams || {}
-        };
-        
-        // Add gravity-specific properties if it's a gravity orbit
-        if (orbitSystem.orbitType === LevelOrbitType.GRAVITY) {
-            exportData.orbitParams = {
-                ...exportData.orbitParams,
-                gravityStrength: orbitSystem.gravityStrength ?? PHYSICS_CONFIG.orbit.gravityStrength,
-                initialVelocity: orbitSystem.velocity ? { 
-                    x: orbitSystem.velocity.x, 
-                    y: orbitSystem.velocity.y 
-                } : { ...PHYSICS_CONFIG.orbit.initialVelocity }
-            };
-        }
-        
-        return exportData;
+        return serializeOrbitSystem(orbitSystem);
     }
 
     exportWaypointPath(waypointSystem) {
-        return {
-            waypoints: waypointSystem.waypoints.map(point => ({ x: point.x, y: point.y })),
-            speed: waypointSystem.speed,
-            mode: waypointSystem.mode,
-            phase: waypointSystem.phase
-        };
+        return serializeWaypointPath(waypointSystem);
     }
     
     exportLevelRules() {
-        return {
-            maxTries: this.levelRules.maxTries,
-            timeLimit: this.levelRules.timeLimit,
-            scoreMultiplier: this.levelRules.scoreMultiplier,
-            requiredBonuses: this.levelRules.requiredBonuses,
-            allowedMisses: this.levelRules.allowedMisses,
-            gravitationalConstant: this.levelRules.gravitationalConstant
-        };
+        return serializeLevelRules(this.levelRules);
     }
 
 
     
-    createAlphaMaskAtLaunchPosition(position = this.penguin) {
-        if (!position) return;
-        
-        // Get current trace color (matching original game's pTraceColor)
-        const traceColor = this.shotColors[this.currentColorIndex];
-        
-        // Create alpha mask object (matching original game's k1, k2, k3 sprites)
-        const alphaMask = {
-            x: position.x,
-            y: position.y,
-            color: traceColor,
-            alpha: 0.6, // Semi-transparent like original
-            renderCanvas: this.getColoredAlphaMaskCanvas(traceColor)
-        };
-        
-        // Shift existing masks (matching original game's setUpSnapping logic)
-        // k3 gets k2's position, k2 gets k1's position, k1 gets current position
-        if (this.alphaMasks.length >= RENDER_CONFIG.shotTrails.alphaMaskHistory) {
-            this.alphaMasks[2] = this.alphaMasks[1]; // k3 = k2
-            this.alphaMasks[1] = this.alphaMasks[0]; // k2 = k1
-            this.alphaMasks[0] = alphaMask; // k1 = new position
-        } else {
-            this.alphaMasks.unshift(alphaMask);
-        }
-        
-
-    }
-    
-    clearAlphaMasks() {
-        this.alphaMasks = [];
-        plog.debug('Cleared all alpha masks');
-    }
-    
-    loadAlphaMask() {
-        const cachedAlphaMask = this.assetLoader?.getUI('alpha_mask');
-        if (cachedAlphaMask) {
-            this.alphaMaskImage = cachedAlphaMask;
-            try {
-                this.prepareAlphaMaskStencil();
-            } catch (error) {
-                plog.error('Failed to prepare cached alpha mask image:', error);
-            }
-            return;
-        }
-
-        // Load the alpha mask image directly
-        this.alphaMaskImage = new Image();
-        this.alphaMaskImage.onload = () => {
-            try {
-                this.prepareAlphaMaskStencil();
-                for (const mask of this.alphaMasks) {
-                    mask.renderCanvas = this.getColoredAlphaMaskCanvas(mask.color);
-                }
-                plog.success('Alpha mask image loaded and cached successfully');
-            } catch (error) {
-                plog.error('Failed to prepare alpha mask image:', error);
-            }
-        };
-        this.alphaMaskImage.onerror = () => {
-            plog.error('Failed to load alpha mask image');
-        };
-        this.alphaMaskImage.src = assetPath('ui/alpha_mask.png');
-    }
-
-    prepareAlphaMaskStencil() {
-        const width = this.alphaMaskImage.naturalWidth || this.alphaMaskImage.width;
-        const height = this.alphaMaskImage.naturalHeight || this.alphaMaskImage.height;
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext('2d');
-        context.drawImage(this.alphaMaskImage, 0, 0);
-
-        const imageData = context.getImageData(0, 0, width, height);
-        const pixels = imageData.data;
-        for (let index = 0; index < pixels.length; index += 4) {
-            const gray = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
-            pixels[index] = 255;
-            pixels[index + 1] = 255;
-            pixels[index + 2] = 255;
-            pixels[index + 3] = 255 - gray;
-        }
-        context.putImageData(imageData, 0, 0);
-
-        this.alphaMaskStencil = canvas;
-        this.coloredAlphaMaskCanvases.clear();
-    }
-
-    getColoredAlphaMaskCanvas(color) {
-        if (!this.alphaMaskStencil) return null;
-        const cached = this.coloredAlphaMaskCanvases.get(color);
-        if (cached) return cached;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = this.alphaMaskStencil.width;
-        canvas.height = this.alphaMaskStencil.height;
-        const context = canvas.getContext('2d');
-        context.fillStyle = color;
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = 'destination-in';
-        context.drawImage(this.alphaMaskStencil, 0, 0);
-        this.coloredAlphaMaskCanvases.set(color, canvas);
-        return canvas;
-    }
+    createAlphaMaskAtLaunchPosition(position = this.penguin) { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).createAlphaMask(position); }
+    clearAlphaMasks() { return (this.flightPresentation ||= new FlightPresentation(this, { initializeAssets: false })).clearAlphaMasks(); }
+    loadAlphaMask() { return (this.flightPresentation ||= new FlightPresentation(this)).loadAlphaMask(); }
+    prepareAlphaMaskStencil() { return this.flightPresentation.prepareAlphaMaskStencil(); }
+    getColoredAlphaMaskCanvas(color) { return this.flightPresentation.getColoredAlphaMaskCanvas(color); }
 }
 
 // Export for use in other modules
@@ -2367,4 +1331,4 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = Game;
 } 
 
-export { Game, GameState };
+export { GameState };

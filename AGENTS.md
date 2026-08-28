@@ -29,9 +29,14 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 ## Current architecture
 
 - `js/main.js`: composition root, browser lifecycle, one animation-frame owner, responsive sizing, and input-context updates.
-- `js/game.js`: live runtime aggregate, attempt/level transitions, rendering, UI coordination, editor integration, and effects.
+- `js/game.js`: browser-runtime facade and lifecycle coordinator; delegates owned state and workflows to focused collaborators.
+- `js/runtime/gameSession.js`: campaign, level, attempt, scoring, rule, and run metadata state.
+- `js/runtime/runtimeWorld.js`: entity collections, singleton references, physics membership, and render revision invalidation.
+- `js/rendering/gameRenderer.js` and `js/rendering/flightPresentation.js`: render pipeline, draw-order cache, trails, starfield, portals, and alpha-mask visuals.
+- `js/input/gameplayController.js`: gameplay pointer, touch, keyboard, and mobile-control behavior.
+- `js/runtime/gameEffectsCoordinator.js`: browser-side handling of deterministic simulation events.
 - `js/simulation/simulationEngine.js`: authoritative deterministic gameplay transitions, launch math, collisions, bonuses, target outcomes, rules, and scoring.
-- `js/runtime/gameSimulationAdapter.js`: browser object snapshots/state application and translation of domain events into sound, animation, messages, and scoring flow.
+- `js/runtime/gameSimulationAdapter.js`: browser object snapshots/state application and typed event dispatch to the effects coordinator.
 - `js/simulation/orbitSimulation.js`: pure circular, elliptical, figure-8, gravity, and hierarchical orbit advancement.
 - `js/simulation/simulationState.js`: normalized serializable simulation state and reset/clone operations.
 - `js/simulation/compiledWorldTimeline.js`: exact headless-only cache of candidate-independent world motion.

@@ -4,7 +4,7 @@
 
 **Audience:** Software architects, maintainers, game/system developers, and level-tooling developers
 
-**Last verified:** 2026-08-23 against the repository source
+**Last verified:** 2026-08-28 against the repository source
 
 **Scope:** The browser-based HTML5 rewrite. `OldSource/` is reference material, not a runtime dependency.
 
@@ -12,9 +12,9 @@
 
 Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 logical display surface with an optional level camera over a larger world-space playfield, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
-The central `Game` object is both the runtime aggregate and the main coordinator. It owns gameplay state, entity collections, physics registration, scoring, UI overlays, the level editor, fullscreen support, and level transitions. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router.
+`Game` is the browser-runtime facade and lifecycle coordinator. Mutable session data belongs to `GameSession`; entity collections, physics registration, and render invalidation belong to `RuntimeWorld`; rendering and flight presentation belong to `GameRenderer` and `FlightPresentation`; gameplay gestures belong to `GameplayController`; and browser effects, settings, community runs, and runtime serialization have dedicated coordinators. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router. Main-menu and bootstrap-loading presentation live in separate browser UI views assembled by that composition root.
 
-The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. This keeps deployment and iteration simple, but concentrates responsibilities in `Game` and permits some global access through `window`. Gameplay transitions now live in a deterministic, environment-independent simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
+The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. The facade preserves existing call sites while dedicated collaborators provide explicit ownership boundaries. Some browser diagnostics still use global access through `window`. Gameplay transitions live in a deterministic, environment-independent simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
 
 ## 2. System context
 
@@ -98,10 +98,19 @@ flowchart TB
     Main --> Assets[AssetLoader]
     Assets --> Audio[AudioManager]
     Main --> Inputs[InputManager and policy contexts]
-    Main --> Game[Game aggregate]
+    Main --> Game[Game facade and lifecycle coordinator]
+    Main --> Menu[MainMenuScreen]
+    Main --> Loading[BootstrapLoadingView]
+
+    Game --> Session[GameSession]
+    Game --> World[RuntimeWorld]
+    Game --> Renderer[GameRenderer and FlightPresentation]
+    Game --> Gameplay[GameplayController]
+    Game --> Services[Settings, community runs, serializer]
 
     Game --> Loader[LevelLoader and GameObjectFactory]
     Game --> Adapter[GameSimulationAdapter]
+    Adapter --> Effects[GameEffectsCoordinator]
     Adapter --> Simulation[SimulationEngine and SimulationState]
     Simulation --> Orbit[OrbitSimulation]
     Game --> Physics[Physics registry and helpers]
@@ -119,14 +128,24 @@ flowchart TB
     Loader --> Entities
     Physics --> Entities
     Inputs --> Game
+    Inputs --> Menu
     Inputs --> Editor
 ```
 
 | Component | Primary responsibility | Important collaborators | Architectural notes |
 |---|---|---|---|
 | `index.html` | DOM shell, HUD, canvas, responsive CSS, module entry | `main.js` | Logical canvas size is declared here. |
-| `GameManager` (`main.js`) | Browser bootstrap, frame scheduling, visibility handling, viewport scaling, start screen | `AssetLoader`, `Game`, `InputManager` | Owns the outer lifecycle; published as `window.gameManager`. |
-| `Game` (`game.js`) | Runtime aggregate, level/attempt lifecycle, effects, UI coordination, and render pipeline | Nearly all runtime components | Gameplay transition policy is delegated to the simulation core, but `Game` remains the main integration hotspot. |
+| `GameManager` (`main.js`) | Browser bootstrap, frame scheduling, visibility handling, viewport scaling, and concrete dependency assembly | `AssetLoader`, `Game`, `InputManager`, menu/loading views | Owns the outer lifecycle and only recurring animation-frame chain; published as `window.gameManager`. |
+| `MainMenuScreen` | Main-menu lifecycle, buttons, input surface, mobile start control, and injected navigation actions | Menu renderer/model, `GameManager`, `MenuInputContext` | Does not own gameplay state; its slingshot is presentation-only. |
+| `MainMenuRenderer` / `MenuSlingshotModel` | Menu-specific Canvas drawing and deterministic decorative motion | Assets, `Penguin` visual facade | Kept outside authoritative gameplay simulation because menu motion has no gameplay outcome. |
+| `BootstrapLoadingView` | Pre-game loading overlay, progress copy, and background-asset status | `GameManager`, DOM | Standalone because it exists before `UIManager` is constructed. |
+| `Game` (`game.js`) | Browser-runtime facade, lifecycle orchestration, UI/editor transitions, and compatibility delegation | Focused runtime collaborators | Does not own deterministic gameplay policy, entity storage, rendering internals, input gestures, settings workflow, community-run state, or serialization policy. |
+| `GameSession` | Campaign, level, attempt, scoring, rule, and run metadata state | `Game`, scoring flow | Owns mutable session counters and transitions without Canvas, DOM, entity, or persistence dependencies. |
+| `RuntimeWorld` | Entity collections, singleton references, physics membership, and revision invalidation | Loader, renderer, live editor mutator | All runtime entity membership changes pass through this boundary. |
+| `GameRenderer` / `FlightPresentation` | Draw ordering, clipping, aim overlay, trails, starfield, portal transitions, and alpha-mask visuals | Canvas, runtime-world snapshots | Visual caches key off the runtime-world revision and never advance authoritative gameplay. |
+| `GameplayController` | Mouse, touch, keyboard, mobile controls, and pullback gesture state | Input contexts, `Game` facade | Input policy remains in contexts; this controller implements gameplay commands. |
+| `GameEffectsCoordinator` | Translation of deterministic domain events into sound, animation, messages, and browser feedback | Simulation adapter, audio, UI | Keeps browser effects outside the simulation core. |
+| Settings/community/serialization coordinators | Settings and MP3 workflow, recorded/community runs, and runtime-level export | Persistence and platform services | These workflows no longer store their state or policy directly in `Game`. |
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
 | `InputManager` | Register contexts and dispatch each DOM event in deterministic priority order | Input contexts, DOM/window | Contains no game/editor/UI activation logic. The first claiming context stops routing unless it explicitly returns `PASS`. |
@@ -140,7 +159,7 @@ flowchart TB
 | `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
 | `CompiledWorldTimeline` | Exact fixed-step world-state cache for repeated headless candidates | Orbit simulation, simulation state | Stores positions plus orbit angle/velocity in compact `Float64Array` buffers; it changes evaluation cost, not gameplay semantics. |
-| `GameSimulationAdapter` | Translate live browser objects to/from simulation state and events | `Game`, simulation engine | Effects such as audio, popups, target animation, and UI remain outside the pure core. |
+| `GameSimulationAdapter` | Translate live browser objects to/from simulation state and dispatch typed domain events | `Game`, simulation engine, effects coordinator | State adaptation remains separate from browser-effect execution. |
 | `OrbitSimulation` | Pure parametric/gravity orbit stepping and dependency-ordered graph resolution | Simulation engine, `OrbitSystem` adapter | Resolves parents recursively, independent of JSON declaration order. |
 | `Physics` | Runtime registries and trace/legacy helper compatibility | Loader, renderer | It is no longer the authoritative gameplay integrator. |
 | `Penguin` | Character visual/animation state and live position facade | Game adapter, assets | Simulation owns movement; the adapter keeps parallel `x`/`y` and `position` access synchronized. |
@@ -177,6 +196,7 @@ sequenceDiagram
     AL->>AL: fetch manifest, prepare and load resources
     AL-->>GM: onAssetsLoaded(loader)
     GM->>G: new Game(canvas, loader, audio)
+    GM->>GM: construct menu and loading views
     GM->>IA: new InputManager(context)
     GM->>IA: register policy contexts
     GM->>LL: loadDefaultLevels()
@@ -192,7 +212,7 @@ Important bootstrap properties:
 
 - The manifest and every listed asset are attempted before `Game` is constructed. A failed essential visual receives a generated canvas fallback; failed nonessential media is logged and omitted.
 - Level files are loaded serially. A missing or invalid level is absent from the cache and is generated procedurally when requested.
-- `AssetLoader` constructs the actual `AudioManager`. Although `main.js` imports `AudioManager`, it obtains the shared instance from the loader.
+- `AssetLoader` constructs the actual `AudioManager`; `GameManager` obtains and injects that shared instance from the loader.
 - The recurring frame callback is scheduled before the loop checks `isRunning` and page visibility. Hidden pages skip work; the first frame after visibility resumes resets timing to avoid a large delta.
 - Display-frame time is capped to 1/30 second and accumulated across renders. `GameManager` advances the entire simulation world only in exact 1/60-second ticks, including moving/hierarchical orbits, gravity, collision, bonuses, bounds, and rules. Rendering remains display-driven, so copied headless trajectories have the same outcome at high or irregular display refresh rates.
 - `GameManager` owns a single cancellable animation-frame request. Visibility pause/resume is idempotent and does not start parallel frame chains.
@@ -228,7 +248,7 @@ sequenceDiagram
         end
     end
     alt menu
-        GM->>C: draw throttled start screen
+        GM->>Menu: draw throttled main-menu view
     else other state
         GM->>G: render()
         G->>C: background, traces, sorted entities, HUD, UI, editor
@@ -494,6 +514,7 @@ UI is hybrid:
 - The persistent HUD and controls are DOM elements in `index.html`.
 - Gameplay, entities, traces, and most visual feedback are Canvas 2D.
 - Modal game screens use the Canvas-based `UIManager` stack.
+- The main menu is a dedicated Canvas/DOM view consumed by `MenuInputContext`; it is not embedded in the composition root or modal stack.
 - The level editor creates DOM panels/toolbars and draws Canvas guides.
 - Mobile controls and fullscreen controls are created dynamically.
 
@@ -697,8 +718,8 @@ Recommended quality direction, in order:
 
 | Priority | Risk/debt | Impact | Suggested treatment |
 |---|---|---|---|
-| Medium | `Game` is a large coordinator and mutable data store. | High change coupling and difficult isolated tests. | Gradually separate session/level state, simulation, rendering, and persistence behind explicit interfaces. |
-| Medium | Globals and circular module relationships (`Game`/loader/end screen/editor). | Initialization sensitivity and limited reuse. | Introduce a composition root/context and dependency inversion for transitions. |
+| Medium | `Game` remains a broad compatibility facade and UI/editor lifecycle coordinator. | New browser workflows could drift back into the facade instead of a focused owner. | Keep facade methods as delegation only and introduce a collaborator whenever a workflow needs independent state or policy. |
+| Low | Debug globals (`window.game` and `window.gameManager`) remain available. | Browser-only dependencies can be hidden if production code starts resolving collaborators globally. | Keep globals diagnostic-only and inject production collaborators from `main.js`. |
 | Medium | Level rules advertise unimplemented `timeLimit` and `customBehaviors`. | Authoring expectations differ from runtime. | Implement or reject them explicitly during validation. |
 | Medium | Manifest-fetch failure does not call the asset completion callback; individual media failures do. | A missing/invalid manifest can leave bootstrap stuck while other packaging errors degrade silently. | Model bootstrap failure explicitly and surface a terminal retry/error UI. |
 | Medium | Asset eager/on-demand cache shapes are inconsistent. | Consumers can receive wrappers, images, or SVG text under similar keys. | Define a single resource record contract. |
@@ -707,11 +728,11 @@ Recommended quality direction, in order:
 
 These items are intentionally separate from the completed low-risk cleanup. They affect public behavior, ownership boundaries, or authoring contracts and should be handled as small, test-backed migrations rather than broad rewrites.
 
-### 18.1 Split the `Game` aggregate
+### 18.1 Continue narrowing the `Game` facade
 
-**Current state.** `js/game.js` is both the runtime aggregate and the main coordinator. It owns level and attempt counters, score persistence, entity collections, physics registration, simulation adaptation, rendering, input-facing compatibility methods, UI transitions, editor entry points, fullscreen callbacks, and export logic. The deterministic simulation boundary reduces gameplay coupling, but most browser-side state still converges on `Game`.
+**Current state.** The hard-cutover extraction is complete. `GameSession` owns level, attempt, scoring, rules, and run metadata. `RuntimeWorld` owns entity collections, singleton references, physics membership, and revision invalidation. `GameRenderer` and `FlightPresentation` own drawing and visual caches; `GameplayController` owns gameplay gestures and mobile controls; `GameEffectsCoordinator` owns browser-side event effects; and dedicated settings, community-run, and serialization modules own those workflows. `Game` preserves the existing public surface as a composition and compatibility facade while retaining browser lifecycle, level flow, UI, and editor orchestration.
 
-**Why it matters.** A change to level loading, rendering, scoring, editor behavior, or input can require knowledge of unrelated state. Tests therefore need increasingly large fixtures, and it is easy for two subsystems to mutate the same collection or counter with different assumptions. The existing `_gameObjectsChanged` cache flag and parallel collections (`gameObjects`, `planets`, `bonuses`, singleton references, and physics registries) are symptoms of this coordination load.
+**Enforced boundaries.** Runtime membership changes route through `RuntimeWorld`; render ordering invalidates from the world revision rather than an aggregate cache flag; deterministic events reach browser feedback through `GameEffectsCoordinator`; and internal modules import `GameState` from its dependency-light module rather than loading `game.js`. Focused architecture tests protect these seams.
 
 **Target shape.** Move toward explicit browser-side boundaries:
 
@@ -723,19 +744,19 @@ These items are intentionally separate from the completed low-risk cleanup. They
 | Effects/UI coordinator | Audio, popups, end screen, messages, browser-only feedback | Authoritative gameplay state |
 | `Game` facade | Composition and compatibility delegation | New domain policy that belongs in one of the boundaries above |
 
-**Migration path.** First extract session transitions and scoring behind a narrow interface while leaving `Game` as the facade. Next introduce a runtime-world API and route every entity mutation through it. Then make rendering consume a read-only snapshot and move visual caches out of the aggregate. Finally move editor/export and browser effects to injected collaborators. Each step should preserve the current `Game` public methods until callers migrate.
+**Remaining path.** Keep moving only cohesive browser workflows that still require independent state or policy. Level/UI/editor orchestration may remain in the facade until a focused controller makes those flows easier to test. Compatibility wrappers can be retired separately after callers move; they must not regain independent policy.
 
-**Completion criteria.** Level loading, one simulation frame, rendering, score calculation, and editor mutation can each be tested with focused fixtures. `Game` remains a thin composition layer, and no subsystem needs to know the storage layout of another subsystem's collections.
+**Completion criteria.** Already met for session state, runtime membership, rendering, input, effects, settings, community runs, and serialization. Further extraction is justified when it reduces a concrete test fixture or establishes a single owner for new mutable state.
 
 ### 18.2 Remove module cycles and implicit global dependencies
 
-**Current state.** `GameState` now has a dependency-light home in `gameState.js`, and input policy contexts import it there rather than pulling in the `Game` aggregate. Some older modules still import the compatibility re-export from `game.js`. Browser-only collaborators also reach through `window.game` or `window.gameManager` for coordination.
+**Current state.** `GameState` has a dependency-light home in `gameState.js`. The loader, editor, gravity tool, level-end screen, and input actions import it directly; no internal module imports the compatibility re-export from `game.js`. An import-graph regression test protects this boundary. `window.game` and `window.gameManager` remain public debugging handles.
 
 **Why it matters.** Importing a seemingly small module can initialize a large portion of the browser runtime. Construction order becomes significant, Node tests need shims, and dependencies are hidden in global lookups rather than visible in constructors. This makes reuse of the loader, end screen, and editor harder than their APIs suggest.
 
 **Target shape.** Move state vocabulary into a dependency-free `gameState.js` module. Create an explicit composition context from `main.js` containing the game facade, input manager, asset/audio services, and browser callbacks. Pass required collaborators into constructors instead of resolving them from `window`; retain `window.game` and `window.gameManager` only as compatibility/public debugging handles.
 
-**Migration path.** Extract `GameState` first and update imports without changing behavior. Add context parameters with defaults only at the composition root. Replace each `window` lookup with an injected callback or service, then remove the fallback once all production callers use the context. Use import-graph checks or a small dependency test to prevent new cycles.
+**Remaining path.** Add explicit context parameters when a production collaborator still relies on a global lookup. Remove each fallback once all callers receive the dependency from the composition root. Keep the import-graph regression test to prevent cycles from returning.
 
 **Completion criteria.** Core level loading, validation, simulation adaptation, and UI construction can be imported in a browser-free test without installing unrelated globals. The composition root is the only place that assembles concrete browser services.
 
@@ -792,9 +813,9 @@ The safest order is to establish observability before moving ownership:
 | Phase | Work | Reason |
 |---|---|---|
 | 1. Guardrails | Lint baseline, focused coverage, golden trajectories, terminal-transition tests | Makes later structural changes measurable and protects gameplay fidelity. |
-| 2. Contracts | Extract `GameState`, formalize level-rule decisions, normalize resource records | Removes ambiguity before moving code between modules. |
-| 3. Boundaries | Introduce composition context, runtime-world API, and persistence/effects interfaces | Reduces hidden coupling while keeping `Game` as a compatibility facade. |
-| 4. Extraction | Split session, renderer, effects, and editor coordination from `Game` | Lowers change coupling after the seams are exercised. |
+| 2. Contracts | Formalize level-rule decisions and normalize resource records (`GameState` extraction is complete) | Removes ambiguity before moving remaining code between modules. |
+| 3. Boundaries | Finish explicit composition context and persistence interfaces (runtime-world and effects boundaries are complete) | Reduces hidden coupling while keeping `Game` as a compatibility facade. |
+| 4. Extraction | Extract additional UI/editor coordination only when a focused owner materially simplifies it | Prevents the facade from accumulating new mutable workflow state. |
 | 5. Retirement | Remove internal compatibility shims and stale fallback branches | Avoids deleting compatibility before its callers and contracts are understood. |
 
 ## 19. Modernization seams

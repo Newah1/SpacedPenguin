@@ -1,7 +1,7 @@
 // Input Action System for Spaced Penguin
 // Centralized input handling with contextual actions
 
-import { GameState } from '../game.js';
+import { GameState } from '../runtime/gameState.js';
 import { screenToStage } from '../rendering/viewport.js';
 import { INPUT_CONFIG } from '../config/inputConfig.js';
 

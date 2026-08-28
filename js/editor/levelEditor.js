@@ -1,4 +1,4 @@
-import { GameState } from '../game.js';
+import { GameState } from '../runtime/gameState.js';
 import plog from '../diagnostics/penguinLogger.js';
 import { LevelOrbitType, normalizeLevelObjectType } from '../levels/levelSchema.js';
 import { STAGE_WIDTH, STAGE_HEIGHT, createWorldCamera, screenToStage, stageToScreen } from '../rendering/viewport.js';

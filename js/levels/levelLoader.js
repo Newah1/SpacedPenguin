@@ -6,7 +6,7 @@ import { Penguin } from '../runtime/entities/penguin.js';
 import { GRAVITATIONAL_CONSTANT, TOTAL_LEVELS } from '../config/legacyConstants.js';
 import plog from '../diagnostics/penguinLogger.js';
 import Utils from '../platform/utils.js';
-import { GameState } from '../game.js';
+import { GameState } from '../runtime/gameState.js';
 import {
     assertValidLevelDefinition,
     formatLevelDiagnostics,
@@ -35,7 +35,6 @@ import {
     LEVEL_ROLE_GAME_OBJECT_DEFINITIONS,
     getGameObjectDefinition
 } from '../runtime/gameObjectRegistry.js';
-import RuntimeObjectMembership from '../runtime/runtimeObjectMembership.js';
 import { RUNTIME_CONSTRUCTOR_CATALOG } from '../runtime/runtimeConstructorCatalog.js';
 
 export class GameObjectFactory {
@@ -229,7 +228,7 @@ export class LevelLoader {
         game.flightRect = { ...(levelDefinition.bounds?.flight || WORLD_CONFIG.flightBounds) };
         game.cameraConfig = levelDefinition.camera ? { ...levelDefinition.camera, mode: levelDefinition.camera.mode.trim().toLowerCase() } : null;
         game.arrow?.setFlightRect(game.flightRect);
-        const membership = new RuntimeObjectMembership(game);
+        const membership = game.runtimeWorld().membership;
         membership.resetLevelObjects();
         game.planetCollisions = 0;
         game.simulationTime = 0;

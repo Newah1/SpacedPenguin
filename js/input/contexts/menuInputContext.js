@@ -26,49 +26,42 @@ export class MenuInputContext {
     }
 
     handle(type, event) {
-        const game = gameFrom(this.rootContext);
+        const menuScreen = this.rootContext.menuScreen;
         switch (type) {
             case InputType.KEY_DOWN:
                 if (event.ctrlKey || event.metaKey) return InputResponse.pass();
                 if (event.code === 'Space' || event.code === 'Enter') {
-                    game.startGame();
+                    menuScreen?.start();
                     return InputResponse.handled({ preventDefault: true });
                 }
                 return InputResponse.consumed();
             case InputType.POINTER_DOWN: {
-                const handled = this.rootContext.handleMenuPointerDown?.(event) === true;
+                const handled = menuScreen?.handlePointerDown(event) === true;
                 if (handled) event.target?.setPointerCapture?.(event.pointerId);
                 return handled
                     ? InputResponse.handled({ preventDefault: true })
                     : InputResponse.consumed();
             }
             case InputType.POINTER_MOVE: {
-                const handled = this.rootContext.handleMenuPointerMove?.(event) === true;
+                const handled = menuScreen?.handlePointerMove(event) === true;
                 return handled
                     ? InputResponse.handled({ preventDefault: true })
                     : InputResponse.consumed();
             }
             case InputType.POINTER_UP:
             case InputType.POINTER_CANCEL: {
-                const handled = this.rootContext.handleMenuPointerUp?.(event) === true;
+                const handled = menuScreen?.handlePointerUp(event) === true;
                 return handled
                     ? InputResponse.handled({ preventDefault: true })
                     : InputResponse.consumed();
             }
             case InputType.CLICK:
-                return this.handleClick(event, game);
+                return menuScreen?.handleClick(event)
+                    ? InputResponse.handled()
+                    : InputResponse.consumed();
             default:
                 return InputResponse.consumed();
         }
     }
 
-    handleClick(event, game) {
-        if (this.rootContext.consumeMenuInteraction?.()) return InputResponse.consumed();
-        if (this.rootContext.handleMenuButtonClick?.(event)) return InputResponse.handled();
-        if (this.rootContext.shouldStartGameFromMenu && !this.rootContext.shouldStartGameFromMenu(event)) {
-            return InputResponse.consumed();
-        }
-        game.startGame();
-        return InputResponse.handled();
-    }
 }

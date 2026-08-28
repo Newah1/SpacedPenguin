@@ -1,35 +1,20 @@
 import { LevelLoader } from '../../levels/levelLoader.js';
-import { Physics } from '../../runtime/physics.js';
+import { RuntimeWorld } from '../../runtime/runtimeWorld.js';
 import { applyCameraTransform, createWorldCamera, STAGE_HEIGHT, STAGE_WIDTH } from '../../rendering/viewport.js';
 
 const THUMBNAIL_WIDTH = 240;
 const THUMBNAIL_HEIGHT = 160;
 
 function createRenderWorld(assetLoader) {
-    return {
-        physics: new Physics(),
-        gameObjects: [],
-        planets: [],
-        bonuses: [],
-        portals: [],
-        textObjects: [],
-        pointingArrows: [],
-        arrow: null,
-        tries: 0,
-        distance: 0,
-        planetCollisions: 0,
-        simulationTime: 0,
-        _cachedSortedObjects: null,
-        _gameObjectsChanged: true,
-        addGameObject(object) {
-            this.gameObjects.push(object);
-            this._gameObjectsChanged = true;
-        },
-        setState(state) {
-            this.state = state;
-        },
-        assetLoader
-    };
+    const world = new RuntimeWorld();
+    world.runtimeWorld = () => world;
+    world.setState = state => { world.state = state; };
+    world.assetLoader = assetLoader;
+    world.tries = 0;
+    world.distance = 0;
+    world.planetCollisions = 0;
+    world.simulationTime = 0;
+    return world;
 }
 
 function drawStarfield(context, stars = []) {

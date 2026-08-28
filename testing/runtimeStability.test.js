@@ -19,6 +19,7 @@ const { AUDIO_CONFIG } = await import('../js/config/audioConfig.js');
 const Console = (await import('../js/diagnostics/console.js')).default;
 const FullscreenManager = (await import('../js/platform/browser/fullscreenManager.js')).default;
 const { GameManager } = await import('../js/main.js');
+const { MainMenuRenderer } = await import('../js/ui/views/mainMenu/mainMenuRenderer.js');
 const { InputManager } = await import('../js/input/inputManager.js');
 const { registerDefaultInputContexts } = await import('../js/input/registerDefaultInputContexts.js');
 const { KevinCamRenderer } = await import('../js/rendering/kevinCamRenderer.js');
@@ -73,7 +74,7 @@ test('main menu Start label ignores an inherited canvas text baseline', () => {
         }
     };
 
-    GameManager.prototype.drawStartButtonVisual.call({}, context, {
+    MainMenuRenderer.prototype.drawStartButton.call({}, context, {
         isPressed: false,
         isHovered: false
     });
@@ -136,9 +137,9 @@ test('fullscreen exit restores the container stacking styles used by the level e
 test('main menu button centers its icon and label with a consistent gap', () => {
     let renderedIcon = null;
     let renderedText = null;
-    const manager = {
+    const renderer = {
         roundedRectPath() {},
-        drawMenuIcon(_context, icon, x, y, size) {
+        drawIcon(_context, icon, x, y, size) {
             renderedIcon = { icon, x, y, size };
         }
     };
@@ -162,8 +163,8 @@ test('main menu button centers its icon and label with a consistent gap', () => 
         }
     };
 
-    GameManager.prototype.drawOriginalMenuButton.call(
-        manager, context, 40, 517, 166, 54, 'High Scores', 15, 'trophy'
+    MainMenuRenderer.prototype.drawOriginalButton.call(
+        renderer, context, 40, 517, 166, 54, 'High Scores', 15, 'trophy'
     );
 
     assert.deepEqual(renderedIcon, { icon: 'trophy', x: 74, y: 544, size: 16 });
@@ -368,7 +369,7 @@ test('successful level editor play-tests unlock publishing without opening the e
     let publishUpdates = 0;
     let completionNotices = 0;
     let sounds = 0;
-    const game = {
+    const game = Object.assign(Object.create(Game.prototype), {
         state: GameState.LEVEL_EDITOR,
         levelEditor: {
             active: true,
@@ -383,7 +384,7 @@ test('successful level editor play-tests unlock publishing without opening the e
         completeRecordedRun: Game.prototype.completeRecordedRun,
         playSound: () => { sounds++; },
         target: { isHit: true, hitFrameCount: 3 }
-    };
+    });
 
     withGlobalOverrides({ setTimeout: timers.setTimeout }, () => {
         Game.prototype.handleTargetHit.call(game);
@@ -488,7 +489,7 @@ test('level editor expansion derives loss buffers and opts legacy levels into fi
 });
 
 test('level export uses editor-authored root metadata', () => {
-    const game = {
+    const game = Object.assign(Object.create(Game.prototype), {
         level: 1,
         levelMetadata: { name: 'Root settings test', description: 'Saved from the editor' },
         levelRules: null,
@@ -499,7 +500,7 @@ test('level export uses editor-authored root metadata', () => {
         flightRect: { x: -200, y: -200, width: 2800, height: 2200 },
         cameraConfig: { mode: 'follow', zoom: 1 },
         getAllObjectsForExport: () => []
-    };
+    });
 
     const exported = Game.prototype.exportCurrentLevel.call(game);
 

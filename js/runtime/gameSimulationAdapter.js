@@ -8,8 +8,12 @@ import {
 import { effectiveGravitationalReach } from '../config/legacyConstants.js';
 import { LevelOrbitType } from '../levels/levelSchema.js';
 import { LEVEL_DEFAULTS } from '../config/gameConfig.js';
-import { AudioCue, getAudioCue } from '../config/audioConfig.js';
 import { cloneWaypointPathState } from '../simulation/waypointSimulation.js';
+import { GameEffectsCoordinator } from './gameEffectsCoordinator.js';
+
+function effectsFor(game) {
+    return game.effects ||= new GameEffectsCoordinator(game);
+}
 
 function orbitFromRuntime(system) {
     if (!system) return null;
@@ -253,6 +257,11 @@ export function applyGameSimulationState(game, state) {
     }
 }
 
+/**
+ * @param {import('../game.js').Game} game
+ * @param {number} deltaTime
+ * @returns {number}
+ */
 export function stepGameSimulation(game, deltaTime) {
     const state = game._runtimeSimulationState ||= captureGameSimulationState(game);
     // Before launch, the slingshot interaction is the authoritative owner of
@@ -273,6 +282,9 @@ export function stepGameSimulation(game, deltaTime) {
     return result;
 }
 
+/**
+ * @param {import('../game.js').Game} game
+ */
 export function invalidateGameSimulationState(game) {
     game._runtimeSimulationState = null;
 }
@@ -289,8 +301,7 @@ class PenguinMovedEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game, event, deltaTime) {
-        game.penguin.update(event.deltaTime ?? deltaTime, false);
-        game.recordPathPoint(game.penguin.x, game.penguin.y);
+        effectsFor(game).penguinMoved(event, deltaTime);
     }
 }
 
@@ -301,8 +312,7 @@ class BonusCollectedEventStrategy extends GameSimulationEventStrategy {
 
     execute(game, event) {
         const bonus = runtimeObjectForSimulationIndex(game, 'bonuses', event.bonusIndex);
-        game.playSound(getAudioCue(AudioCue.BONUS).soundId);
-        if (bonus && game.bonusPopup) game.bonusPopup.show(event.value, bonus.position);
+        effectsFor(game).bonusCollected(event, bonus);
     }
 }
 
@@ -313,11 +323,7 @@ class PlanetCollisionEventStrategy extends GameSimulationEventStrategy {
 
     execute(game, event) {
         const planet = runtimeObjectForSimulationIndex(game, 'planets', event.planetIndex);
-        game.penguin.beginCrash(planet, false);
-        game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
-        game.endRecordingShotPath();
-        game.preserveCrashedPenguin();
-        game.tryAgain({ recordAction: false });
+        effectsFor(game).planetCollision(event, planet);
     }
 }
 
@@ -327,7 +333,7 @@ class PlanetBounceEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game) {
-        game.playSound(getAudioCue(AudioCue.HIT_PLANET).soundId);
+        effectsFor(game).planetBounce();
     }
 }
 
@@ -337,10 +343,7 @@ class PortalTeleportedEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game, event) {
-        if (event.playSound) game.playSound(getAudioCue(AudioCue.PORTAL_WOOSH).soundId);
-        game.beginPortalTransition?.(event);
-        game.recordPortalTransit?.(event.entryPosition, event.exitPosition);
-        game.penguin.markTrailDiscontinuity?.(event.exitPosition);
+        effectsFor(game).portalTeleported(event);
     }
 }
 
@@ -350,7 +353,7 @@ class SpeedBoosterActivatedEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game, event) {
-        if (event.playSound) game.playSound(getAudioCue(AudioCue.SPEED_BOOSTER_WOOSH).soundId);
+        effectsFor(game).speedBoosterActivated(event);
     }
 }
 
@@ -360,9 +363,7 @@ class TargetHitEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game) {
-        game.endRecordingShotPath();
-        game.target.onHit();
-        game.handleTargetHit();
+        effectsFor(game).targetHit();
     }
 }
 
@@ -372,8 +373,7 @@ class TargetBlockedEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game, event) {
-        game.endRecordingShotPath();
-        game.showMessage(`Collect ${event.remaining} more bonuses!`);
+        effectsFor(game).targetBlocked(event);
     }
 }
 
@@ -383,7 +383,7 @@ class OutOfBoundsEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game) {
-        game.endRecordingShotPath();
+        effectsFor(game).outOfBounds();
     }
 }
 
@@ -393,7 +393,7 @@ class AttemptResetRequiredEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game) {
-        game.tryAgain({ recordAction: false });
+        effectsFor(game).attemptResetRequired();
     }
 }
 
@@ -403,8 +403,7 @@ class RuleFailureEventStrategy extends GameSimulationEventStrategy {
     }
 
     execute(game, event) {
-        game.showMessage(event.reason);
-        game.setState('gameOver');
+        effectsFor(game).ruleFailure(event);
     }
 }
 

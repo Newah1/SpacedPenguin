@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "ESNext",
+      "moduleResolution": "Bundler",
+      "allowJs": true,
+      "checkJs": false,
+      "noEmit": true,
+      "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    },
+    "include": [
+      "js/**/*.js",
+      "server/**/*.js",
+      "testing/**/*.js",
+      "app-config.js",
+      "playwright.config.js"
+    ],
+    "exclude": [
+      "node_modules",
+      "OldSource",
+      "output",
+      "test-results",
+      "playwright-report"
+    ]
+  }

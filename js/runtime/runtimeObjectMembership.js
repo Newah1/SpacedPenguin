@@ -55,9 +55,8 @@ export class RuntimeObjectMembership {
             if (definition.singleton) this.game[definition.singleton] = null;
         }
         this.game.physics?.clear?.();
-        this.game._cachedSortedObjects = null;
-        this.game._gameObjectsChanged = true;
-        this.game.invalidateSimulationState?.();
+        this.game.touch?.();
+        if (!this.game.touch) this.game.invalidateSimulationState?.();
     }
 
     add(object, identity) {
@@ -79,7 +78,8 @@ export class RuntimeObjectMembership {
             const addToPhysics = this.game.physics?.[definition.physicsAdd];
             if (typeof addToPhysics === 'function') addToPhysics.call(this.game.physics, object);
         }
-        this.game.invalidateSimulationState?.();
+        this.game.touch?.();
+        if (!this.game.touch) this.game.invalidateSimulationState?.();
         return true;
     }
 
@@ -93,7 +93,8 @@ export class RuntimeObjectMembership {
         if (definition.singleton && this.game[definition.singleton] === object) {
             this.game[definition.singleton] = null;
         }
-        this.game.invalidateSimulationState?.();
+        this.game.touch?.();
+        if (!this.game.touch) this.game.invalidateSimulationState?.();
         return true;
     }
 
