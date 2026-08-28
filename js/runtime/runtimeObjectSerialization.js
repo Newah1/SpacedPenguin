@@ -36,7 +36,7 @@ export function serializeRuntimeObject(object, { serializeOrbit, serializeWaypoi
     }
 
     const result = { type: descriptor.type };
-    const position = runtimePosition(object);
+    const position = descriptor.serializeRuntimePosition?.(object) || runtimePosition(object);
     if (position) result.position = position;
 
     const properties = {};

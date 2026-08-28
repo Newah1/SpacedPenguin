@@ -39,6 +39,7 @@ export class CompiledWorldTimeline {
         this.entityCount = this.planetCount + this.bonusCount + this.portalCount +
             this.speedBoosterCount + this.decorationCount + 2;
         this.positions = new Float64Array(maxSteps * this.entityCount * 2);
+        this.slingshotAnchors = new Float64Array(maxSteps * 2);
         this.orbitStates = new Float64Array(maxSteps * this.entityCount * 4);
         this.waypointPhases = new Float64Array(maxSteps * this.entityCount);
         this.compile(initialState);
@@ -64,6 +65,10 @@ export class CompiledWorldTimeline {
                 this.waypointPhases[step * this.entityCount + index] =
                     entities[index].waypointPath?.phase ?? 0;
             }
+            const slingshot = entities.at(-1);
+            const anchor = slingshot.anchorPosition || slingshot.position;
+            this.slingshotAnchors[step * 2] = anchor.x;
+            this.slingshotAnchors[step * 2 + 1] = anchor.y;
         }
     }
 
@@ -106,7 +111,7 @@ export class CompiledWorldTimeline {
         applyWaypointPhase(state.target.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
         entityIndex++;
         applyPosition(state.slingshot.position, this.positions, frameOffset + entityIndex * 2);
-        applyPosition(state.slingshot.anchorPosition, this.positions, frameOffset + entityIndex * 2);
+        applyPosition(state.slingshot.anchorPosition, this.slingshotAnchors, step * 2);
         applyWaypointPhase(state.slingshot.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
     }
 }

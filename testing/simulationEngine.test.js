@@ -223,6 +223,35 @@ test('compiled world frames and mutable stepping exactly match immutable simulat
     }
 });
 
+test('compiled world frames preserve a distinct Director slingshot anchor', () => {
+    const initial = createSimulationStateFromLevel({
+        name: 'Director slingshot fixture',
+        startPosition: { x: 10, y: 20 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [
+            {
+                type: 'slingshot',
+                position: { x: 10, y: 20 },
+                properties: {
+                    anchorPosition: { x: 30, y: 40 },
+                    launchModel: 'director',
+                    sourceFrameRate: 30,
+                    coordinateScale: 1.5
+                }
+            },
+            { type: 'target', position: { x: 700, y: 300 }, properties: { width: 60, height: 60 } }
+        ],
+        rules: {}
+    });
+    const timeline = new CompiledWorldTimeline(initial, 1 / 60, 1);
+    const compiled = cloneSimulationState(initial);
+
+    timeline.applyFrame(compiled, 0);
+
+    assert.deepEqual(compiled.slingshot.position, { x: 10, y: 20 });
+    assert.deepEqual(compiled.slingshot.anchorPosition, { x: 30, y: 40 });
+});
+
 test('movement-event suppression changes observations but not simulation state', () => {
     const initial = createSimulationStateFromLevel(levelWith([]));
     const withEvents = launchSimulationPenguin(initial, 0, 20);

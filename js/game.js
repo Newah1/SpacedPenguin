@@ -779,7 +779,7 @@ export class Game {
         this.bonusPopup = new BonusPopup(0, 0, 0);
         this.world.addGameObject(this.bonusPopup);
         
-        this.loadedLevelDefinition = this.exportCurrentLevel();
+        this.loadedLevelDefinition = structuredClone(result);
         this.beginRecordedRun(this.loadedLevelDefinition);
         
         return result;

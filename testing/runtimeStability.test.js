@@ -311,6 +311,56 @@ test('level editor publish is disabled until the current level is completed', ()
     assert.match(publishButton.title, /Publish this completed level/);
 });
 
+test('entering the editor uses the authored level instead of mutated runtime state', () => {
+    const authored = {
+        name: 'Authored level',
+        description: '',
+        startPosition: { x: 100, y: 300 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [{
+            type: 'bonus',
+            position: { x: 300, y: 150 },
+            properties: { id: 'bonus_1', value: 100, state: 'notHit' }
+        }],
+        rules: {}
+    };
+    const runtimeSnapshot = structuredClone(authored);
+    runtimeSnapshot.objects[0].position = { x: 450, y: 275 };
+    runtimeSnapshot.objects[0].properties.state = 'Hit';
+    let runtimeExports = 0;
+
+    const editor = Object.assign(Object.create(LevelEditor.prototype), {
+        active: false,
+        mode: 'edit',
+        game: {
+            state: GameState.PLAYING,
+            loadedLevelDefinition: structuredClone(authored),
+            exportCurrentLevel: () => {
+                runtimeExports++;
+                return structuredClone(runtimeSnapshot);
+            },
+            setState(state) { this.state = state; },
+            fullscreenManager: null
+        },
+        commandBus: { clear() {} },
+        runtimeProjector: { indexRuntimeObjects() {} },
+        objectService: { ensureIdentities() {} },
+        container: { style: {} },
+        fitEditorCamera() {},
+        updateModeButton() {},
+        populateObjectButtons() {},
+        updateObjectList() {},
+        markClean() {}
+    });
+
+    LevelEditor.prototype.enter.call(editor);
+
+    const bonus = editor.document.toDefinition().objects[0];
+    assert.equal(runtimeExports, 0);
+    assert.deepEqual(bonus.position, { x: 300, y: 150 });
+    assert.equal(bonus.properties.state, 'notHit');
+});
+
 test('publish confirmation metadata updates the editor and proof-captured definition', () => {
     const editor = Object.create(LevelEditor.prototype);
     editor.game = {

@@ -957,6 +957,7 @@ class Bonus extends GameObject {
         if (this.state === 'notHit') {
             // Switch to hit state (matching original behavior)
             this.state = 'Hit';
+            this.collected = true;
             this.rotationSpeed = this.collectedRotationSpeed; // 30.0
             
             // Switch to hit sprite (matching original member switching)
@@ -979,6 +980,7 @@ class Bonus extends GameObject {
             // Reset to normal state (matching original resetBonus function)
             this.rotationSpeed = RENDER_CONFIG.entities.bonus.rotationSpeed;
             this.state = 'notHit';
+            this.collected = false;
             
             // Switch back to normal sprite (matching original member switching)
             if (this.bonusSprite) {

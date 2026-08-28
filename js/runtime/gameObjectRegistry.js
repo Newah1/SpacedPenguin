@@ -240,6 +240,18 @@ function createSlingshotRuntime({ constructors, position, properties, applyOrbit
     return applyCommonRuntimeProperties(slingshot, properties, applyOrbit, null);
 }
 
+function serializeSlingshotRuntime({ object, properties }) {
+    const anchor = object.anchor || object.position;
+    if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+        properties.anchorPosition = { x: anchor.x, y: anchor.y };
+    }
+}
+
+function serializeSlingshotPosition(object) {
+    const position = object.resetPosition || object.position;
+    return position ? { x: position.x, y: position.y } : null;
+}
+
 function createTextRuntime({ constructors, position, properties, applyOrbit, schedule }) {
     const options = Object.fromEntries([
         'width', 'height', 'visible', 'textAlign', 'fontSize', 'fontFamily', 'color',
@@ -481,10 +493,15 @@ const BASE_DEFINITIONS = {
             { key: 'maxPullback', label: 'Max Pullback', type: 'number', min: 10 },
             { key: 'velocityMultiplier', label: 'Velocity Multiplier', type: 'number', min: 1 }
         ],
-        serializedProperties: ['maxPullback', 'velocityMultiplier', 'anchorX', 'anchorY'],
+        serializedProperties: [
+            'maxPullback', 'minPullback', 'velocityMultiplier',
+            'launchModel', 'sourceFrameRate', 'coordinateScale'
+        ],
         levelDefaults: LEVEL_DEFAULTS.slingshot,
         validateProperties: validateSlingshotProperties,
-        createRuntime: createSlingshotRuntime
+        createRuntime: createSlingshotRuntime,
+        serializeRuntimePosition: serializeSlingshotPosition,
+        serializeRuntimeProperties: serializeSlingshotRuntime
     },
     TextObject: {
         type: LevelObjectType.TEXT,
@@ -584,6 +601,7 @@ function definitionFor(className, base) {
         singleton: base.singleton,
         properties: Object.freeze([...(base.properties || [])].map(property => Object.freeze({ ...property }))),
         serializedProperties: Object.freeze([...(base.serializedProperties || [])]),
+        serializeRuntimePosition: base.serializeRuntimePosition || null,
         serializeRuntimeProperties: base.serializeRuntimeProperties || null,
         spriteDefault: base.spriteDefault ? Object.freeze({ ...base.spriteDefault }) : null,
         createRuntime: base.createRuntime || null,

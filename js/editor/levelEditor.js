@@ -29,7 +29,7 @@ import LevelEditorCanvasInputController from './controllers/canvasInputControlle
 import GravitySculptView from './views/gravitySculptView.js';
 import GravitySculptController from './controllers/gravitySculptController.js';
 import PublishMetadataPromptView from './views/publishMetadataPromptView.js';
-import EditorEvents from './state/editorEvents.js';
+import EditorEvents, { EditorEventType } from './state/editorEvents.js';
 import EditorState, { EditorInteractionType } from './state/editorState.js';
 import EditorSelection from './state/editorSelection.js';
 import EditorObjectService from './services/editorObjectService.js';
@@ -161,6 +161,9 @@ class LevelEditor {
             events: this.events,
             canExecute: () => !this.active || this.mode === 'edit',
             validate: () => this.document ? this.assertDocumentValid('editor command') : true
+        });
+        this.events.on(EditorEventType.DOCUMENT_CHANGED, () => {
+            if (this.document) this.game.loadedLevelDefinition = this.document.toDefinition();
         });
         this.commandStrategyUnsubscribe = registerDeleteObjectCommandStrategies({
             commandBus: this.commandBus,
@@ -389,7 +392,11 @@ class LevelEditor {
         this.commandBus.clear();
         this.runtimeProjector.indexRuntimeObjects();
         this.objectService.ensureIdentities();
-        this.document = LevelDocument.fromDefinition(this.game.exportCurrentLevel());
+        if (!this.game.loadedLevelDefinition) {
+            throw new Error('Cannot enter the level editor without an authored level definition');
+        }
+        this.document = LevelDocument.fromDefinition(this.game.loadedLevelDefinition);
+        this.game.loadedLevelDefinition = this.document.toDefinition();
         this.active = true;
         this.container.style.display = 'block';
         if (typeof this.game.setState === 'function') this.game.setState(GameState.LEVEL_EDITOR);

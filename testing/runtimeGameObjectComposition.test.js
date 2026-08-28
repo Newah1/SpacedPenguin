@@ -49,6 +49,23 @@ test('factory projects authored rotation onto common runtime objects', () => {
     assert.equal(planet.rotation, 135);
 });
 
+test('collecting and resetting a runtime bonus keeps its visibility state synchronized', () => {
+    const bonus = GameObjectFactory.create({
+        type: 'bonus',
+        position: { x: 25, y: 40 },
+        properties: { id: 'bonus_1', value: 100 }
+    }, null, null);
+
+    assert.equal(bonus.collected, false);
+    assert.equal(bonus.collect(), 100);
+    assert.equal(bonus.state, 'Hit');
+    assert.equal(bonus.collected, true);
+
+    bonus.reset();
+    assert.equal(bonus.state, 'notHit');
+    assert.equal(bonus.collected, false);
+});
+
 test('the registry completely owns every serialized game-object extension', () => {
     const serializedDefinitions = Object.values(GAME_OBJECT_DEFINITIONS)
         .filter(definition => definition.type);
