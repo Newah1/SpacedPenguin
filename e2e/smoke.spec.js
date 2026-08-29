@@ -25,22 +25,25 @@ async function waitForGame(page, state = 'menu') {
     ), state);
 }
 
-async function stageToClient(page, x, y) {
+async function stageToClient(page, x, y, useCamera = false) {
     return page.locator('#gameCanvas').evaluate((canvas, point) => {
         const rect = canvas.getBoundingClientRect();
         const viewport = canvas.viewport;
+        const camera = point.useCamera ? window.game?.getActiveCamera?.() : null;
+        const logicalX = camera ? point.x * camera.scale + camera.offsetX : point.x;
+        const logicalY = camera ? point.y * camera.scale + camera.offsetY : point.y;
         return {
-            x: rect.left + (point.x * viewport.scale + viewport.offsetX)
+            x: rect.left + (logicalX * viewport.scale + viewport.offsetX)
                 * (rect.width / viewport.backingWidth),
-            y: rect.top + (point.y * viewport.scale + viewport.offsetY)
+            y: rect.top + (logicalY * viewport.scale + viewport.offsetY)
                 * (rect.height / viewport.backingHeight)
         };
-    }, { x, y });
+    }, { x, y, useCamera });
 }
 
 async function launchFromSlingshot(page) {
-    const anchor = await stageToClient(page, 100, 300);
-    const pullback = await stageToClient(page, 20, 300);
+    const anchor = await stageToClient(page, 100, 300, true);
+    const pullback = await stageToClient(page, 20, 300, true);
     await page.mouse.move(anchor.x, anchor.y);
     await page.mouse.down();
     await page.mouse.move(pullback.x, pullback.y, { steps: 5 });
@@ -859,6 +862,73 @@ test.describe('mobile viewport', () => {
             y: window.game.penguin.y
         }));
         expect(Math.abs(position.y - 300)).toBeLessThan(5);
+    });
+
+    test('uses a zoomed follow camera in portrait while preserving the authored stage', async ({ page }) => {
+        await useDeterministicLevel(page, { targetPosition: { x: 700, y: 300 } });
+        await page.goto('/');
+        await waitForGame(page);
+
+        const startButton = page.getByRole('button', { name: 'TAP TO LAUNCH', exact: true });
+        await expect(startButton).toBeVisible();
+        await startButton.click();
+        await waitForGame(page, 'playing');
+
+        const camera = await page.evaluate(() => ({
+            mode: window.game.worldCamera.mode,
+            scale: window.game.worldCamera.scale,
+            viewRect: { ...window.game.worldCamera.viewRect },
+            stageRect: { ...window.game.stageRect }
+        }));
+        expect(camera.mode).toBe('follow');
+        expect(camera.scale).toBeGreaterThan(1);
+        expect(camera.viewRect.width).toBeLessThan(camera.stageRect.width);
+        expect(camera.viewRect.height).toBeLessThan(camera.stageRect.height);
+        expect(camera.stageRect).toEqual({ x: 0, y: 0, width: 800, height: 600 });
+    });
+
+    test('look-around mode pans the portrait camera without launching and returns to aim', async ({ page }) => {
+        await useDeterministicLevel(page, { targetPosition: { x: 700, y: 300 } });
+        await page.goto('/');
+        await waitForGame(page);
+
+        await page.getByRole('button', { name: 'TAP TO LAUNCH', exact: true }).click();
+        await waitForGame(page, 'playing');
+        const lookAround = page.getByRole('button', { name: '👀 LOOK AROUND', exact: true });
+        await expect(lookAround).toBeVisible();
+        await lookAround.click();
+        await expect(page.getByRole('button', { name: '✓ AIM', exact: true })).toBeVisible();
+
+        const canvasBox = await page.locator('#gameCanvas').boundingBox();
+        expect(canvasBox).not.toBeNull();
+        await page.mouse.move(canvasBox.x + canvasBox.width * 0.75, canvasBox.y + canvasBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + canvasBox.width * 0.25, canvasBox.y + canvasBox.height / 2, { steps: 6 });
+        await page.mouse.up();
+
+        await expect.poll(() => page.evaluate(() => window.game.worldCamera.viewRect.x)).toBeGreaterThan(0);
+        expect(await page.evaluate(() => ({ tries: window.game.tries, state: window.game.penguin.state })))
+            .toEqual({ tries: 0, state: 'idle' });
+
+        await page.getByRole('button', { name: '✓ AIM', exact: true }).click();
+        await expect.poll(() => page.evaluate(() => window.game.worldCamera.viewRect.x)).toBe(0);
+    });
+
+    test('keeps portrait gameplay camera out of the level editor', async ({ page }) => {
+        await useDeterministicLevel(page);
+        await page.goto('/?level_editor');
+        await waitForGame(page, 'levelEditor');
+
+        const cameras = await page.evaluate(() => ({
+            gameplayMode: window.game.worldCamera.mode,
+            editorMode: window.game.levelEditor.editorCamera.mode,
+            activeMode: window.game.getActiveCamera().mode,
+            editorViewRect: { ...window.game.levelEditor.editorCamera.viewRect }
+        }));
+        expect(cameras.gameplayMode).toBe('follow');
+        expect(cameras.editorMode).toBe('fit');
+        expect(cameras.activeMode).toBe('fit');
+        expect(cameras.editorViewRect).toEqual({ x: 0, y: 0, width: 800, height: 600 });
     });
 
     test('confirmation actions remain usable through the scaled touch canvas', async ({ page }) => {

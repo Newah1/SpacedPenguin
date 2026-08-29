@@ -6,6 +6,7 @@ import {
     STAGE_HEIGHT,
     STAGE_WIDTH
 } from './viewport.js';
+import { ViewportGuidanceRenderer } from './viewportGuidanceRenderer.js';
 
 /** Owns frame composition, draw ordering, and render-cache invalidation. */
 export class GameRenderer {
@@ -13,6 +14,7 @@ export class GameRenderer {
         this.game = game;
         this.cachedSortedObjects = null;
         this.renderedWorldRevision = -1;
+        this.viewportGuidanceRenderer = new ViewportGuidanceRenderer();
     }
 
     beginFrame() {
@@ -60,6 +62,16 @@ export class GameRenderer {
 
         game.levelEditor.render(game.ctx);
         game.ctx.restore();
+        this.viewportGuidanceRenderer.draw({
+            ctx: game.ctx,
+            camera,
+            target: game.target,
+            bonuses: game.bonuses,
+            requiredBonuses: game.levelRules?.requiredBonuses,
+            enabled: game.usesPortraitGameplayCamera?.() &&
+                !game.uiManager?.activeScreens?.length &&
+                !(game.levelEditor?.active && game.levelEditor.mode === 'edit')
+        });
         game.kevinCamRenderer.draw({
             ctx: game.ctx,
             enabled: game.settingsManager?.get('kevinCamEnabled') !== false,

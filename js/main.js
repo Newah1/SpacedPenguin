@@ -11,6 +11,10 @@ import { LEVEL_CATALOG_CONFIG, SIMULATION_CONFIG, parseLevelSelector } from './c
 import { RUNTIME_CONFIG } from './config/runtimeConfig.js';
 import { BootstrapLoadingView } from './ui/views/bootstrapLoadingView.js';
 import { MainMenuScreen } from './ui/views/mainMenu/mainMenuScreen.js';
+import {
+    activeSimulationBackend,
+    initializeWasmSimulation
+} from './simulation/wasmSimulationBridge.js';
 
 plog.info('main.js loaded');
 
@@ -70,6 +74,12 @@ class GameManager {
     async onAssetsLoaded(assetLoader) {
         plog.success('Assets loaded, initializing game...');
         this.assetsLoaded = true;
+        try {
+            await initializeWasmSimulation();
+            plog.success('Rust/WebAssembly simulation initialized');
+        } catch (error) {
+            plog.warn(`Rust/WebAssembly simulation unavailable; using JavaScript fallback: ${error.message}`);
+        }
         this.game = new Game(
             this.canvas,
             assetLoader,
@@ -121,6 +131,10 @@ class GameManager {
         if (!this.menuScreen) return;
         if (state === GameState.MENU) this.menuScreen.show();
         else this.menuScreen.hide();
+    }
+
+    getSimulationBackend() {
+        return activeSimulationBackend();
     }
 
     gameLoop(currentTime = 0) {

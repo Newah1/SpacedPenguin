@@ -32,8 +32,24 @@ jobs:
         with:
           node-version: 22
 
-      # Lightweight sanity checks that reuse existing tooling. No npm install
-      # is needed; these scripts only use Node built-ins.
+      - name: Set up Rust for generated contracts and Wasm
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify generated domain contracts
+        run: npm run check:domain
+
+      - name: Build packaged Wasm simulator
+        run: npm run build:simulator-wasm
+
+      - name: Verify packaged Wasm simulator
+        run: test -s rust/simulator/pkg/spaced_penguin_simulator.wasm
+
       - name: Validate shipped and manual levels
         run: node testing/validateLevels.js
 
@@ -47,7 +63,9 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html app-config.js _site/
-          cp -R js assets levels _site/
+          cp -R css js assets levels generated _site/
+          mkdir -p _site/rust/simulator/pkg
+          cp rust/simulator/pkg/spaced_penguin_simulator.wasm _site/rust/simulator/pkg/
           touch _site/.nojekyll
 
       - name: Upload Pages artifact

@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spacedpenguin.dev/domain/gameObjects.schema.json",
+  "title": "Spaced Penguin game object contracts",
+  "description": "Canonical declarative vocabulary for authored and simulated game objects. Runtime behavior hooks are intentionally excluded.",
+  "type": "object",
+  "$defs": {
+    "Point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "derive": ["Clone", "Copy", "Debug", "Default", "Deserialize", "Serialize"] }
+    }
+  },
+  "x-spaced-penguin-objects": [
+    {
+      "className": "Planet",
+      "type": "planet",
+      "label": "Planet",
+      "aliases": [],
+      "collections": ["planets"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": true, "orbitTarget": true, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Planet",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "radius": { "field": "collisionRadius", "reason": "The normalized simulation collision radius is derived from authored radius when collisionRadius is absent." },
+          "width": { "excluded": "Legacy dimensions are normalized into collisionRadius before simulation." },
+          "height": { "excluded": "Legacy dimensions are normalized into collisionRadius before simulation." },
+          "mass": { "field": "mass" }, "collisionRadius": { "field": "collisionRadius" },
+          "gravitationalReach": { "field": "gravitationalReach" }, "collidable": { "field": "collidable" },
+          "color": { "excluded": "Planet color is presentation-only." },
+          "planetType": { "excluded": "Planet sprite selection is presentation-only." },
+          "orbit": { "excluded": "Orbit motion is resolved before the transition step." },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "physics": { "add": "addPlanet", "remove": "removePlanet" },
+      "x-spaced-penguin-level-defaults": {
+        "key": "planet",
+        "include": ["radius", "mass", "gravitationalReach"],
+        "derived": { "collisionPadding": 8 }
+      },
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "radius": { "type": "number", "default": 30, "exclusiveMinimum": 0, "x-editor": { "label": "Radius", "min": 1 } },
+        "width": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "mass": { "type": "number", "default": 100, "minimum": 0, "x-editor": { "label": "Mass", "min": 0 } },
+        "collisionRadius": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Collision Radius", "min": 1 } },
+        "gravitationalReach": { "type": "number", "default": 5000, "minimum": 0, "x-editor": { "label": "Gravitational Reach", "min": 0 } },
+        "collidable": { "type": "boolean", "default": true },
+        "color": { "type": "string", "x-editor": { "label": "Color", "control": "color" } },
+        "planetType": { "type": ["string", "null"], "x-editor": { "label": "Planet Sprite", "control": "select", "optionsFrom": "planetSprites" } },
+        "orbit": { "type": "object" },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["planetType", "collisionRadius", "gravitationalReach", "color"]
+    },
+    {
+      "className": "BlackHole",
+      "type": "blackhole",
+      "label": "Black Hole",
+      "aliases": ["black_hole"],
+      "collections": ["planets"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": true, "orbitTarget": true, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Planet",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "radius": { "field": "collisionRadius", "reason": "Black-hole radius is normalized to the shared simulation collision-radius slot." },
+          "mass": { "field": "mass" }, "gravitationalReach": { "field": "gravitationalReach" },
+          "collisionRadius": { "field": "collisionRadius" }, "collidable": { "field": "collidable" },
+          "orbit": { "excluded": "Orbit motion is resolved before the transition step." },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "physics": { "add": "addPlanet", "remove": "removePlanet" },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "radius": { "type": "number", "default": 30, "exclusiveMinimum": 0, "x-editor": { "label": "Radius", "min": 1 } },
+        "mass": { "type": "number", "default": 100, "minimum": 0, "x-editor": { "label": "Mass", "min": 0 } },
+        "gravitationalReach": { "type": "number", "default": 5000, "minimum": 0, "x-editor": { "label": "Gravitational Reach", "min": 0 } },
+        "collisionRadius": { "const": 0, "default": 0 }, "collidable": { "const": false, "default": false },
+        "orbit": { "type": "object" }, "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["gravitationalReach", "collisionRadius", "collidable"]
+    },
+    {
+      "className": "Bonus",
+      "type": "bonus",
+      "label": "Bonus",
+      "aliases": [],
+      "collections": ["bonuses"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": true, "orbitTarget": true, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Bonus",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "width": { "excluded": "Collection radius is normalized from authored dimensions before simulation." },
+          "height": { "excluded": "Collection radius is normalized from authored dimensions before simulation." },
+          "value": { "field": "value" }, "rotationSpeed": { "excluded": "Bonus animation is presentation-only." },
+          "state": { "excluded": "Legacy bonus state is presentation metadata; collected is authoritative." },
+          "collected": { "field": "collected" }, "orbit": { "excluded": "Orbit motion is resolved before the transition step." },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "physics": { "add": "addBonus", "remove": "removeBonus" },
+      "x-spaced-penguin-level-defaults": {
+        "key": "bonus",
+        "include": ["width", "height", "value"],
+        "derived": { "collectionPadding": 8 }
+      },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "width": { "type": "number", "default": 42.5, "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "default": 43, "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "value": { "type": "number", "default": 100, "minimum": 0, "x-editor": { "label": "Value", "min": 1 } },
+        "rotationSpeed": { "type": "number", "x-editor": { "label": "Rotation Speed" } },
+        "state": { "type": "string", "enum": ["notHit", "Hit"], "x-editor": { "label": "State", "control": "select" } },
+        "collected": { "type": "boolean", "default": false },
+        "orbit": { "type": "object" }, "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["value", "rotationSpeed", "state"]
+    },
+    {
+      "className": "Target", "type": "target", "label": "Target", "aliases": [], "singleton": "target", "levelRole": "target",
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": true, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Target",
+        "fields": {
+          "id": { "excluded": "Target identity is not consumed by deterministic transitions." },
+          "name": { "excluded": "Authoring name is presentation metadata." },
+          "width": { "excluded": "Collision radius is normalized separately before simulation." },
+          "height": { "excluded": "Collision radius is normalized separately before simulation." },
+          "collisionRadius": { "field": "collisionRadius" }, "spriteType": { "excluded": "Target sprite selection is presentation-only." },
+          "orbit": { "excluded": "Orbit motion is resolved before the transition step." },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "target", "include": ["width", "height", "spriteType"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "width": { "type": "number", "default": 60, "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "default": 60, "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "collisionRadius": { "type": "number", "exclusiveMinimum": 0 },
+        "spriteType": { "type": "string", "default": "ship_open", "x-editor": { "label": "Ship Sprite", "control": "select", "optionsFrom": "shipSprites" } },
+        "orbit": { "type": "object" }, "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["spriteType"]
+    },
+    {
+      "className": "Slingshot", "type": "slingshot", "label": "Slingshot", "aliases": [], "singleton": "slingshot", "levelRole": "slingshot",
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Slingshot",
+        "fields": {
+          "id": { "excluded": "Slingshot identity is not consumed by deterministic transitions." },
+          "name": { "excluded": "Authoring name is presentation metadata." },
+          "width": { "excluded": "Slingshot dimensions are presentation-only." },
+          "height": { "excluded": "Slingshot dimensions are presentation-only." },
+          "anchorPosition": { "field": "anchorPosition" },
+          "anchorX": { "excluded": "Legacy anchor coordinate is normalized into anchorPosition." },
+          "anchorY": { "excluded": "Legacy anchor coordinate is normalized into anchorPosition." },
+          "maxPullback": { "field": "maxPullback" }, "stretchLimit": { "excluded": "Legacy stretch limit is not consumed by deterministic transitions." },
+          "minPullback": { "field": "minPullback" }, "velocityMultiplier": { "field": "velocityMultiplier" },
+          "launchModel": { "field": "launchModel" }, "sourceFrameRate": { "field": "sourceFrameRate" },
+          "coordinateScale": { "field": "coordinateScale" }, "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "slingshot", "include": ["maxPullback", "minPullback", "velocityMultiplier"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "width": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "anchorPosition": { "$ref": "#/$defs/Point" }, "anchorX": { "type": "number" }, "anchorY": { "type": "number" },
+        "maxPullback": { "type": "number", "default": 100, "exclusiveMinimum": 0, "x-editor": { "label": "Max Pullback", "min": 10 } },
+        "stretchLimit": { "type": "number", "exclusiveMinimum": 0 },
+        "minPullback": { "type": "number", "default": 10, "minimum": 0 },
+        "velocityMultiplier": { "type": "number", "default": 15, "exclusiveMinimum": 0, "x-editor": { "label": "Velocity Multiplier", "min": 1 } },
+        "launchModel": { "type": "string", "enum": ["modern", "director"], "default": "modern" },
+        "sourceFrameRate": { "type": ["number", "null"], "exclusiveMinimum": 0, "default": null },
+        "coordinateScale": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["maxPullback", "minPullback", "velocityMultiplier", "launchModel", "sourceFrameRate", "coordinateScale"]
+    },
+    {
+      "className": "TextObject", "constantName": "TEXT", "type": "textobject", "label": "Text", "aliases": ["text"], "collections": ["textObjects"],
+      "capabilities": { "gameplay": false, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-level-defaults": {
+        "key": "text",
+        "include": ["content", "width", "height", "visible", "textAlign", "fontSize", "fontFamily", "color", "backgroundColor", "padding", "maxWidth", "autoSize", "fadeIn", "fadeInDuration", "renderOrder"]
+      },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "content": { "type": "string", "default": "Sample Text", "x-editor": { "label": "Text Content", "control": "text" } },
+        "width": { "type": "number", "default": 200, "exclusiveMinimum": 0, "x-editor": { "label": "Width / Wrap Limit", "min": 1 } },
+        "height": { "type": "number", "default": 100, "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "visible": { "type": "boolean", "default": true, "x-editor": { "label": "Visible", "control": "checkbox" } },
+        "textAlign": { "type": "string", "enum": ["left", "center", "right"], "default": "left", "x-editor": { "label": "Text Align", "control": "select" } },
+        "fontSize": { "type": "number", "default": 16, "minimum": 8, "maximum": 72, "x-editor": { "label": "Font Size", "min": 8, "max": 72 } },
+        "fontFamily": { "type": "string", "default": "Arial, sans-serif", "x-editor": { "label": "Font Family", "control": "text" } },
+        "color": { "type": "string", "default": "#FFFFCC", "x-editor": { "label": "Color", "control": "color" } },
+        "backgroundColor": { "type": "string", "default": "rgba(0, 0, 0, 0.7)", "x-editor": { "label": "Background Color", "control": "color" } },
+        "padding": { "type": "number", "default": 10, "minimum": 0 }, "maxWidth": { "type": ["number", "null"], "default": null },
+        "autoSize": { "type": "boolean", "default": true, "x-editor": { "label": "Auto Size", "control": "checkbox" } },
+        "fadeIn": { "type": "boolean", "default": false }, "fadeInDuration": { "type": "number", "default": 1, "minimum": 0 },
+        "showAfterDelay": { "type": "number", "minimum": 0 }, "renderOrder": { "type": "number", "default": 8 },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["content", "fontSize", "color", "fontFamily", "textAlign", "backgroundColor", "padding", "maxWidth", "autoSize"]
+    },
+    {
+      "className": "PointingArrow", "type": "pointingarrow", "label": "Pointing Arrow", "aliases": ["arrow"], "collections": ["pointingArrows"],
+      "editorFields": [
+        { "key": "pointingAtX", "label": "Target X", "type": "number" },
+        { "key": "pointingAtY", "label": "Target Y", "type": "number" }
+      ],
+      "capabilities": { "gameplay": false, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-level-defaults": {
+        "key": "pointingArrow",
+        "include": ["color", "glowColor", "baseWidth", "scaleWithDistance", "maxDistance", "minWidth", "maxWidth", "pulseSpeed", "minAlpha", "maxAlpha", "renderOrder"]
+      },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" }, "pointingAt": { "$ref": "#/$defs/Point" },
+        "pointAfterDelay": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "color": { "type": "string", "default": "#00FFFF", "x-editor": { "label": "Color", "control": "color" } },
+        "glowColor": { "type": "string", "default": "#0099FF", "x-editor": { "label": "Glow Color", "control": "color" } },
+        "baseWidth": { "type": "number", "default": 20, "exclusiveMinimum": 0, "x-editor": { "label": "Base Width", "min": 10 } },
+        "scaleWithDistance": { "type": "boolean", "default": true, "x-editor": { "label": "Scale with Distance", "control": "checkbox" } },
+        "visible": { "type": "boolean", "default": true, "x-editor": { "label": "Visible", "control": "checkbox" } },
+        "maxDistance": { "type": "number", "default": 300 }, "minWidth": { "type": "number", "default": 15 },
+        "maxWidth": { "type": "number", "default": 60 }, "pulseSpeed": { "type": "number", "default": 3 },
+        "minAlpha": { "type": "number", "default": 0.6 }, "maxAlpha": { "type": "number", "default": 1 },
+        "renderOrder": { "type": "number", "default": 9 }, "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["pointingAt", "baseWidth", "color", "glowColor", "scaleWithDistance"]
+    },
+    {
+      "className": "Portal", "type": "portal", "label": "Portal Pair", "aliases": [], "collections": ["portals"], "relationshipValidator": "portalPair",
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Portal",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "pairedPortalId": { "field": "pairedPortalId" }, "position": { "field": "position" },
+          "color": { "excluded": "Portal color is presentation-only." }, "width": { "field": "width" },
+          "height": { "field": "height" }, "rotation": { "field": "rotation" }, "playSound": { "field": "playSound" },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "portal", "include": ["width", "height", "color", "playSound"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" }, "pairedPortalId": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/Point" },
+        "color": { "type": "string", "enum": ["red", "blue"], "default": "red" },
+        "width": { "type": "number", "default": 48, "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 8 } },
+        "height": { "type": "number", "default": 18, "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 6 } },
+        "rotation": { "type": "number", "default": 0 },
+        "playSound": { "type": "boolean", "default": true, "x-editor": { "label": "Play Woosh Sound", "control": "checkbox" } },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["pairedPortalId", "color", "playSound"]
+    },
+    {
+      "className": "SpeedBooster", "type": "speedbooster", "label": "Speed Booster", "aliases": ["speedBooster", "booster"], "collections": ["speedBoosters"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "SpeedBooster",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "position": { "field": "position" }, "width": { "field": "width" }, "height": { "field": "height" },
+          "rotation": { "field": "rotation" }, "speedMultiplier": { "field": "speedMultiplier" },
+          "playSound": { "field": "playSound" }, "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "speedBooster", "include": ["width", "height", "speedMultiplier", "playSound"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "width": { "type": "number", "default": 64, "exclusiveMinimum": 0, "x-editor": { "label": "Width", "min": 1 } },
+        "height": { "type": "number", "default": 32, "exclusiveMinimum": 0, "x-editor": { "label": "Height", "min": 1 } },
+        "rotation": { "type": "number", "default": 0 },
+        "speedMultiplier": { "type": "number", "default": 1, "minimum": 0, "x-editor": { "label": "Speed Multiplier", "min": 0, "step": 0.1 } },
+        "playSound": { "type": "boolean", "default": true, "x-editor": { "label": "Play Sound", "control": "checkbox" } },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["speedMultiplier", "playSound"]
+    },
+    {
+      "className": "Penguin", "type": "penguin", "label": "Penguin", "aliases": [], "singleton": "penguin",
+      "capabilities": { "gameplay": true, "editable": false, "orbitSource": false, "orbitTarget": false, "waypointSource": false },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Penguin",
+        "fields": {
+          "radius": { "field": "radius" },
+          "mass": { "excluded": "Penguin mass is a runtime constant and is not part of the simulation-step state." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "penguin", "include": ["radius", "mass"] },
+      "properties": { "radius": { "type": "number", "default": 16, "exclusiveMinimum": 0 }, "mass": { "type": "number", "default": 1, "exclusiveMinimum": 0 } },
+      "serializedProperties": []
+    }
+  ]
+}

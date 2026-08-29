@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spacedpenguin.dev/domain/level.schema.json",
+  "title": "Spaced Penguin LevelDocument",
+  "type": "object",
+  "x-spaced-penguin-level-defaults": { "rules": ["scoreMultiplier"] },
+  "additionalProperties": true,
+  "required": ["objects"],
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "startPosition": { "$ref": "#/$defs/Point", "default": { "x": 100, "y": 300 } },
+    "targetPosition": { "$ref": "#/$defs/Point", "default": { "x": 700, "y": 300 } },
+    "bounds": { "$ref": "#/$defs/Bounds" },
+    "camera": { "$ref": "#/$defs/Camera" },
+    "objects": { "type": "array", "items": { "$ref": "#/$defs/GameObject" } },
+    "rules": { "$ref": "#/$defs/Rules", "default": {} }
+  },
+  "$defs": {
+    "Point": { "type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": { "x": { "type": "number" }, "y": { "type": "number" } } },
+    "Rect": { "type": "object", "additionalProperties": false, "required": ["x", "y", "width", "height"], "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 } } },
+    "Bounds": { "type": "object", "properties": { "stage": { "$ref": "#/$defs/Rect" }, "flight": { "$ref": "#/$defs/Rect" } } },
+    "Camera": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["fit", "follow"] }, "zoom": { "type": "number", "exclusiveMinimum": 0 } } },
+    "Orbit": {
+      "type": "object",
+      "properties": {
+        "orbitCenter": { "anyOf": [{ "$ref": "#/$defs/Point" }, { "type": "null" }] }, "center": { "anyOf": [{ "$ref": "#/$defs/Point" }, { "type": "null" }] },
+        "orbitTargetId": { "type": ["string", "null"] }, "targetId": { "type": ["string", "null"] },
+        "orbitRadius": { "type": "number" }, "radius": { "type": "number" }, "orbitSpeed": { "type": "number" }, "speed": { "type": "number" },
+        "orbitAngle": { "type": "number" }, "angle": { "type": "number" },
+        "orbitType": { "type": "string", "enum": ["circular", "elliptical", "figure8", "gravity", "director-gravity", "custom"] },
+        "type": { "type": "string", "enum": ["circular", "elliptical", "figure8", "gravity", "director-gravity", "custom"] },
+        "orbitParams": { "type": "object" }, "params": { "type": "object" }
+      }
+    },
+    "WaypointPath": { "type": "object", "required": ["waypoints"], "properties": { "waypoints": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/Point" } }, "speed": { "type": "number", "minimum": 0, "default": 0 }, "mode": { "type": "string", "enum": ["pingpong", "loop"], "default": "pingpong" }, "phase": { "type": "number", "default": 0 } } },
+    "GameObject": {
+      "type": "object", "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "x-spaced-penguin-generated-enum": "objectTypesAndAliases" },
+        "position": { "$ref": "#/$defs/Point" },
+        "properties": { "type": "object", "properties": { "orbit": { "$ref": "#/$defs/Orbit" }, "waypointPath": { "$ref": "#/$defs/WaypointPath" } } }
+      }
+    },
+    "Rules": {
+      "type": "object",
+      "properties": {
+        "maxTries": { "type": ["integer", "null"], "minimum": 1 }, "scoreMultiplier": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+        "requiredBonuses": { "type": ["integer", "null"], "minimum": 0 }, "allowedMisses": { "type": ["integer", "null"], "minimum": 0 },
+        "gravitationalConstant": { "type": "number", "default": 3 }, "timeLimit": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "customBehaviors": { "type": "array", "default": [] }
+      }
+    }
+  }
+}

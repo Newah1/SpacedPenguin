@@ -48,18 +48,21 @@ The browser calls the immutable `stepSimulation()` API. Headless sweeps use the 
 2. `GameManager` owns the only recurring `requestAnimationFrame` chain.
 3. Gameplay changes enter through the shared simulation kernel. Visual objects must not independently advance flight or orbit physics during normal game frames.
 4. Level validation occurs before the current world is cleared or mutated.
-5. Shared object/orbit vocabulary belongs in `levelSchema.js`, not in individual loaders or tools.
-6. Object-referenced orbits require unique IDs and an acyclic reference graph. Only planets and bonuses may be orbit targets; planet, bonus, and target objects may be orbit sources.
+5. Shared declarative object vocabulary and defaults belong in `domain/` and its generated contracts; compatibility normalization and semantic validation belong in `levelSchema.js` / `levelValidation.js`, not individual loaders or tools.
+6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, and bonuses may be orbit targets; planets, black holes, bonuses, and targets may be orbit sources.
 7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
 8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
 9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.
-10. The level editor mutates the live runtime graph. Export after play mode can contain mutated positions and orbit state and must be reviewed.
+10. The level editor mutates canonical `LevelDocument` definitions through commands. The disposable edit/play runtime is a projection and must never be exported back into authored state.
+11. Every field reachable from the binary simulation-step input must appear in `domain/simulation.schema.json`'s ordered wire records, either encoded or explicitly excluded with a reason. Never hand-edit either generated codec.
 
 ## Common changes
 
 ### Add a game object
 
-Update the runtime class, `GameObjectFactory`, shared type vocabulary/validation, simulation state if gameplay-relevant, editor creation/property/clone/export paths, collection registration, tests, and level documentation.
+Define vocabulary, defaults, capabilities, membership, straightforward inspector fields, and serialization metadata in `domain/gameObjects.schema.json`, then run `npm run generate:domain`. Add the runtime class and handwritten authoring/runtime/clone hooks in `gameObjectRegistry.js`; keep `GameObjectFactory` generic. Add semantic validation, editor/export round-trip coverage, tests, and level documentation.
+
+For gameplay objects, also extend state/events in `domain/simulation.schema.json` and cover every reachable field in its ordered binary-wire records by encoding it or explicitly excluding it with a reason. Then update the deterministic simulation, browser adapter/effects, compiled headless timeline where applicable, rebuild Wasm, and add JavaScript/Wasm browser/headless parity tests.
 
 ### Add a rule
 

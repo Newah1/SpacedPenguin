@@ -10,7 +10,7 @@
 
 ## 1. Executive summary
 
-Spaced Penguin is a client-only, static web game. The browser loads one HTML page and an ES-module graph; there is no build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 logical display surface with an optional level camera over a larger world-space playfield, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
+Spaced Penguin is a client-only, static web game. The browser loads one HTML page, an ES-module graph, and the packaged Rust/Wasm simulator; there is no JavaScript application build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 logical display surface with an optional level camera over a larger world-space playfield, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
 `Game` is the browser-runtime facade and lifecycle coordinator. Mutable session data belongs to `GameSession`; entity collections, physics registration, and render invalidation belong to `RuntimeWorld`; rendering and flight presentation belong to `GameRenderer` and `FlightPresentation`; gameplay gestures belong to `GameplayController`; and browser effects, settings, community runs, and runtime serialization have dedicated coordinators. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router. Main-menu and bootstrap-loading presentation live in separate browser UI views assembled by that composition root.
 
@@ -88,7 +88,7 @@ flowchart TB
     Modules <--> Local
 ```
 
-There is no runtime bundler, transpiler, production package dependency, service worker, backend, authentication, or telemetry service. Browser support therefore depends directly on native ES modules, Canvas 2D, `fetch`, `Map`, optional chaining, Web Audio, Fullscreen, and related contemporary APIs. Development uses pinned Playwright tooling, and GitHub Actions runs the repository's automated quality gates.
+There is no runtime bundler, transpiler, production package dependency, service worker, backend, authentication, or telemetry service. The browser explicitly loads the packaged Rust/WebAssembly simulator during bootstrap; if initialization fails, the JavaScript transition kernel remains the fallback. Browser support therefore depends directly on native ES modules, Canvas 2D, `fetch`, `Map`, optional chaining, Web Audio, Fullscreen, WebAssembly, and related contemporary APIs. Development uses pinned Playwright tooling, and GitHub Actions runs the repository's automated quality gates.
 
 ## 4. Component model and ownership
 
@@ -149,13 +149,14 @@ flowchart TB
 | `AssetLoader` | Manifest loading, ordered resource loading, caches, visual fallbacks | `AudioManager` | Loads all manifest assets sequentially; “essential” changes order and fallback behavior, not whether an asset loads. |
 | `AudioManager` | Audio context, decode/cache, playback, volume | Web Audio API | Audio context construction/resume can be constrained by autoplay policy; failures disable audio without blocking graphics. |
 | `InputManager` | Register contexts and dispatch each DOM event in deterministic priority order | Input contexts, DOM/window | Contains no game/editor/UI activation logic. The first claiming context stops routing unless it explicitly returns `PASS`. |
-| `LevelObjectVocabulary` / `LevelSchema` | Dependency-free type vocabulary and normalized level format | Registry, validator, loader, editor | Vocabulary owns canonical object/orbit/camera names and aliases; schema derives object defaults and capabilities from the domain registry and normalizes definitions. |
+| `domain/` / generated contracts | Language-neutral object, level, simulation-state, event, and simulation wire vocabulary | Generator, registry, validator, JavaScript simulation, Rust simulator, editor tooling | JSON Schema is authoritative for declarative names, aliases, authored defaults, basic constraints, capabilities, serialization, event shapes, and ordered JS-to-Wasm input/output records. Every reachable wire field is encoded or explicitly excluded; gameplay-authored object fields must map to simulation state or have a reasoned exclusion. Generated ES modules, Rust serde types, both wire codecs, and the version/fingerprint manifest are checked for drift. Behavior remains handwritten. |
+| `LevelSchema` | Normalized level format and compatibility normalization | Generated contracts, registry, validator, loader, editor | Applies generated defaults and canonical types, then preserves handwritten orbit/waypoint compatibility normalization. |
 | `LevelValidation` | Pure structural and semantic validation with typed diagnostics | `LevelSchema` | Has no DOM, game-object, fetch, or filesystem dependencies; shared by browser and Node loaders. |
 | `LevelLoader` | Fetch/validate/cache level JSON and instantiate a level into `Game` | Validator, factory, rules, entities, physics | Rejects invalid content before caching/mutation and uses two-pass orbit resolution. |
 | `LevelCatalogService` | Source-neutral discovery, cursor paging, search, detail lookup, and definition lookup | Official, local, and optional community catalog sources | Keeps card summaries separate from rich details and playable JSON; source cursors are opaque to the UI. |
 | `LevelBrowserScreen` | Async level discovery and context-aware play/open UI | `LevelCatalogService`, `Game`, `UIManager` | Owns source tabs, query/loading/error/detail state, debounced search, incremental pages, context-specific actions, unsaved-editor confirmation, focus containment, and lazy thumbnails. |
 | `LevelSaveService` | Create or update locally owned editor records | `LocalLevelRepository`, save strategy pipeline | Persists local definitions and metadata; read/discovery behavior belongs to the catalog boundary. |
-| `GameObjectFactory` | Normalize validated JSON and dispatch registry-owned runtime construction | Object registry, entity constructors, `LevelSchema` | Object-specific constructors/defaults live in registry descriptors; shared orbit configuration remains in the factory. |
+| `GameObjectFactory` | Normalize validated JSON and dispatch registry-owned runtime construction | Object registry, entity constructors, `LevelSchema` | Object-specific constructors and exceptional behavior live in registry hooks; declarative defaults come from generated schema contracts. Shared orbit configuration remains in the factory. |
 | `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
 | `CompiledWorldTimeline` | Exact fixed-step world-state cache for repeated headless candidates | Orbit simulation, simulation state | Stores positions plus orbit angle/velocity in compact `Float64Array` buffers; it changes evaluation cost, not gameplay semantics. |
@@ -174,7 +175,7 @@ flowchart TB
 
 ### Configuration ownership
 
-Shared policy is split by domain under `js/config/`. `gameConfig.js` owns the world, catalog, generator, simulation, physics, and level defaults; the adjacent runtime, render, UI, input, editor, asset, and audio modules own their respective browser concerns. Editor interaction and authoring tuning belongs in `editorConfig.js`, while declarative inspector fields, ranges, option catalogs, editable snapshots, and clone serialization lists belong in `editorInspectorConfig.js`. The Node trajectory tooling has a separate `testing/trajectoryConfig.js` because its search budgets and terminal output are not product behavior. Frozen configuration is consumed directly; `globalConstants.js` remains only as a compatibility view for older imports.
+Shared policy is split by domain under `js/config/`. `gameConfig.js` owns the world, catalog, generator, simulation, and physics settings, and exposes the compatibility/public `LEVEL_DEFAULTS` view assembled from generated schema contracts. Authored object defaults are generated from `domain/gameObjects.schema.json`; level-rule defaults are generated from `domain/level.schema.json`. The adjacent runtime, render, UI, input, editor, asset, and audio modules own their respective browser concerns. Editor interaction and authoring tuning belongs in `editorConfig.js`, while declarative inspector fields, ranges, option catalogs, editable snapshots, and clone serialization lists belong in `editorInspectorConfig.js`. The Node trajectory tooling has a separate `testing/trajectoryConfig.js` because its search budgets and terminal output are not product behavior. Frozen configuration is consumed directly; `globalConstants.js` remains only as a compatibility view for older imports.
 
 Level JSON remains the source of authored content. `LevelSchema.normalizeLevelDefinition` merges shared defaults with authored values using nullish semantics before the loader, runtime factory, editor, or simulation state consumes them. This keeps browser and headless behavior aligned and preserves explicit zero/false overrides.
 
@@ -214,6 +215,7 @@ Important bootstrap properties:
 - Level files are loaded serially. A missing or invalid level is absent from the cache and is generated procedurally when requested.
 - `AssetLoader` constructs the actual `AudioManager`; `GameManager` obtains and injects that shared instance from the loader.
 - The recurring frame callback is scheduled before the loop checks `isRunning` and page visibility. Hidden pages skip work; the first frame after visibility resumes resets timing to avoid a large delta.
+- After assets load, bootstrap explicitly loads `rust/simulator/pkg/spaced_penguin_simulator.wasm` using streaming instantiation when available. A failed initialization is logged and selects the JavaScript simulation fallback without blocking the browser game.
 - Display-frame time is capped to 1/30 second and accumulated across renders. `GameManager` advances the entire simulation world only in exact 1/60-second ticks, including moving/hierarchical orbits, gravity, collision, bonuses, bounds, and rules. Rendering remains display-driven, so copied headless trajectories have the same outcome at high or irregular display refresh rates.
 - `GameManager` owns a single cancellable animation-frame request. Visibility pause/resume is idempotent and does not start parallel frame chains.
 
@@ -241,8 +243,8 @@ sequenceDiagram
             G-->>GM: gameplay update returns early
         else active world
             G->>A: stepGameSimulation(1/60)
-            A->>S: stepSimulation(snapshot, 1/60)
-            S-->>A: immutable state + domain events
+            A->>S: stepSimulation(snapshot, 1/60) via persistent Rust/Wasm state handle
+            S-->>A: generated binary StepPatch + event union
             A->>G: apply positions/counters and effects
             G->>E: update visuals with orbit stepping disabled
         end
@@ -273,9 +275,9 @@ flowchart LR
 
 ### Deterministic simulation path
 
-`stepSimulation(state, delta)` is the authoritative immutable gameplay transition. It clones its input and delegates to `stepSimulationMutable`, the same transition kernel used by optimized headless sessions. The kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
+`stepSimulation(state, delta)` is the authoritative immutable JavaScript gameplay transition and fallback. The browser's normal path uses the Rust/Wasm implementation through one persistent runtime state handle per live simulation; it synchronizes moving world positions through a reusable `Float64Array` buffer and applies the generated binary `StepPatch`/event-union response. Wasm initialization failure selects the JavaScript implementation. The shared transition kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
 
-The result is `{ state, events }`. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same mutable kernel with browser-only movement observations disabled, so it is a runner rather than a second physics implementation.
+The logical result is `{ state, events }`; the Wasm boundary carries its generated versioned binary `StepPatch` and event union. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same Rust candidate-transition function with browser-only movement observations disabled, so it is a runner rather than a second physics implementation. Its portable backend uses Wasm; its optimized native backend validates and compiles world motion in the existing Node adapter, then sends one canonical sweep request to `spaced-penguin-headless`. Candidate simulation, success filtering, near-miss ranking, and detailed capture stay inside that Rust process. Headless batch trajectory envelopes may remain JSON because they are outside the per-frame hot path.
 
 For a trajectory sweep, world motion is candidate-independent: planets, bonuses, and the target never react to the penguin. `CompiledWorldTimeline` therefore advances the same orbit graph once for every fixed step and stores exact positions and mutable orbit fields. Each candidate owns a fresh mutable penguin/bonus/counter state, applies the corresponding world frame, and invokes the shared kernel with orbit advancement disabled. Timeline frames follow the production ordering—world advance first, then collision/gravity/bonus/target evaluation. Optional worker threads each own their timeline and candidate subset; results are restored to canonical grid order before returning.
 
@@ -495,7 +497,7 @@ Operational constraints:
 
 ## 10. Input, UI, and responsive boundaries
 
-The logical display surface is always 800 x 600. The canvas backing buffer follows the viewport and device pixel ratio, then a centered contain transform preserves that display. A second, presentation-only world-camera transform maps level coordinates into the display. Levels without camera metadata use the identity transform and preserve legacy framing; expanded levels either fit their complete stage or use a smoothly following view clamped inside it. Pointer conversion applies both inverse transforms. Deterministic simulation and headless tools consume world coordinates and level bounds but never camera state.
+The logical display surface is always 800 x 600. The canvas backing buffer follows the viewport and device pixel ratio, then a centered contain transform preserves that display. A second, presentation-only world-camera transform maps level coordinates into the display. Levels without camera metadata use the identity transform and preserve legacy framing on landscape and desktop displays; compact portrait gameplay uses a zoomed follow camera plus clamped manual look-around so the action remains legible without changing authored coordinates. Expanded levels either fit their complete stage or use a smoothly following view clamped inside it. Pointer conversion applies both inverse transforms. Deterministic simulation and headless tools consume world coordinates and level bounds but never camera state.
 
 Input action activation:
 
@@ -547,7 +549,7 @@ Architectural consequences:
 - Object membership remains denormalized in the runtime projection, so structural projection uses `LiveLevelMutator` to keep `gameObjects`, typed collections, singleton references, and physics registries synchronized.
 - Inspector properties, level settings, orbit edits, movement, object actions, and Gravity Sculpt acceptance transform cloned document definitions. Runtime exports are never used to synchronize accepted commands into authored state.
 - Clone reads the selected authored record, allocates a new document-visible identity, applies its offset, and submits the new record through the structural command path.
-- `gameObjectRegistry.js` owns level defaults, normalization and validation hooks, authoring-definition factories, complete runtime creators, group clone hooks, transient type-specific property hooks, capabilities, collections, and serialization metadata. `RuntimeObjectMembership` applies the same collection, physics, singleton, and reset policy during normal loading and editor projection.
+- `gameObjectRegistry.js` owns normalization and validation hooks, authoring-definition factories, complete runtime creators, group clone hooks, and transient type-specific property hooks. Generated contracts supply capabilities, collections, serialization metadata, and the explicit `LEVEL_DEFAULTS` compatibility view from `domain/gameObjects.schema.json`; registry behavior must not introduce a second defaults table. `RuntimeObjectMembership` applies the generated membership policy during normal loading and editor projection.
 - `PublishMetadataPromptView` owns publish-dialog DOM, focus, validation, cancellation, and background inert state.
 - Edit to Play validates and clones `LevelDocument`, constructs a fresh simulation world, and freezes that exact definition for completion proof/publishing. Returning to Edit discards the simulated world and rebuilds from the unchanged document.
 - Save, export, thumbnail metadata, and editor publishing serialize `LevelDocument`; `Game.exportCurrentLevel()` remains the runtime/gameplay export path.
@@ -591,7 +593,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or sub
 
 **Why:** Levels can be authored and loaded without per-level code. Factory aliases preserve compatibility with older and editor-generated formats.
 
-**Trade-off:** The executable validator is the authoritative contract, but there is not yet a generated/formal JSON Schema for editor tooling and IDE completion.
+**Trade-off:** Declarative contracts now require generator and CI drift checks, while semantic cross-object validation remains handwritten and must stay aligned with the generated JSON Schema and wire layouts.
 
 ### Two-pass orbit resolution
 
@@ -603,7 +605,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or sub
 
 **Why:** Constants, state names, scoring, traces, crash timing, and reference assets are intended to preserve the Shockwave feel.
 
-**Trade-off:** Snapshot/adaptation adds small per-frame allocations, but gameplay behavior is deterministic, testable without the DOM, and shared exactly by browser and headless runners.
+**Trade-off:** The browser adapter still performs the required state reconciliation, but the persistent Rust handle, reusable position buffer, and generated binary patch/event union avoid repeated runtime initialization and JSON work in the per-frame boundary. Gameplay behavior remains deterministic, testable without the DOM, and shared exactly by browser and headless runners.
 
 ### Graceful media degradation
 
@@ -622,11 +624,12 @@ Maintain these constraints when changing the system:
 5. Assign unique stable IDs to every object used as an orbit target; keep orbit-reference graphs acyclic.
 6. Apply object-referenced orbits only after all referenced objects have been created.
 7. Transition game state through `setState` where possible so input listeners reconcile immediately.
-8. New level fields need coordinated changes in loader defaults, editor property UI, serializer/export, examples, and tests.
+8. New level fields need coordinated changes in the canonical schema, generated contracts, editor property UI, serializer/export, examples, and tests. Run the generator and drift check before committing.
 9. Asset keys must match loader normalization and consumer lookup names.
 10. A failed optional asset must not prevent bootstrap; an invalid structural level should fail validation rather than silently create a misleading partial level.
 11. Gameplay movement and outcomes must enter through `stepSimulation`; rendering objects and adapters may apply state/effects but must not independently advance orbit or flight physics.
-12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and run on exact 1/60-second ticks regardless of display refresh rate. The browser-facing `stepSimulation` contract is immutable; mutable entry points are restricted to isolated sessions that own their state.
+12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and run on exact 1/60-second ticks regardless of display refresh rate. The browser-facing JavaScript `stepSimulation` contract is immutable; the normal browser path uses a persistent Rust/Wasm state handle and generated versioned binary input/output layouts, while mutable entry points are restricted to isolated sessions that own their state.
+13. Every gameplay-authored property must map to simulation state or have a reasoned exclusion. Every reachable binary input/output field must be declared in the ordered schema wire records; versions and fingerprints in `domain/simulation-wire-versions.json` must match generated output. CI and Pages must rebuild and deploy the exact verified Wasm artifact.
 
 ## 15. Extension playbooks
 
@@ -635,10 +638,10 @@ Maintain these constraints when changing the system:
 See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the validated end-to-end checklist, the distinction between visual and gameplay objects, and the remaining explicit simulation boundaries.
 
 1. Implement or extend an entity in `gameObjects.js` with `update(delta)` and `draw(ctx)` behavior.
-2. Register its defaults, validation, authoring behavior, runtime creator, membership, editor metadata, and serialization contract in `gameObjectRegistry.js`.
-3. Define JSON defaults and validation expectations.
-4. Register collections, capabilities, inspector fields, and any clone/property hooks in the same descriptor.
-5. Add simulation-state and `Game` export support when gameplay-relevant.
+2. Define vocabulary, defaults, membership, capabilities, straightforward inspector metadata, and serialization fields in `domain/gameObjects.schema.json`, then run `npm run generate:domain`. Mark only the fields that must remain in the public `LEVEL_DEFAULTS` compatibility view.
+3. Register handwritten validation, authoring factories, runtime creation, clone behavior, and transient property hooks in `gameObjectRegistry.js`.
+4. Add cross-object semantic validation separately where the generated basic constraints are insufficient.
+5. When gameplay-relevant, add state/events to `domain/simulation.schema.json`, cover every reachable binary input/output field by encoding or explicit exclusion, update the gameplay-object projection metadata, regenerate/rebuild Wasm, and update the deterministic kernel, browser adapter/effects, headless timeline, and `Game` export support.
 6. Add assets to the manifest if required, with programmatic fallback where appropriate.
 7. Add a focused browser harness and a production-level integration test.
 8. Update this document and `levels/README.md`.
@@ -674,7 +677,7 @@ There are three current test surfaces:
 2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
 3. `e2e/` contains Playwright smoke tests against a dependency-free local static server. They exercise production bootstrap, canvas input and rendering, pause/resume, scoring transition, failed-audio degradation, responsive coordinate mapping, and editor download/export. Network substitution supplies a deterministic level while leaving the production runtime path intact.
 
-The `.github/workflows/ci.yml` workflow runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests. Failed browser runs retain traces, screenshots, videos, and an HTML report. Playwright uses one worker in CI and caps local execution at four workers because each page bootstraps and decodes the full audio manifest.
+The `.github/workflows/ci.yml` workflow regenerates/checks domain contracts, builds the native headless executable, builds and uploads the verified Rust/Wasm artifact, then runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests against that exact Wasm artifact. The Pages workflow performs the browser contract/build verification and deploys the packaged Wasm alongside the static files; the platform-specific native executable is a development/test tool and is not part of the browser deployment. Failed browser runs retain traces, screenshots, videos, and an HTML report. Playwright uses one worker in CI and caps local execution at four workers because each page bootstraps and decodes the full audio manifest.
 
 ```mermaid
 flowchart TB
@@ -700,15 +703,15 @@ flowchart TB
     Core --> Headless
 ```
 
-Verified limitations as of 2026-08-15:
+Verified limitations as of 2026-08-29:
 
 - The headless runner shares deterministic gameplay semantics. It intentionally does not model browser-only rendering, sprite animation, audio, popup timing, DOM input, or asynchronous scoring-screen timing.
 - Worker count is capped at four. `auto` remains single-threaded below 5,000 candidates to avoid paying worker startup and duplicate-timeline costs on small sweeps.
-- There is executable structural/semantic level validation but no generated JSON Schema artifact, linting, or coverage reporting. Node regression tests use the built-in `node:test` runner; browser coverage uses Playwright with Chromium.
+- There is executable structural/semantic level validation and a generated JSON Schema artifact, contract-drift and wire-fingerprint checks, but no configured linting or coverage threshold. Node regression tests use the built-in `node:test` runner; browser coverage uses Playwright with Chromium.
 
-Recommended quality direction, in order:
+Remaining quality direction, in order:
 
-1. Generate a JSON Schema from the shared contract for editor tooling and IDE completion.
+1. Extend schema-driven editor tooling and IDE completion around the generated JSON Schema.
 2. Add recorded golden trajectories for representative shipped levels and protect intentional balance changes with fixture review.
 3. Extend deterministic tests to multi-bounce crash sequences and terminal level transitions.
 4. Expand browser coverage to failure recovery, fullscreen behavior, and cross-browser compatibility where those risks justify the added runtime.
@@ -795,13 +798,13 @@ These items are intentionally separate from the completed low-risk cleanup. They
 
 ### 18.6 Establish lint, coverage, schema, and golden-behavior gates
 
-**Current state.** The project has strong regression and browser smoke coverage, but no configured linting, coverage threshold, generated JSON Schema, or recorded golden trajectories. Syntax checks catch parse failures but not unused locals, unreachable branches, inconsistent naming, or accidental API drift.
+**Current state.** The project has strong regression, browser smoke, generated JSON Schema, contract-drift, and recorded golden-trajectory coverage, but no configured linting or coverage threshold. Syntax checks catch parse failures but not unused locals, unreachable branches, or inconsistent naming.
 
 **Recommended sequence.**
 
 1. Add a minimal ESLint configuration focused on `no-unused-vars`, unreachable code, accidental globals, consistent errors, and browser/Node environment boundaries. Record intentional compatibility exceptions explicitly.
 2. Add coverage reporting with a modest baseline threshold, then raise thresholds only after unstable or browser-only areas are separated from deterministic core code.
-3. Generate a JSON Schema or equivalent editor contract from the shared level vocabulary and validate representative exported files in CI.
+3. Extend CI/editor validation to cover additional representative exports against the generated JSON Schema and wire manifest.
 4. Record golden trajectories for a small set of shipped levels, including success, bonus requirements, collision recovery, and terminal-level transitions. Review fixture changes as gameplay-balance changes.
 
 **Completion criteria.** CI reports actionable static-analysis and coverage failures, level tooling can consume the same contract as runtime validation, and intentional simulation changes require an explicit fixture update.

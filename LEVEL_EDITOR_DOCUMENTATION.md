@@ -430,14 +430,14 @@ Objects can orbit around specified center points with various patterns:
 
 Orbit target options come from the shared schema capabilities. Planet, black-hole, and bonus IDs can be lookup targets; the shared validator still runs before export and Play.
 
-### Registry-Based Properties
+### Schema-Generated Properties
 
-The editor object registry describes the supported controls and capabilities for each canonical level type:
+Generated object contracts describe the supported controls and capabilities for each canonical level type; `gameObjectRegistry.js` composes them with handwritten construction and exceptional behavior:
 
 - **Declarative Controls**: Text, number, nullable number, select, color, checkbox, and action controls are built from descriptors
 - **Capabilities**: Create, clone, delete, orbit-source/target, singleton, runtime registration, and context actions are data-driven
 - **Input Constraints**: Property controls apply configured min/max ranges and options; save, export, Play, and publish run editor invariants and shared validation
-- **Extensibility**: New types still require shared schema/validation, factory/runtime, simulation when relevant, registry, and documentation coverage
+- **Extensibility**: New types require object-schema generation, handwritten runtime hooks, semantic validation, documentation, and—when gameplay-relevant—simulation-schema/wire and JavaScript/Wasm parity coverage
 
 ### Real-time Sprite Management
 
@@ -533,8 +533,8 @@ js/
 ├── views/              # Shared game screens, dialogs, leaderboards, and thumbnail rendering
 ├── config/             # Frozen product policy plus app/runtime configuration access
 ├── editorCommands/     # ID-based commands, live transactions, and command history
-├── gameObjects.js      # Game object classes and properties
-├── editorObjectRegistry.js # Object defaults, factories, capabilities, hooks, and metadata
+├── runtime/entities/gameObjects.js # Shared drawable runtime classes
+├── runtime/gameObjectRegistry.js   # Generated-contract composition and handwritten behavior hooks
 ├── levelLoader.js      # Level loading and registry-dispatching object factory
 └── game.js             # Game engine integration
 ```
@@ -573,17 +573,19 @@ js/
 
 **Game Object Registry:**
 - Creates canonical authored definitions before any runtime projection
-- Owns complete JSON-to-runtime construction functions and shared object defaults
-- Registers collection, singleton, capability, inspector, clone, and transient property behavior
+- Composes generated schema contracts with complete JSON-to-runtime construction functions
+- Reads defaults, collections, singleton ownership, capabilities, inspector fields, and serialization metadata from generated contracts
+- Owns handwritten authoring, clone, exceptional validation/normalization, and transient property behavior
 - Keeps portal pair creation/cloning and type-specific post-edit refresh logic outside `LevelEditor`
 
 ### Extension Points
 
 **Adding New Object Types:**
 1. Create the runtime class in `gameObjects.js` (or its focused module)
-2. Register authoring and runtime factories in `editorObjectRegistry.js`
-3. Register property controls, collections, capabilities, and any clone/property hooks in that descriptor
-4. Add schema, validation, simulation-state, export, documentation, and tests as applicable
+2. Define its canonical type, properties/defaults, capabilities, membership, inspector fields, and serialization metadata in `domain/gameObjects.schema.json`
+3. Run `npm run generate:domain`, then register handwritten authoring/runtime factories and clone/property hooks in `gameObjectRegistry.js`
+4. Add semantic validation and editor/runtime round-trip coverage
+5. For gameplay objects, extend `domain/simulation.schema.json`, including state/events and an encoded or explicitly excluded entry for every reachable binary-wire field; then rebuild and test the shared Wasm core
 
 **Custom Property Types:**
 1. Add handling in `createPropertyInput()`

@@ -17,7 +17,13 @@
     "test:levels": "node testing/validateLevels.js",
     "test:original-levels": "node testing/verifyOriginalLevelPorts.js",
     "test:syntax": "node testing/checkSyntax.js",
+    "generate:domain": "node tools/generateDomainContracts.js",
+    "check:domain": "node tools/generateDomainContracts.js --check",
     "benchmark:gravity-sculpt-mass": "node testing/benchmarkGravitySculptMass.js",
+    "build:simulator-wasm": "npm run generate:domain && node testing/buildWasmSimulator.js",
+    "build:simulator-native": "npm run generate:domain && node testing/buildNativeSimulator.js",
+    "headless:native": "node testing/nativeHeadlessCli.js",
+    "benchmark:simulator-wasm": "node testing/benchmarkWasmSimulator.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

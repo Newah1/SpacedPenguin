@@ -6,6 +6,8 @@ export const RENDER_CONFIG = deepFreeze({
         easing: 7,
         lookAheadSeconds: 0.18,
         maximumLookAhead: 100,
+        portraitZoom: 1.7,
+        portraitDeadZoneRatio: 0.42,
         playfieldBorderColor: 'rgba(81, 239, 255, 0.65)',
         playfieldBorderWidth: 2
     },
@@ -125,7 +127,7 @@ export const RENDER_CONFIG = deepFreeze({
         placementAttempts: 20,
         minimumSize: 1,
         sizeVariants: 3,
-        drift: { x: 2, y: 0.4 },
+        drift: { x: 3, y: 1 },
         color: '#FFFFFF',
         baseAlpha: 0.35,
         sizeAlpha: 0.2
@@ -152,7 +154,7 @@ export const RENDER_CONFIG = deepFreeze({
         animationFrameMaximum: 11,
         crashAnimationStride: 4,
         spinAnimationStride: 8,
-        crashedDurationSeconds: 2,
+        crashedDurationSeconds: 3,
         spriteScale: 1.2,
         colorKeyTolerance: 30,
         animation: {

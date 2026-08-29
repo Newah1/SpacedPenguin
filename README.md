@@ -25,7 +25,9 @@ python -m http.server 8000
 
 Then open `http://localhost:8000`. Select a default ported level with `http://localhost:8000/?level=5`. The previous hand-authored campaign is archived under the `manual` catalog and can be loaded with `http://localhost:8000/?level=manual:5`; advancing keeps that catalog active. Add `level_editor` to boot the selected level directly into the editor, for example `http://localhost:8000/?level=manual:5&level_editor` (or `?level_editor` for default level 1).
 
-There is no build or install step for the game itself.
+There is no JavaScript bundler or install step for the game itself. The browser
+loads the packaged Rust/Wasm simulator directly; rebuild it locally with
+`npm.cmd run build:simulator-wasm` when changing the Rust core.
 
 ## Deploy to GitHub Pages
 
@@ -33,6 +35,11 @@ A `pages` workflow (`.github/workflows/pages.yml`) publishes the game as a
 static single page app to GitHub Pages on every push to `master`. This makes
 the game playable for anyone, directly in their browser, without needing git
 or a local clone.
+
+The workflow regenerates and verifies the domain contracts, rebuilds the Rust
+simulator, and deploys that exact verified
+`rust/simulator/pkg/spaced_penguin_simulator.wasm` artifact with the browser
+files.
 
 The site appears at `https://<owner>.github.io/<repo>/` (e.g.
 `https://newah1.github.io/SpacedPenguin/`). A specific level can be reached with
@@ -102,9 +109,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for system boundaries, lifecycle and stat
 
 ## Configuration
 
-Reusable policy is grouped by domain under `js/config/`: gameplay and level defaults, runtime timing, rendering, UI, responsive/input behavior, editor behavior, assets, and semantic audio cues. Headless search and CLI policy lives in `testing/trajectoryConfig.js`. Level-authored positions, objects, orbits, and rules remain in JSON rather than global configuration.
+Reusable policy is grouped by domain under `js/config/`: gameplay, runtime timing, rendering, UI, responsive/input behavior, editor behavior, assets, and semantic audio cues. The public `LEVEL_DEFAULTS` view is assembled by `js/config/gameConfig.js` from generated contracts: authored object defaults come from `domain/gameObjects.schema.json`, and level-rule defaults come from `domain/level.schema.json`. Headless search and CLI policy lives in `testing/trajectoryConfig.js`. Level-authored positions, objects, orbits, and rules remain in JSON rather than global configuration.
 
-All level consumers normalize through `LevelSchema` before constructing runtime or deterministic state. This gives the browser loader, editor, and headless tools the same defaults while preserving explicit values such as `0` and `false`. See [CONFIGURATION_MIGRATION.md](CONFIGURATION_MIGRATION.md) for ownership rules and verification gates.
+All level consumers normalize through `LevelSchema` before constructing runtime or deterministic state. This gives the browser loader, editor, and headless tools the same defaults while preserving explicit values such as `0` and `false`. Run `npm run generate:domain` after changing a schema; `npm run check:domain` detects stale generated views. See [CONFIGURATION_MIGRATION.md](CONFIGURATION_MIGRATION.md) for ownership rules and verification gates.
 
 ## Repository map
 
@@ -114,6 +121,10 @@ js/                        Production ES modules
 assets/                    Manifest, images, SVGs, audio, animation metadata
 levels/                    Twenty-five default ports, archived manual catalog, and authoring guide
 testing/                   Node tests, trajectory CLI, and organized manual harnesses
+domain/                    Canonical JSON Schema domain contracts
+generated/                 Generated JavaScript, Rust, and external level contracts
+rust/simulator/             Shared browser/headless Rust/Wasm transition core
+tools/generateDomainContracts.js  Deterministic contract generator and drift check
 server/                    Optional Node HTTP API, SQLite repository, replay workers, and server tests
 e2e/                       Automated Playwright browser smoke tests
 OldSource/                 Decompiled Shockwave source and extracted references
@@ -156,7 +167,7 @@ npm test
 
 Individual gates are available as `npm run test:unit`, `npm run test:server`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
 
-The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same transition kernel mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic, so headless launch commands reproduce independently of display refresh rate.
+The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same Rust candidate-transition function mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic, so headless launch commands reproduce independently of display refresh rate.
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 
@@ -165,6 +176,60 @@ Add `--all-bonuses` to require a successful trajectory to collect every bonus be
 Headless trajectories run for up to 120 simulated seconds by default so searches can wait for slow orbit alignments. Use `--max-time <seconds>` to choose a different limit.
 
 Headless sweeps compile deterministic planet, bonus, and target world frames—including position, orbit angle, and orbit velocity—once per level and reuse them across candidates. Large sweeps automatically use up to four worker threads at 5,000 samples; override this with `--workers 1` or `--workers N`. Both modes preserve exact 1/60-second simulation results and deterministic candidate ordering.
+
+The browser explicitly loads the packaged Rust/WebAssembly simulator during
+bootstrap and falls back to the JavaScript kernel if initialization fails. It
+keeps one persistent Rust state handle per live simulation, synchronizes
+moving world positions through a reusable `Float64Array` buffer, and receives
+a generated, versioned binary `StepPatch`/event-union response. The same Rust
+candidate-transition function is available to the headless tester through
+both Wasm and an optimized native executable. The native backend keeps level
+validation and candidate-independent world compilation in the shared Node
+adapter, then performs candidate simulation, success filtering, near-miss
+ranking, and detailed trajectory capture inside Rust. Build and run it with:
+
+```powershell
+npm.cmd run build:simulator-native
+npm.cmd run headless:native -- --level .\levels\level10.json --samples 10000 --max-time 5
+```
+
+The first `headless:native` invocation also verifies/builds the release
+executable. It is written to
+`rust/simulator/target/release/spaced-penguin-headless.exe` on Windows (without
+the `.exe` suffix on Unix). The existing Wasm backend remains available:
+
+```powershell
+node .\testing\levelTester.js --level .\levels\level10.json --samples 10000 --max-time 5 --backend wasm
+npm.cmd run benchmark:simulator-wasm -- .\levels\level10.json 10000 5
+```
+
+The Wasm transition covers planets, black holes, bonuses, slingshots, targets,
+portals, speed boosters, collisions, crash/reset behavior, and enforced rules.
+The existing deterministic orbit and waypoint graph supplies world motion to
+the same Rust transition in both browser and headless execution. Wasm is the
+portable headless CLI default; `--backend native` selects the release
+executable and `--backend js` remains an explicit comparison path.
+
+Domain vocabulary is schema-first. Edit `domain/gameObjects.schema.json`,
+`domain/simulation.schema.json`, or `domain/level.schema.json`, then run:
+
+```powershell
+npm.cmd run generate:domain
+npm.cmd run check:domain
+```
+
+Generation produces browser-safe ES-module descriptors under `generated/js/`,
+Rust serde models and event unions under `generated/rust/`, and
+`generated/level.schema.json` for editors and IDEs. The ordered binary
+simulation input and output layouts live in `domain/simulation.schema.json`;
+their versions and fingerprints are recorded in
+`domain/simulation-wire-versions.json`. The generator emits both sides of
+each codec, rejects uncovered fields, and checks the checked-in manifest in
+CI. Gameplay-authored properties must map to simulation state or carry a
+reasoned projection exclusion. Batch trajectory envelopes may remain JSON
+outside the per-frame hot path. Runtime constructors, rendering, audio,
+cross-object validation, editor commands, orbit advancement, and gameplay
+transition behavior remain handwritten.
 
 Validate a definition without simulation using `node .\levelTester.js --validate-only --level <path>` from `testing/`. Browser and headless loading use the same structural and semantic validator, including finite coordinates, supported types, unique IDs, orbit references/cycles, and rule constraints.
 

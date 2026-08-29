@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spacedpenguin.dev/domain/simulation.schema.json",
+  "title": "Spaced Penguin deterministic simulation contracts",
+  "description": "Serializable simulation state and the complete discriminated union of domain events shared by JavaScript and Rust.",
+  "x-spaced-penguin-wire": {
+    "name": "simulation-step",
+    "version": 1,
+    "endianness": "little",
+    "encoding": "generated-typed-array",
+    "magic": "0x53505731",
+    "root": "SimulationStepInput",
+    "fingerprints": {
+      "input": "sha256:fd8c7a17f97271e6726fb1c0c77d1d30a35df346593e7595e3a65c822a6e4eb2",
+      "output": "sha256:379534d5f8df28dd598b9a1769b47baec50bff160b17379d00865b6d0423d95e"
+    },
+    "records": {
+      "SimulationStepInput": [{ "field": "simulation" }, { "field": "state" }],
+      "SimulationConfig": [{ "field": "legacyPhysicsFps" }, { "field": "launchCurve" }, { "field": "collision" }],
+      "LaunchCurve": [{ "field": "minimumSpeedFactor" }, { "field": "maximumSpeedFactor" }, { "field": "responseExponent" }],
+      "CollisionConfig": [{ "field": "planetCrashFrames" }, { "field": "terminalCrashFrames" }, { "field": "restitution" }, { "field": "minimumBounceSpeed" }, { "field": "separationPadding" }],
+      "SimulationState": [{ "field": "time" }, { "field": "runTick" }, { "field": "penguin" }, { "field": "planets" }, { "field": "bonuses" }, { "field": "portals" }, { "field": "speedBoosters" }, { "field": "decorations", "excluded": "Browser-only decoration state is not consumed by deterministic transitions." }, { "field": "target" }, { "field": "slingshot" }, { "field": "bounds" }, { "field": "rules" }, { "field": "counters" }],
+      "Penguin": [{ "field": "radius" }, { "field": "position" }, { "field": "velocity" }, { "field": "state" }, { "field": "crashFramesRemaining" }, { "field": "portalLockId" }, { "field": "speedBoosterLockId" }],
+      "Planet": [{ "field": "id" }, { "field": "type", "excluded": "Canonical object type is already established before simulation." }, { "field": "position" }, { "field": "radius", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "collisionRadius" }, { "field": "collidable" }, { "field": "mass" }, { "field": "gravitationalReach" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "Bonus": [{ "field": "id" }, { "field": "position" }, { "field": "width", "excluded": "Collection radius is normalized separately and is the transition input." }, { "field": "value" }, { "field": "collected" }, { "field": "collectionRadius" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "Portal": [{ "field": "id" }, { "field": "position" }, { "field": "width" }, { "field": "height" }, { "field": "rotation" }, { "field": "color", "excluded": "Portal color is presentation-only." }, { "field": "pairedPortalId" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "SpeedBooster": [{ "field": "id" }, { "field": "position" }, { "field": "width" }, { "field": "height" }, { "field": "rotation" }, { "field": "speedMultiplier" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "Target": [{ "field": "id", "excluded": "Target identity is not consumed by deterministic transitions." }, { "field": "position" }, { "field": "width", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "height", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "collisionRadius" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "Slingshot": [{ "field": "position" }, { "field": "anchorPosition" }, { "field": "launchModel" }, { "field": "sourceFrameRate" }, { "field": "coordinateScale" }, { "field": "velocityMultiplier" }, { "field": "maxPullback" }, { "field": "minPullback" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "Bounds": [{ "field": "stage" }, { "field": "flight" }],
+      "Rect": [{ "field": "x" }, { "field": "y" }, { "field": "width" }, { "field": "height" }],
+      "Rules": [{ "field": "maxTries" }, { "field": "requiredBonuses" }, { "field": "allowedMisses" }, { "field": "scoreMultiplier", "excluded": "Score multiplication is applied outside the deterministic transition kernel." }, { "field": "gravitationalConstant" }],
+      "Counters": [{ "field": "tries" }, { "field": "planetCollisions" }, { "field": "currentAttemptScore" }, { "field": "distance" }],
+      "Point": [{ "field": "x" }, { "field": "y" }]
+    },
+    "output": {
+      "root": "StepPatch",
+      "roots": ["StepPatch", "TrajectoryResult"],
+      "event": {
+        "definition": "SimulationEvent",
+        "tagCodec": "u8",
+        "variants": [
+          { "type": "penguin_moved", "tag": 0 }, { "type": "bonus_collected", "tag": 1 },
+          { "type": "planet_collision", "tag": 2 }, { "type": "planet_bounce", "tag": 3 },
+          { "type": "target_hit", "tag": 4 }, { "type": "target_blocked", "tag": 5 },
+          { "type": "out_of_bounds", "tag": 6 }, { "type": "portal_teleported", "tag": 7 },
+          { "type": "speed_booster_activated", "tag": 8 }, { "type": "attempt_reset_required", "tag": 9 },
+          { "type": "rule_failure", "tag": 10 }
+        ]
+      },
+      "records": {
+        "StepPatch": [{ "field": "time" }, { "field": "runTick" }, { "field": "penguin" }, { "field": "counters" }, { "field": "bonusCollected" }, { "field": "events" }],
+        "PenguinPatch": [{ "field": "position" }, { "field": "velocity" }, { "field": "state" }, { "field": "crashFramesRemaining" }, { "field": "portalLockId" }, { "field": "speedBoosterLockId" }],
+        "CounterPatch": [{ "field": "planetCollisions" }, { "field": "currentAttemptScore" }, { "field": "distance" }],
+        "TrajectoryPoint": [{ "field": "x" }, { "field": "y" }, { "field": "velocity" }, { "field": "time" }],
+        "TrajectoryResult": [{ "field": "success" }, { "field": "reason" }, { "field": "steps" }, { "field": "finalPosition" }, { "field": "trajectory" }, { "field": "distance" }, { "field": "collectedBonuses" }, { "field": "totalBonuses" }, { "field": "requiredBonuses" }, { "field": "bonusScore" }, { "field": "events" }, { "field": "targetDistance" }],
+        "Point": [{ "field": "x" }, { "field": "y" }]
+      }
+    }
+  },
+  "$ref": "#/$defs/SimulationState",
+  "$defs": {
+    "Point": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Copy", "Debug", "Default", "Deserialize", "Serialize"] }
+    },
+    "Rect": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y", "width", "height"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "width": { "type": "number" }, "height": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Copy", "Debug", "Deserialize"] }
+    },
+    "LaunchCurve": {
+      "type": "object", "additionalProperties": false, "required": ["minimumSpeedFactor", "maximumSpeedFactor", "responseExponent"],
+      "properties": { "minimumSpeedFactor": { "type": "number" }, "maximumSpeedFactor": { "type": "number" }, "responseExponent": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "CollisionConfig": {
+      "type": "object", "additionalProperties": false, "required": ["planetCrashFrames", "terminalCrashFrames", "restitution", "minimumBounceSpeed", "separationPadding"],
+      "properties": { "planetCrashFrames": { "type": "number" }, "terminalCrashFrames": { "type": "number" }, "restitution": { "type": "number" }, "minimumBounceSpeed": { "type": "number" }, "separationPadding": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SimulationConfig": {
+      "type": "object", "additionalProperties": false, "required": ["legacyPhysicsFps", "launchCurve", "collision"],
+      "properties": { "legacyPhysicsFps": { "type": "number" }, "launchCurve": { "$ref": "#/$defs/LaunchCurve" }, "collision": { "$ref": "#/$defs/CollisionConfig" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "Planet": {
+      "type": "object", "required": ["id", "position", "collisionRadius", "mass", "gravitationalReach"],
+      "properties": {
+        "id": { "type": "string" }, "type": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "radius": { "type": "number" }, "collisionRadius": { "type": "number" },
+        "collidable": { "type": "boolean", "default": true }, "mass": { "type": "number" },
+        "gravitationalReach": { "type": "number" }, "orbit": {}, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "collisionRadius", "collidable", "mass", "gravitationalReach"] }
+    },
+    "Bonus": {
+      "type": "object", "required": ["id", "position", "value", "collectionRadius"],
+      "properties": {
+        "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" }, "width": { "type": "number" },
+        "value": { "type": "number" }, "collected": { "type": "boolean", "default": false },
+        "collectionRadius": { "type": "number" }, "orbit": {}, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "value", "collected", "collectionRadius"] }
+    },
+    "Portal": {
+      "type": "object", "required": ["id", "position", "width", "height"],
+      "properties": {
+        "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "width": { "type": "number" }, "height": { "type": "number" }, "rotation": { "type": "number", "default": 0 },
+        "color": { "type": "string" }, "pairedPortalId": { "type": ["string", "null"] },
+        "playSound": { "type": "boolean", "default": true }, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "width", "height", "rotation", "pairedPortalId", "playSound"] }
+    },
+    "SpeedBooster": {
+      "type": "object", "required": ["id", "position", "width", "height"],
+      "properties": {
+        "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "width": { "type": "number" }, "height": { "type": "number" }, "rotation": { "type": "number", "default": 0 },
+        "speedMultiplier": { "type": "number", "default": 1 }, "playSound": { "type": "boolean", "default": true }, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "width", "height", "rotation", "speedMultiplier", "playSound"] }
+    },
+    "Target": {
+      "type": "object", "required": ["position", "collisionRadius"],
+      "properties": { "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" }, "width": { "type": "number" }, "height": { "type": "number" }, "collisionRadius": { "type": "number" }, "orbit": {}, "waypointPath": {} },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["position", "collisionRadius"] }
+    },
+    "Slingshot": {
+      "type": "object", "required": ["position", "anchorPosition", "launchModel", "coordinateScale", "velocityMultiplier", "maxPullback", "minPullback"],
+      "properties": {
+        "position": { "$ref": "#/$defs/Point" }, "anchorPosition": { "$ref": "#/$defs/Point" },
+        "launchModel": { "type": "string" }, "sourceFrameRate": { "type": ["number", "null"] },
+        "coordinateScale": { "type": "number" }, "velocityMultiplier": { "type": "number" },
+        "maxPullback": { "type": "number" }, "minPullback": { "type": "number" }, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["position", "anchorPosition", "launchModel", "sourceFrameRate", "coordinateScale", "velocityMultiplier", "maxPullback", "minPullback"] }
+    },
+    "Penguin": {
+      "type": "object", "required": ["radius"],
+      "properties": {
+        "radius": { "type": "number" }, "position": { "$ref": "#/$defs/Point", "default": { "x": 0, "y": 0 } },
+        "velocity": { "$ref": "#/$defs/Point", "default": { "x": 0, "y": 0 } }, "state": { "type": "string", "default": "" },
+        "crashFramesRemaining": { "type": "number", "default": 0 }, "portalLockId": { "type": ["string", "null"], "default": null },
+        "speedBoosterLockId": { "type": ["string", "null"], "default": null }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "Bounds": {
+      "type": "object", "additionalProperties": false, "required": ["stage", "flight"],
+      "properties": { "stage": { "$ref": "#/$defs/Rect" }, "flight": { "$ref": "#/$defs/Rect" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Copy", "Debug", "Deserialize"] }
+    },
+    "Rules": {
+      "type": "object", "required": ["gravitationalConstant"],
+      "properties": {
+        "maxTries": { "type": ["integer", "null"], "minimum": 1 }, "requiredBonuses": { "type": ["integer", "null"], "minimum": 0 },
+        "allowedMisses": { "type": ["integer", "null"], "minimum": 0 }, "scoreMultiplier": { "type": "number" },
+        "gravitationalConstant": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Copy", "Debug", "Deserialize"], "include": ["maxTries", "requiredBonuses", "allowedMisses", "gravitationalConstant"] }
+    },
+    "Counters": {
+      "type": "object",
+      "properties": {
+        "tries": { "type": "integer", "minimum": 0, "default": 0 }, "planetCollisions": { "type": "integer", "minimum": 0, "default": 0 },
+        "currentAttemptScore": { "type": "number", "default": 0 }, "distance": { "type": "number", "default": 0 }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Default", "Deserialize"] }
+    },
+    "SimulationState": {
+      "type": "object", "required": ["penguin", "planets", "bonuses", "target", "slingshot", "bounds", "rules"],
+      "properties": {
+        "time": { "type": "number", "default": 0 }, "runTick": { "type": "integer", "minimum": 0, "default": 0 },
+        "penguin": { "$ref": "#/$defs/Penguin" }, "planets": { "type": "array", "items": { "$ref": "#/$defs/Planet" } },
+        "bonuses": { "type": "array", "items": { "$ref": "#/$defs/Bonus" } }, "portals": { "type": "array", "default": [], "items": { "$ref": "#/$defs/Portal" } },
+        "speedBoosters": { "type": "array", "default": [], "items": { "$ref": "#/$defs/SpeedBooster" } },
+        "decorations": { "type": "array", "default": [], "items": {} }, "target": { "$ref": "#/$defs/Target" },
+        "slingshot": { "$ref": "#/$defs/Slingshot" }, "bounds": { "$ref": "#/$defs/Bounds" },
+        "rules": { "$ref": "#/$defs/Rules" }, "counters": { "$ref": "#/$defs/Counters", "default": {} }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "name": "InitialState", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SimulationStepInput": {
+      "type": "object", "additionalProperties": false, "required": ["state", "simulation"],
+      "properties": { "state": { "$ref": "#/$defs/SimulationState" }, "simulation": { "$ref": "#/$defs/SimulationConfig" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "name": "WasmInput", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "PenguinPatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["position", "velocity", "state", "crashFramesRemaining", "portalLockId", "speedBoosterLockId"],
+      "properties": {
+        "position": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" },
+        "state": { "type": "string" }, "crashFramesRemaining": { "type": "number" },
+        "portalLockId": { "type": ["string", "null"] }, "speedBoosterLockId": { "type": ["string", "null"] }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Debug", "Serialize"] }
+    },
+    "CounterPatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["planetCollisions", "currentAttemptScore", "distance"],
+      "properties": { "planetCollisions": { "type": "integer" }, "currentAttemptScore": { "type": "number" }, "distance": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Debug", "Serialize"] }
+    },
+    "TrajectoryPoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["x", "y", "velocity", "time"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "velocity": { "$ref": "#/$defs/Point" }, "time": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Copy", "Debug", "Serialize"] }
+    },
+    "StepPatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["time", "runTick", "penguin", "counters", "bonusCollected", "events"],
+      "properties": {
+        "time": { "type": "number" }, "runTick": { "type": "integer" }, "penguin": { "$ref": "#/$defs/PenguinPatch" },
+        "counters": { "$ref": "#/$defs/CounterPatch" }, "bonusCollected": { "type": "array", "items": { "type": "boolean" } },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/SimulationEvent" } }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Debug", "Serialize"] }
+    },
+    "TrajectoryResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "reason", "steps", "finalPosition", "trajectory", "distance", "collectedBonuses", "totalBonuses", "requiredBonuses", "bonusScore", "events", "targetDistance"],
+      "properties": {
+        "success": { "type": "boolean" }, "reason": { "type": "string" }, "steps": { "type": "integer" },
+        "finalPosition": { "$ref": "#/$defs/Point" }, "trajectory": { "type": "array", "items": { "$ref": "#/$defs/TrajectoryPoint" } },
+        "distance": { "type": "number" }, "collectedBonuses": { "type": "array", "items": { "type": "string" } },
+        "totalBonuses": { "type": "integer" }, "requiredBonuses": { "type": ["integer", "null"] }, "bonusScore": { "type": "number" },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/SimulationEvent" } }, "targetDistance": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Debug", "Serialize"] }
+    },
+    "SimulationEvent": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "position", "distance", "deltaTime"], "properties": { "type": { "const": "penguin_moved" }, "from": { "$ref": "#/$defs/Point" }, "position": { "$ref": "#/$defs/Point" }, "distance": { "type": "number" }, "deltaTime": { "type": "number" } } },
+        { "type": "object", "required": ["type", "bonusId", "bonusIndex", "value", "position"], "properties": { "type": { "const": "bonus_collected" }, "bonusId": { "type": "string" }, "bonusIndex": { "type": "integer" }, "value": { "type": "number" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "planetId", "planetIndex", "position"], "properties": { "type": { "const": "planet_collision" }, "planetId": { "type": "string" }, "planetIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "planetId", "planetIndex", "position"], "properties": { "type": { "const": "planet_bounce" }, "planetId": { "type": "string" }, "planetIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "position"], "properties": { "type": { "const": "target_hit" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "rule", "required", "collected", "remaining", "reason", "position"], "properties": { "type": { "const": "target_blocked" }, "rule": { "type": "string" }, "required": { "type": "integer" }, "collected": { "type": "integer" }, "remaining": { "type": "integer" }, "reason": { "type": "string" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "position"], "properties": { "type": { "const": "out_of_bounds" }, "position": { "$ref": "#/$defs/Point" } } },
+        { "type": "object", "required": ["type", "sourcePortalId", "destinationPortalId", "entryPosition", "exitPosition", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "portal_teleported" }, "sourcePortalId": { "type": "string" }, "destinationPortalId": { "type": "string" }, "entryPosition": { "$ref": "#/$defs/Point" }, "exitPosition": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } },
+        { "type": "object", "required": ["type", "speedBoosterId", "speedBoosterIndex", "position", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "speed_booster_activated" }, "speedBoosterId": { "type": "string" }, "speedBoosterIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "attempt_reset_required" } } },
+        { "type": "object", "required": ["type", "rule", "reason"], "properties": { "type": { "const": "rule_failure" }, "rule": { "type": "string" }, "reason": { "type": "string" } } }
+      ],
+      "x-spaced-penguin-rust": { "module": "simulation_events", "name": "SimulationEvent" }
+    }
+  }
+}

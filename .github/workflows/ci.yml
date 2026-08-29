@@ -30,6 +30,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Rust for generated contracts and Wasm
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+
+      - name: Verify generated domain contracts
+        run: npm run check:domain
+
+      - name: Build packaged Wasm simulator
+        run: npm run build:simulator-wasm
+
+      - name: Build native headless simulator
+        run: npm run build:simulator-native
+
+      - name: Upload verified Wasm simulator
+        uses: actions/upload-artifact@v5
+        with:
+          name: simulator-wasm
+          path: rust/simulator/pkg/spaced_penguin_simulator.wasm
+          if-no-files-found: error
+
+      - name: Check generated Rust simulator models
+        run: cargo test --manifest-path rust/simulator/Cargo.toml
+
       - name: Run Node regression tests
         run: npm run test:unit
 
@@ -56,6 +81,18 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Remove checkout Wasm simulator
+        run: rm -f rust/simulator/pkg/spaced_penguin_simulator.wasm
+
+      - name: Download verified Wasm simulator
+        uses: actions/download-artifact@v5
+        with:
+          name: simulator-wasm
+          path: rust/simulator/pkg
+
+      - name: Verify downloaded Wasm simulator
+        run: test -s rust/simulator/pkg/spaced_penguin_simulator.wasm
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

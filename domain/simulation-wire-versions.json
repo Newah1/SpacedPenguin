@@ -1,0 +1,10 @@
+{
+  "simulation-step": {
+    "input": {
+      "1": "sha256:fd8c7a17f97271e6726fb1c0c77d1d30a35df346593e7595e3a65c822a6e4eb2"
+    },
+    "output": {
+      "1": "sha256:379534d5f8df28dd598b9a1769b47baec50bff160b17379d00865b6d0423d95e"
+    }
+  }
+}

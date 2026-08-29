@@ -13,7 +13,10 @@ export class GameplayController {
         this.isDragging = false;
         this.mobileUIOverlay = null;
         this.mobileInstructions = null;
-        this.launchIndicator = null;
+        this.mobileLookAroundButton = null;
+        this.lookAroundMode = false;
+        this.lookAroundPointerActive = false;
+        this.lookAroundLastClientPosition = null;
     }
 
     isMobileDevice() {
@@ -24,15 +27,29 @@ export class GameplayController {
         if (this.isMobileDevice()) this.createMobileControlButtons();
     }
 
+    clearMobileControls() {
+        if (this.lookAroundMode) this.game.resetWorldCamera?.();
+        this.lookAroundMode = false;
+        this.mouseDown = false;
+        this.isDragging = false;
+        this.lookAroundPointerActive = false;
+        this.lookAroundLastClientPosition = null;
+        this.mobileUIOverlay?.remove();
+        this.mobileUIOverlay = null;
+        this.mobileInstructions = null;
+        this.mobileLookAroundButton = null;
+    }
+
     createMobileControlButtons() {
-        document.querySelectorAll('.mobile-control-button, .mobile-ui-overlay')
-            .forEach(button => button.remove());
+        this.clearMobileControls();
+        document.querySelectorAll('.mobile-ui-overlay').forEach(overlay => overlay.remove());
         this.mobileUIOverlay = document.createElement('div');
         this.mobileUIOverlay.className = 'mobile-ui-overlay';
         this.mobileUIOverlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:150;font-family:Arial,sans-serif;';
         const controlPanel = document.createElement('div');
-        controlPanel.style.cssText = 'position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:8px;pointer-events:auto;';
-        const buttonStyle = 'border:none;padding:12px 16px;border-radius:25px;font-size:14px;font-weight:bold;touch-action:manipulation;min-height:44px;box-shadow:0 2px 8px rgba(0,0,0,.3);backdrop-filter:blur(10px);';
+        controlPanel.className = 'mobile-control-panel';
+        controlPanel.style.cssText = 'position:absolute;display:flex;flex-direction:column;pointer-events:auto;';
+        const buttonStyle = 'border:none;border-radius:25px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.3);backdrop-filter:blur(10px);';
         const resetButton = createButton('TRY AGAIN', () => {
             const game = this.game;
             if (game.state === GameState.PLAYING || (game.state === GameState.LEVEL_EDITOR && game.levelEditor.mode === 'play')) {
@@ -52,11 +69,26 @@ export class GameplayController {
         quitButton.classList.add('mobile-control-button');
         quitButton.textContent = '✕ QUIT';
         quitButton.style.cssText += buttonStyle;
-        controlPanel.append(resetButton, quitButton);
+
+        const lookAroundButton = createButton('LOOK AROUND', () => {
+            this.setLookAroundMode(!this.lookAroundMode);
+            if ('vibrate' in navigator) navigator.vibrate(INPUT_CONFIG.hapticsMs.mobileControl);
+        }, {
+            backgroundColor: 'rgba(54, 128, 196, 0.92)',
+            hoverColor: 'rgba(79, 157, 222, 0.96)',
+            textColor: 'white'
+        });
+        lookAroundButton.classList.add('mobile-control-button', 'mobile-look-around-button');
+        lookAroundButton.textContent = '👀 LOOK AROUND';
+        lookAroundButton.setAttribute('aria-pressed', 'false');
+        lookAroundButton.style.cssText += buttonStyle;
+        this.mobileLookAroundButton = lookAroundButton;
+
+        controlPanel.append(resetButton, lookAroundButton, quitButton);
 
         this.mobileInstructions = document.createElement('div');
-        this.mobileInstructions.style.cssText = 'position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:white;padding:12px 20px;border-radius:25px;font-size:14px;text-align:center;pointer-events:none;max-width:90%;box-shadow:0 2px 8px rgba(0,0,0,.3);backdrop-filter:blur(10px);transition:opacity .3s ease;';
-        this.createLaunchFeedback();
+        this.mobileInstructions.className = 'mobile-instructions';
+        this.mobileInstructions.style.cssText = 'position:absolute;transform:none;background:rgba(0,0,0,.8);color:white;border-radius:25px;text-align:center;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);backdrop-filter:blur(10px);transition:opacity .3s ease;';
         this.mobileUIOverlay.append(controlPanel, this.mobileInstructions);
         document.body.appendChild(this.mobileUIOverlay);
         this.updateMobileInstructions();
@@ -65,10 +97,28 @@ export class GameplayController {
         }, RUNTIME_CONFIG.mobileInstructionsFadeDelayMs);
     }
 
-    createLaunchFeedback() {
-        this.launchIndicator = document.createElement('div');
-        this.launchIndicator.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100px;height:100px;border:3px solid rgba(0,255,255,.8);border-radius:50%;pointer-events:none;opacity:0;transition:all .2s ease;box-shadow:0 0 20px rgba(0,255,255,.5);';
-        this.mobileUIOverlay.appendChild(this.launchIndicator);
+    // Kept as a no-op for the browser facade's legacy method contract. Mobile
+    // launch feedback is now communicated by the instruction pill.
+    createLaunchFeedback() {}
+
+    // Kept as a no-op for callers from older game lifecycle paths.
+    showLaunchFeedback() {}
+
+    setLookAroundMode(enabled) {
+        const nextMode = Boolean(enabled);
+        if (nextMode === this.lookAroundMode) return;
+
+        this.lookAroundMode = nextMode;
+        this.isDragging = false;
+        this.lookAroundPointerActive = false;
+        this.lookAroundLastClientPosition = null;
+
+        if (!nextMode) this.game.resetWorldCamera?.();
+        if (this.mobileLookAroundButton) {
+            this.mobileLookAroundButton.textContent = nextMode ? '✓ AIM' : '👀 LOOK AROUND';
+            this.mobileLookAroundButton.setAttribute('aria-pressed', String(nextMode));
+        }
+        this.updateMobileInstructions();
     }
 
     updateMobileInstructions() {
@@ -81,21 +131,16 @@ export class GameplayController {
                 ? '🎮 Testing level - drag to launch'
                 : '✏️ Level Editor - long press to add objects';
         } else if (game.state === GameState.PLAYING) {
-            const state = game.penguin?.state;
-            if (state === 'idle') text = '🎯 Drag penguin to aim, release to launch';
-            else if (state === 'pullback') text = '🎯 Release to launch!';
-            else if (state === 'soaring') text = '👆 Tap to try again';
-            else text = '🐧 Ready to launch!';
+            if (this.lookAroundMode) text = '👀 Drag to look around · tap ✓ AIM to return';
+            else {
+                const state = game.penguin?.state;
+                if (state === 'idle') text = '🎯 Drag penguin to aim, release to launch';
+                else if (state === 'pullback') text = '🎯 Release to launch!';
+                else if (state === 'soaring') text = '👆 Tap to try again';
+                else text = '🐧 Ready to launch!';
+            }
         }
         this.mobileInstructions.textContent = text;
-    }
-
-    showLaunchFeedback(show = true) {
-        if (!this.launchIndicator) return;
-        this.launchIndicator.style.opacity = show ? '1' : '0';
-        this.launchIndicator.style.transform = show
-            ? 'translate(-50%, -50%) scale(1.2)'
-            : 'translate(-50%, -50%) scale(1)';
     }
 
     getMousePosition(event) {
@@ -106,6 +151,11 @@ export class GameplayController {
     handleMouseDown(event) {
         const game = this.game;
         this.mouseDown = true;
+        if (this.lookAroundMode) {
+            this.lookAroundPointerActive = true;
+            this.lookAroundLastClientPosition = { x: event.clientX, y: event.clientY };
+            return;
+        }
         this.mousePosition = this.getMousePosition(event);
         if (game.state === GameState.MENU) return game.startGame();
         if (game.state === GameState.LEVEL_EDITOR && game.levelEditor.active && game.levelEditor.mode === 'edit') {
@@ -114,12 +164,18 @@ export class GameplayController {
         const canUseSlingshot = game.state === GameState.PLAYING ||
             (game.state === GameState.LEVEL_EDITOR && game.levelEditor.mode === 'play');
         if (canUseSlingshot && game.penguin.state === 'idle') {
+            // A persistent Wasm runtime owns the immutable simulation state
+            // between frames. Pullback is an interactive, pre-launch state
+            // owned by the pointer, so discard any idle runtime snapshot
+            // before changing Kevin's live position/state. The next frame
+            // will create the runtime from the current pullback state instead
+            // of applying an old idle patch back over the pointer drag.
+            game.invalidateSimulationState?.();
             this.isDragging = true;
             game.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
             game.penguin.setState('pullback');
             game.updateAimAssistPreview();
             if (this.isMobileDevice()) {
-                this.showLaunchFeedback(true);
                 this.updateMobileInstructions();
             }
         }
@@ -127,12 +183,29 @@ export class GameplayController {
 
     handleMouseMove(event) {
         const game = this.game;
+        if (this.lookAroundMode) {
+            if (!this.lookAroundPointerActive || !this.lookAroundLastClientPosition) return;
+            const clientX = event.clientX;
+            const clientY = event.clientY;
+            const dx = clientX - this.lookAroundLastClientPosition.x;
+            const dy = clientY - this.lookAroundLastClientPosition.y;
+            this.lookAroundLastClientPosition = { x: clientX, y: clientY };
+            if ((dx || dy) && typeof game.panPortraitCameraByClientDelta === 'function') {
+                game.panPortraitCameraByClientDelta(dx, dy);
+            }
+            return;
+        }
         this.mousePosition = this.getMousePosition(event);
         if (game.state === GameState.LEVEL_EDITOR && game.levelEditor.active && game.levelEditor.mode === 'edit') {
             return game.levelEditor.handleMouseMove(event);
         }
         if (this.isDragging && game.slingshot.isPulling) {
             game.slingshot.updatePullback(this.mousePosition.x, this.mousePosition.y);
+            // Keep a runtime that may have been created by an animation frame
+            // during the drag from replaying a stale pre-pointer snapshot.
+            // Pullback is interactive input, so the next frame must capture
+            // this exact live position/state before stepping.
+            game.invalidateSimulationState?.();
             game.updateAimAssistPreview();
         }
     }
@@ -140,6 +213,11 @@ export class GameplayController {
     handleMouseUp(event) {
         const game = this.game;
         this.mouseDown = false;
+        if (this.lookAroundMode) {
+            this.lookAroundPointerActive = false;
+            this.lookAroundLastClientPosition = null;
+            return;
+        }
         if (game.state === GameState.LEVEL_EDITOR && game.levelEditor.active && game.levelEditor.mode === 'edit') {
             return game.levelEditor.handleMouseUp(event);
         }
@@ -149,7 +227,6 @@ export class GameplayController {
             const velocity = game.slingshot.release();
             game.launchPenguin(velocity, game.slingshot.lastLaunch);
             if (this.isMobileDevice()) {
-                this.showLaunchFeedback(false);
                 this.updateMobileInstructions();
             }
         } else {

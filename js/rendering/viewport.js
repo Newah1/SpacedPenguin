@@ -153,6 +153,21 @@ export function updateFollowCamera(camera, target, deltaTime, options = {}) {
     );
 }
 
+export function panWorldCamera(camera, deltaX, deltaY) {
+    if (!camera || camera.mode !== CameraMode.FOLLOW) return camera;
+    const view = camera.viewRect;
+    const centerX = view.x + view.width / 2 + (Number.isFinite(deltaX) ? deltaX : 0);
+    const centerY = view.y + view.height / 2 + (Number.isFinite(deltaY) ? deltaY : 0);
+    return cameraFromCenter(
+        camera.bounds,
+        camera.scale,
+        centerX,
+        centerY,
+        camera.mode,
+        camera.zoom
+    );
+}
+
 export function applyCameraTransform(ctx, camera) {
     if (!camera) return;
     ctx.transform(camera.scale, 0, 0, camera.scale, camera.offsetX, camera.offsetY);

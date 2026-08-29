@@ -37,7 +37,8 @@ class LevelTester {
             findAll = false,
             ascii = false,
             requireAllBonuses = false,
-            workers = 'auto'
+            workers = 'auto',
+            backend = 'wasm'
         } = options;
 
         const startTime = Date.now();
@@ -53,6 +54,8 @@ class LevelTester {
             maxTime,
             {
                 workers,
+                backend,
+                captureTrajectories: ascii || this.verbose,
                 nearMissLimit: requireAllBonuses ? TRAJECTORY_CONFIG.ascii.resultLimit : 0
             }
         );
@@ -98,13 +101,16 @@ class LevelTester {
     async testSingleTrajectory(levelPath, angle, power, options = {}) {
         const {
             maxTime = DEFAULT_MAX_SIMULATION_TIME,
-            requireAllBonuses = false
+            requireAllBonuses = false,
+            backend = 'wasm'
         } = options;
         const levelData = await this.loadLevelFile(levelPath);
         if (!this.engine.loadLevel(levelData, { requireAllBonuses })) {
             throw new Error('Failed to load level into engine');
         }
 
+        if (backend === 'wasm') return this.engine.simulateTrajectoryWasm(angle, power, maxTime);
+        if (backend === 'native') return this.engine.simulateTrajectoryNative(angle, power, maxTime);
         return this.engine.simulateTrajectory(angle, power, maxTime);
     }
 
@@ -384,6 +390,14 @@ function parseWorkers(args) {
     return value;
 }
 
+function parseBackend(args) {
+    const backend = optionValue(args, '--backend', 'wasm');
+    if (backend !== 'js' && backend !== 'wasm' && backend !== 'native') {
+        throw new Error('--backend requires "js", "wasm", or "native"');
+    }
+    return backend;
+}
+
 function printLevelSummary(summary, showAll, showAscii = false) {
     console.log(`Level: ${summary.levelPath}`);
     if (summary.requireAllBonuses) {
@@ -445,6 +459,7 @@ Options:
   --power-range <a:b>   Pullback range in pixels (default: ${TRAJECTORY_CONFIG.sweep.powerRange.join(':')})
   --max-time <seconds>  Maximum simulation time per trajectory (default: ${DEFAULT_MAX_SIMULATION_TIME})
   --workers <auto|num>  Parallel workers; auto uses up to 4 for 5,000+ samples
+  --backend <js|wasm|native>  Simulation backend (default: wasm)
   --trajectory          Include trajectory points for a single simulation
   --ascii               Draw distinct successful routes ranked by score and distance
   --all-bonuses         Require every bonus and the target; show 5 closest paths if none succeed
@@ -493,7 +508,8 @@ async function main(args = process.argv.slice(2)) {
 
         const result = await tester.testSingleTrajectory(levelPath, angle, power, {
             maxTime,
-            requireAllBonuses: args.includes('--all-bonuses')
+            requireAllBonuses: args.includes('--all-bonuses'),
+            backend: parseBackend(args)
         });
         const output = args.includes('--trajectory')
             ? result
@@ -508,6 +524,7 @@ async function main(args = process.argv.slice(2)) {
         powerRange: parseRange(args, '--power-range', TRAJECTORY_CONFIG.sweep.powerRange),
         maxTime,
         workers: parseWorkers(args),
+        backend: parseBackend(args),
         findAll: args.includes('--all'),
         ascii: args.includes('--ascii'),
         requireAllBonuses: args.includes('--all-bonuses')

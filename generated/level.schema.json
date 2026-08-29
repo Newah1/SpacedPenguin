@@ -1,0 +1,1174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spacedpenguin.dev/domain/level.schema.json",
+  "title": "Spaced Penguin LevelDocument",
+  "type": "object",
+  "x-spaced-penguin-level-defaults": {
+    "rules": [
+      "scoreMultiplier"
+    ]
+  },
+  "additionalProperties": true,
+  "required": [
+    "objects"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "startPosition": {
+      "$ref": "#/$defs/Point",
+      "default": {
+        "x": 100,
+        "y": 300
+      }
+    },
+    "targetPosition": {
+      "$ref": "#/$defs/Point",
+      "default": {
+        "x": 700,
+        "y": 300
+      }
+    },
+    "bounds": {
+      "$ref": "#/$defs/Bounds"
+    },
+    "camera": {
+      "$ref": "#/$defs/Camera"
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GameObject"
+      }
+    },
+    "rules": {
+      "$ref": "#/$defs/Rules",
+      "default": {}
+    }
+  },
+  "$defs": {
+    "Point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "Rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "Bounds": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/Rect"
+        },
+        "flight": {
+          "$ref": "#/$defs/Rect"
+        }
+      }
+    },
+    "Camera": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fit",
+            "follow"
+          ]
+        },
+        "zoom": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "Orbit": {
+      "type": "object",
+      "properties": {
+        "orbitCenter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "center": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "orbitTargetId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "orbitRadius": {
+          "type": "number"
+        },
+        "radius": {
+          "type": "number"
+        },
+        "orbitSpeed": {
+          "type": "number"
+        },
+        "speed": {
+          "type": "number"
+        },
+        "orbitAngle": {
+          "type": "number"
+        },
+        "angle": {
+          "type": "number"
+        },
+        "orbitType": {
+          "type": "string",
+          "enum": [
+            "circular",
+            "elliptical",
+            "figure8",
+            "gravity",
+            "director-gravity",
+            "custom"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "circular",
+            "elliptical",
+            "figure8",
+            "gravity",
+            "director-gravity",
+            "custom"
+          ]
+        },
+        "orbitParams": {
+          "type": "object"
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "WaypointPath": {
+      "type": "object",
+      "required": [
+        "waypoints"
+      ],
+      "properties": {
+        "waypoints": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "pingpong",
+            "loop"
+          ],
+          "default": "pingpong"
+        },
+        "phase": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "GameObject": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "planet"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "radius": {
+                  "type": "number",
+                  "default": 30,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Radius",
+                    "min": 1
+                  }
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "mass": {
+                  "type": "number",
+                  "default": 100,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Mass",
+                    "min": 0
+                  }
+                },
+                "collisionRadius": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Collision Radius",
+                    "min": 1
+                  }
+                },
+                "gravitationalReach": {
+                  "type": "number",
+                  "default": 5000,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Gravitational Reach",
+                    "min": 0
+                  }
+                },
+                "collidable": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "color": {
+                  "type": "string",
+                  "x-editor": {
+                    "label": "Color",
+                    "control": "color"
+                  }
+                },
+                "planetType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "x-editor": {
+                    "label": "Planet Sprite",
+                    "control": "select",
+                    "optionsFrom": "planetSprites"
+                  }
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "blackhole",
+                "black_hole"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "radius": {
+                  "type": "number",
+                  "default": 30,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Radius",
+                    "min": 1
+                  }
+                },
+                "mass": {
+                  "type": "number",
+                  "default": 100,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Mass",
+                    "min": 0
+                  }
+                },
+                "gravitationalReach": {
+                  "type": "number",
+                  "default": 5000,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Gravitational Reach",
+                    "min": 0
+                  }
+                },
+                "collisionRadius": {
+                  "const": 0,
+                  "default": 0
+                },
+                "collidable": {
+                  "const": false,
+                  "default": false
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "bonus"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": "number",
+                  "default": 42.5,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "default": 43,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "value": {
+                  "type": "number",
+                  "default": 100,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Value",
+                    "min": 1
+                  }
+                },
+                "rotationSpeed": {
+                  "type": "number",
+                  "x-editor": {
+                    "label": "Rotation Speed"
+                  }
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "notHit",
+                    "Hit"
+                  ],
+                  "x-editor": {
+                    "label": "State",
+                    "control": "select"
+                  }
+                },
+                "collected": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "target"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": "number",
+                  "default": 60,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "default": 60,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "collisionRadius": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "spriteType": {
+                  "type": "string",
+                  "default": "ship_open",
+                  "x-editor": {
+                    "label": "Ship Sprite",
+                    "control": "select",
+                    "optionsFrom": "shipSprites"
+                  }
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "slingshot"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "anchorPosition": {
+                  "$ref": "#/$defs/Point"
+                },
+                "anchorX": {
+                  "type": "number"
+                },
+                "anchorY": {
+                  "type": "number"
+                },
+                "maxPullback": {
+                  "type": "number",
+                  "default": 100,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Max Pullback",
+                    "min": 10
+                  }
+                },
+                "stretchLimit": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "minPullback": {
+                  "type": "number",
+                  "default": 10,
+                  "minimum": 0
+                },
+                "velocityMultiplier": {
+                  "type": "number",
+                  "default": 15,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Velocity Multiplier",
+                    "min": 1
+                  }
+                },
+                "launchModel": {
+                  "type": "string",
+                  "enum": [
+                    "modern",
+                    "director"
+                  ],
+                  "default": "modern"
+                },
+                "sourceFrameRate": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0,
+                  "default": null
+                },
+                "coordinateScale": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "default": 1
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "textobject",
+                "text"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "default": "Sample Text",
+                  "x-editor": {
+                    "label": "Text Content",
+                    "control": "text"
+                  }
+                },
+                "width": {
+                  "type": "number",
+                  "default": 200,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width / Wrap Limit",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "default": 100,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "visible": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Visible",
+                    "control": "checkbox"
+                  }
+                },
+                "textAlign": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ],
+                  "default": "left",
+                  "x-editor": {
+                    "label": "Text Align",
+                    "control": "select"
+                  }
+                },
+                "fontSize": {
+                  "type": "number",
+                  "default": 16,
+                  "minimum": 8,
+                  "maximum": 72,
+                  "x-editor": {
+                    "label": "Font Size",
+                    "min": 8,
+                    "max": 72
+                  }
+                },
+                "fontFamily": {
+                  "type": "string",
+                  "default": "Arial, sans-serif",
+                  "x-editor": {
+                    "label": "Font Family",
+                    "control": "text"
+                  }
+                },
+                "color": {
+                  "type": "string",
+                  "default": "#FFFFCC",
+                  "x-editor": {
+                    "label": "Color",
+                    "control": "color"
+                  }
+                },
+                "backgroundColor": {
+                  "type": "string",
+                  "default": "rgba(0, 0, 0, 0.7)",
+                  "x-editor": {
+                    "label": "Background Color",
+                    "control": "color"
+                  }
+                },
+                "padding": {
+                  "type": "number",
+                  "default": 10,
+                  "minimum": 0
+                },
+                "maxWidth": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "autoSize": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Auto Size",
+                    "control": "checkbox"
+                  }
+                },
+                "fadeIn": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "fadeInDuration": {
+                  "type": "number",
+                  "default": 1,
+                  "minimum": 0
+                },
+                "showAfterDelay": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "renderOrder": {
+                  "type": "number",
+                  "default": 8
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "pointingarrow",
+                "arrow"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "pointingAt": {
+                  "$ref": "#/$defs/Point"
+                },
+                "pointAfterDelay": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "color": {
+                  "type": "string",
+                  "default": "#00FFFF",
+                  "x-editor": {
+                    "label": "Color",
+                    "control": "color"
+                  }
+                },
+                "glowColor": {
+                  "type": "string",
+                  "default": "#0099FF",
+                  "x-editor": {
+                    "label": "Glow Color",
+                    "control": "color"
+                  }
+                },
+                "baseWidth": {
+                  "type": "number",
+                  "default": 20,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Base Width",
+                    "min": 10
+                  }
+                },
+                "scaleWithDistance": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Scale with Distance",
+                    "control": "checkbox"
+                  }
+                },
+                "visible": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Visible",
+                    "control": "checkbox"
+                  }
+                },
+                "maxDistance": {
+                  "type": "number",
+                  "default": 300
+                },
+                "minWidth": {
+                  "type": "number",
+                  "default": 15
+                },
+                "maxWidth": {
+                  "type": "number",
+                  "default": 60
+                },
+                "pulseSpeed": {
+                  "type": "number",
+                  "default": 3
+                },
+                "minAlpha": {
+                  "type": "number",
+                  "default": 0.6
+                },
+                "maxAlpha": {
+                  "type": "number",
+                  "default": 1
+                },
+                "renderOrder": {
+                  "type": "number",
+                  "default": 9
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "portal"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "pairedPortalId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "position": {
+                  "$ref": "#/$defs/Point"
+                },
+                "color": {
+                  "type": "string",
+                  "enum": [
+                    "red",
+                    "blue"
+                  ],
+                  "default": "red"
+                },
+                "width": {
+                  "type": "number",
+                  "default": 48,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 8
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "default": 18,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 6
+                  }
+                },
+                "rotation": {
+                  "type": "number",
+                  "default": 0
+                },
+                "playSound": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Play Woosh Sound",
+                    "control": "checkbox"
+                  }
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "speedbooster",
+                "booster"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "$ref": "#/$defs/Point"
+                },
+                "width": {
+                  "type": "number",
+                  "default": 64,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Width",
+                    "min": 1
+                  }
+                },
+                "height": {
+                  "type": "number",
+                  "default": 32,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Height",
+                    "min": 1
+                  }
+                },
+                "rotation": {
+                  "type": "number",
+                  "default": 0
+                },
+                "speedMultiplier": {
+                  "type": "number",
+                  "default": 1,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Speed Multiplier",
+                    "min": 0,
+                    "step": 0.1
+                  }
+                },
+                "playSound": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-editor": {
+                    "label": "Play Sound",
+                    "control": "checkbox"
+                  }
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Rules": {
+      "type": "object",
+      "properties": {
+        "maxTries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "scoreMultiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "requiredBonuses": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "allowedMisses": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "gravitationalConstant": {
+          "type": "number",
+          "default": 3
+        },
+        "timeLimit": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "customBehaviors": {
+          "type": "array",
+          "default": []
+        }
+      }
+    }
+  }
+}

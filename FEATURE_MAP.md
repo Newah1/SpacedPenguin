@@ -1,6 +1,7 @@
 # Spaced Penguin Feature Map
 
-**Snapshot:** 2026-08-26  
+**Snapshot:** 2026-08-29
+
 **Scope:** Current browser game, authored level format, embedded editor, local persistence, optional community service, developer tooling, and verification surfaces.  
 **Authority:** Current source and tests take precedence over historical Shockwave documentation. [ARCHITECTURE.md](ARCHITECTURE.md) remains the architectural authority.
 
@@ -15,10 +16,12 @@
 | Parsed only | Accepted or retained but not enforced or dispatched. |
 | Internal/tooling | Developer, diagnostic, testing, or conversion capability. |
 | Unsupported | Explicitly absent, rejected, or outside current scope. |
+| Unverified | Plausible from documentation or code but not traced to a complete supported path. |
+| Historical only | Present only as provenance or reference material, not current runtime behavior. |
 
 ## 1. Product surfaces and roles
 
-Spaced Penguin is a browser-native gravity-slingshot game delivered as static HTML, ES modules, JSON, Canvas assets, and audio. The core game requires an HTTP static server but has no application build step. An optional Node.js/SQLite service adds immutable community levels and per-level leaderboards.
+Spaced Penguin is a browser-native gravity-slingshot game delivered as static HTML, ES modules, JSON, Canvas assets, audio, and a packaged Rust/Wasm simulator. The core game requires an HTTP static server but has no JavaScript application build step. An optional Node.js/SQLite service adds immutable community levels and per-level leaderboards.
 
 | Surface | Primary role | Status | Entry point |
 |---|---|---|---|
@@ -29,6 +32,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 | Level browser | Player/designer browses official, owned local, and optional community sources. | Implemented | Main menu and editor Open Level flow |
 | Community service | Operator hosts publication, discovery, replay verification, and leaderboards. | Optional | `npm run serve:community` or `npm run serve:levels` |
 | Headless trajectory tools | Maintainer validates levels and searches reproducible launches without a browser. | Internal/tooling | `testing/levelTester.js` |
+| Shared Rust/WebAssembly core | Browser bootstrap explicitly loads the packaged Wasm module; one persistent Rust state handle uses a reusable position buffer and returns generated binary `StepPatch`/event-union data. Node headless tools use the same Rust candidate transition, with JavaScript retained as a fallback/reference backend. | Implemented | `rust/simulator/`, `js/simulation/wasmSimulationBridge.js` |
 | Historical archive | Maintainer studies decompiled Director/Lingo behavior and regenerates ports. | Internal/tooling | `OldSource/`, `tools/` |
 
 ## 2. Player gameplay
@@ -53,11 +57,15 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 
 - Gameplay advances at exact 1/60-second ticks regardless of display refresh rate.
 - Planets and black holes apply gravity within their effective reach using the level's gravitational constant.
-- Moving planets, bonuses, black holes, and targets advance through the shared orbit graph before collision and target evaluation.
-- The browser and headless runner invoke the same mutable transition kernel; the immutable browser API clones state around it.
+- Moving planets, bonuses, black holes, targets, portals, speed boosters, slingshots, and decorations advance through the shared orbit/waypoint layer before transition evaluation.
+- The browser explicitly loads the packaged Rust/WebAssembly module during bootstrap and falls back to the JavaScript kernel if initialization fails.
+- Each live browser simulation keeps one persistent Rust state handle, synchronizes moving positions through a reusable `Float64Array`, and decodes the generated versioned binary step patch and event union.
+- Headless trajectory searches default to the same Rust/Wasm core; `--backend js` remains an explicit parity/reference option.
+- The headless runner invokes the same Rust candidate-transition function; batch trajectory envelopes may remain JSON outside the per-frame hot path.
+- Orbit and waypoint world motion remains in the shared JavaScript deterministic layer and feeds the Rust transition slice in both browser and headless execution.
 - World coordinates remain independent of CSS size, device-pixel ratio, and camera transforms.
 
-**Owners:** `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/simulation.js`, `js/simulation/orbitSimulation.js`, `js/runtime/gameSimulationAdapter.js`.
+**Owners:** `rust/simulator/src/lib.rs`, `js/simulation/wasmSimulationBridge.js`, `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/orbitSimulation.js`, `js/runtime/gameSimulationAdapter.js`.
 
 ### 2.3 Planet collisions and crash recovery
 
@@ -94,7 +102,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - The last allowed try runs to a terminal outcome before `maxTries` failure is evaluated.
 - Retry, advance, level completion, and high-score qualification are coordinated by the game/session layer.
 
-**Owners:** `js/simulation/simulationEngine.js`, `js/game.js`, `js/levelEndScreen.js`, `js/platform/persistence/highScoreStore.js`.
+**Owners:** `js/simulation/simulationEngine.js`, `js/runtime/gameSession.js`, `js/ui/views/levelEndScreen.js`, `js/platform/persistence/highScoreStore.js`.
 
 ### 2.6 Portals
 
@@ -110,7 +118,22 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 **Owners:** `js/simulation/simulationEngine.js`, `js/runtime/entities/gameObjects.js`, `js/runtime/gameSimulationAdapter.js`, `js/levels/levelValidation.js`.  
 **Verification:** `testing/portalDirection.test.js`, simulation tests, browser integration paths.
 
-### 2.7 Black holes
+### 2.7 Speed boosters
+
+**Status:** Implemented
+
+- A swept panel intersection prevents fast-moving Kevin from tunneling through the booster.
+- Entry redirects velocity along the booster rotation and applies `speedMultiplier` to the incoming speed.
+- A per-booster contact lock prevents repeated activation until Kevin leaves the panel.
+- `playSound` controls the browser-side activation cue; deterministic state emits a typed activation event.
+- The clipped animated arrow marquee scales with the configured multiplier.
+- Boosters support editor creation, rotation handles, waypoint motion, serialization, browser play, and headless/Wasm simulation.
+
+**Owners:** `js/simulation/simulationEngine.js`, `js/runtime/entities/gameObjects.js`, `js/runtime/gameSimulationAdapter.js`, `domain/gameObjects.schema.json`, `domain/simulation.schema.json`.
+
+**Verification:** `testing/simulationEngine.test.js`, `testing/speedBoosterPresentation.test.js`, `testing/wasmSimulator.test.js`.
+
+### 2.8 Black holes
 
 **Status:** Implemented
 
@@ -118,12 +141,12 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 - They are explicitly non-collidable and have zero collision radius, so Kevin can pass through the event horizon while gravity continues to act.
 - Their accretion disk, halo, particles, and event horizon are render-only effects and do not affect deterministic state.
 - Level JSON accepts canonical `blackhole` and compatibility alias `black_hole`.
-- Black holes are loadable and playable but are not currently registered as a creatable/editable object in the embedded editor.
+- Black holes are creatable and editable, expose gravity properties in the inspector, and participate in generated schema/registry membership.
 
 **Owners:** `js/runtime/entities/blackHole.js`, `js/levels/levelSchema.js`, `js/simulation/simulationState.js`, `js/levels/levelLoader.js`.  
-**Verification:** `testing/blackHole.test.js`.
+**Verification:** `testing/blackHole.test.js`, `testing/blackHoleEditor.test.js`.
 
-### 2.8 Aim assist
+### 2.9 Aim assist
 
 **Status:** Optional; off by default
 
@@ -135,7 +158,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 **Owners:** `js/simulation/aimAssist.js`, `js/game.js`, `js/platform/settings/settingsManager.js`.  
 **Verification:** `testing/aimAssist.test.js`, settings tests.
 
-### 2.9 Pause, quit, reset, and fast-forward
+### 2.10 Pause, quit, reset, and fast-forward
 
 **Status:** Implemented
 
@@ -153,7 +176,7 @@ Spaced Penguin is a browser-native gravity-slingshot game delivered as static HT
 
 **Status:** Implemented
 
-Levels define start and target positions, object entries, rules, optional bounds, and optional camera metadata. Every browser, editor, and headless consumer normalizes through `js/levels/levelSchema.js` and validates through `js/levels/levelValidation.js` before the current world is cleared or mutated.
+Levels define start and target positions, object entries, rules, optional bounds, and optional camera metadata. Declarative vocabulary, defaults, aliases, capabilities, constraints, and serialization metadata originate in `domain/`; generated JavaScript contracts and `generated/level.schema.json` serve runtime/editor and external tooling consumers. Every gameplay-authored property in `domain/gameObjects.schema.json` must map to normalized simulation state or declare a reasoned projection exclusion. Every browser, editor, and headless consumer still performs compatibility normalization through `js/levels/levelSchema.js` and semantic validation through `js/levels/levelValidation.js` before the current world is cleared or mutated.
 
 Validation covers finite coordinates, supported types, composition, numeric ranges, unique IDs, orbit references and cycles, portal pairing, cameras, bounds, and rule constraints. It accumulates stable diagnostics containing severity, code, JSON-style path, and message.
 
@@ -168,9 +191,10 @@ Unknown types and invalid definitions are rejected rather than partially instant
 | Bonus | Implemented | Collectible score item. | Value, dimensions, ID, orbit. |
 | Target | Implemented | Completion destination. | Dimensions, sprite type, optional orbit. |
 | Slingshot | Implemented | Launch origin and pullback model. | Velocity multiplier, min/max pullback. |
-| Tutorial text | Implemented | Styled in-world guidance. | Small markup parser, wrapping, sizing, fade, visibility, render order. |
-| Pointing arrow | Implemented | Pulsing directional guidance. | Target point, delay, colors, width scaling, alpha pulse. |
+| Tutorial text (`textobject`) | Implemented | Styled in-world guidance. | Small markup parser, wrapping, sizing, fade, visibility, render order. |
+| Pointing arrow (`pointingarrow`) | Implemented | Pulsing directional guidance. | Target point, delay, colors, width scaling, alpha pulse. |
 | Portal | Implemented | Directional paired teleportation. | IDs, pair ID, aperture, color, rotation, sound flag. |
+| Speed booster | Implemented | Redirects and scales Kevin's velocity on swept entry. | Dimensions, rotation, multiplier, sound flag, ID, waypoint motion. |
 | Penguin entry | Compatibility | Accepted from old/editor exports but not instantiated as a second penguin. | Singleton position comes from `startPosition`. |
 | Obstacle | Unsupported | No current runtime entity. | Dormant historical placeholder is outside shared vocabulary. |
 
@@ -190,21 +214,37 @@ Unknown types and invalid definitions are rejected rather than partially instant
 
 Object-referenced orbits require unique IDs and an acyclic graph. Planets, black holes, and bonuses can be lookup targets; planets, black holes, bonuses, and targets can be moving sources. Validation rejects unsupported active orbits on slingshot, text, and pointing-arrow objects.
 
-### 3.4 World bounds and cameras
+### 3.4 Waypoint motion
 
 **Status:** Implemented
 
-- Legacy levels omit camera metadata and retain the fixed 800 × 600 identity view.
+- `pingpong` paths reverse at endpoints without overshoot; `loop` paths include the closing segment.
+- Authored paths contain at least two points plus a positive speed and are mutually exclusive with orbit motion.
+- Planets, black holes, bonuses, targets, slingshots, portals, speed boosters, text, and pointing arrows can be waypoint sources according to generated capabilities.
+- Moving gameplay objects feed the same browser/headless world state; compiled headless frames preserve moving portal and other candidate-independent positions exactly.
+- An idle penguin follows a moving slingshot, while decorative runtime objects follow their deterministic waypoint mirrors.
+- The editor can create/remove paths, add/remove points, edit coordinates and speed, drag numbered waypoint handles, preview motion without changing authored positions, and undo the resulting document command.
+
+**Owners:** `js/simulation/waypointSimulation.js`, `js/simulation/simulationEngine.js`, `js/simulation/compiledWorldTimeline.js`, editor mutation/preview/overlay modules.
+
+**Verification:** `testing/waypointMotion.test.js`, editor architecture tests.
+
+### 3.5 World bounds and cameras
+
+**Status:** Implemented
+
+- Legacy levels omit camera metadata and retain the fixed 800 × 600 identity view on landscape/desktop displays.
+- Compact portrait gameplay uses a zoomed follow camera, clamped manual look-around, and edge guidance for offscreen target/landmark directions without changing simulation coordinates.
 - Expanded playfields author stage bounds separately from larger terminal flight bounds.
 - `fit` cameras show the complete authored stage.
 - `follow` cameras smoothly track Kevin while remaining clamped inside the stage; authored zoom is raised when necessary to keep the view valid.
 - The editor has an independent pan/zoom camera that is never exported as gameplay state.
 - Pointer conversion applies inverse display and world-camera transforms.
 
-**Owners:** `js/rendering/viewport.js`, `js/game.js`, editor canvas input/controller code.  
+**Owners:** `js/rendering/viewport.js`, `js/rendering/viewportGuidanceRenderer.js`, `js/input/gameplayController.js`, `js/game.js`, editor canvas input/controller code.
 **Verification:** `testing/viewport.test.js`, responsive/mobile Playwright coverage.
 
-### 3.5 Level rules
+### 3.6 Level rules
 
 | Rule | Status | Runtime behavior |
 |---|---|---|
@@ -228,6 +268,8 @@ Public community levels reject unenforced/custom rules instead of publishing sil
 - The backing buffer follows CSS size and device-pixel ratio while the presentation stage remains 800 × 600.
 - Render order is cached and invalidated when the runtime graph changes.
 - Entity sprite fallbacks and procedurally drawn visuals allow graceful degradation when media is unavailable.
+- Manifest assets default to bootstrap-blocking but can opt into background loading; non-blocking media reports progress without delaying game construction.
+- Shared asset lookups reuse cached images and coalesce repeated animation-metadata requests.
 - Simulation-applied positions drive rendering; visual entities do not independently integrate gameplay movement.
 
 ### 4.2 Input and responsive behavior
@@ -246,7 +288,7 @@ Key controls include backquote for console, `Escape` for editor exit or quit dia
 
 **Status:** Implemented with optional music modes
 
-- Manifest-defined sound effects cover launch, bonus, planet collision, target entry, and portal teleportation.
+- Manifest-defined sound effects cover launch, bonus, planet collision, target entry, portal teleportation, and speed-booster activation.
 - Web Audio buffers are decoded and played through semantic cue mappings and gain nodes.
 - Audio initialization and resume tolerate browser autoplay restrictions.
 - Failed audio does not block visual gameplay.
@@ -281,13 +323,13 @@ Settings are normalized against definitions, persisted in `localStorage`, and ap
 
 ## 5. Embedded level editor
 
-### 5.1 Live editing model
+### 5.1 Document-first editing model
 
 **Status:** Implemented
 
-The editor modifies the live runtime graph rather than a separate document model. `LiveLevelMutator` keeps the main object list, typed collections, singleton references, physics registries, and render-order invalidation synchronized.
+`LevelDocument` is the canonical authored model. Commands transform cloned level definitions, validate the candidate, and project them transactionally into a disposable runtime mirror. Selection stores stable IDs and resolves the current mirror after rebuilds.
 
-Design implication: play-mode previews can mutate positions and orbit state. Exported data must be reviewed before promotion to a shipped level.
+Projection failure restores the previous document and last-known-good runtime. Edit-to-Play clones and validates the document into a fresh simulation world; returning to Edit discards that world and rebuilds from the unchanged authored definition. Save, export, thumbnail metadata, and editor publication serialize `LevelDocument`, not mutated play state.
 
 ### 5.2 Object editing
 
@@ -298,25 +340,27 @@ Design implication: play-mode previews can mutate positions and orbit state. Exp
 - Edit type-specific properties in the inspector using numeric, text, color, checkbox, select, and point controls.
 - Delete and clone objects while preserving singleton and collection rules.
 - Portal add/delete/clone/undo operations work on complete endpoint pairs.
-- Move fixed orbit centers and visualize orbit guides, arrow targets, portal partners, and selection bounds.
+- Rotate supported objects with an authored rotation handle.
+- Create and edit waypoint paths through inspector actions or draggable numbered canvas handles.
+- Move fixed orbit centers and visualize orbit guides, waypoint routes, arrow targets, portal partners, rotation handles, and selection bounds.
 - Sprite and property changes update the live preview immediately.
 
 ### 5.3 Command history
 
 **Status:** Implemented
 
-Typed command strategies support add, remove, group operations, object moves, orbit-center moves, object-property edits, level-setting edits, and planet adjustments. Undo/redo is session-local; repeated events from one focused property edit coalesce into one history entry.
+Typed command strategies support add, remove, group operations, object moves, rotations, orbit-center moves, waypoint-handle moves, object-property edits, level-setting edits, and planet adjustments. Undo/redo is session-local; repeated events from one focused property edit or live canvas gesture coalesce into one history entry, and cancellation restores the authored definition.
 
-**Owners:** `js/editor/commands/live/`, `js/runtime/liveLevelMutator.js`.  
-**Verification:** command, mutator, and editor runtime controller tests.
+**Owners:** `js/editor/state/levelDocument.js`, `js/editor/commands/editorCommandBus.js`, `js/editor/commands/live/`, `js/editor/services/documentMutationService.js`, `js/editor/services/documentProjectionTransaction.js`.
+**Verification:** editor architecture, command, projection, mutator, and runtime-controller tests.
 
 ### 5.4 Editor camera and play testing
 
 **Status:** Implemented
 
 - Pan with middle mouse, space-drag, or touch gestures; zoom with the wheel; fit or center through shortcuts and toolbar actions.
-- Toggle between edit and play modes without leaving the editor.
-- Reset and retry the edited runtime state.
+- Toggle between edit and a disposable play projection without leaving the editor.
+- Reset and retry the play projection without mutating the authored document.
 - Successful editor play tests remain in the editor and can unlock community publication.
 - Unsaved-change checks protect replacing an active editor document.
 
@@ -331,7 +375,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - The staged search uses waypoint curricula, influence-guided differential evolution, comfort penalties, robustness scoring, progress reporting, and multiple candidates.
 - Applying a result uses editor commands so planet changes participate in undo/redo; a test mode verifies the proposed route in the live editor.
 
-**Owners:** `js/simulation/gravitySculptor.js`, `js/editor/gravitySculptController.js`, `js/editor/gravitySculptView.js`.  
+**Owners:** `js/simulation/gravitySculptor.js`, `js/editor/controllers/gravitySculptController.js`, `js/editor/views/gravitySculptView.js`.
 **Verification:** `testing/gravitySculptor.test.js`, mass benchmark.
 
 ### 5.6 Save, browse, and export
@@ -367,7 +411,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - Server failure leaves official/local browsing, saves, editing, and play available.
 - Community records are immutable and expose play/open-copy behavior rather than ownership.
 
-**Owners:** `js/appConfig.js`, `js/catalog/levelCatalogComposition.js`, `js/catalog/remoteLevelCatalogSource.js`, `js/catalog/communityLevelClient.js`.
+**Owners:** `js/config/appConfig.js`, `js/catalog/levelCatalogComposition.js`, `js/catalog/remoteLevelCatalogSource.js`, `js/catalog/communityLevelClient.js`.
 
 ### 6.3 Community publication
 
@@ -392,7 +436,7 @@ Typed command strategies support add, remove, group operations, object moves, or
 - Idempotency prevents a retry from creating duplicate submissions.
 - Accepted responses report ranking state and current rank when applicable.
 
-**Owners:** `js/replay/communityScore.js`, `js/communityScoreUploadScreen.js`, `js/communityLeaderboardView.js`, `server/services/submitScore.js`.
+**Owners:** `js/replay/communityScore.js`, `js/ui/views/communityScoreUploadScreen.js`, `js/ui/views/communityLeaderboardView.js`, `server/services/submitScore.js`.
 
 ### 6.5 Community HTTP API
 
@@ -427,22 +471,39 @@ The service includes request-size limits, query validation, CORS policy, in-memo
 
 **Status:** Implemented
 
-The browser adapter snapshots live objects into serializable state, invokes the shared transition kernel, applies the returned state, and translates domain events into effects. The headless runner uses the same mutable kernel with movement-only events disabled.
+The browser adapter snapshots live objects into serializable state, advances candidate-independent orbit/waypoint motion, synchronizes a persistent Rust runtime handle, invokes the Rust/Wasm transition slice, applies its generated binary patch, and translates its generated event union into effects. If Wasm bootstrap fails, the browser retains the JavaScript transition kernel as a graceful fallback. The headless tester defaults to portable batched Wasm execution, exposes `--backend native` for optimized release-executable sweeps, and retains `--backend js` for comparison.
 
-This shared path covers launch math, gravity, orbit order, collision, bounce, portals, bonuses, targets, bounds, rules, resets, and scoring. Browser-only Canvas, DOM, audio, messages, and timers remain outside deterministic modules.
+This parity path covers launch math, gravity, orbit/waypoint world motion, collision, bounce, portals, speed boosters, bonuses, targets, bounds, rules, resets, and scoring. Browser-only Canvas, DOM, audio, messages, and timers remain outside deterministic modules.
 
-### 7.2 Compiled world timelines and parallel sweeps
+**Verification:** `testing/wasmBrowserSimulation.test.js`, `testing/wasmSimulator.test.js`, `testing/nativeSimulator.test.js`, `e2e/wasmSimulation.spec.js`.
+
+### 7.2 Schema-generated contracts and binary wire
+
+**Status:** Internal/tooling with production runtime output
+
+- `domain/gameObjects.schema.json`, `domain/simulation.schema.json`, and `domain/level.schema.json` are language-neutral declarative sources of truth.
+- Generation produces browser-safe object/event descriptors, Rust serde models/event unions, the external JSON level schema, and both sides of the versioned JS-to-Wasm input and output codecs.
+- `LEVEL_DEFAULTS` is a generated compatibility view rather than a second handwritten defaults table.
+- The ordered binary layout is declared in `x-spaced-penguin-wire`; every reachable field must be encoded or explicitly excluded with a reason. Adding an uncovered field fails generation.
+- Browser step input and the per-frame `StepPatch`/event union output use generated binary codecs; batch trajectory envelopes may remain JSON outside the hot path.
+- Ordered layouts, versions, and fingerprints are declared in `domain/simulation.schema.json` and `domain/simulation-wire-versions.json`. `npm run check:domain` validates generated output and the manifest; CI and Pages regenerate contracts and deploy the exact verified Wasm artifact built by `npm run build:simulator-wasm`.
+
+**Owners:** `domain/`, `tools/generateDomainContracts.js`, `generated/`, `rust/simulator/`.
+
+**Verification:** `testing/domainContracts.test.js`, Rust checks, Wasm browser/headless parity tests.
+
+### 7.3 Compiled world timelines and parallel sweeps
 
 **Status:** Internal/tooling
 
-- Candidate-independent planet, black-hole, bonus, target, and orbit state is precompiled into exact fixed-step frames.
+- Candidate-independent planet, black-hole, bonus, target, portal, speed-booster, orbit, and waypoint state is precompiled into exact fixed-step frames.
 - Candidates retain independent penguin, collected-bonus, and counter state.
 - Longer time horizons replace undersized caches; out-of-range application throws rather than consuming undefined frames.
 - Large grids can use up to four worker threads by default and restore canonical candidate order.
 
 **Owners:** `js/simulation/compiledWorldTimeline.js`, `testing/headlessEngine.js`, `testing/parallelTrajectoryRunner.js`, trajectory workers.
 
-### 7.3 Level tester
+### 7.4 Level tester
 
 **Status:** Internal/tooling
 
@@ -451,8 +512,9 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 - Require all bonuses.
 - Print ASCII trajectories and closest replayable failures.
 - Use worker overrides for deterministic parallel execution.
+- Select `wasm` (default), `native`, or `js`; native Rust owns simulation, filtering, ranking, and detailed capture for the sweep.
 
-### 7.4 Run transcripts and replay proof
+### 7.5 Run transcripts and replay proof
 
 **Status:** Implemented infrastructure; community use is optional
 
@@ -463,7 +525,7 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 
 **Owners:** `js/replay/runTranscript.js`, `js/replay/runReplay.js`, `server/services/replayVerifier.js`, verifier worker/pool code.
 
-### 7.5 Debug console and runtime configuration
+### 7.6 Debug console and runtime configuration
 
 **Status:** Internal/tooling
 
@@ -472,7 +534,7 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 - `/setconfig` reads or overrides allowlisted configuration paths for the current runtime without rewriting frozen source configuration.
 - `window.game` and `window.gameManager` remain debugging entry points.
 
-### 7.6 Original-level conversion
+### 7.7 Original-level conversion
 
 **Status:** Internal/tooling/compatibility
 
@@ -488,12 +550,15 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 | Feature area | Automated evidence | Manual/operational evidence |
 |---|---|---|
 | Simulation, launch, rules, collisions, bonuses, targets | `simulationEngine.test.js`, `goldenTrajectory.test.js`, runtime stability tests | Gravity/orbit, bonus, and level-end harnesses |
-| Portals | `portalDirection.test.js`, simulation tests | Production editor/play path |
-| Black holes | `blackHole.test.js` | Canvas rendering inspection |
+| Portals | `portalDirection.test.js`, `portalPresentation.test.js`, simulation/Wasm tests | Production editor/play path |
+| Speed boosters | simulation, presentation, browser-Wasm, and headless-Wasm tests | Production editor/play path |
+| Black holes | `blackHole.test.js`, `blackHoleEditor.test.js` | Canvas rendering inspection |
+| Waypoint motion | `waypointMotion.test.js`, compiled-timeline and editor tests | Editor preview and moving-world play path |
 | Aim assist | `aimAssist.test.js` | Settings/gameplay preview |
-| Viewport, cameras, responsive input | `viewport.test.js`, input tests, Playwright mobile smoke | Responsive and mobile harnesses |
-| Level schema and shipped content | `levelValidation.test.js`, `validateLevels.js`, original-port verification | CLI validation and ASCII searches |
-| Editor runtime and history | editor controller, mutator, object-group, level-save tests | Orbit/editor/manual harnesses |
+| Viewport, cameras, portrait guidance, responsive input | `viewport.test.js`, input tests, Playwright mobile smoke | Responsive and mobile harnesses |
+| Domain/level schemas, projections, wire layouts, and shipped content | `domainContracts.test.js`, `levelValidation.test.js`, `validateLevels.js`, original-port verification | CLI validation and ASCII searches |
+| Editor document, projection, and history | editor architecture/controller, projection, mutator, object-group, level-save tests | Orbit/waypoint/editor manual paths |
+| Rust browser/headless parity | `wasmBrowserSimulation.test.js`, `wasmSimulator.test.js`, `nativeSimulator.test.js`, `wasmSimulation.spec.js` | Native/Wasm backend benchmarks and browser bootstrap |
 | Gravity Sculpt | `gravitySculptor.test.js`, benchmark | Editor optimization/test workflow |
 | Local scores/settings | `highScoreStore.test.js`, `settingsManager.test.js` | UI screens |
 | Community client integration | community client and game integration tests | Configured local server flow |
@@ -501,6 +566,8 @@ This shared path covers launch math, gravity, orbit order, collision, bounce, po
 | Static packaging and browser bootstrap | syntax, configuration policy, static-server tests, Playwright | `python -m http.server 8000` or `npm run serve` |
 
 The full `npm test` gate runs unit, server, policy, shipped-level, original-port, syntax, and Playwright suites. Manual HTML harnesses are diagnostics and should not be described as automated assertions.
+
+At this snapshot, the refreshed domain/Rust path passed 344 Node unit tests, validation of 25 shipped plus 20 archived manual levels, all 25 original-port trajectory checks, JavaScript syntax checks, generated-contract drift checks, Rust compilation/tests, and browser/headless Wasm/native parity tests.
 
 ## 9. Unsupported, partial, and historical capabilities
 
@@ -517,7 +584,7 @@ The full `npm test` gate runs unit, server, policy, shipped-level, original-port
 | JSON custom orbit functions | Compatibility/limited | Cannot be represented; JSON custom type falls back to circular. |
 | Original Big Idea Fun leaderboard | Historical only | Current local scores and optional community server are separate systems. |
 | Original Shockwave networking | Historical only | `OldSource/` is not a runtime dependency. |
-| Build/transpile pipeline | Unsupported by design | Production runs native ES modules directly. |
+| JavaScript application bundling/transpilation | Unsupported by design | Production JavaScript runs as native ES modules; the Rust simulator has a separate explicit Wasm build whose static artifact is served directly. |
 | Service worker/offline install | Unsupported | Static files must be served over HTTP. |
 
 ## 10. Feature-to-code index
@@ -525,30 +592,33 @@ The full `npm test` gate runs unit, server, policy, shipped-level, original-port
 | Domain | Primary modules |
 |---|---|
 | Browser lifecycle and frame ownership | `js/main.js`, `js/diagnostics/performanceUtils.js` |
-| Game/session coordination | `js/game.js`, `js/levelEndScreen.js` |
-| Deterministic gameplay | `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/simulationGeometry.js`, `js/simulation/simulation.js` |
-| Browser simulation adaptation | `js/runtime/gameSimulationAdapter.js` |
-| Orbits and optimized timelines | `js/simulation/orbitSimulation.js`, `js/simulation/compiledWorldTimeline.js` |
+| Game/session coordination | `js/game.js`, `js/runtime/gameSession.js`, `js/runtime/runtimeWorld.js`, `js/ui/views/levelEndScreen.js` |
+| Deterministic gameplay | `rust/simulator/src/lib.rs`, `js/simulation/simulationEngine.js`, `js/simulation/simulationState.js`, `js/simulation/simulationGeometry.js` |
+| Browser simulation adaptation | `js/runtime/gameSimulationAdapter.js`, `js/simulation/wasmSimulationBridge.js`, `js/runtime/gameEffectsCoordinator.js` |
+| Orbits, waypoints, and optimized timelines | `js/simulation/orbitSimulation.js`, `js/simulation/waypointSimulation.js`, `js/simulation/compiledWorldTimeline.js` |
+| Canonical schemas and generated contracts | `domain/`, `tools/generateDomainContracts.js`, `generated/` |
 | Runtime objects and visuals | `js/runtime/entities/gameObjects.js`, `js/runtime/entities/blackHole.js`, `js/runtime/entities/penguin.js` |
-| Levels and validation | `js/levels/levelSchema.js`, `js/levels/levelValidation.js`, `js/levels/levelLoader.js` |
-| Cameras and coordinates | `js/rendering/viewport.js` |
+| Levels and validation | `domain/level.schema.json`, `generated/level.schema.json`, `js/levels/levelSchema.js`, `js/levels/levelValidation.js`, `js/levels/levelLoader.js` |
+| Cameras and coordinates | `js/rendering/viewport.js`, `js/rendering/viewportGuidanceRenderer.js`, `js/rendering/kevinCamRenderer.js` |
 | Input and fullscreen | `js/input/inputActions.js`, `js/platform/browser/fullscreenManager.js` |
 | Assets and audio | `js/platform/assets/assetLoader.js`, `js/platform/audio/audioManager.js`, `js/platform/persistence/stellarTrackStore.js` |
-| Settings and local scores | `js/platform/settings/settingsManager.js`, `js/platform/settings/settingsStore.js`, `js/settingsScreen.js`, `js/platform/persistence/highScoreStore.js` |
-| Editor | `js/editor/levelEditor.js`, `js/editor/`, `js/editor/commands/live/`, `js/runtime/liveLevelMutator.js` |
+| Settings and local scores | `js/platform/settings/settingsManager.js`, `js/platform/settings/settingsStore.js`, `js/ui/views/settingsScreen.js`, `js/platform/persistence/highScoreStore.js` |
+| Editor | `js/editor/levelEditor.js`, `js/editor/state/levelDocument.js`, `js/editor/commands/editorCommandBus.js`, `js/editor/services/`, `js/editor/views/` |
 | Gravity Sculpt | `js/simulation/gravitySculptor.js`, gravity-sculpt controller/view modules |
 | Catalog and local saves | `js/catalog/levelCatalogService.js`, catalog sources/composition, `js/platform/persistence/levelSaveService.js` |
 | Community client/UI | community client, score, upload, leaderboard, and remote catalog modules |
 | Replay proof | `js/replay/runTranscript.js`, `js/replay/runReplay.js` |
 | Community server | `server/app.js`, `server/routes.js`, services, validation, database, worker pool |
-| Headless and CI tooling | `testing/headlessEngine.js`, `testing/levelTester.js`, workers, validators, Playwright |
+| Rust/Wasm simulator and build | `rust/simulator/`, `testing/buildWasmSimulator.js`, `testing/wasmHeadlessBackend.js` |
+| Headless and CI tooling | `testing/headlessEngine.js`, `testing/levelTester.js`, `testing/nativeHeadlessBackend.js`, `testing/benchmarkWasmSimulator.js`, Rust native executable, workers, validators, Playwright |
 
 ## 11. Documentation freshness notes
 
-- [README.md](README.md) accurately reflects the optional community service and local editor saves at this snapshot.
-- [ARCHITECTURE.md](ARCHITECTURE.md) remains strong on boundaries and invariants, but portions of its persistence/network narrative lag newer settings, community, portal, black-hole, and music work. Verify those areas against current source before repeating an absence claim.
-- [levels/README.md](levels/README.md) documents portals but does not yet fully describe black-hole authoring at this snapshot.
-- [LEVEL_EDITOR_DOCUMENTATION.md](LEVEL_EDITOR_DOCUMENTATION.md) is the detailed editor guide; some older caveat text conflicts with the now-implemented local save/catalog workflow, so source remains the tie-breaker.
+- [README.md](README.md) reflects the optional community service, local editor saves, Rust/Wasm backend, schema generation, and headless usage at this snapshot.
+- [ARCHITECTURE.md](ARCHITECTURE.md) is the authority for the document-first editor, deterministic core, schema/generated-contract boundary, and browser/headless ownership rules.
+- [levels/README.md](levels/README.md) is the authoring authority for current objects, portals, speed boosters, waypoint paths, schemas, and validation.
+- [LEVEL_EDITOR_DOCUMENTATION.md](LEVEL_EDITOR_DOCUMENTATION.md) describes the editor workflow and schema-first extension path; source and tests remain the tie-breaker for newly landed behavior.
+- [GAME_OBJECT_EXTENSION_GUIDE.md](GAME_OBJECT_EXTENSION_GUIDE.md) contains the current end-to-end checklist for presentation-only and gameplay object additions, including binary-wire coverage.
 - `SpacedPenguin_Documentation.md`, `ORIGINAL_LEVELS_ANALYSIS.md`, and `OldSource/` are historical/provenance sources, not the current runtime contract.
 
 ## 12. Maintaining this map

@@ -1,10 +1,16 @@
 import { cloneOrbitState } from '../simulation/orbitSimulation.js';
 import {
+    advanceSimulationWorldMutable,
     FIXED_TICK_SECONDS,
     stepSimulationMutable,
     stepSimulationTickMutable,
     SimulationEventType
 } from '../simulation/simulationEngine.js';
+import {
+    disposeWasmSimulationHandle,
+    isWasmSimulationReady,
+    stepSimulationSliceWasmMutable
+} from '../simulation/wasmSimulationBridge.js';
 import { effectiveGravitationalReach } from '../config/legacyConstants.js';
 import { LevelOrbitType } from '../levels/levelSchema.js';
 import { LEVEL_DEFAULTS } from '../config/gameConfig.js';
@@ -275,9 +281,30 @@ export function stepGameSimulation(game, deltaTime) {
         state.penguin.state = game.penguin.state;
         state.penguin.crashFramesRemaining = game.penguin.crashedFrameCount || 0;
     }
-    const result = Math.abs(deltaTime - FIXED_TICK_SECONDS) < Number.EPSILON
-        ? stepSimulationTickMutable(state)
-        : stepSimulationMutable(state, deltaTime);
+    let result;
+    if (isWasmSimulationReady()) {
+        const events = [];
+        let remainingTime = Math.max(0, deltaTime);
+        const fixedTick = Math.abs(deltaTime - FIXED_TICK_SECONDS) < Number.EPSILON;
+        if (remainingTime === 0) {
+            result = stepSimulationSliceWasmMutable(state, 0, false);
+            events.push(...result.events);
+        } else {
+            while (remainingTime > 0) {
+                const step = Math.min(remainingTime, FIXED_TICK_SECONDS);
+                advanceSimulationWorldMutable(state, step);
+                result = stepSimulationSliceWasmMutable(state, step, fixedTick);
+                events.push(...result.events);
+                remainingTime -= step;
+                if (remainingTime < Number.EPSILON) remainingTime = 0;
+            }
+        }
+        result = { state, events };
+    } else {
+        result = Math.abs(deltaTime - FIXED_TICK_SECONDS) < Number.EPSILON
+            ? stepSimulationTickMutable(state)
+            : stepSimulationMutable(state, deltaTime);
+    }
     applyGameSimulationState(game, state);
     return result;
 }
@@ -286,6 +313,7 @@ export function stepGameSimulation(game, deltaTime) {
  * @param {import('../game.js').Game} game
  */
 export function invalidateGameSimulationState(game) {
+    if (game._runtimeSimulationState) disposeWasmSimulationHandle(game._runtimeSimulationState);
     game._runtimeSimulationState = null;
 }
 

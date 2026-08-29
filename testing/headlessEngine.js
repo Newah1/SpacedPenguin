@@ -90,6 +90,8 @@ export class HeadlessGameEngine {
         this.maxSimulationTime = DEFAULT_MAX_SIMULATION_TIME;
         this.timeStep = 1 / SIMULATION_CONFIG.legacyPhysicsFps;
         this.worldTimeline = null;
+        this.wasmBackend = null;
+        this.wasmBackendTimeline = null;
         this.logger = mockLogger;
         this.requireAllBonuses = options.requireAllBonuses ?? false;
         this.lastNearMisses = [];
@@ -102,6 +104,9 @@ export class HeadlessGameEngine {
     }
 
     loadLevel(levelData, options = {}) {
+        this.wasmBackend?.dispose();
+        this.wasmBackend = null;
+        this.wasmBackendTimeline = null;
         this.requireAllBonuses = options.requireAllBonuses ?? this.requireAllBonuses;
         this.level = this.requireAllBonuses
             ? requireEveryBonus(levelData)
@@ -260,6 +265,107 @@ export class HeadlessGameEngine {
         return results;
     }
 
+    async simulateCandidatesWasm(candidates, maxTime = null, options = {}) {
+        const simulationTime = maxTime ?? this.maxSimulationTime;
+        const maxSteps = Math.max(0, Math.floor(simulationTime / this.timeStep));
+        const timeline = this.ensureWorldTimeline(maxSteps);
+        if (!this.wasmBackend || this.wasmBackendTimeline !== timeline) {
+            this.wasmBackend?.dispose();
+            const { createWasmHeadlessBackend } = await import('./wasmHeadlessBackend.js');
+            this.wasmBackend = await createWasmHeadlessBackend(this.initialState, timeline, this.timeStep);
+            this.wasmBackendTimeline = timeline;
+        }
+        const summaries = await this.wasmBackend.simulateCandidates(
+            candidates,
+            maxSteps,
+            0
+        );
+        const nearMissLimit = Math.max(0, Math.floor(options.nearMissLimit ?? 0));
+        const indexed = summaries.map((outcome, index) => ({
+            ...candidates[index],
+            ...outcome,
+            __outcomeIndex: index
+        }));
+        const successfulIndexes = indexed
+            .filter(result => result.success)
+            .map(result => result.__outcomeIndex);
+        const nearMissIndexes = indexed
+            .filter(result => !result.success)
+            .sort(compareNearMissResults)
+            .slice(0, nearMissLimit)
+            .map(result => result.__outcomeIndex);
+        const detailedIndexes = [...successfulIndexes, ...nearMissIndexes];
+        const detailedOutcomes = detailedIndexes.length
+            ? await this.wasmBackend.simulateCandidates(
+                detailedIndexes.map(index => candidates[index]),
+                maxSteps,
+                TRAJECTORY_CONFIG.simulation.captureStrideSteps
+            )
+            : [];
+        detailedIndexes.forEach((outcomeIndex, detailIndex) => {
+            indexed[outcomeIndex] = {
+                ...candidates[outcomeIndex],
+                ...detailedOutcomes[detailIndex],
+                __outcomeIndex: outcomeIndex
+            };
+        });
+        const successes = successfulIndexes.map(index => indexed[index]);
+        const nearMisses = nearMissIndexes.map(index => indexed[index]);
+        const stripInternalIndex = result => {
+            const { __outcomeIndex, ...publicResult } = result;
+            return publicResult;
+        };
+        this.lastNearMisses = options.preserveCandidateIndex
+            ? nearMisses.map(stripInternalIndex)
+            : nearMisses.map(stripInternalIndex).map(withoutCandidateIndex);
+        return options.preserveCandidateIndex
+            ? successes.map(stripInternalIndex)
+            : successes.map(stripInternalIndex).map(withoutCandidateIndex);
+    }
+
+    async simulateTrajectoryWasm(angle, power, maxTime = null) {
+        const [result] = await this.simulateCandidatesWasm(
+            [{ candidateIndex: 0, angle, power }],
+            maxTime,
+            { nearMissLimit: 1, preserveCandidateIndex: true }
+        );
+        if (result) return withoutCandidateIndex(result);
+        return withoutCandidateIndex(this.lastNearMisses[0]);
+    }
+
+    async simulateCandidatesNative(candidates, maxTime = null, options = {}) {
+        const simulationTime = maxTime ?? this.maxSimulationTime;
+        const maxSteps = Math.max(0, Math.floor(simulationTime / this.timeStep));
+        const timeline = this.ensureWorldTimeline(maxSteps);
+        const { runNativeHeadlessSweep } = await import('./nativeHeadlessBackend.js');
+        const response = await runNativeHeadlessSweep({
+            initialState: this.initialState,
+            timeline,
+            timeStep: this.timeStep,
+            candidates,
+            maxSteps,
+            captureStride: options.captureTrajectories === false
+                ? 0
+                : TRAJECTORY_CONFIG.simulation.captureStrideSteps,
+            nearMissLimit: Math.max(0, Math.floor(options.nearMissLimit ?? 0))
+        });
+        const stripInternalIndex = result => options.preserveCandidateIndex
+            ? result
+            : withoutCandidateIndex(result);
+        this.lastNearMisses = response.nearMisses.map(stripInternalIndex);
+        return response.successful.map(stripInternalIndex);
+    }
+
+    async simulateTrajectoryNative(angle, power, maxTime = null) {
+        const [result] = await this.simulateCandidatesNative(
+            [{ candidateIndex: 0, angle, power }],
+            maxTime,
+            { nearMissLimit: 1, preserveCandidateIndex: true }
+        );
+        if (result) return withoutCandidateIndex(result);
+        return withoutCandidateIndex(this.lastNearMisses[0]);
+    }
+
     async findWorkingTrajectoriesAsync(
         angleRange = TRAJECTORY_CONFIG.sweep.angleRange,
         powerRange = TRAJECTORY_CONFIG.sweep.powerRange,
@@ -268,6 +374,18 @@ export class HeadlessGameEngine {
         options = {}
     ) {
         const candidates = buildTrajectoryCandidates(angleRange, powerRange, samples);
+        if (options.backend === 'wasm') {
+            this.logger.info(`Testing ${candidates.length} trajectory combinations with Rust/Wasm...`);
+            const results = await this.simulateCandidatesWasm(candidates, maxTime, options);
+            this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
+            return results;
+        }
+        if (options.backend === 'native') {
+            this.logger.info(`Testing ${candidates.length} trajectory combinations with native Rust...`);
+            const results = await this.simulateCandidatesNative(candidates, maxTime, options);
+            this.logger.info(`Testing complete: ${results.length}/${candidates.length} successful trajectories`);
+            return results;
+        }
         const { resolveTrajectoryWorkerCount, runTrajectoryWorkers } = await import('./parallelTrajectoryRunner.js');
         const workerCount = resolveTrajectoryWorkerCount(options.workers, candidates.length);
         if (workerCount === 1) {

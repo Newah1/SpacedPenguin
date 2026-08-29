@@ -16,6 +16,7 @@ const contentTypes = new Map([
     ['.mp3', 'audio/mpeg'],
     ['.png', 'image/png'],
     ['.svg', 'image/svg+xml'],
+    ['.wasm', 'application/wasm'],
     ['.wav', 'audio/wav']
 ]);
 

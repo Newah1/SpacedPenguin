@@ -18,6 +18,18 @@
             --hud-color: rgb(72, 247, 72);
             --panel-radius: 10px;
             --mobile-breakpoint: 768px; /* Mirrored by RESPONSIVE_CONFIG for media queries. */
+            /* Keep the legacy viewport unit as a fallback for older mobile browsers. */
+            --app-height: 100vh;
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-right: env(safe-area-inset-right, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-left: env(safe-area-inset-left, 0px);
+        }
+
+        @supports (height: 100dvh) {
+            :root {
+                --app-height: 100dvh;
+            }
         }
 
         * {
@@ -38,7 +50,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            min-height: var(--app-height);
+            height: var(--app-height);
             font-family: "Trebuchet MS", Arial, sans-serif;
             overflow: hidden;
             touch-action: none;
@@ -54,7 +67,7 @@
                 0 0 30px rgba(28, 98, 210, 0.32),
                 0 22px 70px rgba(0, 0, 0, 0.8);
             width: 100vw;
-            height: 100vh;
+            height: var(--app-height);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -68,7 +81,7 @@
                 min-height: 200px;
                 border: none;
                 width: 100vw;
-                height: 100vh;
+                height: var(--app-height);
             }
             
             body {
@@ -81,7 +94,7 @@
         @media screen and (max-width: 1024px) and (orientation: landscape) {
             #gameContainer {
                 width: 100vw;
-                height: 100vh;
+                height: var(--app-height);
             }
         }
         
@@ -96,14 +109,14 @@
         
         #ui {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: calc(10px + var(--safe-area-top));
+            left: calc(10px + var(--safe-area-left));
             display: grid;
             grid-template-columns: repeat(5, minmax(0, 1fr));
             color: var(--hud-color);
             font-size: 16px;
             z-index: 10;
-            width: calc(100% - 20px);
+            width: calc(100% - 20px - var(--safe-area-left) - var(--safe-area-right));
             contain: layout paint style;
             font-variant-numeric: tabular-nums;
         }
@@ -134,8 +147,8 @@
             --button-fg: var(--hud-color);
             --button-border: rgba(72, 247, 72, 0.72);
             position: absolute;
-            right: 18px;
-            bottom: 18px;
+            right: calc(18px + var(--safe-area-right));
+            bottom: calc(18px + var(--safe-area-bottom));
             z-index: 12;
             display: none;
             min-width: 64px;
@@ -166,8 +179,8 @@
             --button-fg: rgb(72, 247, 72);
             --button-border: rgb(72, 247, 72);
             position: absolute;
-            top: 10px;
-            right: 58px;
+            top: calc(10px + var(--safe-area-top));
+            right: calc(58px + var(--safe-area-right));
             z-index: 15;
             display: none;
             min-width: 42px;
@@ -183,8 +196,8 @@
             --button-fg: #c95616;
             --button-border: #f79433;
             position: absolute;
-            right: 4%;
-            bottom: 5%;
+            right: calc(4% + var(--safe-area-right));
+            bottom: calc(5% + var(--safe-area-bottom));
             z-index: 110;
             display: none;
             align-items: center;
@@ -216,7 +229,10 @@
             z-index: 300;
             display: grid;
             place-items: center;
-            padding: 20px;
+            padding: max(20px, var(--safe-area-top))
+                max(20px, var(--safe-area-right))
+                max(20px, var(--safe-area-bottom))
+                max(20px, var(--safe-area-left));
             background: rgba(0, 0, 0, .82);
             color: #fff6d6;
             pointer-events: auto;
@@ -275,7 +291,7 @@
         @media (max-width: 768px) {
             #gameContainer {
                 width: 100vw;
-                height: 100vh;
+                height: var(--app-height);
                 border: none;
                 min-width: unset;
                 min-height: unset;
@@ -283,19 +299,29 @@
             
             #gameCanvas {
                 width: 100vw;
-                height: 100vh;
+                height: var(--app-height);
             }
             
             #ui {
+                top: calc(8px + var(--safe-area-top));
+                left: calc(8px + var(--safe-area-left));
+                width: auto;
+                max-width: calc(55% - var(--safe-area-left));
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, auto));
+                gap: 2px 12px;
+                padding: 7px 10px;
+                border: 1px solid rgba(72, 247, 72, .26);
+                border-radius: 10px;
+                background: rgba(0, 8, 20, .58);
+                backdrop-filter: blur(8px);
                 font-size: 12px;
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
             }
             
             #ui div {
                 font-size: 12px;
-                margin: 2px 0;
+                margin: 0;
+                white-space: nowrap;
             }
             
         }
@@ -312,6 +338,44 @@
         .mobile-control-button {
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        /* The overlay is screen-space UI, so it remains usable while the portrait
+           world camera moves underneath it. Safe-area values are zero on devices
+           without a cutout/home indicator. */
+        .mobile-control-panel {
+            top: calc(64px + var(--safe-area-top));
+            right: calc(8px + var(--safe-area-right));
+            gap: 6px;
+        }
+
+        .mobile-control-button {
+            min-width: 112px;
+            min-height: 44px;
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+
+        .mobile-instructions {
+            bottom: calc(12px + var(--safe-area-bottom));
+            left: calc(12px + var(--safe-area-left));
+            width: calc(100% - 24px - var(--safe-area-left) - var(--safe-area-right));
+            max-width: none;
+            padding: 10px 14px;
+            font-size: 13px;
+            line-height: 1.25;
+        }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            .mobile-control-panel {
+                /* A compact stack keeps the center of the aiming area clear. */
+                gap: 5px;
+            }
+
+            .mobile-control-button {
+                min-width: 104px;
+                padding-inline: 11px;
+            }
         }
         
         /* Prevent zoom on double tap */

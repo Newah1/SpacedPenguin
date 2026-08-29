@@ -4,7 +4,7 @@ This file is a concise implementation guide for coding agents and contributors. 
 
 ## Project
 
-Spaced Penguin is a browser-native JavaScript rewrite of a Shockwave gravity-slingshot game. It runs directly as ES modules with Canvas 2D, Web Audio, JSON levels, and no application build step.
+Spaced Penguin is a browser-native JavaScript rewrite of a Shockwave gravity-slingshot game. It runs directly as ES modules with Canvas 2D, Web Audio, JSON levels, and a packaged Rust/Wasm simulator; JavaScript has no application bundling step.
 
 Serve the repository over HTTP because modules, levels, the asset manifest, SVGs, and animation metadata use `fetch`:
 
@@ -44,8 +44,11 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 - `js/levels/levelSchema.js` and `js/levels/levelValidation.js`: shared level vocabulary, normalization, capabilities, and executable diagnostics.
 - `js/levels/levelLoader.js`: validated JSON loading and runtime entity construction.
 - `testing/headlessEngine.js`: exact trajectory runner over the shared transition kernel.
+- `rust/simulator/src/bin/spaced-penguin-headless.rs`: optimized native sweep executable; the Node adapter retains authored-level validation and compiled-world preparation.
 
-The browser calls the immutable `stepSimulation()` API. Headless sweeps use the same mutable transition kernel with exact precompiled world frames and movement-only events disabled. Do not introduce separate headless physics.
+The browser explicitly loads the packaged Rust/Wasm simulator during bootstrap and falls back to the JavaScript kernel if initialization fails. Each live browser simulation reuses one Rust state handle and a moving-position buffer, receiving generated binary `StepPatch`/event-union results. Headless sweeps use the same Rust candidate-transition function with exact precompiled world frames and movement-only events disabled; batch trajectory envelopes may remain JSON outside the per-frame hot path. Do not introduce separate headless physics.
+
+For large local sweeps, `--backend native` runs the release executable through the same Node level-validation/timeline adapter. Build it with `npm.cmd run build:simulator-native` or use `npm.cmd run headless:native -- --level <path>` to verify/build it on demand.
 
 ## Important contracts
 
@@ -53,18 +56,19 @@ The browser calls the immutable `stepSimulation()` API. Headless sweeps use the 
 2. `GameManager` owns the only recurring `requestAnimationFrame` chain.
 3. Gameplay changes enter through the shared simulation kernel. Visual objects must not independently advance flight or orbit physics during normal game frames.
 4. Level validation occurs before the current world is cleared or mutated.
-5. Shared object/orbit vocabulary belongs in `levelSchema.js`, not in individual loaders or tools.
+5. Shared declarative object vocabulary and defaults belong in `domain/` and its generated contracts; compatibility normalization and semantic validation belong in `levelSchema.js` / `levelValidation.js`, not individual loaders or tools.
 6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, and bonuses may be orbit targets; planets, black holes, bonuses, and targets may be orbit sources.
 7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
 8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
 9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.
 10. The level editor mutates canonical `LevelDocument` definitions through commands. The disposable edit/play runtime is a projection and must never be exported back into authored state.
+11. Every field reachable from the binary simulation-step input or output must appear in `domain/simulation.schema.json`'s ordered wire records, either encoded or explicitly excluded with a reason. Wire versions and fingerprints live in `domain/simulation-wire-versions.json`; never hand-edit generated codecs.
 
 ## Common changes
 
 ### Add a game object
 
-Update the runtime class and its `editorObjectRegistry.js` descriptor (authoring/runtime factories, collections, capabilities, inspector fields, and clone/property hooks), shared type vocabulary/validation, simulation state if gameplay-relevant, export paths, tests, and level documentation. `GameObjectFactory` should remain generic registry dispatch plus shared orbit configuration.
+Update `domain/gameObjects.schema.json` for vocabulary, defaults, collections, capabilities, straightforward inspector fields, serialization metadata, and gameplay-object simulation projections; regenerate contracts; then update the runtime class and handwritten registry hooks, semantic validation, simulation state if gameplay-relevant, export paths, tests, and level documentation. Every gameplay-authored property must map to simulation state or have a reasoned exclusion. `GameObjectFactory` should remain generic registry dispatch plus shared orbit configuration.
 
 ### Add a rule
 

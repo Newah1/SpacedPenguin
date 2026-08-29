@@ -1,4 +1,7 @@
 import { deepFreeze } from './configUtils.js';
+import { LEVEL_DEFAULTS } from '../../generated/js/gameObjectTypes.js';
+
+export { LEVEL_DEFAULTS };
 
 export const WORLD_CONFIG = deepFreeze({
     stage: { width: 800, height: 600 },
@@ -118,85 +121,11 @@ export const SIMULATION_CONFIG = deepFreeze({
 
 export const PHYSICS_CONFIG = deepFreeze({
     gravitationalConstant: 3,
-    defaultGravitationalReach: 5000,
+    defaultGravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach,
     orbit: {
         gravityStrength: 1000,
         maxGravityAcceleration: 50,
         initialVelocity: { x: 0, y: 50 },
         ellipseMinorAxisRatio: 0.7
-    }
-});
-
-export const LEVEL_DEFAULTS = deepFreeze({
-    planet: {
-        radius: 30,
-        mass: 100,
-        collisionPadding: 8,
-        gravitationalReach: PHYSICS_CONFIG.defaultGravitationalReach
-    },
-    bonus: {
-        value: 100,
-        width: 42.5,
-        height: 43,
-        collectionPadding: 8
-    },
-    portal: {
-        width: 48,
-        height: 18,
-        color: 'red',
-        playSound: true
-    },
-    speedBooster: {
-        width: 64,
-        height: 32,
-        speedMultiplier: 1,
-        playSound: true
-    },
-    target: {
-        width: 60,
-        height: 60,
-        spriteType: 'ship_open'
-    },
-    text: {
-        content: 'Sample Text',
-        width: 200,
-        height: 100,
-        visible: true,
-        textAlign: 'left',
-        fontSize: 16,
-        fontFamily: 'Arial, sans-serif',
-        color: '#FFFFCC',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        padding: 10,
-        maxWidth: null,
-        autoSize: true,
-        fadeIn: false,
-        fadeInDuration: 1,
-        renderOrder: 8
-    },
-    pointingArrow: {
-        color: '#00FFFF',
-        glowColor: '#0099FF',
-        baseWidth: 20,
-        scaleWithDistance: true,
-        maxDistance: 300,
-        minWidth: 15,
-        maxWidth: 60,
-        pulseSpeed: 3,
-        minAlpha: 0.6,
-        maxAlpha: 1,
-        renderOrder: 9
-    },
-    penguin: {
-        radius: 16,
-        mass: 1
-    },
-    slingshot: {
-        velocityMultiplier: 15,
-        maxPullback: 100,
-        minPullback: 10
-    },
-    rules: {
-        scoreMultiplier: 1
     }
 });

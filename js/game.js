@@ -44,6 +44,7 @@ import {
     STAGE_HEIGHT,
     createWorldCamera,
     createViewport,
+    panWorldCamera,
     updateFollowCamera
 } from './rendering/viewport.js';
 import { GameState } from './runtime/gameState.js';
@@ -342,6 +343,9 @@ export class Game {
                 this.resetSimulationSpeedControl();
             }
 
+            if (newState === GameState.PLAYING) this.gameplayController.setupMobileControls();
+            else this.gameplayController.clearMobileControls();
+
             this.onStateChanged?.(newState);
             
             // Input contexts inspect live state when each event is dispatched,
@@ -369,8 +373,24 @@ export class Game {
         this.viewport = viewport;
         this.canvasScaleX = viewport.scale;
         this.canvasScaleY = viewport.scale;
-        this.viewRect = this.getActiveCamera().viewRect;
-        this.arrow?.setStageRect(this.viewRect);
+        this.resetWorldCamera();
+    }
+
+    usesPortraitGameplayCamera() {
+        return Boolean(
+            this.viewport?.cssHeight > this.viewport?.cssWidth &&
+            this.isMobileDevice()
+        );
+    }
+
+    getResponsiveCameraConfig() {
+        if (!this.usesPortraitGameplayCamera()) return this.cameraConfig;
+        const authoredConfig = this.cameraConfig || {};
+        return {
+            ...authoredConfig,
+            mode: 'follow',
+            zoom: Math.max(authoredConfig.zoom ?? 1, RENDER_CONFIG.camera.portraitZoom)
+        };
     }
 
     getActiveCamera() {
@@ -380,25 +400,47 @@ export class Game {
     }
 
     resetWorldCamera() {
-        const focus = this.slingshot?.position || (this.penguin
+        const focus = this.penguin?.state === 'soaring'
             ? { x: this.penguin.x, y: this.penguin.y }
-            : null);
-        this.worldCamera = createWorldCamera(this.stageRect, this.cameraConfig, focus);
+            : this.slingshot?.position || (this.penguin
+                ? { x: this.penguin.x, y: this.penguin.y }
+                : null);
+        this.worldCamera = createWorldCamera(this.stageRect, this.getResponsiveCameraConfig(), focus);
         this.viewRect = this.worldCamera.viewRect;
         this.arrow?.setStageRect(this.viewRect);
     }
 
     updateWorldCamera(deltaTime) {
-        if (this.worldCamera?.mode !== 'follow' || !this.penguin) return;
+        if (this.worldCamera?.mode !== 'follow' || !this.penguin || this.gameplayController?.lookAroundMode) return;
         this.worldCamera = updateFollowCamera(this.worldCamera, {
             x: this.penguin.x,
             y: this.penguin.y,
             velocity: this.penguin.velocity
-        }, deltaTime, RENDER_CONFIG.camera);
+        }, deltaTime, {
+            ...RENDER_CONFIG.camera,
+            deadZoneRatio: this.usesPortraitGameplayCamera()
+                ? RENDER_CONFIG.camera.portraitDeadZoneRatio
+                : RENDER_CONFIG.camera.deadZoneRatio
+        });
         if (!(this.levelEditor?.active && this.levelEditor.mode === 'edit')) {
             this.viewRect = this.worldCamera.viewRect;
             this.arrow?.setStageRect(this.viewRect);
         }
+    }
+
+    panPortraitCameraByClientDelta(deltaClientX, deltaClientY) {
+        if (!this.usesPortraitGameplayCamera() || this.worldCamera?.mode !== 'follow') return;
+        const rect = this.canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const worldDeltaX = -deltaClientX *
+            (this.viewport.backingWidth / rect.width) /
+            (this.viewport.scale * this.worldCamera.scale);
+        const worldDeltaY = -deltaClientY *
+            (this.viewport.backingHeight / rect.height) /
+            (this.viewport.scale * this.worldCamera.scale);
+        this.worldCamera = panWorldCamera(this.worldCamera, worldDeltaX, worldDeltaY);
+        this.viewRect = this.worldCamera.viewRect;
+        this.arrow?.setStageRect(this.viewRect);
     }
 
     beginFrame() {

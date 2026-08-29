@@ -5,20 +5,9 @@ import { circlesOverlap, clonePoint, distance, pointInRect } from './simulationG
 import { LEVEL_DEFAULTS, SIMULATION_CONFIG } from '../config/gameConfig.js';
 import { getPortalOutwardDirection } from './portalGeometry.js';
 import { advanceWaypointPathsMutable } from './waypointSimulation.js';
+import { SimulationEventType } from '../../generated/js/simulationTypes.js';
 
-export const SimulationEventType = Object.freeze({
-    PENGUIN_MOVED: 'penguin_moved',
-    BONUS_COLLECTED: 'bonus_collected',
-    PLANET_COLLISION: 'planet_collision',
-    PLANET_BOUNCE: 'planet_bounce',
-    PORTAL_TELEPORTED: 'portal_teleported',
-    SPEED_BOOSTER_ACTIVATED: 'speed_booster_activated',
-    TARGET_HIT: 'target_hit',
-    TARGET_BLOCKED: 'target_blocked',
-    OUT_OF_BOUNDS: 'out_of_bounds',
-    ATTEMPT_RESET_REQUIRED: 'attempt_reset_required',
-    RULE_FAILURE: 'rule_failure'
-});
+export { SimulationEventType };
 
 export const FIXED_TICK_RATE = 60;
 export const FIXED_TICK_SECONDS = 1 / FIXED_TICK_RATE;
@@ -137,7 +126,7 @@ export function stepSimulationTickMutable(state, options = {}) {
 
 function stepSimulationSlice(state, deltaTime, events, options) {
     state.time += deltaTime;
-    if (options.advanceWorld !== false) advanceWorldMotion(state, deltaTime);
+    if (options.advanceWorld !== false) advanceSimulationWorldMutable(state, deltaTime);
     if (state.penguin.state === 'soaring') {
         stepSoaringPenguin(state, deltaTime, events, options);
     } else if (state.penguin.state === 'crashed') {
@@ -155,7 +144,7 @@ function appendFailureEvent(state, events) {
     }
 }
 
-function advanceWorldMotion(state, deltaTime) {
+export function advanceSimulationWorldMutable(state, deltaTime) {
     let cached = compiledOrbitGraphs.get(state);
     if (!cached) {
         const entities = [
