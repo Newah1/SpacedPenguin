@@ -1,7 +1,7 @@
 import { GameState } from '../../runtime/gameState.js';
 import { EDITOR_CONFIG } from '../../config/editorConfig.js';
 import { captureGameSimulationState } from '../../runtime/gameSimulationAdapter.js';
-import { solveGravitySculpt } from '../../simulation/gravitySculptor.js';
+import { solveGravitySculptOffThread } from '../../simulation/gravitySculptWorkerClient.js';
 import { LiveEditCommandType } from '../commands/live/index.js';
 
 const INITIAL_STATE = Object.freeze({
@@ -110,13 +110,12 @@ export default class GravitySculptController {
         this.state.lastSeed = seed;
         this.view.setPhase('solving', '0%');
         try {
-            const result = await solveGravitySculpt({
+            const result = await solveGravitySculptOffThread({
                 state: captureGameSimulationState(this.game),
                 desiredPath: this.state.path,
                 planetIndices: selections.planetIndices,
                 options: { ...EDITOR_CONFIG.gravitySculpt, ...selections, seed },
-                onProgress: progress => this.reportProgress(token, progress)
-            });
+            }, progress => this.reportProgress(token, progress));
             if (token !== this.state.solveToken) return;
             this.state.result = result;
             this.state.candidateIndex = 0;

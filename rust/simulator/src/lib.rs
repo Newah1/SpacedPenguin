@@ -18,6 +18,8 @@ use generated_simulation_events::SimulationEvent;
 use generated_simulation_output::*;
 use generated_simulation_state::*;
 
+mod gravity_sculpt;
+
 #[cfg(not(target_arch = "wasm32"))]
 mod native_headless;
 

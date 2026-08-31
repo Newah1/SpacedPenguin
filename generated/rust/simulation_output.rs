@@ -4,6 +4,59 @@ use crate::generated_game_objects::*;
 use crate::generated_simulation_events::SimulationEvent;
 use serde::Serialize;
 
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptWaypointMatch {
+    pub(crate) index: usize,
+    pub(crate) distance: f64,
+    pub(crate) r#virtual: bool,
+    pub(crate) point: Point,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptObjectiveTerms {
+    pub(crate) waypoint_fit: f64,
+    pub(crate) hard_constraints: f64,
+    pub(crate) peak_gravity: f64,
+    pub(crate) mean_gravity: f64,
+    pub(crate) route_efficiency: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptRobustScoreTerms {
+    pub(crate) central: f64,
+    pub(crate) average: f64,
+    pub(crate) worst: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptCandidateOutput {
+    pub(crate) score: f64,
+    pub(crate) checkpoint_coverage: f64,
+    pub(crate) missed_waypoint_count: usize,
+    pub(crate) endpoint_distance: f64,
+    pub(crate) waypoint_matches: Vec<SculptWaypointMatch>,
+    pub(crate) trajectory: Vec<Point>,
+    pub(crate) terminal: String,
+    pub(crate) values: Vec<f64>,
+    pub(crate) constraint_violations: Vec<String>,
+    pub(crate) elapsed_seconds: f64,
+    pub(crate) path_length: f64,
+    pub(crate) direct_distance: f64,
+    pub(crate) path_efficiency: f64,
+    pub(crate) peak_gravity_acceleration: f64,
+    pub(crate) mean_gravity_acceleration: f64,
+    pub(crate) physics_comfort_penalty: f64,
+    pub(crate) objective_terms: SculptObjectiveTerms,
+    pub(crate) robust_score_terms: Option<SculptRobustScoreTerms>,
+    pub(crate) robust_checkpoint_coverage: Option<f64>,
+    pub(crate) robust_goal_success_rate: Option<f64>,
+    pub(crate) simulation_count: usize,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PenguinPatch {

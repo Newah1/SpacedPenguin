@@ -20,6 +20,8 @@
     "generate:domain": "node tools/generateDomainContracts.js",
     "check:domain": "node tools/generateDomainContracts.js --check",
     "benchmark:gravity-sculpt-mass": "node testing/benchmarkGravitySculptMass.js",
+    "benchmark:gravity-sculpt-wasm": "node testing/benchmarkGravitySculptWasm.js",
+    "benchmark:gravity-sculpt-browser": "node testing/benchmarkGravitySculptBrowser.js",
     "build:simulator-wasm": "npm run generate:domain && node testing/buildWasmSimulator.js",
     "build:simulator-native": "npm run generate:domain && node testing/buildNativeSimulator.js",
     "headless:native": "node testing/nativeHeadlessCli.js",

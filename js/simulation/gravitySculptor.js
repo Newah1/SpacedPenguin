@@ -6,6 +6,7 @@ import {
     stepSimulationMutable
 } from './simulationEngine.js';
 import { cloneSimulationState } from './simulationState.js';
+import { createGravitySculptWasmEvaluator } from './wasmSimulationBridge.js';
 
 const DEFAULT_OPTIONS = EDITOR_CONFIG.gravitySculpt;
 
@@ -532,6 +533,34 @@ export function evaluateSculptCandidate(baseState, desiredPath, launch, variable
     };
 }
 
+function createSculptEvaluator(state, launch, variables) {
+    let wasm = null;
+    try {
+        wasm = createGravitySculptWasmEvaluator({
+            state,
+            launch,
+            variables,
+            simulation: SIMULATION_CONFIG
+        });
+    } catch {
+        // Unsupported or stale Wasm artifacts must not make the editor tool
+        // unavailable. Browser bootstrap already treats JavaScript as the
+        // authoritative compatibility fallback.
+        wasm = null;
+    }
+    return {
+        backend: wasm?.backend || 'javascript',
+        evaluateMany(path, config, valueSets, options) {
+            if (valueSets.length === 0) return [];
+            if (wasm) return wasm.evaluateBatch(path, config, valueSets, options);
+            return valueSets.map(values =>
+                evaluateSculptCandidate(state, path, launch, variables, values, config)
+            );
+        },
+        dispose() { wasm?.dispose(); }
+    };
+}
+
 function variableIndices(variables, predicate) {
     return variables.flatMap((variable, index) => predicate(variable) ? [index] : []);
 }
@@ -615,7 +644,8 @@ function compareSculptCandidates(left, right) {
 function candidateWaypointErrors(candidate, path, sampleIndices) {
     const indices = sampleIndices || (candidate.waypointMatches || []).map(match => match.index);
     return indices.map((sampleIndex, index) => {
-        const point = candidate.trajectory[Math.min(sampleIndex, candidate.trajectory.length - 1)];
+        const point = candidate.waypointMatches?.[index]?.point ||
+            candidate.trajectory[Math.min(sampleIndex, candidate.trajectory.length - 1)];
         const waypoint = path[index + 1];
         return {
             x: point.x - waypoint.x,
@@ -694,7 +724,7 @@ function selectInfluentialVariables(variableIndicesToRank, sensitivities, variab
     return selected;
 }
 
-function createInfluenceGuidance({
+async function createInfluenceGuidance({
     base,
     activeIndices,
     state,
@@ -702,10 +732,11 @@ function createInfluenceGuidance({
     launch,
     variables,
     config,
-    progress
+    progress,
+    evaluator
 }) {
     if (activeIndices.length === 0) return { candidates: [], activeIndices: [] };
-    const perturbations = [];
+    const perturbationRequests = [];
     const probeConfig = { ...config, robustLaunchOffsets: [] };
     for (const variableIndex of activeIndices) {
         const variable = variables[variableIndex];
@@ -725,15 +756,19 @@ function createInfluenceGuidance({
             toSearchCoordinate(variable, upperValues[variableIndex]) -
             toSearchCoordinate(variable, lowerValues[variableIndex]);
         if (parameterDelta === 0) continue;
-        const lower = evaluateSculptCandidate(
-            state, path, launch, variables, lowerValues, probeConfig
-        );
-        const upper = evaluateSculptCandidate(
-            state, path, launch, variables, upperValues, probeConfig
-        );
-        perturbations.push({ lower, upper, parameterDelta });
-        progress.evaluations += lower.simulationCount + upper.simulationCount;
+        perturbationRequests.push({ lowerValues, upperValues, parameterDelta });
     }
+    const probeResults = await evaluator.evaluateMany(
+        path,
+        probeConfig,
+        perturbationRequests.flatMap(request => [request.lowerValues, request.upperValues])
+    );
+    const perturbations = perturbationRequests.map((request, index) => ({
+        lower: probeResults[index * 2],
+        upper: probeResults[index * 2 + 1],
+        parameterDelta: request.parameterDelta
+    }));
+    progress.evaluations += probeResults.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
     if (perturbations.length !== activeIndices.length) {
         return { candidates: [], activeIndices: [...activeIndices] };
     }
@@ -756,7 +791,7 @@ function createInfluenceGuidance({
         base, influentialPerturbations, influentialIndices, variables, path, config
     );
     if (!corrections) return { candidates: [], activeIndices: influentialIndices };
-    const candidates = [];
+    const candidateValues = [];
     for (const scale of config.influenceSeedScales) {
         const values = [...base.values];
         influentialIndices.forEach((variableIndex, influenceIndex) => {
@@ -767,13 +802,13 @@ function createInfluenceGuidance({
                 corrections[influenceIndex] * scale
             );
         });
-        if (candidates.some(candidate => normalizedParameterDistance(candidate.values, values, variables) < 1e-8)) {
+        if (candidateValues.some(existing => normalizedParameterDistance(existing, values, variables) < 1e-8)) {
             continue;
         }
-        const candidate = evaluateSculptCandidate(state, path, launch, variables, values, config);
-        candidates.push(candidate);
-        progress.evaluations += candidate.simulationCount;
+        candidateValues.push(values);
     }
+    const candidates = await evaluator.evaluateMany(path, config, candidateValues);
+    progress.evaluations += candidates.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
     return { candidates, activeIndices: influentialIndices };
 }
 
@@ -789,7 +824,8 @@ async function runDifferentialEvolutionStage({
     config,
     random,
     progress,
-    useInfluenceGuidance
+    useInfluenceGuidance,
+    evaluator
 }) {
     if (activeIndices.length === 0) return seeds;
     const populationPerVariable = Math.max(2, Math.round(4 * config.budgetMultiplier));
@@ -802,13 +838,16 @@ async function runDifferentialEvolutionStage({
         .slice(0, Math.min(config.eliteSeedCount, populationSize));
     const population = [...eliteSeeds];
     let mutationIndices = activeIndices;
+    const initialValues = [];
     while (population.length < populationSize) {
         const seed = eliteSeeds[Math.floor(random() * eliteSeeds.length)] || seeds[0];
         const values = randomizeActiveValues(seed.values, activeIndices, variables, path, config, random);
-        const candidate = evaluateSculptCandidate(state, path, launch, variables, values, config);
-        population.push(candidate);
-        progress.evaluations += candidate.simulationCount;
+        initialValues.push(values);
+        population.push(null);
     }
+    const initialCandidates = await evaluator.evaluateMany(path, config, initialValues);
+    population.splice(eliteSeeds.length, initialCandidates.length, ...initialCandidates);
+    progress.evaluations += initialCandidates.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
     if (
         useInfluenceGuidance &&
         config.influenceGuidanceEnabled !== false &&
@@ -818,7 +857,7 @@ async function runDifferentialEvolutionStage({
             1,
             Math.floor(Math.max(1, populationSize - eliteSeeds.length) * config.influencePopulationFraction)
         );
-        const guidance = createInfluenceGuidance({
+        const guidance = await createInfluenceGuidance({
             base: eliteSeeds[0],
             activeIndices,
             state,
@@ -826,7 +865,8 @@ async function runDifferentialEvolutionStage({
             launch,
             variables,
             config,
-            progress
+            progress,
+            evaluator
         });
         mutationIndices = guidance.activeIndices.length > 0
             ? guidance.activeIndices
@@ -855,6 +895,7 @@ async function runDifferentialEvolutionStage({
 
     for (let generation = 0; generation < stageConfig.generations; generation++) {
         const next = [...population];
+        const trialValuesBatch = [];
         for (let targetIndex = 0; targetIndex < population.length; targetIndex++) {
             const [a, b, c] = distinctPopulationIndices(population.length, targetIndex, 3, random);
             const target = population[targetIndex];
@@ -876,7 +917,12 @@ async function runDifferentialEvolutionStage({
                     )
                 );
             }
-            const trial = evaluateSculptCandidate(state, path, launch, variables, trialValues, config);
+            trialValuesBatch.push(trialValues);
+        }
+        const trials = await evaluator.evaluateMany(path, config, trialValuesBatch);
+        for (let targetIndex = 0; targetIndex < population.length; targetIndex++) {
+            const trial = trials[targetIndex];
+            const target = population[targetIndex];
             progress.evaluations += trial.simulationCount;
             if (compareSculptCandidates(trial, target) <= 0) next[targetIndex] = trial;
         }
@@ -981,14 +1027,10 @@ function curriculumConfig(config, isCompleteRoute) {
     };
 }
 
-function reevaluateSeeds(seeds, state, path, launch, variables, config, progress) {
-    return seeds.map(seed => {
-        const candidate = evaluateSculptCandidate(
-            state, path, launch, variables, seed.values, config
-        );
-        progress.evaluations += candidate.simulationCount;
-        return candidate;
-    });
+async function reevaluateSeeds(seeds, path, config, progress, evaluator) {
+    const candidates = await evaluator.evaluateMany(path, config, seeds.map(seed => seed.values));
+    progress.evaluations += candidates.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
+    return candidates;
 }
 
 function materializeCandidate(candidate, state, variables, planetIndices) {
@@ -1027,7 +1069,8 @@ export async function solveGravitySculpt({
     launch,
     variables: suppliedVariables,
     options = {},
-    onProgress
+    onProgress,
+    evaluatorFactory
 }) {
     const config = { ...DEFAULT_OPTIONS, ...options };
     const budgetMultiplier = clamp(
@@ -1058,9 +1101,12 @@ export async function solveGravitySculpt({
     const variables = suppliedVariables || [...planetVariables, ...launchVariables];
     if (variables.length === 0) throw new Error('Select at least one stationary planet and an adjustable property.');
     const resolvedLaunch = launch || inferSculptLaunch(state, path);
+    const evaluator = await evaluatorFactory?.({ state, launch: resolvedLaunch, variables }) ||
+        createSculptEvaluator(state, resolvedLaunch, variables);
     const random = seededRandom(config.seed);
-    const baseline = evaluateSculptCandidate(
-        state, path, resolvedLaunch, variables, variables.map(variable => variable.initial), config
+    try {
+    const [baseline] = await evaluator.evaluateMany(
+        path, config, [variables.map(variable => variable.initial)]
     );
     const stageDefinitions = OPTIMIZATION_STAGE_DEFINITIONS
         .map(definition => ({
@@ -1085,15 +1131,7 @@ export async function solveGravitySculpt({
     for (const phase of curriculum) {
         const isCompleteRoute = phase.path.length === path.length;
         const phaseConfig = curriculumConfig(config, isCompleteRoute);
-        archive = reevaluateSeeds(
-            archive,
-            state,
-            phase.path,
-            resolvedLaunch,
-            variables,
-            phaseConfig,
-            progress
-        );
+        archive = await reevaluateSeeds(archive, phase.path, phaseConfig, progress, evaluator);
         for (const { name, activeIndices, useInfluenceGuidance } of stageDefinitions) {
             const generations = phase.stageGenerations[name];
             if (generations <= 0) continue;
@@ -1109,7 +1147,8 @@ export async function solveGravitySculpt({
                 config: phaseConfig,
                 random,
                 progress,
-                useInfluenceGuidance
+                useInfluenceGuidance,
+                evaluator
             });
             archive = selectDiverseCandidates(
                 population,
@@ -1124,9 +1163,20 @@ export async function solveGravitySculpt({
             bestMissedWaypointCount: archive[0]?.missedWaypointCount ?? phase.waypointCount
         });
     }
-    const candidates = selectDiverseCandidates(
+    const selectedCandidates = selectDiverseCandidates(
         [...archive, ...population], variables, config
-    ).map(candidate => materializeCandidate(candidate, state, variables, planetIndices));
+    );
+    const hydratedCandidates = evaluator.backend === 'wasm'
+        ? await evaluator.evaluateMany(
+            path,
+            config,
+            selectedCandidates.map(candidate => candidate.values),
+            { captureTrajectories: true }
+        )
+        : selectedCandidates;
+    const candidates = hydratedCandidates.map(candidate =>
+        materializeCandidate(candidate, state, variables, planetIndices)
+    );
     const best = candidates[0];
     return {
         ...best,
@@ -1135,10 +1185,15 @@ export async function solveGravitySculpt({
         variables,
         prefixArchives,
         influenceAnalyses: progress.influenceAnalyses,
+        evaluationBackend: evaluator.backend,
+        evaluationWorkers: evaluator.workerCount || 1,
         seed: config.seed,
         evaluations: progress.evaluations,
         candidates
     };
+    } finally {
+        evaluator.dispose();
+    }
 }
 
 export { DEFAULT_OPTIONS as GRAVITY_SCULPT_DEFAULTS };

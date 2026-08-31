@@ -183,6 +183,133 @@
       },
       "x-spaced-penguin-rust": { "module": "simulation_state", "name": "InitialState", "derive": ["Clone", "Debug", "Deserialize"] }
     },
+    "SculptLaunch": {
+      "type": "object", "additionalProperties": false, "required": ["velocity"],
+      "properties": { "velocity": { "$ref": "#/$defs/Point" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Copy", "Debug", "Deserialize"] }
+    },
+    "SculptVariable": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "kind", "scale", "initial", "min", "max"],
+      "properties": {
+        "key": { "type": "string" }, "kind": { "type": "string" }, "scale": { "type": "string" },
+        "initial": { "type": "number" }, "min": { "type": "number" }, "max": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SculptGoals": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "requireTarget": { "type": "boolean", "default": false },
+        "avoidPlanetCollisions": { "type": "boolean", "default": false },
+        "stayInBounds": { "type": "boolean", "default": false },
+        "requiredBonusIndices": { "type": "array", "default": [], "items": { "type": "integer" } },
+        "maxFlightSeconds": { "type": ["number", "null"] }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Default", "Deserialize"] }
+    },
+    "SculptLaunchOffset": {
+      "type": "object", "additionalProperties": false, "required": ["angleDegrees", "powerFraction"],
+      "properties": { "angleDegrees": { "type": "number" }, "powerFraction": { "type": "number" } },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Copy", "Debug", "Deserialize"] }
+    },
+    "SculptConfig": {
+      "type": "object", "additionalProperties": true,
+      "required": [
+        "previewSeconds", "trajectoryTimeSafetyMultiplier", "trajectoryDistanceBudgetMultiplier", "sampleEverySteps",
+        "checkpointTolerance", "waypointConstraintPenalty", "waypointProximityWeight", "unmatchedWaypointDistance",
+        "terminalPenalty", "hardConstraintPenalty", "peakGravityAccelerationSoftLimit", "meanGravityAccelerationSoftLimit",
+        "peakGravityAccelerationWeight", "meanGravityAccelerationWeight", "pathEfficiencyWeight", "movementPenalty",
+        "massPenalty", "launchPenalty", "robustCentralWeight", "robustAverageWeight", "robustWorstWeight",
+        "robustLaunchOffsets", "timeStep"
+      ],
+      "properties": {
+        "previewSeconds": { "type": "number" }, "trajectoryTimeSafetyMultiplier": { "type": "number" },
+        "trajectoryDistanceBudgetMultiplier": { "type": "number" }, "sampleEverySteps": { "type": "integer" },
+        "checkpointTolerance": { "type": "number" }, "waypointConstraintPenalty": { "type": "number" },
+        "waypointProximityWeight": { "type": "number" }, "unmatchedWaypointDistance": { "type": "number" },
+        "terminalPenalty": { "type": "number" }, "hardConstraintPenalty": { "type": "number" },
+        "peakGravityAccelerationSoftLimit": { "type": "number" }, "meanGravityAccelerationSoftLimit": { "type": "number" },
+        "peakGravityAccelerationWeight": { "type": "number" }, "meanGravityAccelerationWeight": { "type": "number" },
+        "pathEfficiencyWeight": { "type": "number" }, "movementPenalty": { "type": "number" },
+        "massPenalty": { "type": "number" }, "launchPenalty": { "type": "number" },
+        "robustCentralWeight": { "type": "number" }, "robustAverageWeight": { "type": "number" },
+        "robustWorstWeight": { "type": "number" },
+        "robustLaunchOffsets": { "type": "array", "items": { "$ref": "#/$defs/SculptLaunchOffset" } },
+        "goals": { "$ref": "#/$defs/SculptGoals", "default": {} }, "timeStep": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SculptContextInput": {
+      "type": "object", "additionalProperties": false, "required": ["state", "simulation", "launch", "variables"],
+      "properties": {
+        "state": { "$ref": "#/$defs/SimulationState" }, "simulation": { "$ref": "#/$defs/SimulationConfig" },
+        "launch": { "$ref": "#/$defs/SculptLaunch" },
+        "variables": { "type": "array", "items": { "$ref": "#/$defs/SculptVariable" } }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SculptBatchInput": {
+      "type": "object", "additionalProperties": false,
+      "required": ["desiredPath", "config", "candidates"],
+      "properties": {
+        "desiredPath": { "type": "array", "items": { "$ref": "#/$defs/Point" } },
+        "config": { "$ref": "#/$defs/SculptConfig" },
+        "candidates": { "type": "array", "items": { "type": "array", "items": { "type": "number" } } },
+        "captureTrajectories": { "type": "boolean", "default": false }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_state", "derive": ["Clone", "Debug", "Deserialize"] }
+    },
+    "SculptWaypointMatch": {
+      "type": "object", "additionalProperties": false, "required": ["index", "distance", "virtual", "point"],
+      "properties": {
+        "index": { "type": "integer" }, "distance": { "type": "number" },
+        "virtual": { "type": "boolean" }, "point": { "$ref": "#/$defs/Point" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Copy", "Debug", "Serialize"] }
+    },
+    "SculptObjectiveTerms": {
+      "type": "object", "additionalProperties": false,
+      "required": ["waypointFit", "hardConstraints", "peakGravity", "meanGravity", "routeEfficiency"],
+      "properties": {
+        "waypointFit": { "type": "number" }, "hardConstraints": { "type": "number" },
+        "peakGravity": { "type": "number" }, "meanGravity": { "type": "number" },
+        "routeEfficiency": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Copy", "Debug", "Serialize"] }
+    },
+    "SculptRobustScoreTerms": {
+      "type": "object", "additionalProperties": false, "required": ["central", "average", "worst"],
+      "properties": {
+        "central": { "type": "number" }, "average": { "type": "number" }, "worst": { "type": "number" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Copy", "Debug", "Serialize"] }
+    },
+    "SculptCandidateOutput": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "score", "checkpointCoverage", "missedWaypointCount", "endpointDistance", "waypointMatches", "trajectory",
+        "terminal", "values", "constraintViolations", "elapsedSeconds", "pathLength", "directDistance", "pathEfficiency",
+        "peakGravityAcceleration", "meanGravityAcceleration", "physicsComfortPenalty", "objectiveTerms", "simulationCount"
+      ],
+      "properties": {
+        "score": { "type": "number" }, "checkpointCoverage": { "type": "number" },
+        "missedWaypointCount": { "type": "integer" }, "endpointDistance": { "type": "number" },
+        "waypointMatches": { "type": "array", "items": { "$ref": "#/$defs/SculptWaypointMatch" } },
+        "trajectory": { "type": "array", "items": { "$ref": "#/$defs/Point" } }, "terminal": { "type": "string" },
+        "values": { "type": "array", "items": { "type": "number" } },
+        "constraintViolations": { "type": "array", "items": { "type": "string" } },
+        "elapsedSeconds": { "type": "number" }, "pathLength": { "type": "number" },
+        "directDistance": { "type": "number" }, "pathEfficiency": { "type": "number" },
+        "peakGravityAcceleration": { "type": "number" }, "meanGravityAcceleration": { "type": "number" },
+        "physicsComfortPenalty": { "type": "number" }, "objectiveTerms": { "$ref": "#/$defs/SculptObjectiveTerms" },
+        "robustScoreTerms": { "anyOf": [{ "$ref": "#/$defs/SculptRobustScoreTerms" }, { "type": "null" }] },
+        "robustCheckpointCoverage": { "type": ["number", "null"] },
+        "robustGoalSuccessRate": { "type": ["number", "null"] },
+        "simulationCount": { "type": "integer" }
+      },
+      "x-spaced-penguin-rust": { "module": "simulation_output", "derive": ["Clone", "Debug", "Serialize"] }
+    },
     "SimulationStepInput": {
       "type": "object", "additionalProperties": false, "required": ["state", "simulation"],
       "properties": { "state": { "$ref": "#/$defs/SimulationState" }, "simulation": { "$ref": "#/$defs/SimulationConfig" } },

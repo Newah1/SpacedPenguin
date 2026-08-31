@@ -281,6 +281,18 @@ The logical result is `{ state, events }`; the Wasm boundary carries its generat
 
 For a trajectory sweep, world motion is candidate-independent: planets, bonuses, and the target never react to the penguin. `CompiledWorldTimeline` therefore advances the same orbit graph once for every fixed step and stores exact positions and mutable orbit fields. Each candidate owns a fresh mutable penguin/bonus/counter state, applies the corresponding world frame, and invokes the shared kernel with orbit advancement disabled. Timeline frames follow the production ordering—world advance first, then collision/gravity/bonus/target evaluation. Optional worker threads each own their timeline and candidate subset; results are restored to canonical grid order before returning.
 
+Gravity Sculpt keeps differential-evolution policy, curriculum assembly, and
+editor commands in JavaScript, but evaluates complete population/probe batches
+inside a bounded pool of persistent Rust/Wasm sculpt contexts hosted beneath a
+module worker. Rust
+applies supported planet/launch variables, advances the shared transition, and
+returns objective metrics plus matched waypoint samples. Discarded candidates
+do not cross the boundary with complete trajectories; the final candidate set
+is re-evaluated with preview capture. Moving orbit/waypoint worlds and custom
+variable functions use the JavaScript evaluator because the current sculpt
+batch contexts intentionally model stationary candidate worlds. This fallback
+preserves capability without introducing a second moving-world implementation.
+
 The headless engine sizes a timeline from `floor(maxTime / timeStep)`. A shorter later request reuses the existing cache; a longer request replaces it with a sufficiently large cache. `applyFrame` rejects an out-of-range step with `RangeError`, so a trajectory cannot silently consume stale or undefined world data. The browser does not use this cache because it advances one live world, supports editor mutation, and receives little benefit from precomputing future frames.
 
 ```mermaid

@@ -551,6 +551,16 @@ function rustType(schema, required, definitions = {}) {
         const name = schema.$ref.split('/').at(-1);
         type = definitions[name]?.['x-spaced-penguin-rust']?.name || name;
     }
+    else if (schema.anyOf) {
+        const reference = schema.anyOf.find(candidate => candidate.$ref);
+        const nullable = schema.anyOf.some(candidate => candidate.type === 'null');
+        if (reference && nullable) {
+            const name = reference.$ref.split('/').at(-1);
+            type = `Option<${definitions[name]?.['x-spaced-penguin-rust']?.name || name}>`;
+        } else {
+            type = 'serde_json::Value';
+        }
+    }
     else if (schema.oneOf) type = definitions.SimulationEvent?.['x-spaced-penguin-rust']?.name || 'SimulationEvent';
     else {
         const types = Array.isArray(schema.type) ? schema.type : [schema.type];
@@ -587,7 +597,16 @@ function rustStruct(name, schema, definitions) {
         const defaultKind = serdeDefault(property, type);
         if (defaultKind === 'default') lines.push('    #[serde(default)]');
         else if (defaultKind) lines.push(`    #[serde(default = "${defaultKind}")]`);
-        lines.push(`    pub(crate) ${snakeCase(field)}: ${type},`);
+        const identifier = snakeCase(field);
+        const rustIdentifier = new Set([
+            'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false',
+            'fn', 'for', 'if', 'impl', 'in', 'let', 'loop', 'match', 'mod', 'move', 'mut',
+            'pub', 'ref', 'return', 'self', 'Self', 'static', 'struct', 'super', 'trait',
+            'true', 'type', 'unsafe', 'use', 'virtual', 'where', 'while', 'async', 'await',
+            'dyn', 'abstract', 'become', 'box', 'do', 'final', 'macro', 'override', 'priv',
+            'typeof', 'unsized', 'yield', 'try', 'gen'
+        ]).has(identifier) ? `r#${identifier}` : identifier;
+        lines.push(`    pub(crate) ${rustIdentifier}: ${type},`);
     }
     lines.push('}');
     return lines.join('\n');

@@ -5,6 +5,7 @@ import {
 } from '../../generated/js/simulationWire.js';
 
 const DEFAULT_WASM_URL = new URL('../../rust/simulator/pkg/spaced_penguin_simulator.wasm', import.meta.url);
+const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let wasmExports = null;
 let runtimeHandles = new WeakMap();
@@ -45,6 +46,85 @@ export function isWasmSimulationReady() {
 
 export function activeSimulationBackend() {
     return isWasmSimulationReady() ? 'wasm' : 'javascript';
+}
+
+function hasMovingWorldObject(state) {
+    return [
+        ...(state.planets || []),
+        ...(state.bonuses || []),
+        ...(state.portals || []),
+        ...(state.speedBoosters || []),
+        ...(state.decorations || []),
+        state.target,
+        state.slingshot
+    ].filter(Boolean).some(object => object.orbit || object.waypointPath);
+}
+
+function supportedSculptVariable(variable) {
+    return variable.key === 'launch.angleDegrees' ||
+        variable.key === 'launch.pullbackPower' ||
+        /^planet\.\d+\.(?:x|y|mass)$/.test(variable.key);
+}
+
+export function supportsGravitySculptWasmInput(state, variables) {
+    return !hasMovingWorldObject(state) && variables.every(supportedSculptVariable);
+}
+
+/**
+ * Create one persistent, synchronous evaluator for a Gravity Sculpt solve.
+ * The optimizer owns population policy; Rust owns batched deterministic physics
+ * and scoring. Moving worlds and custom variable hooks retain the exact JS path.
+ */
+export function createGravitySculptWasmEvaluator({ state, launch, variables, simulation }) {
+    if (!wasmExports?.create_sculpt_context || !wasmExports?.evaluate_sculpt_batch) return null;
+    if (!supportsGravitySculptWasmInput(state, variables)) return null;
+    const contextBytes = encoder.encode(JSON.stringify({
+        state,
+        simulation,
+        launch,
+        variables: variables.map(variable => ({
+            key: variable.key,
+            kind: variable.kind || 'custom',
+            scale: variable.scale || 'linear',
+            initial: variable.initial,
+            min: variable.min,
+            max: variable.max
+        }))
+    }));
+    const pointer = wasmExports.alloc(contextBytes.byteLength);
+    new Uint8Array(wasmExports.memory.buffer, pointer, contextBytes.byteLength).set(contextBytes);
+    const handle = wasmExports.create_sculpt_context(pointer, contextBytes.byteLength);
+    wasmExports.dealloc(pointer, contextBytes.byteLength);
+    if (handle < 0) throw errorFromWasm('create_sculpt_context');
+    let disposed = false;
+    return {
+        backend: 'wasm',
+        evaluateBatch(desiredPath, config, candidates, { captureTrajectories = false } = {}) {
+            if (disposed) throw new Error('Gravity Sculpt Wasm evaluator has been disposed');
+            const bytes = encoder.encode(JSON.stringify({
+                desiredPath,
+                config: { ...config, timeStep: simulation.aimAssist.timeStep },
+                candidates,
+                captureTrajectories
+            }));
+            const inputPointer = wasmExports.alloc(bytes.byteLength);
+            new Uint8Array(wasmExports.memory.buffer, inputPointer, bytes.byteLength).set(bytes);
+            const status = wasmExports.evaluate_sculpt_batch(handle, inputPointer, bytes.byteLength);
+            wasmExports.dealloc(inputPointer, bytes.byteLength);
+            if (status !== 0) throw errorFromWasm('evaluate_sculpt_batch');
+            const output = new Uint8Array(
+                wasmExports.memory.buffer,
+                wasmExports.output_pointer(),
+                wasmExports.output_length()
+            );
+            return JSON.parse(decoder.decode(output));
+        },
+        dispose() {
+            if (disposed) return;
+            disposed = true;
+            wasmExports.destroy_sculpt_context(handle);
+        }
+    };
 }
 
 function errorFromWasm(operation) {

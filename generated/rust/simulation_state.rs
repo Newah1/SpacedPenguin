@@ -109,6 +109,93 @@ pub(crate) struct InitialState {
     pub(crate) counters: Counters,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptLaunch {
+    pub(crate) velocity: Point,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptVariable {
+    pub(crate) key: String,
+    pub(crate) kind: String,
+    pub(crate) scale: String,
+    pub(crate) initial: f64,
+    pub(crate) min: f64,
+    pub(crate) max: f64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptGoals {
+    #[serde(default)]
+    pub(crate) require_target: bool,
+    #[serde(default)]
+    pub(crate) avoid_planet_collisions: bool,
+    #[serde(default)]
+    pub(crate) stay_in_bounds: bool,
+    #[serde(default)]
+    pub(crate) required_bonus_indices: Vec<usize>,
+    pub(crate) max_flight_seconds: Option<f64>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptLaunchOffset {
+    pub(crate) angle_degrees: f64,
+    pub(crate) power_fraction: f64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptConfig {
+    pub(crate) preview_seconds: f64,
+    pub(crate) trajectory_time_safety_multiplier: f64,
+    pub(crate) trajectory_distance_budget_multiplier: f64,
+    pub(crate) sample_every_steps: usize,
+    pub(crate) checkpoint_tolerance: f64,
+    pub(crate) waypoint_constraint_penalty: f64,
+    pub(crate) waypoint_proximity_weight: f64,
+    pub(crate) unmatched_waypoint_distance: f64,
+    pub(crate) terminal_penalty: f64,
+    pub(crate) hard_constraint_penalty: f64,
+    pub(crate) peak_gravity_acceleration_soft_limit: f64,
+    pub(crate) mean_gravity_acceleration_soft_limit: f64,
+    pub(crate) peak_gravity_acceleration_weight: f64,
+    pub(crate) mean_gravity_acceleration_weight: f64,
+    pub(crate) path_efficiency_weight: f64,
+    pub(crate) movement_penalty: f64,
+    pub(crate) mass_penalty: f64,
+    pub(crate) launch_penalty: f64,
+    pub(crate) robust_central_weight: f64,
+    pub(crate) robust_average_weight: f64,
+    pub(crate) robust_worst_weight: f64,
+    pub(crate) robust_launch_offsets: Vec<SculptLaunchOffset>,
+    #[serde(default)]
+    pub(crate) goals: SculptGoals,
+    pub(crate) time_step: f64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptContextInput {
+    pub(crate) state: InitialState,
+    pub(crate) simulation: SimulationConfig,
+    pub(crate) launch: SculptLaunch,
+    pub(crate) variables: Vec<SculptVariable>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SculptBatchInput {
+    pub(crate) desired_path: Vec<Point>,
+    pub(crate) config: SculptConfig,
+    pub(crate) candidates: Vec<Vec<f64>>,
+    #[serde(default)]
+    pub(crate) capture_trajectories: bool,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WasmInput {

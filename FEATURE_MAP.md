@@ -373,10 +373,12 @@ Typed command strategies support add, remove, group operations, object moves, ro
 - It evaluates candidates through the production deterministic simulation kernel.
 - Goals can require the target, avoid collisions, stay in bounds, and limit flight duration within the optimization objective.
 - The staged search uses waypoint curricula, influence-guided differential evolution, comfort penalties, robustness scoring, progress reporting, and multiple candidates.
+- Stationary-world population and influence probes run as ordered batched evaluations in a bounded Rust/Wasm worker pool; only finalists return full preview paths.
+- Moving orbit/waypoint worlds and custom variable hooks fall back to the deterministic JavaScript evaluator.
 - Applying a result uses editor commands so planet changes participate in undo/redo; a test mode verifies the proposed route in the live editor.
 
-**Owners:** `js/simulation/gravitySculptor.js`, `js/editor/controllers/gravitySculptController.js`, `js/editor/views/gravitySculptView.js`.
-**Verification:** `testing/gravitySculptor.test.js`, mass benchmark.
+**Owners:** `js/simulation/gravitySculptor.js`, `js/simulation/gravitySculptWorkerClient.js`, `js/workers/gravitySculptWorker.js`, `rust/simulator/src/gravity_sculpt.rs`, and the gravity-sculpt controller/view modules.
+**Verification:** `testing/gravitySculptor.test.js`, `testing/wasmGravitySculptor.test.js`, mass benchmark, and Wasm benchmark.
 
 ### 5.6 Save, browse, and export
 
@@ -559,7 +561,7 @@ This parity path covers launch math, gravity, orbit/waypoint world motion, colli
 | Domain/level schemas, projections, wire layouts, and shipped content | `domainContracts.test.js`, `levelValidation.test.js`, `validateLevels.js`, original-port verification | CLI validation and ASCII searches |
 | Editor document, projection, and history | editor architecture/controller, projection, mutator, object-group, level-save tests | Orbit/waypoint/editor manual paths |
 | Rust browser/headless parity | `wasmBrowserSimulation.test.js`, `wasmSimulator.test.js`, `nativeSimulator.test.js`, `wasmSimulation.spec.js` | Native/Wasm backend benchmarks and browser bootstrap |
-| Gravity Sculpt | `gravitySculptor.test.js`, benchmark | Editor optimization/test workflow |
+| Gravity Sculpt | `gravitySculptor.test.js`, `wasmGravitySculptor.test.js`, JS/Wasm and mass benchmarks | Editor optimization/test workflow |
 | Local scores/settings | `highScoreStore.test.js`, `settingsManager.test.js` | UI screens |
 | Community client integration | community client and game integration tests | Configured local server flow |
 | Server/API/security behavior | CORS, router, server, and real replay tests | `npm run serve:community` |
@@ -604,7 +606,7 @@ At this snapshot, the refreshed domain/Rust path passed 344 Node unit tests, val
 | Assets and audio | `js/platform/assets/assetLoader.js`, `js/platform/audio/audioManager.js`, `js/platform/persistence/stellarTrackStore.js` |
 | Settings and local scores | `js/platform/settings/settingsManager.js`, `js/platform/settings/settingsStore.js`, `js/ui/views/settingsScreen.js`, `js/platform/persistence/highScoreStore.js` |
 | Editor | `js/editor/levelEditor.js`, `js/editor/state/levelDocument.js`, `js/editor/commands/editorCommandBus.js`, `js/editor/services/`, `js/editor/views/` |
-| Gravity Sculpt | `js/simulation/gravitySculptor.js`, gravity-sculpt controller/view modules |
+| Gravity Sculpt | `js/simulation/gravitySculptor.js`, worker client/entry point, `rust/simulator/src/gravity_sculpt.rs`, gravity-sculpt controller/view modules |
 | Catalog and local saves | `js/catalog/levelCatalogService.js`, catalog sources/composition, `js/platform/persistence/levelSaveService.js` |
 | Community client/UI | community client, score, upload, leaderboard, and remote catalog modules |
 | Replay proof | `js/replay/runTranscript.js`, `js/replay/runReplay.js` |

@@ -45,6 +45,7 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 - `js/levels/levelLoader.js`: validated JSON loading and runtime entity construction.
 - `testing/headlessEngine.js`: exact trajectory runner over the shared transition kernel.
 - `rust/simulator/src/bin/spaced-penguin-headless.rs`: optimized native sweep executable; the Node adapter retains authored-level validation and compiled-world preparation.
+- `js/simulation/gravitySculptor.js` and its worker pool: JavaScript optimization policy with schema-backed batched Rust/Wasm evaluation for stationary candidate worlds and deterministic JavaScript fallback for moving/custom cases.
 
 The browser explicitly loads the packaged Rust/Wasm simulator during bootstrap and falls back to the JavaScript kernel if initialization fails. Each live browser simulation reuses one Rust state handle and a moving-position buffer, receiving generated binary `StepPatch`/event-union results. Headless sweeps use the same Rust candidate-transition function with exact precompiled world frames and movement-only events disabled; batch trajectory envelopes may remain JSON outside the per-frame hot path. Do not introduce separate headless physics.
 

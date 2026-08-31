@@ -210,6 +210,22 @@ the same Rust transition in both browser and headless execution. Wasm is the
 portable headless CLI default; `--backend native` selects the release
 executable and `--backend js` remains an explicit comparison path.
 
+Gravity Sculpt also uses the packaged simulator. The editor starts a module
+worker with a bounded pool of persistent Rust contexts and submits whole
+optimizer populations rather than crossing the JS/Wasm boundary per physics
+tick. Ordinary generations return scored metrics and matched waypoint samples;
+only the selected candidates are re-run with full preview capture. Custom
+variable hooks or levels with orbit/waypoint-controlled objects automatically
+retain the exact JavaScript evaluator. Compare the two paths with:
+
+```powershell
+npm.cmd run benchmark:gravity-sculpt-wasm
+npm.cmd run benchmark:gravity-sculpt-browser
+```
+
+The first command isolates a single Wasm evaluator in Node; the second measures
+the production browser worker pool, including its startup cost.
+
 Domain vocabulary is schema-first. Edit `domain/gameObjects.schema.json`,
 `domain/simulation.schema.json`, or `domain/level.schema.json`, then run:
 

@@ -430,6 +430,26 @@ Objects can orbit around specified center points with various patterns:
 
 Orbit target options come from the shared schema capabilities. Planet, black-hole, and bonus IDs can be lookup targets; the shared validator still runs before export and Play.
 
+### Gravity Sculpt Execution
+
+Gravity Sculpt draws an intended route and searches launch angle/power plus
+selected stationary-planet positions and masses. In browsers with WebAssembly
+and module-worker support, the solve runs outside the rendering thread and
+sends complete optimizer populations to a bounded pool of persistent Rust
+evaluators. This
+keeps pointer input and canvas rendering responsive and avoids one Wasm call
+per simulated frame. The worker sends full trajectory points only for the
+candidate set shown in the editor.
+
+If WebAssembly initialization fails, a selected variable uses a custom apply
+function, or the level contains an orbit/waypoint-controlled simulation object,
+the solver uses its deterministic JavaScript evaluator. Results expose an
+`evaluationBackend` diagnostic (`wasm` or `javascript`). Run
+`npm.cmd run benchmark:gravity-sculpt-browser` from the repository root to
+compare the production worker pool with JavaScript on the current machine. The
+single-evaluator diagnostic remains available as
+`npm.cmd run benchmark:gravity-sculpt-wasm`.
+
 ### Schema-Generated Properties
 
 Generated object contracts describe the supported controls and capabilities for each canonical level type; `gameObjectRegistry.js` composes them with handwritten construction and exceptional behavior:
