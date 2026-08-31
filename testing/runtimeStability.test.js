@@ -824,7 +824,7 @@ test('browser simulation reuses mutable state until the live world is invalidate
 
 test('simulation state reconciles reordered runtime collections by stable ID', () => {
     const planetA = { position: { x: 10, y: 20 }, radius: 10, collisionRadius: 9, mass: 1, gravitationalReach: 100, orbitSystem: null };
-    const planetB = { id: 'authored-planet', position: { x: 30, y: 40 }, radius: 12, collisionRadius: 11, mass: 2, gravitationalReach: 200, orbitSystem: null };
+    const planetB = { id: 'authored-planet', position: { x: 30, y: 40 }, radius: 12, collisionRadius: 11, collidable: false, mass: 2, gravitationalReach: 200, orbitSystem: null };
     const makeBonus = (id, x) => ({
         id,
         position: { x, y: 50 },
@@ -856,6 +856,8 @@ test('simulation state reconciles reordered runtime collections by stable ID', (
         distance: 0
     };
     const state = captureGameSimulationState(game);
+    assert.equal(state.planets[0].collidable, true, 'ordinary runtime planets default to collidable');
+    assert.equal(state.planets[1].collidable, false, 'explicit non-collidable planets remain disabled');
     assert.equal(planetA.id, '__planet_1');
     assert.equal(bonusA.id, '__bonus_1');
     assert.equal(game.target.id, '__target_1');

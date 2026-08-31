@@ -627,6 +627,7 @@ class Planet extends GameObject {
         this.mass = mass;
         this.gravitationalReach = gravitationalReach;
         this.collisionRadius = radius + LEVEL_DEFAULTS.planet.collisionPadding;
+        this.collidable = true;
         this.color = this.getPlanetColor(mass);
         this.planetType = planetType;
         this.assetLoader = assetLoader;

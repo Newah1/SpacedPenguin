@@ -181,6 +181,7 @@ function createPlanetRuntime({ constructors, position, properties, assetLoader, 
     );
     planet.collisionRadius = properties.collisionRadius ??
         radius + LEVEL_DEFAULTS.planet.collisionPadding;
+    planet.collidable = properties.collidable !== false;
     return applyCommonRuntimeProperties(planet, properties, applyOrbit, gameObjectLookup);
 }
 

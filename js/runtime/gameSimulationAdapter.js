@@ -107,6 +107,7 @@ export function captureGameSimulationState(game) {
             position: { ...planet.position },
             radius: planet.radius,
             collisionRadius: planet.collisionRadius,
+            collidable: planet.collidable !== false,
             mass: planet.mass,
             gravitationalReach: effectiveGravitationalReach(planet.gravitationalReach),
             orbit: orbitFromRuntime(planet.orbitSystem),
