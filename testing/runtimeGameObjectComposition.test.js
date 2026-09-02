@@ -64,21 +64,48 @@ test('factory projects authored rotation onto common runtime objects', () => {
     assert.equal(planet.rotation, 135);
 });
 
-test('collecting and resetting a runtime bonus keeps its visibility state synchronized', () => {
-    const bonus = GameObjectFactory.create({
-        type: 'bonus',
-        position: { x: 25, y: 40 },
-        properties: { id: 'bonus_1', value: 100 }
-    }, null, null);
+test('collecting and resetting a runtime bonus keeps its hit presentation visible and state synchronized', () => {
+    const normalSprite = { complete: true, name: 'bonus' };
+    const hitSprite = { complete: true, name: 'bonus_hit' };
+    const assetLoader = {
+        getGameSprite(key) {
+            return key === 'bonus_hit' ? hitSprite : normalSprite;
+        }
+    };
+    const Bonus = getRuntimeConstructor('Bonus');
+    const bonus = new Bonus(25, 40, 100, assetLoader);
 
     assert.equal(bonus.collected, false);
     assert.equal(bonus.collect(), 100);
     assert.equal(bonus.state, 'Hit');
     assert.equal(bonus.collected, true);
+    assert.equal(bonus.currentSprite, hitSprite);
+
+    const rotationBeforeUpdate = bonus.rotation;
+    bonus.update(1 / 60, { updateOrbit: false });
+    assert.ok(bonus.rotation > rotationBeforeUpdate);
+    assert.equal(bonus.collected, true);
+
+    const calls = [];
+    const context = {
+        save: () => calls.push(['save']),
+        restore: () => calls.push(['restore']),
+        translate: (...args) => calls.push(['translate', ...args]),
+        rotate: (...args) => calls.push(['rotate', ...args]),
+        drawImage: (...args) => calls.push(['drawImage', ...args]),
+        set globalAlpha(value) { calls.push(['globalAlpha', value]); }
+    };
+
+    bonus.drawSprite(context);
+    const drawCall = calls.find(([method]) => method === 'drawImage');
+    assert.ok(drawCall, 'expected collected bonus to remain visible');
+    assert.equal(drawCall[1], hitSprite);
+    assert.equal(bonus.collected, true);
 
     bonus.reset();
     assert.equal(bonus.state, 'notHit');
     assert.equal(bonus.collected, false);
+    assert.equal(bonus.currentSprite, normalSprite);
 });
 
 test('the registry completely owns every serialized game-object extension', () => {
