@@ -18,6 +18,7 @@ export const RENDER_CONFIG = deepFreeze({
         target: 4,
         portal: 4.5,
         speedBooster: 4.6,
+        deflectorBumper: 4.7,
         penguin: 5,
         arrow: 6,
         popup: 7,
@@ -87,6 +88,22 @@ export const RENDER_CONFIG = deepFreeze({
             borderWidth: 2,
             arrowCount: 3,
             marqueePixelsPerSecond: 24
+        },
+        deflectorBumper: {
+            fill: '#17152d',
+            glowBlur: 12,
+            rimWidth: 4,
+            innerWidth: 2,
+            innerAlpha: 0.65,
+            innerRadiusRatio: 0.58,
+            pulseRadiansPerMillisecond: 0.006,
+            pulseScale: 0.06,
+            bounceFlashMilliseconds: 180,
+            bounceFlashWidth: 4,
+            notchCount: 8,
+            notchInnerRatio: 0.68,
+            notchOuterRatio: 0.88,
+            notchHalfWidthRadians: 0.055
         },
         slingshot: {
             size: 100,

@@ -17,6 +17,7 @@ export class RuntimeWorld {
         this.bonuses = [];
         this.portals = [];
         this.speedBoosters = [];
+        this.deflectorBumpers = [];
         this.textObjects = [];
         this.pointingArrows = [];
         this.penguin = null;

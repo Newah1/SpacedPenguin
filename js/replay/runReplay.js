@@ -49,7 +49,7 @@ export function replayRun(level, transcriptInput, options = {}) {
             actionIndex += 1;
         }
 
-        const wasInFlight = state.penguin.state === 'soaring' || state.penguin.state === 'crashed';
+        const wasInFlight = state.penguin.state === PenguinState.SOARING || state.penguin.state === PenguinState.CRASHED;
         const stepped = stepSimulationTickMutable(state, { emitMovementEvents: false });
         if (wasInFlight) flightTicks += 1;
         if (flightTicks > limits.maxFlightTicksPerAttempt) {
@@ -80,7 +80,7 @@ export function replayRun(level, transcriptInput, options = {}) {
         }
 
         // There is no possible future input or automatic outcome from idle.
-        if (!terminal && actionIndex >= transcript.actions.length && state.penguin.state === 'idle') {
+        if (!terminal && actionIndex >= transcript.actions.length && state.penguin.state === PenguinState.IDLE) {
             return finish(false, 'actions_exhausted', state, events, transcript);
         }
     }
@@ -91,7 +91,7 @@ export function replayRun(level, transcriptInput, options = {}) {
 
 function applyAction(state, initialState, action, index) {
     if (action.type === RunActionType.LAUNCH) {
-        if (state.penguin.state !== 'idle') {
+        if (state.penguin.state !== PenguinState.IDLE) {
             throw new RunTranscriptError('ILLEGAL_LAUNCH', 'Launch is only legal while the penguin is ready.', { index });
         }
         if (action.power > state.slingshot.maxPullback) {
@@ -103,7 +103,7 @@ function applyAction(state, initialState, action, index) {
         launchSimulationPenguinMutable(state, action.angle, action.power);
         return;
     }
-    if (state.penguin.state !== 'soaring' && state.penguin.state !== 'crashed') {
+    if (state.penguin.state !== PenguinState.SOARING && state.penguin.state !== PenguinState.CRASHED) {
         throw new RunTranscriptError('ILLEGAL_RETRY', 'Retry is only legal during an active attempt.', { index });
     }
     // Keep this reference in the signature to make reset semantics explicit.
@@ -126,3 +126,4 @@ function finish(success, reason, state, events, transcript) {
         }) : null
     };
 }
+import { PenguinState } from '../runtime/penguinState.js';

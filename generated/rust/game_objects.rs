@@ -63,6 +63,18 @@ pub(crate) struct SpeedBooster {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct DeflectorBumper {
+    pub(crate) id: String,
+    pub(crate) position: Point,
+    pub(crate) radius: f64,
+    #[serde(default = "default_one")]
+    pub(crate) restitution: f64,
+    #[serde(default = "default_true")]
+    pub(crate) play_sound: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Target {
     pub(crate) position: Point,
     pub(crate) collision_radius: f64,

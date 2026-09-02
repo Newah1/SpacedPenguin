@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     analyzeSculptTrajectory,
+    compareSculptCandidates,
     createLaunchVariables,
     createExistingPlanetVariables,
     evaluateSculptCandidate,
     scoreSculptTrajectory,
     solveGravitySculpt
 } from '../js/simulation/gravitySculptor.js';
+import { solveGravitySculptOffThread } from '../js/simulation/gravitySculptWorkerClient.js';
 
 function simulationState() {
     return {
@@ -191,6 +193,66 @@ test('slow trajectories receive distance-based opportunity beyond the old fixed 
     assert.ok(result.pathLength > 140);
 });
 
+test('waypoint-only evaluation stops when the ordered route is complete', () => {
+    const state = simulationState();
+    state.planets = [];
+    state.rules.gravitationalConstant = 0;
+    const result = evaluateSculptCandidate(
+        state,
+        [{ x: 80, y: 300 }, { x: 500, y: 300 }],
+        { velocity: { x: 240, y: 0 }, angleDegrees: 0, pullbackPower: 150 },
+        [],
+        [],
+        { robustLaunchOffsets: [], checkpointTolerance: 8 }
+    );
+
+    assert.equal(result.missedWaypointCount, 0);
+    assert.ok(result.elapsedSeconds < 2);
+    assert.ok(result.pathEfficiency < 1.05);
+    assert.ok(result.endpointDistance <= 8);
+});
+
+test('hard-goal feasibility outranks waypoint coverage', () => {
+    const feasible = {
+        constraintViolations: [], missedWaypointCount: 1,
+        checkpointCoverage: 0.5, score: 100
+    };
+    const infeasible = {
+        constraintViolations: ['target'], missedWaypointCount: 0,
+        checkpointCoverage: 1, score: 1
+    };
+    assert.ok(compareSculptCandidates(feasible, infeasible) < 0);
+});
+
+test('off-thread solves reject pre-aborted work without starting a search', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+        solveGravitySculptOffThread({}, null, { signal: controller.signal }),
+        error => error?.name === 'AbortError'
+    );
+});
+
+test('aborting an active off-thread solve terminates its worker', async () => {
+    const OriginalWorker = globalThis.Worker;
+    let terminated = 0;
+    class PendingWorker {
+        postMessage() {}
+        terminate() { terminated += 1; }
+    }
+    globalThis.Worker = PendingWorker;
+    try {
+        const controller = new AbortController();
+        const pending = solveGravitySculptOffThread({}, null, { signal: controller.signal });
+        controller.abort();
+        await assert.rejects(pending, error => error?.name === 'AbortError');
+        assert.ok(terminated >= 1);
+    } finally {
+        if (OriginalWorker === undefined) delete globalThis.Worker;
+        else globalThis.Worker = OriginalWorker;
+    }
+});
+
 test('gravity sculpt improves a layout without mutating the live simulation snapshot', async () => {
     const state = simulationState();
     const original = structuredClone(state);
@@ -302,6 +364,7 @@ test('staged differential evolution returns waypoint-tiered, distinct launch-and
         options: {
             candidateCount: 3,
             previewSeconds: 2,
+            influenceGuidanceEnabled: true,
             influenceActivationThreshold: 0.6
         }
     });
@@ -326,5 +389,6 @@ test('staged differential evolution returns waypoint-tiered, distinct launch-and
     assert.equal(result.seed, 1548501076);
     assert.ok(result.prefixArchives.length > 1);
     assert.equal(result.prefixArchives.at(-1).waypointCount, 3);
-    assert.equal(result.evaluations, 8405);
+    assert.ok(result.evaluations < 3000, `expected staged robustness below 3000 simulations, got ${result.evaluations}`);
+    assert.ok(result.candidates.every(candidate => Number.isFinite(candidate.robustCheckpointCoverage)));
 });

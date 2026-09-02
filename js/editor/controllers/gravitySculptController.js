@@ -37,6 +37,7 @@ export default class GravitySculptController {
     constructor(editor) {
         this.editor = editor;
         this.state = freshState();
+        this.solveAbortController = null;
     }
 
     get game() { return this.editor.game; }
@@ -52,6 +53,8 @@ export default class GravitySculptController {
     }
 
     close() {
+        this.solveAbortController?.abort();
+        this.solveAbortController = null;
         if (this.state.testSession) this.finishTest(false);
         const solveToken = this.state.solveToken + 1;
         Object.assign(this.state, freshState(), { solveToken });
@@ -106,6 +109,9 @@ export default class GravitySculptController {
             return;
         }
         const token = ++this.state.solveToken;
+        this.solveAbortController?.abort();
+        const abortController = new AbortController();
+        this.solveAbortController = abortController;
         const seed = randomSeed(this.state.lastSeed);
         this.state.lastSeed = seed;
         this.view.setPhase('solving', '0%');
@@ -115,15 +121,20 @@ export default class GravitySculptController {
                 desiredPath: this.state.path,
                 planetIndices: selections.planetIndices,
                 options: { ...EDITOR_CONFIG.gravitySculpt, ...selections, seed },
-            }, progress => this.reportProgress(token, progress));
+            }, progress => this.reportProgress(token, progress), {
+                signal: abortController.signal
+            });
             if (token !== this.state.solveToken) return;
             this.state.result = result;
             this.state.candidateIndex = 0;
             this.showCandidate(0);
         } catch (error) {
+            if (error?.name === 'AbortError') return;
             if (token === this.state.solveToken) {
                 this.view.setPhase('error', error.message || 'The solver could not produce a candidate.');
             }
+        } finally {
+            if (this.solveAbortController === abortController) this.solveAbortController = null;
         }
     }
 

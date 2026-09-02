@@ -39,6 +39,21 @@ test('factory creates a registered runtime object through composition', () => {
     assert.deepEqual(planet.position, { x: 25, y: 40 });
 });
 
+test('factory creates an editable deflector bumper with authored physics and presentation', () => {
+    const bumper = GameObjectFactory.create({
+        type: 'bumper',
+        position: { x: 80, y: 90 },
+        properties: { id: 'bumper_1', radius: 22, restitution: 1.1, color: '#00ffaa', playSound: false }
+    }, null, null);
+
+    assert.equal(bumper.constructor, getRuntimeConstructor('DeflectorBumper'));
+    assert.deepEqual(bumper.position, { x: 80, y: 90 });
+    assert.equal(bumper.radius, 22);
+    assert.equal(bumper.restitution, 1.1);
+    assert.equal(bumper.color, '#00ffaa');
+    assert.equal(bumper.playSound, false);
+});
+
 test('factory projects authored rotation onto common runtime objects', () => {
     const planet = GameObjectFactory.create({
         type: 'planet',

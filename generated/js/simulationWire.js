@@ -3,8 +3,8 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const MAGIC = 0x53505731;
-export const SIMULATION_WIRE_VERSION = 1;
-export const SIMULATION_OUTPUT_WIRE_VERSION = 1;
+export const SIMULATION_WIRE_VERSION = 2;
+export const SIMULATION_OUTPUT_WIRE_VERSION = 2;
 
 class Writer {
     constructor(capacity = 4096) { this.bytes = new Uint8Array(capacity); this.view = new DataView(this.bytes.buffer); this.offset = 0; }
@@ -57,6 +57,8 @@ function writeSimulationState(writer, value) {
     for (const item of (value.portals ?? [])) writePortal(writer, item);
     writer.u32((value.speedBoosters ?? []).length);
     for (const item of (value.speedBoosters ?? [])) writeSpeedBooster(writer, item);
+    writer.u32((value.deflectorBumpers ?? []).length);
+    for (const item of (value.deflectorBumpers ?? [])) writeDeflectorBumper(writer, item);
     writeTarget(writer, value.target);
     writeSlingshot(writer, value.slingshot);
     writeBounds(writer, value.bounds);
@@ -108,6 +110,14 @@ function writeSpeedBooster(writer, value) {
     writer.f64(value.height);
     writer.f64(value.rotation);
     writer.f64(value.speedMultiplier);
+    writer.u8(value.playSound);
+}
+
+function writeDeflectorBumper(writer, value) {
+    writer.string(value.id);
+    writePoint(writer, value.position);
+    writer.f64(value.radius);
+    writer.f64(value.restitution);
     writer.u8(value.playSound);
 }
 
@@ -231,6 +241,16 @@ function writeSimulationEvent(writer, value) {
         writer.tag(10);
         writer.string(value.rule);
         writer.string(value.reason);
+        return;
+    case "deflector_bounced":
+        writer.tag(11);
+        writer.string(value.deflectorBumperId);
+        writer.f64(value.deflectorBumperIndex);
+        writePoint(writer, value.position);
+        writePoint(writer, value.normal);
+        writePoint(writer, value.incomingVelocity);
+        writePoint(writer, value.velocity);
+        writer.u8(value.playSound);
         return;
     default: throw new Error('unknown simulation event type: ' + value.type);
     }
@@ -373,6 +393,16 @@ class Reader {
             type: "rule_failure",
             "rule": this.string(),
             "reason": this.string()
+        };
+        case 11: return {
+            type: "deflector_bounced",
+            "deflectorBumperId": this.string(),
+            "deflectorBumperIndex": this.count(),
+            "position": this.readPoint(),
+            "normal": this.readPoint(),
+            "incomingVelocity": this.readPoint(),
+            "velocity": this.readPoint(),
+            "playSound": this.u8()
         };
         default: throw new Error('unknown simulation event tag: ' + tag);
         }

@@ -1,6 +1,7 @@
 import { INPUT_CONFIG, isMobileViewport } from '../config/inputConfig.js';
 import { RUNTIME_CONFIG } from '../config/runtimeConfig.js';
 import { GameState } from '../runtime/gameState.js';
+import { PenguinState } from '../runtime/penguinState.js';
 import { createButton } from '../ui/buttonFramework.js';
 import { screenToStage } from '../rendering/viewport.js';
 
@@ -134,9 +135,9 @@ export class GameplayController {
             if (this.lookAroundMode) text = '👀 Drag to look around · tap ✓ AIM to return';
             else {
                 const state = game.penguin?.state;
-                if (state === 'idle') text = '🎯 Drag penguin to aim, release to launch';
-                else if (state === 'pullback') text = '🎯 Release to launch!';
-                else if (state === 'soaring') text = '👆 Tap to try again';
+                if (state === PenguinState.IDLE) text = '🎯 Drag penguin to aim, release to launch';
+                else if (state === PenguinState.PULLBACK) text = '🎯 Release to launch!';
+                else if (state === PenguinState.SOARING) text = '👆 Tap to try again';
                 else text = '🐧 Ready to launch!';
             }
         }
@@ -163,7 +164,7 @@ export class GameplayController {
         }
         const canUseSlingshot = game.state === GameState.PLAYING ||
             (game.state === GameState.LEVEL_EDITOR && game.levelEditor.mode === 'play');
-        if (canUseSlingshot && game.penguin.state === 'idle') {
+        if (canUseSlingshot && game.penguin.state === PenguinState.IDLE) {
             // A persistent Wasm runtime owns the immutable simulation state
             // between frames. Pullback is an interactive, pre-launch state
             // owned by the pointer, so discard any idle runtime snapshot
@@ -173,7 +174,7 @@ export class GameplayController {
             game.invalidateSimulationState?.();
             this.isDragging = true;
             game.slingshot.startPull(this.mousePosition.x, this.mousePosition.y);
-            game.penguin.setState('pullback');
+            game.penguin.setState(PenguinState.PULLBACK);
             game.updateAimAssistPreview();
             if (this.isMobileDevice()) {
                 this.updateMobileInstructions();
@@ -232,7 +233,7 @@ export class GameplayController {
         } else {
             const canUseSlingshot = game.state === GameState.PLAYING ||
                 (game.state === GameState.LEVEL_EDITOR && game.levelEditor.mode === 'play');
-            if (canUseSlingshot && game.penguin?.state === 'soaring') game.tryAgain();
+            if (canUseSlingshot && game.penguin?.state === PenguinState.SOARING) game.tryAgain();
         }
     }
 
@@ -277,7 +278,7 @@ export class GameplayController {
                 if (game.state === GameState.MENU && !this.isMobileDevice() && !event.defaultPrevented) game.startGame();
                 break;
             default:
-                if (canUsePlayKeys && game.penguin?.state === 'soaring') game.tryAgain();
+                if (canUsePlayKeys && game.penguin?.state === PenguinState.SOARING) game.tryAgain();
         }
     }
 }

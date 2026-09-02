@@ -526,13 +526,64 @@ class SpeedBooster extends GameObject {
     }
 }
 
+class DeflectorBumper extends GameObject {
+    constructor(x, y, options = {}) {
+        const radius = options.radius ?? LEVEL_DEFAULTS.deflectorBumper.radius;
+        super(x, y, radius * 2, radius * 2);
+        this.radius = radius;
+        this.restitution = options.restitution ?? LEVEL_DEFAULTS.deflectorBumper.restitution;
+        this.color = options.color ?? LEVEL_DEFAULTS.deflectorBumper.color;
+        this.playSound = options.playSound ?? LEVEL_DEFAULTS.deflectorBumper.playSound;
+        this.renderOrder = RENDER_CONFIG.layers.deflectorBumper;
+    }
+
+    drawSprite(ctx, timeMilliseconds = globalThis.performance?.now?.() ?? 0) {
+        const config = RENDER_CONFIG.entities.deflectorBumper;
+        const pulse = 1 + Math.sin(timeMilliseconds * config.pulseRadiansPerMillisecond) * config.pulseScale;
+        const bounceAge = timeMilliseconds - (this.lastBounceTime ?? Number.NEGATIVE_INFINITY);
+        const bounceFlash = bounceAge >= 0 && bounceAge < config.bounceFlashMilliseconds
+            ? 1 - bounceAge / config.bounceFlashMilliseconds
+            : 0;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = config.glowBlur;
+        ctx.fillStyle = config.fill;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = config.rimWidth + bounceFlash * config.bounceFlashWidth;
+        ctx.strokeStyle = this.color;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.globalAlpha *= config.innerAlpha;
+        ctx.lineWidth = config.innerWidth;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * config.innerRadiusRatio * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha /= config.innerAlpha;
+
+        ctx.fillStyle = this.color;
+        for (let index = 0; index < config.notchCount; index++) {
+            const angle = index * Math.PI * 2 / config.notchCount;
+            const inner = this.radius * config.notchInnerRatio;
+            const outer = this.radius * config.notchOuterRatio;
+            const halfWidth = config.notchHalfWidthRadians;
+            ctx.beginPath();
+            ctx.arc(0, 0, outer, angle - halfWidth, angle + halfWidth);
+            ctx.lineTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+}
+
 // Penguin class moved to penguin.js
 
 class PenguinOld extends GameObject {
     constructor(x, y) {
         super(x, y, 32, 32);
         this.velocity = { x: 0, y: 0 };
-        this.state = 'idle'; // idle, pullback, snapping, soaring, crashed, hitTarget, scoring
+        this.state = PenguinState.IDLE;
         this.animationFrame = 0;
         this.animationSpeed = 0.1;
         this.animationTimer = 0;
@@ -558,16 +609,16 @@ class PenguinOld extends GameObject {
         }
         
         // Update crashed state
-        if (this.state === 'crashed') {
+        if (this.state === PenguinState.CRASHED) {
             this.crashedTimer++;
             if (this.crashedTimer >= this.crashedDuration) {
-                this.state = 'idle';
+                this.state = PenguinState.IDLE;
                 this.crashedTimer = 0;
             }
         }
         
         // Update rotation based on velocity
-        if (this.state === 'soaring' || this.state === 'crashed') {
+        if (this.state === PenguinState.SOARING || this.state === PenguinState.CRASHED) {
             if (Utils.vectorMagnitude(this.velocity) > 0.1) {
                 this.rotation = Utils.rotationAngle(this.velocity);
             }
@@ -605,14 +656,14 @@ class PenguinOld extends GameObject {
     
     setState(newState) {
         this.state = newState;
-        if (newState === 'crashed') {
+        if (newState === PenguinState.CRASHED) {
             this.crashedTimer = 0;
         }
     }
     
     reset() {
         this.velocity = { x: 0, y: 0 };
-        this.state = 'idle';
+        this.state = PenguinState.IDLE;
         this.rotation = 0;
         this.trail = [];
         this.crashedTimer = 0;
@@ -1857,4 +1908,5 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, WaypointSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster };
+export { GameObject, OrbitSystem, WaypointSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper };
+import { PenguinState } from '../penguinState.js';

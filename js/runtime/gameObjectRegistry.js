@@ -64,6 +64,9 @@ const SINGLE_AUTHORING_FACTORIES = Object.freeze({
     ),
     SpeedBooster: ({ x, y }) => objectDefinition(
         LevelObjectType.SPEED_BOOSTER, x, y, LEVEL_DEFAULTS.speedBooster
+    ),
+    DeflectorBumper: ({ x, y }) => objectDefinition(
+        LevelObjectType.DEFLECTOR_BUMPER, x, y, LEVEL_DEFAULTS.deflectorBumper
     )
 });
 
@@ -231,6 +234,14 @@ function createSlingshotRuntime({ constructors, position, properties, applyOrbit
     return applyCommonRuntimeProperties(slingshot, properties, applyOrbit, null);
 }
 
+function applyDeflectorBumperRuntimeProperty({ object, property, value }) {
+    if (property !== 'radius') return false;
+    object.radius = value;
+    object.width = value * 2;
+    object.height = value * 2;
+    return true;
+}
+
 function serializeSlingshotRuntime({ object, properties }) {
     const anchor = object.anchor || object.position;
     if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
@@ -297,6 +308,13 @@ function createSpeedBoosterRuntime({ constructors, position, properties }) {
     return speedBooster;
 }
 
+function createDeflectorBumperRuntime({ constructors, position, properties }) {
+    const bumper = new constructors.DeflectorBumper(position.x, position.y, properties);
+    bumper.id = properties.id ?? null;
+    bumper.name = properties.name ?? '';
+    return bumper;
+}
+
 function validateGravityProperties({ type, properties, propertyPath, collector, helpers }) {
     helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
     helpers.optionalNumber(properties.mass, `${propertyPath}.mass`, collector, { min: 0 });
@@ -359,6 +377,14 @@ function validateSpeedBoosterProperties({ properties, propertyPath, collector, h
     helpers.optionalNumber(properties.speedMultiplier, `${propertyPath}.speedMultiplier`, collector, { min: 0 });
     if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
         collector.error('SPEED_BOOSTER_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
+    }
+}
+
+function validateDeflectorBumperProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.restitution, `${propertyPath}.restitution`, collector, { min: 0 });
+    if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
+        collector.error('DEFLECTOR_BUMPER_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
     }
 }
 
@@ -443,6 +469,11 @@ const BASE_DEFINITIONS = {
     SpeedBooster: {
         validateProperties: validateSpeedBoosterProperties,
         createRuntime: createSpeedBoosterRuntime
+    },
+    DeflectorBumper: {
+        validateProperties: validateDeflectorBumperProperties,
+        createRuntime: createDeflectorBumperRuntime,
+        applyRuntimeProperty: applyDeflectorBumperRuntimeProperty
     },
     Penguin: {},
     BonusPopup: { label: 'Bonus Popup', editable: false },

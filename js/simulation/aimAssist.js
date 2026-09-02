@@ -1,12 +1,13 @@
 import { SIMULATION_CONFIG } from '../config/gameConfig.js';
 import { SimulationEventType, stepSimulationMutable } from './simulationEngine.js';
 import { cloneSimulationState } from './simulationState.js';
+import { PenguinState } from '../runtime/penguinState.js';
 
 export function predictAimAssistTrajectory(stateInput, velocity, options = {}) {
     const config = { ...SIMULATION_CONFIG.aimAssist, ...options };
     const state = cloneSimulationState(stateInput);
     state.penguin.velocity = { ...velocity };
-    state.penguin.state = 'soaring';
+    state.penguin.state = PenguinState.SOARING;
     state.penguin.crashFramesRemaining = 0;
     state.counters.tries += 1;
 
@@ -22,7 +23,7 @@ export function predictAimAssistTrajectory(stateInput, velocity, options = {}) {
                 points.push({ ...event.exitPosition, move: true });
             }
         }
-        const terminal = state.penguin.state !== 'soaring';
+    const terminal = state.penguin.state !== PenguinState.SOARING;
         if (terminal || step % sampleEverySteps === 0 || step === totalSteps) {
             points.push({ ...state.penguin.position });
         }

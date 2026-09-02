@@ -1123,6 +1123,78 @@ export const LEVEL_DOCUMENT_JSON_SCHEMA = Object.freeze({
                             }
                         }
                     }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "required": [
+                        "type"
+                    ],
+                    "properties": {
+                        "type": {
+                            "enum": [
+                                "deflectorbumper",
+                                "deflector",
+                                "bumper"
+                            ]
+                        },
+                        "position": {
+                            "$ref": "#/$defs/Point"
+                        },
+                        "properties": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "radius": {
+                                    "type": "number",
+                                    "default": 30,
+                                    "exclusiveMinimum": 0,
+                                    "x-editor": {
+                                        "label": "Radius",
+                                        "min": 1
+                                    }
+                                },
+                                "restitution": {
+                                    "type": "number",
+                                    "default": 1,
+                                    "minimum": 0,
+                                    "x-editor": {
+                                        "label": "Bounce Multiplier",
+                                        "min": 0,
+                                        "step": 0.05
+                                    }
+                                },
+                                "color": {
+                                    "type": "string",
+                                    "default": "#ff4fd8",
+                                    "x-editor": {
+                                        "label": "Color",
+                                        "control": "color"
+                                    }
+                                },
+                                "playSound": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "x-editor": {
+                                        "label": "Play Bounce Sound",
+                                        "control": "checkbox"
+                                    }
+                                },
+                                "waypointPath": {
+                                    "$ref": "#/$defs/WaypointPath"
+                                },
+                                "orbit": {
+                                    "$ref": "#/$defs/Orbit"
+                                }
+                            }
+                        }
+                    }
                 }
             ]
         },

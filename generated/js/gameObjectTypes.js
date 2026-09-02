@@ -10,6 +10,7 @@ export const LevelObjectType = Object.freeze({
     "POINTING_ARROW": "pointingarrow",
     "PORTAL": "portal",
     "SPEED_BOOSTER": "speedbooster",
+    "DEFLECTOR_BUMPER": "deflectorbumper",
     "PENGUIN": "penguin"
 });
 
@@ -17,7 +18,9 @@ export const LEVEL_OBJECT_TYPE_ALIASES = Object.freeze({
     "black_hole": "blackhole",
     "text": "textobject",
     "arrow": "pointingarrow",
-    "booster": "speedbooster"
+    "booster": "speedbooster",
+    "deflector": "deflectorbumper",
+    "bumper": "deflectorbumper"
 });
 
 export const GAME_OBJECT_CONTRACTS = Object.freeze({
@@ -651,6 +654,67 @@ export const GAME_OBJECT_CONTRACTS = Object.freeze({
             "waypointSource": true
         }
     },
+    "DeflectorBumper": {
+        "className": "DeflectorBumper",
+        "type": "deflectorbumper",
+        "label": "Deflector Bumper",
+        "aliases": [
+            "deflector",
+            "bumper"
+        ],
+        "collections": [
+            "deflectorBumpers"
+        ],
+        "singleton": null,
+        "levelRole": null,
+        "relationshipValidator": null,
+        "physicsAdd": null,
+        "physicsRemove": null,
+        "defaults": {
+            "radius": 30,
+            "restitution": 1,
+            "color": "#ff4fd8",
+            "playSound": true
+        },
+        "properties": [
+            {
+                "key": "radius",
+                "label": "Radius",
+                "type": "number",
+                "min": 1
+            },
+            {
+                "key": "restitution",
+                "label": "Bounce Multiplier",
+                "type": "number",
+                "min": 0,
+                "step": 0.05
+            },
+            {
+                "key": "color",
+                "label": "Color",
+                "type": "color"
+            },
+            {
+                "key": "playSound",
+                "label": "Play Bounce Sound",
+                "type": "checkbox"
+            }
+        ],
+        "serializedProperties": [
+            "radius",
+            "restitution",
+            "color",
+            "playSound"
+        ],
+        "capabilities": {
+            "gameplay": true,
+            "editable": true,
+            "orbitSource": false,
+            "orbitTarget": false,
+            "waypointSource": true
+        }
+    },
     "Penguin": {
         "className": "Penguin",
         "type": "penguin",
@@ -751,6 +815,12 @@ export const LEVEL_DEFAULTS = freezeLevelDefaults({
         "width": 64,
         "height": 32,
         "speedMultiplier": 1,
+        "playSound": true
+    },
+    "deflectorBumper": {
+        "radius": 30,
+        "restitution": 1,
+        "color": "#ff4fd8",
         "playSound": true
     },
     "penguin": {

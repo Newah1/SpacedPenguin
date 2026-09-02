@@ -295,6 +295,29 @@
       "serializedProperties": ["speedMultiplier", "playSound"]
     },
     {
+      "className": "DeflectorBumper", "type": "deflectorbumper", "label": "Deflector Bumper", "aliases": ["deflector", "bumper"], "collections": ["deflectorBumpers"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "DeflectorBumper",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "radius": { "field": "radius" }, "restitution": { "field": "restitution" },
+          "color": { "excluded": "Bumper color is presentation-only." }, "playSound": { "field": "playSound" },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "deflectorBumper", "include": ["radius", "restitution", "color", "playSound"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "radius": { "type": "number", "default": 30, "exclusiveMinimum": 0, "x-editor": { "label": "Radius", "min": 1 } },
+        "restitution": { "type": "number", "default": 1, "minimum": 0, "x-editor": { "label": "Bounce Multiplier", "min": 0, "step": 0.05 } },
+        "color": { "type": "string", "default": "#ff4fd8", "x-editor": { "label": "Color", "control": "color" } },
+        "playSound": { "type": "boolean", "default": true, "x-editor": { "label": "Play Bounce Sound", "control": "checkbox" } },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["radius", "restitution", "color", "playSound"]
+    },
+    {
       "className": "Penguin", "type": "penguin", "label": "Penguin", "aliases": [], "singleton": "penguin",
       "capabilities": { "gameplay": true, "editable": false, "orbitSource": false, "orbitTarget": false, "waypointSource": false },
       "x-spaced-penguin-simulation-projection": {

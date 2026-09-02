@@ -89,6 +89,7 @@ export function captureGameSimulationState(game) {
     const bonusIds = ensureStableRuntimeIds(game.bonuses, 'bonus');
     const portalIds = ensureStableRuntimeIds(game.portals || [], 'portal');
     const speedBoosterIds = ensureStableRuntimeIds(game.speedBoosters || [], 'speedbooster');
+    const deflectorBumperIds = ensureStableRuntimeIds(game.deflectorBumpers || [], 'deflectorbumper');
     const decorationObjects = [...(game.textObjects || []), ...(game.pointingArrows || [])];
     const decorationIds = ensureStableRuntimeIds(decorationObjects, 'decoration');
     const targetId = ensureStableRuntimeIds([game.target], 'target')[0];
@@ -143,6 +144,14 @@ export function captureGameSimulationState(game) {
             speedMultiplier: speedBooster.speedMultiplier,
             playSound: speedBooster.playSound,
             waypointPath: waypointPathFromRuntime(speedBooster.waypointSystem)
+        })),
+        deflectorBumpers: (game.deflectorBumpers || []).map((bumper, index) => ({
+            id: deflectorBumperIds[index],
+            position: { ...bumper.position },
+            radius: bumper.radius,
+            restitution: bumper.restitution,
+            playSound: bumper.playSound,
+            waypointPath: waypointPathFromRuntime(bumper.waypointSystem)
         })),
         decorations: decorationObjects.map((object, index) => ({
             id: decorationIds[index],
@@ -242,6 +251,13 @@ export function applyGameSimulationState(game, state) {
         Object.assign(speedBooster.position, speedBoosterState.position);
         applyWaypointPathToRuntime(speedBooster.waypointSystem, speedBoosterState.waypointPath);
     });
+    const deflectorBumpersById = runtimeObjectsById(game.deflectorBumpers || []);
+    state.deflectorBumpers?.forEach(bumperState => {
+        const bumper = deflectorBumpersById.get(bumperState.id);
+        if (!bumper) return;
+        Object.assign(bumper.position, bumperState.position);
+        applyWaypointPathToRuntime(bumper.waypointSystem, bumperState.waypointPath);
+    });
     const decorationsById = runtimeObjectsById([
         ...(game.textObjects || []),
         ...(game.pointingArrows || [])
@@ -257,7 +273,7 @@ export function applyGameSimulationState(game, state) {
         Object.assign(game.slingshot.anchor, state.slingshot.position);
         Object.assign(game.slingshot.resetPosition, state.slingshot.position);
         applyWaypointPathToRuntime(game.slingshot.waypointSystem, state.slingshot.waypointPath);
-        if (game.penguin.state !== 'soaring' && game.penguin.state !== 'crashed') {
+        if (game.penguin.state !== PenguinState.SOARING && game.penguin.state !== PenguinState.CRASHED) {
             game.penguin.setPosition?.(state.slingshot.position.x, state.slingshot.position.y);
             state.penguin.position = { ...state.slingshot.position };
         }
@@ -274,7 +290,7 @@ export function stepGameSimulation(game, deltaTime) {
     // Before launch, the slingshot interaction is the authoritative owner of
     // Kevin's position. Keep the reusable simulation state aligned so applying
     // it cannot snap an idle/pullback Penguin back to an older frame.
-    if (game.penguin.state !== 'soaring' && game.penguin.state !== 'crashed') {
+    if (game.penguin.state !== PenguinState.SOARING && game.penguin.state !== PenguinState.CRASHED) {
         state.penguin.position.x = game.penguin.x;
         state.penguin.position.y = game.penguin.y;
         state.penguin.velocity.x = game.penguin.vx;
@@ -386,6 +402,17 @@ class SpeedBoosterActivatedEventStrategy extends GameSimulationEventStrategy {
     }
 }
 
+class DeflectorBouncedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.DEFLECTOR_BOUNCED);
+    }
+
+    execute(game, event) {
+        const bumper = runtimeObjectForSimulationIndex(game, 'deflectorBumpers', event.deflectorBumperIndex);
+        effectsFor(game).deflectorBounced(event, bumper);
+    }
+}
+
 class TargetHitEventStrategy extends GameSimulationEventStrategy {
     constructor() {
         super(SimulationEventType.TARGET_HIT);
@@ -453,6 +480,7 @@ export const gameSimulationEventStrategies = Object.freeze([
     new PlanetBounceEventStrategy(),
     new PortalTeleportedEventStrategy(),
     new SpeedBoosterActivatedEventStrategy(),
+    new DeflectorBouncedEventStrategy(),
     new TargetHitEventStrategy(),
     new TargetBlockedEventStrategy(),
     new OutOfBoundsEventStrategy(),
@@ -468,3 +496,4 @@ export function applyGameSimulationEvents(game, events, deltaTime) {
     }
     game.updateUI();
 }
+import { PenguinState } from './penguinState.js';

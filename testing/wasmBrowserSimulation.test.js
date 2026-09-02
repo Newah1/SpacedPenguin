@@ -7,6 +7,7 @@ import {
     stepSimulationMutable
 } from '../js/simulation/simulationEngine.js';
 import { cloneSimulationState, createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
+import { captureGameSimulationState } from '../js/runtime/gameSimulationAdapter.js';
 import {
     activeSimulationBackend,
     initializeWasmSimulation,
@@ -92,6 +93,112 @@ test('browser Wasm slice preserves collision, crash, and rule events', async () 
     assert.deepEqual(actual.events, expected.events);
     assert.deepEqual(wasm.penguin, javascript.penguin);
     assert.deepEqual(wasm.counters, javascript.counters);
+});
+
+test('browser Wasm slice preserves collidable planets captured from runtime objects', async () => {
+    const bytes = await readFile(new URL('../rust/simulator/pkg/spaced_penguin_simulator.wasm', import.meta.url));
+    await initializeWasmSimulation(bytes);
+    const game = {
+        simulationTime: 0,
+        runTick: 0,
+        penguin: { x: 100, y: 100, vx: 0, vy: 0, radius: 8, state: 'soaring', crashedFrameCount: 0 },
+        planets: [{
+            position: { x: 100, y: 100 },
+            radius: 30,
+            collisionRadius: 38,
+            mass: 0,
+            gravitationalReach: 5000,
+            orbitSystem: null
+        }],
+        bonuses: [],
+        portals: [],
+        speedBoosters: [],
+        deflectorBumpers: [],
+        target: { position: { x: 700, y: 300 }, width: 50, height: 50, orbitSystem: null },
+        slingshot: { anchor: { x: 100, y: 100 }, launchModel: 'modern', velocityMultiplier: 10, maxPullback: 100, minPullback: 0 },
+        stageRect: { x: 0, y: 0, width: 800, height: 600 },
+        flightRect: { x: 0, y: 0, width: 800, height: 600 },
+        levelRules: { allowedMisses: 0 },
+        physics: { gravitationalConstant: 3 },
+        tries: 0,
+        planetCollisions: 0,
+        currentAttemptScore: 0,
+        distance: 0
+    };
+    const state = captureGameSimulationState(game);
+    assert.equal(state.planets[0].collidable, true);
+
+    const result = stepSimulationSliceWasmMutable(state, 1 / 60, false);
+    assert.equal(result.events.some(event => event.type === 'planet_collision'), true);
+    assert.equal(state.penguin.state, 'crashed');
+    assert.equal(state.counters.planetCollisions, 1);
+});
+
+test('browser Wasm slice matches swept planet collision on fast trajectories', async () => {
+    const state = createSimulationStateFromLevel({
+        name: 'Swept planet parity',
+        startPosition: { x: 0, y: 100 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [
+            { type: 'slingshot', position: { x: 0, y: 100 }, properties: {} },
+            { type: 'planet', position: { x: 100, y: 100 }, properties: {
+                id: 'planet', radius: 30, mass: 0, gravitationalReach: 0
+            } },
+            { type: 'target', position: { x: 700, y: 300 }, properties: {} }
+        ]
+    });
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 12000, y: 0 };
+    const javascript = cloneSimulationState(state);
+    const wasm = cloneSimulationState(state);
+
+    const expected = stepSimulationMutable(javascript, 1 / 60);
+    advanceSimulationWorldMutable(wasm, 1 / 60);
+    const actual = stepSimulationSliceWasmMutable(wasm, 1 / 60, false);
+
+    assert.deepEqual(actual.events, expected.events);
+    assert.equal(wasm.penguin.state, 'crashed');
+    assert.equal(wasm.counters.planetCollisions, 1);
+    assertPointClose(wasm.penguin.position, javascript.penguin.position, 'swept planet position');
+    assertPointClose(wasm.penguin.velocity, javascript.penguin.velocity, 'swept planet velocity');
+});
+
+test('browser Wasm slice matches swept deflector reflection', async () => {
+    const state = createSimulationStateFromLevel({
+        name: 'Deflector parity',
+        startPosition: { x: 0, y: 0 },
+        targetPosition: { x: 700, y: 300 },
+        objects: [
+            { type: 'slingshot', position: { x: 0, y: 0 }, properties: {} },
+            { type: 'deflectorbumper', position: { x: 50, y: 20 }, properties: {
+                id: 'bumper', radius: 10, restitution: 1.25, playSound: false
+            } },
+            { type: 'target', position: { x: 700, y: 300 }, properties: {} }
+        ],
+        rules: { gravitationalConstant: 0 }
+    });
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 3000, y: 0 };
+    const javascript = cloneSimulationState(state);
+    const wasm = cloneSimulationState(state);
+
+    const expected = stepSimulationMutable(javascript, 1 / 60);
+    advanceSimulationWorldMutable(wasm, 1 / 60);
+    const actual = stepSimulationSliceWasmMutable(wasm, 1 / 60, false);
+
+    assert.deepEqual(actual.events.map(event => event.type), expected.events.map(event => event.type));
+    const actualBounce = actual.events.find(event => event.type === 'deflector_bounced');
+    const expectedBounce = expected.events.find(event => event.type === 'deflector_bounced');
+    assert.equal(actualBounce.deflectorBumperId, expectedBounce.deflectorBumperId);
+    assert.equal(actualBounce.deflectorBumperIndex, expectedBounce.deflectorBumperIndex);
+    assert.equal(actualBounce.playSound, expectedBounce.playSound);
+    for (const key of ['position', 'normal', 'incomingVelocity', 'velocity']) {
+        assertPointClose(actualBounce[key], expectedBounce[key], `deflector ${key}`);
+    }
+    assert.equal(wasm.penguin.state, javascript.penguin.state);
+    assertPointClose(wasm.penguin.position, javascript.penguin.position, 'deflector position');
+    assertPointClose(wasm.penguin.velocity, javascript.penguin.velocity, 'deflector velocity');
+    assert.ok(Math.abs(wasm.counters.distance - javascript.counters.distance) < 1e-9);
 });
 
 test('browser Wasm composes with the shared moving-world transition', async () => {

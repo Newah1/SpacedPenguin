@@ -2,6 +2,8 @@
 
 A browser-native rewrite of the classic Shockwave gravity-slingshot game, implemented with JavaScript ES modules, Canvas 2D, Web Audio, and JSON-authored levels.
 
+Play online: [Spaced Penguin](https://newah1.github.io/SpacedPenguin/)
+
 ## Current capabilities
 
 - Twenty-five ported original levels with planets, bonuses, targets, tutorial text/arrows, and Director-compatible gravity
@@ -204,17 +206,22 @@ npm.cmd run benchmark:simulator-wasm -- .\levels\level10.json 10000 5
 ```
 
 The Wasm transition covers planets, black holes, bonuses, slingshots, targets,
-portals, speed boosters, collisions, crash/reset behavior, and enforced rules.
+portals, speed boosters, deflector bumpers, collisions, crash/reset behavior,
+and enforced rules.
 The existing deterministic orbit and waypoint graph supplies world motion to
 the same Rust transition in both browser and headless execution. Wasm is the
 portable headless CLI default; `--backend native` selects the release
 executable and `--backend js` remains an explicit comparison path.
 
 Gravity Sculpt also uses the packaged simulator. The editor starts a module
-worker with a bounded pool of persistent Rust contexts and submits whole
+worker with one persistent Rust context at the minimum search budget or a
+bounded context pool for larger searches, and submits whole
 optimizer populations rather than crossing the JS/Wasm boundary per physics
 tick. Ordinary generations return scored metrics and matched waypoint samples;
-only the selected candidates are re-run with full preview capture. Custom
+only the selected candidates are re-run with full preview capture. The search
+stops waypoint-only trajectories at ordered-route completion, carries stage
+populations across curriculum prefixes, defers launch-robustness probes to the
+closing full-route joint generations, and stops stagnant stages early. Custom
 variable hooks or levels with orbit/waypoint-controlled objects automatically
 retain the exact JavaScript evaluator. Compare the two paths with:
 

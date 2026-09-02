@@ -7,7 +7,7 @@ export class KevinCamRenderer {
     }
 
     draw({ ctx, enabled = true, arrowVisible = false, penguin = null }) {
-        if (!enabled || !arrowVisible || !penguin || penguin.state !== 'soaring') return;
+        if (!enabled || !arrowVisible || !penguin || penguin.state !== PenguinState.SOARING) return;
 
         const config = this.config;
         const viewRect = { x: 0, y: 0, width: STAGE_WIDTH, height: STAGE_HEIGHT };
@@ -83,3 +83,4 @@ export class KevinCamRenderer {
         ctx.restore();
     }
 }
+import { PenguinState } from '../runtime/penguinState.js';

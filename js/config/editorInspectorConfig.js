@@ -30,7 +30,7 @@ export const EDITABLE_STATE_PROPERTIES = deepFreeze([
     'rotationSpeed', 'state', 'spriteType', 'maxPullback', 'stretchLimit',
     'velocityMultiplier', 'content', 'fontSize', 'fontFamily', 'textAlign',
     'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth',
-    'glowColor', 'scaleWithDistance', 'playSound', 'pairedPortalId'
+    'glowColor', 'scaleWithDistance', 'playSound', 'pairedPortalId', 'restitution'
 ]);
 
 export const BASIC_SERIALIZED_OBJECT_PROPERTIES = deepFreeze([
@@ -119,6 +119,7 @@ export const EDITOR_NUMERIC_FALLBACKS = deepFreeze({
     width: LEVEL_DEFAULTS.target.width,
     height: LEVEL_DEFAULTS.target.height,
     value: LEVEL_DEFAULTS.bonus.value,
+    restitution: LEVEL_DEFAULTS.deflectorBumper.restitution,
     orbitRadius: EDITOR_CONFIG.authoringDefaults.orbit.radius,
     orbitSpeed: EDITOR_CONFIG.authoringDefaults.orbit.speed,
     orbitAngle: 0,

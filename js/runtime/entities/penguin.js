@@ -5,6 +5,7 @@ import { LEVEL_DEFAULTS, SIMULATION_CONFIG, WORLD_CONFIG } from '../../config/ga
 import { RENDER_CONFIG } from '../../config/renderConfig.js';
 import { penguinAnimationAssetPath } from '../../config/assetConfig.js';
 import { AudioCue, getAudioCue } from '../../config/audioConfig.js';
+import { PenguinState } from '../penguinState.js';
 
 // All Penguin instances use the same animation assets. Keep one bounded set of
 // processed frames so the menu and live game do not repeat pixel conversion.
@@ -138,7 +139,7 @@ export class Penguin {
         this.aniSwap = 0; // Controls when to advance frames (0 = update this frame)
         
         // Game state (required for slingshot interaction)
-        this.state = 'idle';
+        this.state = PenguinState.IDLE;
         this.crashedTimer = 0;
         this.crashedDuration = RENDER_CONFIG.penguin.crashedDurationSeconds;
         
@@ -376,7 +377,7 @@ export class Penguin {
         }
         
         // Update trail
-        if(this.state != "crashed" && this.state != "hitTarget") {
+        if(this.state !== PenguinState.CRASHED && this.state !== PenguinState.HIT_TARGET) {
             this.trail.push({ x: this.x, y: this.y });
         }
         if (this.trail.length > this.maxTrailLength) {
@@ -398,7 +399,7 @@ export class Penguin {
     
     // New method to update physics with planet gravity (matching old GPS script)
     updateWithPlanetGravity(planets, gravitationalConstant, deltaTime) {
-        if (!this.launched || this.state !== 'soaring') return;
+        if (!this.launched || this.state !== PenguinState.SOARING) return;
         
         plog.physics('Penguin updateWithPlanetGravity called, state:', this.state);
         
@@ -416,7 +417,7 @@ export class Penguin {
         this.vy = result.velocity.y;
         
         // Update trail
-        if(this.state != "crashed" && this.state != "hitTarget") {
+        if(this.state !== PenguinState.CRASHED && this.state !== PenguinState.HIT_TARGET) {
             this.trail.push({ x: this.x, y: this.y });
         }
         if (this.trail.length > this.maxTrailLength) {
@@ -439,7 +440,7 @@ export class Penguin {
     }
 
     beginCrash(planet, applyBounce = true) {
-        this.state = 'crashed';
+        this.state = PenguinState.CRASHED;
         this.crashedFrameCount = SIMULATION_CONFIG.collision.planetCrashFrames;
         this.hitPlanet = planet;
         
@@ -457,7 +458,7 @@ export class Penguin {
         Object.assign(copy, this, {
             animations: { ...this.animations },
             trail: [],
-            state: 'crashed',
+            state: PenguinState.CRASHED,
             launched: true
         });
         return copy;
@@ -668,7 +669,7 @@ export class Penguin {
         this.vy = 0;
         this.trail = [];
         this.stopSpinning();
-        this.state = 'idle';
+        this.state = PenguinState.IDLE;
         this.crashedTimer = 0;
         this.crashedFrameCount = 0; // Reset frame counter
         this.hitPlanet = null; // Clear planet reference
@@ -720,7 +721,7 @@ export class Penguin {
     // Draw method for canvas 2D context (required by Game class)
     draw(ctx) {
         // A successful target hit consumes the penguin into the ship.
-        if (this.state === 'hitTarget') return;
+        if (this.state === PenguinState.HIT_TARGET) return;
 
         // Draw trail first
         this.drawTrailCanvas(ctx);

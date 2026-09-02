@@ -36,8 +36,10 @@ const request = () => ({
     state: state(),
     desiredPath,
     planetIndices: [0, 1, 2],
-    launch: { velocity: { x: 235, y: 0 }, angleDegrees: 0, pullbackPower: 150 },
-    options: { adjustPosition: false, adjustMass: true, seed: 284117 }
+    options: {
+        adjustPosition: false, adjustMass: true, adjustLaunch: true,
+        budgetMultiplier: 0.5, seed: 284117
+    }
 });
 
 async function measure() {

@@ -43,6 +43,11 @@ export class GameEffectsCoordinator {
         if (event.playSound) this.game.playSound(getAudioCue(AudioCue.SPEED_BOOSTER_WOOSH).soundId);
     }
 
+    deflectorBounced(event, bumper) {
+        if (event.playSound) this.game.playSound(getAudioCue(AudioCue.DEFLECTOR_BOUNCE).soundId);
+        if (bumper) bumper.lastBounceTime = globalThis.performance?.now?.() ?? 0;
+    }
+
     targetHit() {
         const game = this.game;
         game.endRecordingShotPath();

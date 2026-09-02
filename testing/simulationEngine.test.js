@@ -89,6 +89,44 @@ test('speed booster contacts are swept, so fast penguins cannot pass through a p
     assertPointClose(result.state.penguin.velocity, { x: -1000, y: 0 });
 });
 
+test('deflector bumpers sweep fast contacts and reflect momentum across the impact normal', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        { type: 'deflectorbumper', position: { x: 50, y: 20 }, properties: {
+            id: 'bumper', radius: 10, restitution: 1.25, playSound: false
+        } }
+    ], { gravitationalConstant: 0 }));
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 3000, y: 0 };
+
+    const result = stepSimulation(state, 1 / 60);
+    const bounce = result.events.find(event => event.type === SimulationEventType.DEFLECTOR_BOUNCED);
+
+    assert.ok(bounce);
+    assert.equal(bounce.deflectorBumperId, 'bumper');
+    assert.equal(bounce.playSound, false);
+    assertPointClose(bounce.incomingVelocity, { x: 3000, y: 0 });
+    assert.ok(bounce.velocity.y < 0, 'an off-center impact must deflect vertically');
+    assert.ok(Math.abs(Math.hypot(bounce.velocity.x, bounce.velocity.y) - 3750) < 1e-8);
+    assertPointClose(result.state.penguin.velocity, bounce.velocity);
+    assert.equal(result.state.penguin.state, 'soaring');
+    assert.equal(result.state.counters.planetCollisions, 0);
+});
+
+test('deflector restitution can damp a head-on bounce without tunneling', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        { type: 'bumper', position: { x: 50, y: 0 }, properties: {
+            id: 'bumper', radius: 10, restitution: 0.5
+        } }
+    ], { gravitationalConstant: 0 }));
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 3000, y: 0 };
+
+    const result = stepSimulation(state, 1 / 60);
+
+    assertPointClose(result.state.penguin.velocity, { x: -1500, y: 0 });
+    assert.ok(result.state.penguin.position.x < 24, 'the remaining tick motion must continue away from the bumper');
+});
+
 test('compiled mutable orbit graphs preserve dependency ordering across repeated steps', () => {
     const entities = [
         {
@@ -335,6 +373,25 @@ test('planet collision produces a finite shared bounce and collision event', () 
     assert.equal(result.events[0].type, SimulationEventType.PLANET_COLLISION);
     assert.equal(Number.isFinite(result.state.penguin.position.x), true);
     assert.equal(Number.isFinite(result.state.penguin.velocity.x), true);
+});
+
+test('planet collision is swept so a fast penguin cannot tunnel through a planet', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        {
+            type: 'planet',
+            position: { x: 100, y: 100 },
+            properties: { id: 'planet', radius: 30, mass: 0, gravitationalReach: 0 }
+        }
+    ]));
+    state.penguin.position = { x: 0, y: 100 };
+    state.penguin.velocity = { x: 12000, y: 0 };
+    state.penguin.state = 'soaring';
+    const result = stepSimulation(state, 1 / 60);
+
+    assert.equal(result.state.penguin.state, 'crashed');
+    assert.equal(result.state.counters.planetCollisions, 1);
+    assert.equal(result.events[0].type, SimulationEventType.PLANET_COLLISION);
+    assert.ok(result.state.penguin.position.x < 100);
 });
 
 test('flight gravity consumes normalized planet positions without producing non-finite state', () => {

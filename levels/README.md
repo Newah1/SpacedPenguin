@@ -217,6 +217,26 @@ Speed boosters redirect Kevin's full incoming momentum along their `rotation` (i
 }
 ```
 
+### Deflector bumpers
+
+Deflector bumpers are circular, non-terminal collision objects. Kevin's incoming momentum is reflected across the surface normal at the swept impact point, so off-center contacts create bank shots and fast movement cannot tunnel through the bumper. `restitution` multiplies both the reflected speed and the remaining movement in the impact tick: `1` preserves speed, values below `1` damp the bounce, and values above `1` add speed. `playSound` defaults to `true` and reuses the planet-impact cue. Bumpers support waypoint motion.
+
+```json
+{
+  "type": "deflectorbumper",
+  "position": { "x": 420, "y": 250 },
+  "properties": {
+    "id": "bumper_1",
+    "radius": 30,
+    "restitution": 1,
+    "color": "#ff4fd8",
+    "playSound": true
+  }
+}
+```
+
+The aliases `deflector` and `bumper` are accepted, but exported levels use `deflectorbumper`.
+
 ```json
 {
   "type": "pointingarrow",

@@ -7,7 +7,8 @@ export const AudioCue = Object.freeze({
     HIT_PLANET: 'hitPlanet',
     ENTER_SHIP: 'enterShip',
     PORTAL_WOOSH: 'portalWoosh',
-    SPEED_BOOSTER_WOOSH: 'speedBoosterWoosh'
+    SPEED_BOOSTER_WOOSH: 'speedBoosterWoosh',
+    DEFLECTOR_BOUNCE: 'deflectorBounce'
 });
 
 export const AUDIO_CONFIG = deepFreeze({
@@ -30,7 +31,8 @@ export const AUDIO_CONFIG = deepFreeze({
         [AudioCue.HIT_PLANET]: { soundId: '20_snd_HitPlanet', volume: 0.7, pitch: 1, loop: false },
         [AudioCue.ENTER_SHIP]: { soundId: '21_snd_enterShip', volume: 0.8, pitch: 1, loop: false },
         [AudioCue.PORTAL_WOOSH]: { soundId: '17_snd_launch', volume: 0.8, pitch: 1, loop: false },
-        [AudioCue.SPEED_BOOSTER_WOOSH]: { soundId: '17_snd_launch', volume: 0.8, pitch: 1, loop: false }
+        [AudioCue.SPEED_BOOSTER_WOOSH]: { soundId: '17_snd_launch', volume: 0.8, pitch: 1, loop: false },
+        [AudioCue.DEFLECTOR_BOUNCE]: { soundId: '20_snd_HitPlanet', volume: 0.7, pitch: 1, loop: false }
     }
 });
 

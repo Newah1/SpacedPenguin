@@ -68,4 +68,13 @@ pub(crate) enum SimulationEvent {
         rule: String,
         reason: String,
     },
+    DeflectorBounced {
+        deflector_bumper_id: String,
+        deflector_bumper_index: usize,
+        position: Point,
+        normal: Point,
+        incoming_velocity: Point,
+        velocity: Point,
+        play_sound: bool,
+    },
 }

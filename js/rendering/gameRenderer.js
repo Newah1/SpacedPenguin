@@ -100,7 +100,7 @@ export class GameRenderer {
         const game = this.game;
         if (game.aimAssistPoints.length < 2 ||
             !game.settingsManager.get('aimAssistEnabled') ||
-            game.penguin?.state !== 'pullback') return;
+            game.penguin?.state !== PenguinState.PULLBACK) return;
         const config = RENDER_CONFIG.aimAssist;
         ctx.save();
         ctx.globalAlpha = config.alpha;
@@ -136,3 +136,4 @@ export class GameRenderer {
 }
 
 export default GameRenderer;
+import { PenguinState } from '../runtime/penguinState.js';

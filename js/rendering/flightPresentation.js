@@ -49,7 +49,7 @@ export class FlightPresentation {
     }
 
     recordPoint(x, y) {
-        if (!this.isRecordingPath || this.game.penguin?.state === 'crashed') return;
+        if (!this.isRecordingPath || this.game.penguin?.state === PenguinState.CRASHED) return;
         const previous = this.currentShotPath.at(-1);
         if (previous && x === previous.x && y === previous.y) return;
         if (this.currentShotRenderPath) {
@@ -290,3 +290,4 @@ export class FlightPresentation {
 }
 
 export default FlightPresentation;
+import { PenguinState } from '../runtime/penguinState.js';

@@ -8,6 +8,7 @@ function worldEntities(state) {
         ...state.bonuses,
         ...(state.portals || []),
         ...(state.speedBoosters || []),
+        ...(state.deflectorBumpers || []),
         ...(state.decorations || []),
         state.target,
         state.slingshot
@@ -35,9 +36,10 @@ export class CompiledWorldTimeline {
         this.bonusCount = initialState.bonuses.length;
         this.portalCount = initialState.portals?.length || 0;
         this.speedBoosterCount = initialState.speedBoosters?.length || 0;
+        this.deflectorBumperCount = initialState.deflectorBumpers?.length || 0;
         this.decorationCount = initialState.decorations?.length || 0;
         this.entityCount = this.planetCount + this.bonusCount + this.portalCount +
-            this.speedBoosterCount + this.decorationCount + 2;
+            this.speedBoosterCount + this.deflectorBumperCount + this.decorationCount + 2;
         this.positions = new Float64Array(maxSteps * this.entityCount * 2);
         this.slingshotAnchors = new Float64Array(maxSteps * 2);
         this.orbitStates = new Float64Array(maxSteps * this.entityCount * 4);
@@ -99,6 +101,11 @@ export class CompiledWorldTimeline {
         for (const speedBooster of state.speedBoosters || []) {
             applyPosition(speedBooster.position, this.positions, frameOffset + entityIndex * 2);
             applyWaypointPhase(speedBooster.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
+            entityIndex++;
+        }
+        for (const bumper of state.deflectorBumpers || []) {
+            applyPosition(bumper.position, this.positions, frameOffset + entityIndex * 2);
+            applyWaypointPhase(bumper.waypointPath, this.waypointPhases, step * this.entityCount + entityIndex);
             entityIndex++;
         }
         for (const decoration of state.decorations || []) {

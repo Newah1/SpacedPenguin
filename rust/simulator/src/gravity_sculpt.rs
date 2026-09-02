@@ -1,5 +1,5 @@
 use super::{
-    CandidateState, CandidateTerminal, InitialState, Point, SculptBatchInput, SculptConfig,
+    CandidateState, CandidateTerminal, InitialState, PenguinState, Point, SculptBatchInput, SculptConfig,
     SculptCandidateOutput, SculptContextInput, SculptLaunch, SculptObjectiveTerms,
     SculptRobustScoreTerms, SculptVariable, SculptWaypointMatch, SimulationEvent, WasmInput,
     clear_error, fail, launch_velocity, step_candidate, OUTPUT,
@@ -25,7 +25,7 @@ struct SculptContext {
 
 struct SimulationMetrics {
     trajectory: Vec<Point>,
-    terminal: String,
+    terminal: PenguinState,
     constraint_violations: Vec<String>,
     elapsed_seconds: f64,
     path_length: f64,
@@ -201,6 +201,7 @@ fn simulate_once(
         bonuses: initial.bonuses.clone(),
         portals: initial.portals.clone(),
         speed_boosters: initial.speed_boosters.clone(),
+        deflector_bumpers: initial.deflector_bumpers.clone(),
         target: initial.target.clone(),
         distance: 0.0,
         portal_lock_id: None,
@@ -218,7 +219,8 @@ fn simulate_once(
     let mut gravity_samples = 0usize;
     let mut planet_collision = false;
     let mut out_of_bounds = false;
-    let mut terminal = "soaring".to_owned();
+    let mut terminal = PenguinState::Soaring;
+    let mut next_waypoint_index = 1usize;
     for step in 1..=steps {
         let previous_position = state.position;
         let previous_velocity = state.velocity;
@@ -238,7 +240,7 @@ fn simulate_once(
         ));
         planet_collision |= collided;
         out_of_bounds |= result.events.iter().any(|event| matches!(event, SimulationEvent::OutOfBounds { .. }));
-        if !collided {
+        if !collided && result.terminal.is_none() {
             let acceleration = point_distance(state.velocity, previous_velocity) / config.time_step;
             peak_gravity = peak_gravity.max(acceleration);
             gravity_total += acceleration;
@@ -246,13 +248,24 @@ fn simulate_once(
         }
         if step % config.sample_every_steps.max(1) == 0 || result.terminal.is_some() {
             trajectory.push(state.position);
+            if next_waypoint_index < desired_path.len()
+                && point_distance(state.position, desired_path[next_waypoint_index]) <= config.checkpoint_tolerance
+            {
+                next_waypoint_index += 1;
+            }
         }
         if let Some(value) = result.terminal {
             terminal = match value {
-                CandidateTerminal::PlanetCollision => "crashed",
-                CandidateTerminal::TargetHit => "hitTarget",
-                CandidateTerminal::TargetBlocked | CandidateTerminal::OutOfBounds => "crashed",
-            }.to_owned();
+                CandidateTerminal::PlanetCollision => PenguinState::Crashed,
+                CandidateTerminal::TargetHit => PenguinState::HitTarget,
+                CandidateTerminal::TargetBlocked | CandidateTerminal::OutOfBounds => PenguinState::Crashed,
+            };
+            break;
+        }
+        let completion_goals_satisfied = !config.goals.require_target
+            && config.goals.required_bonus_indices.iter()
+                .all(|index| state.bonuses.get(*index).is_some_and(|bonus| bonus.collected));
+        if next_waypoint_index >= desired_path.len() && completion_goals_satisfied {
             break;
         }
         if path_length >= distance_budget {
@@ -272,7 +285,7 @@ fn simulate_once(
         let normalized = (search_coordinate(variable, *value) - search_coordinate(variable, variable.initial)) / search_span(variable);
         waypoint_score += normalized * normalized * parameter_penalty(variable, config);
     }
-    if terminal != "hitTarget" {
+    if terminal != PenguinState::HitTarget {
         waypoint_score += config.terminal_penalty;
     }
     let mean_gravity = if gravity_samples == 0 { 0.0 } else { gravity_total / gravity_samples as f64 };
@@ -281,7 +294,7 @@ fn simulate_once(
     let mean_term = (mean_gravity / config.mean_gravity_acceleration_soft_limit - 1.0).max(0.0).powi(2) * config.mean_gravity_acceleration_weight;
     let route_term = (path_efficiency - 1.0).max(0.0).powi(2) * config.path_efficiency_weight;
     let mut violations = Vec::new();
-    if config.goals.require_target && terminal != "hitTarget" { violations.push("target".to_owned()); }
+    if config.goals.require_target && terminal != PenguinState::HitTarget { violations.push("target".to_owned()); }
     if config.goals.avoid_planet_collisions && planet_collision { violations.push("planet_collision".to_owned()); }
     if config.goals.stay_in_bounds && out_of_bounds { violations.push("out_of_bounds".to_owned()); }
     if config.goals.max_flight_seconds.is_some_and(|maximum| elapsed_seconds > maximum) { violations.push("time_limit".to_owned()); }
@@ -364,7 +377,7 @@ fn evaluate_candidate(
         endpoint_distance: central.endpoint_distance,
         waypoint_matches: central.waypoint_matches,
         trajectory: central.trajectory,
-        terminal: central.terminal,
+        terminal: central.terminal.as_wire().to_owned(),
         values: values.to_vec(),
         constraint_violations: central.constraint_violations,
         elapsed_seconds: central.elapsed_seconds,

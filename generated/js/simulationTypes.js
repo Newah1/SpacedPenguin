@@ -11,7 +11,8 @@ export const SimulationEventType = Object.freeze({
     "PORTAL_TELEPORTED": "portal_teleported",
     "SPEED_BOOSTER_ACTIVATED": "speed_booster_activated",
     "ATTEMPT_RESET_REQUIRED": "attempt_reset_required",
-    "RULE_FAILURE": "rule_failure"
+    "RULE_FAILURE": "rule_failure",
+    "DEFLECTOR_BOUNCED": "deflector_bounced"
 });
 
 export const SIMULATION_EVENT_SHAPES = Object.freeze({
@@ -150,6 +151,26 @@ export const SIMULATION_EVENT_SHAPES = Object.freeze({
         "required": [
             "rule",
             "reason"
+        ]
+    },
+    "deflector_bounced": {
+        "fields": [
+            "deflectorBumperId",
+            "deflectorBumperIndex",
+            "position",
+            "normal",
+            "incomingVelocity",
+            "velocity",
+            "playSound"
+        ],
+        "required": [
+            "deflectorBumperId",
+            "deflectorBumperIndex",
+            "position",
+            "normal",
+            "incomingVelocity",
+            "velocity",
+            "playSound"
         ]
     }
 });

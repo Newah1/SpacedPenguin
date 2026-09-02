@@ -155,3 +155,37 @@ test('Gravity Sculpt Wasm batches preserve robust launch and hard-goal scoring',
         evaluator.dispose();
     }
 });
+
+test('Gravity Sculpt comfort metrics exclude target-hit stopping acceleration', () => {
+    const state = sculptState();
+    state.planets = [];
+    state.rules.gravitationalConstant = 0;
+    const path = [{ x: 70, y: 300 }, { x: 760, y: 300 }];
+    const variables = createLaunchVariables(state, path);
+    const launch = {
+        angleDegrees: variables[0].initial,
+        pullbackPower: variables[1].initial,
+        velocity: { x: 0, y: 0 }
+    };
+    const values = variables.map(variable => variable.initial);
+    const config = {
+        ...EDITOR_CONFIG.gravitySculpt,
+        robustLaunchOffsets: [],
+        goals: { requireTarget: true }
+    };
+    const expected = evaluateSculptCandidate(state, path, launch, variables, values, config);
+    const evaluator = createGravitySculptWasmEvaluator({
+        state, launch, variables, simulation: SIMULATION_CONFIG
+    });
+    assert.ok(evaluator);
+    try {
+        const [actual] = evaluator.evaluateBatch(path, config, [values]);
+        assert.equal(expected.terminal, 'hitTarget');
+        assert.equal(actual.terminal, 'hitTarget');
+        assertClose(actual.peakGravityAcceleration, expected.peakGravityAcceleration, 'peak gravity');
+        assertClose(actual.meanGravityAcceleration, expected.meanGravityAcceleration, 'mean gravity');
+        assertClose(actual.score, expected.score, 'target-hit score', 1e-4);
+    } finally {
+        evaluator.dispose();
+    }
+});

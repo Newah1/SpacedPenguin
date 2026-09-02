@@ -111,6 +111,8 @@ The desktop add-button row and mobile **+** menu expose these types:
 - TextObject
 - PointingArrow
 - Portal (creates a complete red/blue pair)
+- SpeedBooster
+- DeflectorBumper
 
 ## Creating Objects
 
@@ -133,8 +135,12 @@ The desktop add-button row and mobile **+** menu expose these types:
 | **TextObject** | "Sample Text", 16px font, left-aligned |
 | **PointingArrow** | Cyan color, 20px base width |
 | **Portal** | Reciprocal red/blue pair, opposing default directions, woosh enabled |
+| **SpeedBooster** | 64x32 panel, direction 0°, speed multiplier 1 |
+| **DeflectorBumper** | 30px radius, speed-preserving restitution 1, magenta glow |
 
 Portal endpoints can be dragged and rotated independently. Selecting either endpoint shows a thin dashed line to its partner and a direction indicator. Adding, deleting, undoing, redoing, or cloning a portal operates on the complete pair so exported levels cannot be left with an orphan endpoint. The inspector exposes aperture size, direction, and the optional teleport woosh.
+
+Deflector bumpers expose radius, bounce multiplier (`restitution`), color, sound, and waypoint motion. A value of `1` preserves Kevin's speed; smaller values damp the bounce and larger values accelerate it.
 
 ## Editing Objects
 
@@ -435,11 +441,19 @@ Orbit target options come from the shared schema capabilities. Planet, black-hol
 Gravity Sculpt draws an intended route and searches launch angle/power plus
 selected stationary-planet positions and masses. In browsers with WebAssembly
 and module-worker support, the solve runs outside the rendering thread and
-sends complete optimizer populations to a bounded pool of persistent Rust
-evaluators. This
+sends complete optimizer populations to one persistent Rust evaluator at the
+minimum budget or a bounded evaluator pool for larger searches. This
 keeps pointer input and canvas rendering responsive and avoids one Wasm call
 per simulated frame. The worker sends full trajectory points only for the
-candidate set shown in the editor.
+candidate set shown in the editor. Waypoint-only candidates stop when they
+complete the ordered route; curriculum phases retain their stage populations,
+and nearby-launch robustness is concentrated in the closing full-route joint
+generations. Stagnant stages can finish before exhausting their allocation.
+Experimental influence guidance remains available to diagnostics but is
+disabled by default because the multi-seed benchmark does not show a quality
+benefit.
+Closing Gravity Sculpt or starting a replacement solve cancels the active
+worker immediately.
 
 If WebAssembly initialization fails, a selected variable uses a custom apply
 function, or the level contains an orbit/waypoint-controlled simulation object,

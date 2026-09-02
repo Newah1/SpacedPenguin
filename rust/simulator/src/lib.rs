@@ -46,6 +46,7 @@ struct CandidateState {
     bonuses: Vec<Bonus>,
     portals: Vec<Portal>,
     speed_boosters: Vec<SpeedBooster>,
+    deflector_bumpers: Vec<DeflectorBumper>,
     target: Target,
     distance: f64,
     portal_lock_id: Option<String>,
@@ -58,6 +59,40 @@ enum CandidateTerminal {
     TargetHit,
     TargetBlocked,
     OutOfBounds,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PenguinState {
+    Idle,
+    Pullback,
+    Soaring,
+    Crashed,
+    HitTarget,
+    Other,
+}
+
+impl PenguinState {
+    fn from_wire(value: &str) -> Self {
+        match value {
+            "idle" => Self::Idle,
+            "pullback" => Self::Pullback,
+            "soaring" => Self::Soaring,
+            "crashed" => Self::Crashed,
+            "hitTarget" => Self::HitTarget,
+            _ => Self::Other,
+        }
+    }
+
+    fn as_wire(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Pullback => "pullback",
+            Self::Soaring => "soaring",
+            Self::Crashed => "crashed",
+            Self::HitTarget => "hitTarget",
+            Self::Other => unreachable!("unknown penguin states are never written to the wire"),
+        }
+    }
 }
 
 struct CandidateStep {
@@ -221,7 +256,7 @@ pub extern "C" fn destroy_runtime_state(handle: i32) {
 }
 
 /// Synchronize candidate-independent world positions in wire order:
-/// planets, bonuses, portals, speed boosters, then target.
+/// planets, bonuses, portals, speed boosters, deflector bumpers, then target.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sync_runtime_world(
     handle: i32,
@@ -243,6 +278,7 @@ pub unsafe extern "C" fn sync_runtime_world(
             + runtime.input.state.bonuses.len()
             + runtime.input.state.portals.len()
             + runtime.input.state.speed_boosters.len()
+            + runtime.input.state.deflector_bumpers.len()
             + 1;
         if position_count != expected {
             return Err(format!(
@@ -272,6 +308,13 @@ pub unsafe extern "C" fn sync_runtime_world(
             entity += 1;
         }
         for object in &mut runtime.input.state.speed_boosters {
+            object.position = Point {
+                x: positions[entity * 2],
+                y: positions[entity * 2 + 1],
+            };
+            entity += 1;
+        }
+        for object in &mut runtime.input.state.deflector_bumpers {
             object.position = Point {
                 x: positions[entity * 2],
                 y: positions[entity * 2 + 1],
@@ -503,17 +546,24 @@ fn step_candidate(
         delta_time,
         config.legacy_physics_fps,
     );
-    let gravity_position = state.position;
-    if let Some(event) = apply_speed_boosters(state, previous, penguin_radius) {
+    let deflection = apply_swept_world_collisions(state, previous, penguin_radius, &config.collision);
+    events.extend(deflection.events);
+    if deflection.planet_collision {
+        return CandidateStep {
+            events,
+            terminal: Some(CandidateTerminal::PlanetCollision),
+        };
+    }
+    if let Some(event) = apply_speed_boosters(state, deflection.interaction_start, penguin_radius) {
         events.push(event);
     }
-    events.extend(apply_portals(state, previous, penguin_radius));
-    state.distance += distance(previous, gravity_position);
+    events.extend(apply_portals(state, deflection.interaction_start, penguin_radius));
+    state.distance += deflection.traveled;
     if emit_movement_event {
         events.push(SimulationEvent::PenguinMoved {
             from: Some(previous),
             position: state.position,
-            distance: distance(previous, gravity_position),
+            distance: deflection.traveled,
             delta_time,
         });
     }
@@ -602,6 +652,7 @@ impl Simulator {
             bonuses: self.initial.bonuses.clone(),
             portals: self.initial.portals.clone(),
             speed_boosters: self.initial.speed_boosters.clone(),
+            deflector_bumpers: self.initial.deflector_bumpers.clone(),
             target: self.initial.target.clone(),
             distance: 0.0,
             portal_lock_id: None,
@@ -699,6 +750,10 @@ impl Simulator {
             booster.position = self.timeline_point(frame, entity);
             entity += 1;
         }
+        for bumper in &mut state.deflector_bumpers {
+            bumper.position = self.timeline_point(frame, entity);
+            entity += 1;
+        }
         entity += self.initial.decorations.len();
         state.target.position = self.timeline_point(frame, entity);
     }
@@ -719,8 +774,10 @@ fn step_runtime_state_inner(
 ) -> Vec<SimulationEvent> {
     state.time += delta_time;
     let mut events = Vec::new();
+    let mut penguin_state = PenguinState::from_wire(&state.penguin.state);
 
-    if state.penguin.state == "soaring" {
+    match penguin_state {
+    PenguinState::Soaring => {
         let mut candidate = CandidateState {
             position: state.penguin.position,
             velocity: state.penguin.velocity,
@@ -728,6 +785,7 @@ fn step_runtime_state_inner(
             bonuses: state.bonuses.clone(),
             portals: state.portals.clone(),
             speed_boosters: state.speed_boosters.clone(),
+            deflector_bumpers: state.deflector_bumpers.clone(),
             target: state.target.clone(),
             distance: state.counters.distance,
             portal_lock_id: state.penguin.portal_lock_id.clone(),
@@ -757,21 +815,25 @@ fn step_runtime_state_inner(
         if let Some(terminal) = step_result.terminal {
             match terminal {
                 CandidateTerminal::PlanetCollision => {
-                    state.penguin.state = "crashed".to_owned();
+                    penguin_state = PenguinState::Crashed;
+                    state.penguin.state = penguin_state.as_wire().to_owned();
                     state.penguin.crash_frames_remaining = config.collision.planet_crash_frames;
                     state.counters.planet_collisions += 1;
                 }
                 CandidateTerminal::TargetHit => {
-                    state.penguin.state = "hitTarget".to_owned();
+                    penguin_state = PenguinState::HitTarget;
+                    state.penguin.state = penguin_state.as_wire().to_owned();
                     state.penguin.velocity = Point::default();
                 }
                 CandidateTerminal::TargetBlocked | CandidateTerminal::OutOfBounds => {
-                    state.penguin.state = "crashed".to_owned();
+                    penguin_state = PenguinState::Crashed;
+                    state.penguin.state = penguin_state.as_wire().to_owned();
                     state.penguin.crash_frames_remaining = config.collision.terminal_crash_frames;
                 }
             }
         }
-    } else if state.penguin.state == "crashed" {
+    }
+    PenguinState::Crashed => {
         state.penguin.crash_frames_remaining -= delta_time * config.legacy_physics_fps;
         if !point_in_rect(state.penguin.position, state.bounds.stage) {
             state.penguin.velocity = Point::default();
@@ -810,8 +872,10 @@ fn step_runtime_state_inner(
             events.push(SimulationEvent::AttemptResetRequired);
         }
     }
+    _ => {}
+    }
 
-    if state.penguin.state != "hitTarget" {
+    if penguin_state != PenguinState::HitTarget {
         let failure = if state
             .rules
             .max_tries
@@ -828,7 +892,7 @@ fn step_runtime_state_inner(
             None
         };
         if let Some((rule, reason)) = failure {
-            if !(rule == "maxTries" && state.penguin.state == "soaring") {
+            if !(rule == "maxTries" && penguin_state == PenguinState::Soaring) {
                 events.push(SimulationEvent::RuleFailure {
                     rule: rule.to_owned(),
                     reason: reason.to_owned(),
@@ -925,6 +989,40 @@ fn find_planet_collision(position: Point, planets: &[Planet], radius: f64) -> Op
     })
 }
 
+struct SegmentPlanetHit {
+    index: usize,
+    fraction: f64,
+}
+
+fn find_planet_collision_on_segment(
+    start: Point,
+    end: Point,
+    planets: &[Planet],
+    penguin_radius: f64,
+) -> Option<SegmentPlanetHit> {
+    let mut closest: Option<SegmentPlanetHit> = None;
+    for (index, planet) in planets.iter().enumerate() {
+        if !planet.collidable || planet.collision_radius <= 0.0 {
+            continue;
+        }
+        let radius = penguin_radius + planet.collision_radius;
+        let fraction = if circles_overlap(start, 0.0, planet.position, radius) {
+            Some(0.0)
+        } else {
+            segment_circle_entry(start, end, planet.position, radius)
+        };
+        if let Some(fraction) = fraction {
+            if closest
+                .as_ref()
+                .is_none_or(|hit| fraction < hit.fraction)
+            {
+                closest = Some(SegmentPlanetHit { index, fraction });
+            }
+        }
+    }
+    closest
+}
+
 fn resolve_planet_bounce(
     position: Point,
     velocity: Point,
@@ -997,6 +1095,170 @@ fn to_local(point: Point, position: Point, rotation: f64) -> Point {
     Point {
         x: dx * radians.cos() - dy * radians.sin(),
         y: dx * radians.sin() + dy * radians.cos(),
+    }
+}
+
+fn segment_circle_entry(start: Point, end: Point, center: Point, radius: f64) -> Option<f64> {
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let fx = start.x - center.x;
+    let fy = start.y - center.y;
+    let a = dx * dx + dy * dy;
+    if a <= EPSILON || fx * fx + fy * fy <= radius * radius {
+        return None;
+    }
+    let b = 2.0 * (fx * dx + fy * dy);
+    let c = fx * fx + fy * fy - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return None;
+    }
+    let root = discriminant.sqrt();
+    [(-b - root) / (2.0 * a), (-b + root) / (2.0 * a)]
+        .into_iter()
+        .filter(|value| (0.0..=1.0).contains(value))
+        .min_by(f64::total_cmp)
+}
+
+fn reflect(vector: Point, normal: Point, multiplier: f64) -> Point {
+    let dot = vector.x * normal.x + vector.y * normal.y;
+    Point {
+        x: (vector.x - 2.0 * dot * normal.x) * multiplier,
+        y: (vector.y - 2.0 * dot * normal.y) * multiplier,
+    }
+}
+
+struct SweptCollisionResult {
+    events: Vec<SimulationEvent>,
+    interaction_start: Point,
+    traveled: f64,
+    planet_collision: bool,
+}
+
+fn apply_swept_world_collisions(
+    state: &mut CandidateState,
+    original_start: Point,
+    penguin_radius: f64,
+    collision: &CollisionConfig,
+) -> SweptCollisionResult {
+    let mut events = Vec::new();
+    let mut start = original_start;
+    let mut end = state.position;
+    let mut traveled = 0.0;
+    let mut last_bumper_id: Option<String> = None;
+
+    for _ in 0..4 {
+        let planet_hit =
+            find_planet_collision_on_segment(start, end, &state.planets, penguin_radius);
+        let bumper_hit = state
+            .deflector_bumpers
+            .iter()
+            .enumerate()
+            .filter(|(_, bumper)| last_bumper_id.as_ref() != Some(&bumper.id))
+            .filter_map(|(index, bumper)| {
+                segment_circle_entry(
+                    start,
+                    end,
+                    bumper.position,
+                    bumper.radius + penguin_radius,
+                )
+                .map(|fraction| (index, fraction))
+            })
+            .min_by(|left, right| left.1.total_cmp(&right.1));
+
+        let planet_wins = match (&planet_hit, &bumper_hit) {
+            (Some(planet), Some((_, bumper_fraction))) => {
+                planet.fraction <= *bumper_fraction
+            }
+            (Some(_), None) => true,
+            _ => false,
+        };
+
+        if planet_wins {
+            if let Some(hit) = planet_hit {
+                let planet = &state.planets[hit.index];
+                let impact = Point {
+                    x: start.x + (end.x - start.x) * hit.fraction,
+                    y: start.y + (end.y - start.y) * hit.fraction,
+                };
+                traveled += distance(start, impact);
+                let (position, velocity) = resolve_planet_bounce(
+                    impact,
+                    state.velocity,
+                    planet,
+                    penguin_radius,
+                    collision,
+                );
+                state.position = position;
+                state.velocity = velocity;
+                events.push(SimulationEvent::PlanetCollision {
+                    planet_id: planet.id.clone(),
+                    planet_index: hit.index,
+                    position,
+                });
+                return SweptCollisionResult {
+                    events,
+                    interaction_start: start,
+                    traveled,
+                    planet_collision: true,
+                };
+            }
+        }
+
+        let Some((index, fraction)) = bumper_hit else {
+            traveled += distance(start, end);
+            break;
+        };
+
+        let bumper = state.deflector_bumpers[index].clone();
+        let impact = Point {
+            x: start.x + (end.x - start.x) * fraction,
+            y: start.y + (end.y - start.y) * fraction,
+        };
+        traveled += distance(start, impact);
+        let mut nx = impact.x - bumper.position.x;
+        let mut ny = impact.y - bumper.position.y;
+        let normal_length = nx.hypot(ny).max(EPSILON);
+        nx /= normal_length;
+        ny /= normal_length;
+        let normal = Point { x: nx, y: ny };
+        let incoming_velocity = state.velocity;
+        state.velocity = reflect(incoming_velocity, normal, bumper.restitution);
+        let remaining = Point {
+            x: end.x - impact.x,
+            y: end.y - impact.y,
+        };
+        let reflected_remaining = reflect(remaining, normal, bumper.restitution);
+        start = Point {
+            x: impact.x + nx * collision.separation_padding,
+            y: impact.y + ny * collision.separation_padding,
+        };
+        end = Point {
+            x: start.x + reflected_remaining.x,
+            y: start.y + reflected_remaining.y,
+        };
+        state.position = end;
+        last_bumper_id = Some(bumper.id.clone());
+        events.push(SimulationEvent::DeflectorBounced {
+            deflector_bumper_id: bumper.id,
+            deflector_bumper_index: index,
+            position: impact,
+            normal,
+            incoming_velocity,
+            velocity: state.velocity,
+            play_sound: bumper.play_sound,
+        });
+    }
+
+    SweptCollisionResult {
+        events,
+        interaction_start: start,
+        traveled: if state.deflector_bumpers.is_empty() {
+            distance(original_start, end)
+        } else {
+            traveled
+        },
+        planet_collision: false,
     }
 }
 

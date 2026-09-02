@@ -38,8 +38,12 @@ function createClient(worker, index) {
 }
 
 /** Create isolated Wasm instances so one optimizer generation can use several cores. */
-export async function createGravitySculptWasmPool({ state, launch, variables }) {
+export async function createGravitySculptWasmPool({ state, launch, variables, config }) {
     if (typeof Worker !== 'function' || !supportsGravitySculptWasmInput(state, variables)) return null;
+    // At the minimum search budget, population batches are too small to repay
+    // four worker hops. Returning null selects the already-initialized Wasm
+    // evaluator in the outer solve worker without blocking the editor thread.
+    if (config?.budgetMultiplier <= config?.budgetMultiplierRange?.minimum) return null;
     const available = Math.max(1, Number(globalThis.navigator?.hardwareConcurrency) || 2);
     const workerCount = Math.min(4, available);
     const clients = Array.from({ length: workerCount }, (_unused, index) => {

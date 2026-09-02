@@ -1,7 +1,7 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster } from './runtime/entities/gameObjects.js';
+import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper } from './runtime/entities/gameObjects.js';
 import { BlackHole } from './runtime/entities/blackHole.js';
 import Utils from './platform/utils.js';
 import { LevelLoader } from './levels/levelLoader.js';
@@ -48,6 +48,7 @@ import {
     updateFollowCamera
 } from './rendering/viewport.js';
 import { GameState } from './runtime/gameState.js';
+import { PenguinState } from './runtime/penguinState.js';
 import { GameSession } from './runtime/gameSession.js';
 import { RuntimeWorld } from './runtime/runtimeWorld.js';
 import { GameEffectsCoordinator } from './runtime/gameEffectsCoordinator.js';
@@ -119,6 +120,8 @@ export class Game {
     set portals(value) { this.runtimeWorld().portals = value; this.runtimeWorld().touch(); }
     get speedBoosters() { return this.runtimeWorld().speedBoosters; }
     set speedBoosters(value) { this.runtimeWorld().speedBoosters = value; this.runtimeWorld().touch(); }
+    get deflectorBumpers() { return this.runtimeWorld().deflectorBumpers; }
+    set deflectorBumpers(value) { this.runtimeWorld().deflectorBumpers = value; this.runtimeWorld().touch(); }
     get textObjects() { return this.runtimeWorld().textObjects; }
     set textObjects(value) { this.runtimeWorld().textObjects = value; this.runtimeWorld().touch(); }
     get pointingArrows() { return this.runtimeWorld().pointingArrows; }
@@ -291,7 +294,8 @@ export class Game {
             TextObject,
             PointingArrow,
             Portal,
-            SpeedBooster
+            SpeedBooster,
+            DeflectorBumper
         };
         
         this.aimAssistPoints = [];
@@ -400,7 +404,7 @@ export class Game {
     }
 
     resetWorldCamera() {
-        const focus = this.penguin?.state === 'soaring'
+        const focus = this.penguin?.state === PenguinState.SOARING
             ? { x: this.penguin.x, y: this.penguin.y }
             : this.slingshot?.position || (this.penguin
                 ? { x: this.penguin.x, y: this.penguin.y }
@@ -484,7 +488,7 @@ export class Game {
         this.createAlphaMaskAtLaunchPosition(releasePosition);
         
         this.penguin.launch(velocity.x, velocity.y);
-        this.penguin.setState('soaring');
+        this.penguin.setState(PenguinState.SOARING);
         this.tries++;
         this.invalidateSimulationState();
         this.updateUI();
@@ -561,7 +565,7 @@ export class Game {
     }
 
     preserveCrashedPenguin() {
-        if (this.penguin?.state === 'crashed') {
+        if (this.penguin?.state === PenguinState.CRASHED) {
             this.crashedPenguins.push(this.penguin.createCrashCopy());
         }
     }
@@ -594,7 +598,7 @@ export class Game {
 
             if (obj.constructor.name === 'Arrow') {
                 // Only update arrow if penguin exists and has position AND is soaring
-                if (this.penguin && this.penguin.position && this.penguin.state === 'soaring') {
+                if (this.penguin && this.penguin.position && this.penguin.state === PenguinState.SOARING) {
                     obj.update(this.penguin);
                 } else {
                     // Make sure arrow is hidden when penguin is not soaring
@@ -611,7 +615,7 @@ export class Game {
         this.simulationSpeedButton.addEventListener('pointerdown', event => event.stopPropagation());
         this.simulationSpeedButton.addEventListener('click', event => {
             event.stopPropagation();
-            if (this.penguin?.state !== 'soaring' || this.soaringElapsedTime < FAST_FORWARD_UNLOCK_SECONDS) return;
+            if (this.penguin?.state !== PenguinState.SOARING || this.soaringElapsedTime < FAST_FORWARD_UNLOCK_SECONDS) return;
             this.simulationSpeed = this.simulationSpeed === 2 ? 1 : 2;
             this.updateSimulationSpeedButton();
         });
@@ -619,7 +623,7 @@ export class Game {
     }
 
     updateSimulationSpeedControl(deltaTime) {
-        if (this.penguin?.state !== 'soaring') {
+        if (this.penguin?.state !== PenguinState.SOARING) {
             this.resetSimulationSpeedControl();
             return;
         }
@@ -629,7 +633,7 @@ export class Game {
 
     updateSimulationSpeedButton() {
         if (!this.simulationSpeedButton) return;
-        const visible = this.penguin?.state === 'soaring' &&
+        const visible = this.penguin?.state === PenguinState.SOARING &&
             this.soaringElapsedTime >= FAST_FORWARD_UNLOCK_SECONDS;
         this.simulationSpeedButton.style.display = visible ? 'block' : 'none';
         this.simulationSpeedButton.classList.toggle('is-active', this.simulationSpeed === 2);
@@ -844,7 +848,7 @@ export class Game {
 
     updateAimAssistPreview() {
         if (!this.settingsManager.get('aimAssistEnabled') ||
-            this.penguin?.state !== 'pullback' || !this.slingshot?.isPulling) {
+            this.penguin?.state !== PenguinState.PULLBACK || !this.slingshot?.isPulling) {
             this.aimAssistPoints = [];
             return;
         }
@@ -1210,7 +1214,7 @@ export class Game {
                 ? this.slingshot.resetPosition
                 : this.slingshot.anchor;
             this.penguin.setPosition(resetPosition.x, resetPosition.y);
-            this.penguin.setState('idle');
+            this.penguin.setState(PenguinState.IDLE);
             this.penguin.reset();
             this.slingshot.isPulling = false;
             this.isDragging = false;
@@ -1229,7 +1233,7 @@ export class Game {
         
         // Reset penguin to idle state regardless of current state
         if (this.penguin) {
-            this.penguin.setState('idle');
+            this.penguin.setState(PenguinState.IDLE);
             // Also reset penguin physics state
             this.penguin.launched = false;
             this.penguin.vx = 0;

@@ -116,7 +116,7 @@ test('native Rust terminal summaries agree across every shipped level', async ()
     }
 });
 
-test('native Rust preserves speed-booster and portal transitions', async () => {
+test('native Rust preserves speed-booster, portal, and deflector transitions', async () => {
     const level = {
         name: 'Native interactive-object parity fixture',
         startPosition: { x: 0, y: 0 },
@@ -131,6 +131,9 @@ test('native Rust preserves speed-booster and portal transitions', async () => {
             } },
             { type: 'portal', position: { x: 450, y: 300 }, properties: {
                 id: 'b', pairedPortalId: 'a', color: 'blue', rotation: 90
+            } },
+            { type: 'deflectorbumper', position: { x: 600, y: 300 }, properties: {
+                id: 'bumper', radius: 24, restitution: 1.1, playSound: false
             } },
             { type: 'target', position: { x: 700, y: 300 }, properties: { width: 80, height: 80 } }
         ],
@@ -151,5 +154,9 @@ test('native Rust preserves speed-booster and portal transitions', async () => {
     assert.deepEqual(
         actual.events.find(event => event.type === 'portal_teleported'),
         expected.events.find(event => event.type === 'portal_teleported')
+    );
+    assert.deepEqual(
+        actual.events.find(event => event.type === 'deflector_bounced'),
+        expected.events.find(event => event.type === 'deflector_bounced')
     );
 });

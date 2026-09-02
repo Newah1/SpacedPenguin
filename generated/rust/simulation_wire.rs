@@ -4,7 +4,7 @@ use crate::generated_game_objects::*;
 use crate::generated_simulation_state::*;
 
 const MAGIC: u32 = 0x53505731;
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 struct Reader<'a> {
     bytes: &'a [u8],
@@ -143,6 +143,14 @@ impl<'a> Reader<'a> {
                 }
                 values
             },
+            deflector_bumpers: {
+                let length = self.u32()? as usize;
+                let mut values = Vec::with_capacity(length);
+                for _ in 0..length {
+                    values.push(self.deflector_bumper()?);
+                }
+                values
+            },
             decorations: Vec::new(),
             target: self.target()?,
             slingshot: self.slingshot()?,
@@ -205,6 +213,16 @@ impl<'a> Reader<'a> {
             height: self.f64()?,
             rotation: self.f64()?,
             speed_multiplier: self.f64()?,
+            play_sound: self.u8()?,
+        })
+    }
+
+    fn deflector_bumper(&mut self) -> Result<DeflectorBumper, String> {
+        Ok(DeflectorBumper {
+            id: self.string()?,
+            position: self.point()?,
+            radius: self.f64()?,
+            restitution: self.f64()?,
             play_sound: self.u8()?,
         })
     }

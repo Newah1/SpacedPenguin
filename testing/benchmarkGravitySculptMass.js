@@ -65,6 +65,7 @@ const sharedOptions = {
         checkpointTolerance: 20,
         candidateCount: 3,
         budgetMultiplier: 0.5,
+        influenceMinimumPopulation: 6,
         stages: {
             mass: { population: 12, generations: 4 },
             joint: { population: 16, generations: 6 }
@@ -92,25 +93,35 @@ async function benchmark(seed, overrides) {
 }
 
 const seeds = [284117, 912733, 441029, 778151, 630211, 159733];
-const runs = await Promise.all(seeds.map(async seed => ({
-    seed,
-    unguided: await benchmark(seed, {
+const variants = {
+    unguided: {
         influenceGuidanceEnabled: false,
         waypointCurriculumEnabled: false
-    }),
-    guided: await benchmark(seed, {
+    },
+    guided: {
         influenceGuidanceEnabled: true,
         waypointCurriculumEnabled: false
-    }),
-    curriculum: await benchmark(seed, {
+    },
+    curriculum: {
         influenceGuidanceEnabled: false,
         waypointCurriculumEnabled: true
-    }),
-    guidedCurriculum: await benchmark(seed, {
+    },
+    guidedCurriculum: {
         influenceGuidanceEnabled: true,
         waypointCurriculumEnabled: true
-    })
-})));
+    }
+};
+const variantNames = Object.keys(variants);
+const runs = [];
+for (let seedIndex = 0; seedIndex < seeds.length; seedIndex++) {
+    const seed = seeds[seedIndex];
+    const run = { seed };
+    for (let offset = 0; offset < variantNames.length; offset++) {
+        const name = variantNames[(seedIndex + offset) % variantNames.length];
+        run[name] = await benchmark(seed, variants[name]);
+    }
+    runs.push(run);
+}
 
 function summarize(name) {
     const results = runs.map(run => run[name]);

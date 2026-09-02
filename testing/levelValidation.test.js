@@ -210,3 +210,19 @@ test('speed boosters accept directional multiplier and sound configuration', () 
     assert.equal(validateLevelDefinition(invalid).valid, false);
     assert.equal(validateLevelDefinition(invalid).errors.some(error => error.path.endsWith('.speedMultiplier')), true);
 });
+
+test('deflector bumpers validate radius, restitution, and sound configuration', () => {
+    const valid = {
+        objects: [
+            object('slingshot', 0, 0),
+            object('target', 700, 300),
+            object('deflector', 100, 100, { radius: 24, restitution: 1.2, playSound: false })
+        ]
+    };
+    assert.equal(validateLevelDefinition(valid).valid, true);
+
+    const invalid = structuredClone(valid);
+    invalid.objects[2].properties.restitution = -0.1;
+    assert.equal(validateLevelDefinition(invalid).valid, false);
+    assert.equal(validateLevelDefinition(invalid).errors.some(error => error.path.endsWith('.restitution')), true);
+});

@@ -10,6 +10,17 @@ import { createGravitySculptWasmEvaluator } from './wasmSimulationBridge.js';
 
 const DEFAULT_OPTIONS = EDITOR_CONFIG.gravitySculpt;
 
+function createAbortError() {
+    if (typeof DOMException === 'function') return new DOMException('Gravity Sculpt was cancelled', 'AbortError');
+    const error = new Error('Gravity Sculpt was cancelled');
+    error.name = 'AbortError';
+    return error;
+}
+
+function throwIfAborted(signal) {
+    if (signal?.aborted) throw createAbortError();
+}
+
 const PARAMETER_KIND = Object.freeze({
     LAUNCH: 'launch',
     MASS: 'mass',
@@ -58,7 +69,7 @@ const HARD_GOAL_RULES = Object.freeze([
     {
         id: 'target',
         enabled: goals => goals.requireTarget,
-        violated: ({ state }) => state.penguin.state !== 'hitTarget'
+        violated: ({ state }) => state.penguin.state !== PenguinState.HIT_TARGET
     },
     {
         id: 'planet_collision',
@@ -124,6 +135,11 @@ function clamp(value, min, max) {
 
 function distance(left, right) {
     return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function routeCompletionGoalsSatisfied(state, goals = {}) {
+    if (goals.requireTarget) return false;
+    return (goals.requiredBonusIndices || []).every(index => state.bonuses[index]?.collected);
 }
 
 export function inferSculptLaunch(state, desiredPath, pullbackPower = state.slingshot.maxPullback) {
@@ -331,7 +347,7 @@ export function analyzeSculptTrajectory(trajectory, desiredPath, terminal, varia
         ) / searchSpan(variable);
         score += normalized * normalized * parameterPenalty(variable, config);
     });
-    if (terminal && terminal !== 'hitTarget') score += config.terminalPenalty;
+    if (terminal && terminal !== PenguinState.HIT_TARGET) score += config.terminalPenalty;
     return {
         score,
         checkpointCoverage: checkpointsReached / waypointCount,
@@ -383,7 +399,7 @@ function simulateSculptCandidate(
     const state = cloneSimulationState(baseState);
     state.penguin.position = { ...state.slingshot.position };
     state.penguin.velocity = { ...launch.velocity };
-    state.penguin.state = 'soaring';
+    state.penguin.state = PenguinState.SOARING;
     state.penguin.crashFramesRemaining = 0;
     state.counters.tries += 1;
     // Parameter descriptors own how values affect a candidate. Existing
@@ -404,10 +420,11 @@ function simulateSculptCandidate(
     let peakGravityAcceleration = 0;
     let gravityAccelerationTotal = 0;
     let gravitySamples = 0;
+    let nextWaypointIndex = 1;
     for (let step = 1; step <= steps; step++) {
         const previousPosition = { ...state.penguin.position };
         const previousVelocity = { ...state.penguin.velocity };
-        const wasSoaring = state.penguin.state === 'soaring';
+        const wasSoaring = state.penguin.state === PenguinState.SOARING;
         const result = stepSimulationMutable(
             state,
             SIMULATION_CONFIG.aimAssist.timeStep,
@@ -420,7 +437,7 @@ function simulateSculptCandidate(
             event.type === SimulationEventType.PLANET_COLLISION ||
             event.type === SimulationEventType.PLANET_BOUNCE
         );
-        if (wasSoaring && !collided) {
+        if (wasSoaring && state.penguin.state === PenguinState.SOARING && !collided) {
             const acceleration = Math.hypot(
                 state.penguin.velocity.x - previousVelocity.x,
                 state.penguin.velocity.y - previousVelocity.y
@@ -429,10 +446,22 @@ function simulateSculptCandidate(
             gravityAccelerationTotal += acceleration;
             gravitySamples += 1;
         }
-        if (step % config.sampleEverySteps === 0 || state.penguin.state !== 'soaring') {
+        if (step % config.sampleEverySteps === 0 || state.penguin.state !== PenguinState.SOARING) {
             trajectory.push({ ...state.penguin.position });
+            if (
+                nextWaypointIndex < desiredPath.length &&
+                distance(state.penguin.position, desiredPath[nextWaypointIndex]) <= config.checkpointTolerance
+            ) {
+                nextWaypointIndex += 1;
+            }
         }
-        if (state.penguin.state !== 'soaring') break;
+        if (state.penguin.state !== PenguinState.SOARING) break;
+        if (
+            nextWaypointIndex >= desiredPath.length &&
+            routeCompletionGoalsSatisfied(state, config.goals)
+        ) {
+            break;
+        }
         if (pathLength >= trajectoryDistanceBudget) break;
     }
     const metrics = analyzeSculptTrajectory(
@@ -625,7 +654,76 @@ function distinctPopulationIndices(length, excluded, count, random) {
     return available.slice(0, count);
 }
 
-function compareSculptCandidates(left, right) {
+function centralOnlyConfig(config) {
+    return config.robustLaunchOffsets?.length
+        ? { ...config, robustLaunchOffsets: [] }
+        : config;
+}
+
+function stageRobustnessPlan(stageName, stageConfig, config, enabled) {
+    const robust = enabled && stageName === 'joint' && config.robustLaunchOffsets?.length > 0;
+    if (!robust) {
+        return {
+            enabled: false,
+            startGeneration: Number.POSITIVE_INFINITY,
+            initialConfig: centralOnlyConfig(config)
+        };
+    }
+    const robustGenerations = Math.max(
+        1,
+        Math.ceil(stageConfig.generations * clamp(config.robustOptimizationFraction, 0, 1))
+    );
+    const startGeneration = Math.max(0, stageConfig.generations - robustGenerations);
+    return {
+        enabled: true,
+        startGeneration,
+        initialConfig: startGeneration === 0 ? config : centralOnlyConfig(config)
+    };
+}
+
+function candidateTier(candidate) {
+    return [
+        candidate.constraintViolations?.length || 0,
+        candidate.robustGoalSuccessRate ?? 1,
+        candidate.missedWaypointCount ?? Number.POSITIVE_INFINITY,
+        candidate.robustCheckpointCoverage ?? candidate.checkpointCoverage ?? 0
+    ].join(':');
+}
+
+function meaningfullyImproved(previous, current, config) {
+    if (!previous || compareSculptCandidates(current, previous) >= 0) return false;
+    if (candidateTier(previous) !== candidateTier(current)) return true;
+    const threshold = Math.max(1, Math.abs(previous.score)) * config.convergenceRelativeTolerance;
+    return previous.score - current.score > threshold;
+}
+
+function populationSizeForStage(activeIndices, stageConfig, config) {
+    const populationPerVariable = Math.max(2, Math.round(4 * config.budgetMultiplier));
+    return Math.min(
+        config.maximumPopulation,
+        Math.max(stageConfig.population, activeIndices.length * populationPerVariable, 4)
+    );
+}
+
+function mergeStageSeeds(primary, secondary, limit) {
+    const unique = new Map();
+    for (const candidate of [...primary, ...secondary]) {
+        const signature = candidate.values.join('\u0000');
+        if (!unique.has(signature)) unique.set(signature, candidate);
+        if (unique.size >= limit) break;
+    }
+    return [...unique.values()];
+}
+
+export function compareSculptCandidates(left, right) {
+    const hardGoalViolations = (left.constraintViolations?.length || 0) -
+        (right.constraintViolations?.length || 0);
+    if (hardGoalViolations !== 0) return hardGoalViolations;
+
+    const robustGoalSuccess = (right.robustGoalSuccessRate ?? 1) -
+        (left.robustGoalSuccessRate ?? 1);
+    if (robustGoalSuccess !== 0) return robustGoalSuccess;
+
     const missedWaypoints = (left.missedWaypointCount ?? Number.POSITIVE_INFINITY) -
         (right.missedWaypointCount ?? Number.POSITIVE_INFINITY);
     if (missedWaypoints !== 0) return missedWaypoints;
@@ -633,10 +731,6 @@ function compareSculptCandidates(left, right) {
     const robustCoverage = (right.robustCheckpointCoverage ?? right.checkpointCoverage ?? 0) -
         (left.robustCheckpointCoverage ?? left.checkpointCoverage ?? 0);
     if (robustCoverage !== 0) return robustCoverage;
-
-    const hardGoalViolations = (left.constraintViolations?.length || 0) -
-        (right.constraintViolations?.length || 0);
-    if (hardGoalViolations !== 0) return hardGoalViolations;
 
     return left.score - right.score;
 }
@@ -814,6 +908,7 @@ async function createInfluenceGuidance({
 
 async function runDifferentialEvolutionStage({
     name,
+    stageName,
     seeds,
     activeIndices,
     stageConfig,
@@ -825,18 +920,33 @@ async function runDifferentialEvolutionStage({
     random,
     progress,
     useInfluenceGuidance,
-    evaluator
+    evaluator,
+    enableRobustness,
+    signal
 }) {
     if (activeIndices.length === 0) return seeds;
-    const populationPerVariable = Math.max(2, Math.round(4 * config.budgetMultiplier));
-    const populationSize = Math.min(
-        config.maximumPopulation,
-        Math.max(stageConfig.population, activeIndices.length * populationPerVariable, 4)
+    throwIfAborted(signal);
+    const populationSize = populationSizeForStage(activeIndices, stageConfig, config);
+    const robustness = stageRobustnessPlan(stageName, stageConfig, config, enableRobustness);
+    let evaluationConfig = robustness.initialConfig;
+    const uniqueSeeds = [...new Map(
+        seeds.map(candidate => [candidate.values.join('\u0000'), candidate])
+    ).values()];
+    const reevaluatedSeeds = await evaluator.evaluateMany(
+        path,
+        evaluationConfig,
+        uniqueSeeds.map(candidate => candidate.values)
     );
-    const eliteSeeds = [...seeds]
+    throwIfAborted(signal);
+    progress.evaluations += reevaluatedSeeds.reduce(
+        (sum, candidate) => sum + candidate.simulationCount,
+        0
+    );
+    const rankedSeeds = reevaluatedSeeds
         .sort(compareSculptCandidates)
-        .slice(0, Math.min(config.eliteSeedCount, populationSize));
-    const population = [...eliteSeeds];
+        .slice(0, populationSize);
+    const eliteSeeds = rankedSeeds.slice(0, Math.min(config.eliteSeedCount, populationSize));
+    const population = [...rankedSeeds];
     let mutationIndices = activeIndices;
     const initialValues = [];
     while (population.length < populationSize) {
@@ -845,8 +955,9 @@ async function runDifferentialEvolutionStage({
         initialValues.push(values);
         population.push(null);
     }
-    const initialCandidates = await evaluator.evaluateMany(path, config, initialValues);
-    population.splice(eliteSeeds.length, initialCandidates.length, ...initialCandidates);
+    const initialCandidates = await evaluator.evaluateMany(path, evaluationConfig, initialValues);
+    throwIfAborted(signal);
+    population.splice(rankedSeeds.length, initialCandidates.length, ...initialCandidates);
     progress.evaluations += initialCandidates.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
     if (
         useInfluenceGuidance &&
@@ -864,10 +975,11 @@ async function runDifferentialEvolutionStage({
             path,
             launch,
             variables,
-            config,
+            config: evaluationConfig,
             progress,
             evaluator
         });
+        throwIfAborted(signal);
         mutationIndices = guidance.activeIndices.length > 0
             ? guidance.activeIndices
             : activeIndices;
@@ -893,7 +1005,30 @@ async function runDifferentialEvolutionStage({
         }
     }
 
+    let best = [...population].sort(compareSculptCandidates)[0];
+    let stagnantGenerations = 0;
     for (let generation = 0; generation < stageConfig.generations; generation++) {
+        throwIfAborted(signal);
+        if (
+            robustness.enabled &&
+            generation === robustness.startGeneration &&
+            evaluationConfig !== config
+        ) {
+            const robustPopulation = await evaluator.evaluateMany(
+                path,
+                config,
+                population.map(candidate => candidate.values)
+            );
+            throwIfAborted(signal);
+            progress.evaluations += robustPopulation.reduce(
+                (sum, candidate) => sum + candidate.simulationCount,
+                0
+            );
+            population.splice(0, population.length, ...robustPopulation);
+            evaluationConfig = config;
+            best = [...population].sort(compareSculptCandidates)[0];
+            stagnantGenerations = 0;
+        }
         const next = [...population];
         const trialValuesBatch = [];
         for (let targetIndex = 0; targetIndex < population.length; targetIndex++) {
@@ -919,7 +1054,8 @@ async function runDifferentialEvolutionStage({
             }
             trialValuesBatch.push(trialValues);
         }
-        const trials = await evaluator.evaluateMany(path, config, trialValuesBatch);
+        const trials = await evaluator.evaluateMany(path, evaluationConfig, trialValuesBatch);
+        throwIfAborted(signal);
         for (let targetIndex = 0; targetIndex < population.length; targetIndex++) {
             const trial = trials[targetIndex];
             const target = population[targetIndex];
@@ -927,14 +1063,27 @@ async function runDifferentialEvolutionStage({
             if (compareSculptCandidates(trial, target) <= 0) next[targetIndex] = trial;
         }
         population.splice(0, population.length, ...next);
+        const nextBest = [...population].sort(compareSculptCandidates)[0];
+        stagnantGenerations = meaningfullyImproved(best, nextBest, config)
+            ? 0
+            : stagnantGenerations + 1;
+        best = nextBest;
         progress.generation += 1;
         progress.onProgress?.({
             stage: name,
             generation: progress.generation,
             total: progress.totalGenerations,
             evaluations: progress.evaluations,
-            bestScore: [...population].sort(compareSculptCandidates)[0].score
+            bestScore: best.score
         });
+        const robustPhaseReached = !robustness.enabled || evaluationConfig === config;
+        if (
+            robustPhaseReached &&
+            generation + 1 >= config.convergenceMinimumGenerations &&
+            stagnantGenerations >= config.convergencePatience
+        ) {
+            break;
+        }
         await new Promise(resolve => setTimeout(resolve, 0));
     }
     return population.sort(compareSculptCandidates);
@@ -953,8 +1102,15 @@ function normalizedParameterDistance(left, right, variables) {
 
 function selectDiverseCandidates(candidates, variables, config, requestedCount = config.candidateCount) {
     const sorted = [...candidates].sort(compareSculptCandidates);
-    const bestWaypointTier = sorted[0]?.missedWaypointCount;
-    const eligible = sorted.filter(candidate => candidate.missedWaypointCount === bestWaypointTier);
+    const best = sorted[0];
+    const bestHardGoalTier = best?.constraintViolations?.length || 0;
+    const bestRobustGoalTier = best?.robustGoalSuccessRate ?? 1;
+    const bestWaypointTier = best?.missedWaypointCount;
+    const eligible = sorted.filter(candidate =>
+        (candidate.constraintViolations?.length || 0) === bestHardGoalTier &&
+        (candidate.robustGoalSuccessRate ?? 1) === bestRobustGoalTier &&
+        candidate.missedWaypointCount === bestWaypointTier
+    );
     const selected = [];
     for (const candidate of eligible) {
         if (selected.every(existing =>
@@ -1027,12 +1183,6 @@ function curriculumConfig(config, isCompleteRoute) {
     };
 }
 
-async function reevaluateSeeds(seeds, path, config, progress, evaluator) {
-    const candidates = await evaluator.evaluateMany(path, config, seeds.map(seed => seed.values));
-    progress.evaluations += candidates.reduce((sum, candidate) => sum + candidate.simulationCount, 0);
-    return candidates;
-}
-
 function materializeCandidate(candidate, state, variables, planetIndices) {
     const adjusted = cloneSimulationState(state);
     applyValues(adjusted, variables, candidate.values);
@@ -1070,8 +1220,10 @@ export async function solveGravitySculpt({
     variables: suppliedVariables,
     options = {},
     onProgress,
-    evaluatorFactory
+    evaluatorFactory,
+    signal
 }) {
+    throwIfAborted(signal);
     const config = { ...DEFAULT_OPTIONS, ...options };
     const budgetMultiplier = clamp(
         Number(options.budgetMultiplier) || DEFAULT_OPTIONS.budgetMultiplier,
@@ -1101,13 +1253,15 @@ export async function solveGravitySculpt({
     const variables = suppliedVariables || [...planetVariables, ...launchVariables];
     if (variables.length === 0) throw new Error('Select at least one stationary planet and an adjustable property.');
     const resolvedLaunch = launch || inferSculptLaunch(state, path);
-    const evaluator = await evaluatorFactory?.({ state, launch: resolvedLaunch, variables }) ||
+    const evaluator = await evaluatorFactory?.({ state, launch: resolvedLaunch, variables, config }) ||
         createSculptEvaluator(state, resolvedLaunch, variables);
     const random = seededRandom(config.seed);
     try {
+    throwIfAborted(signal);
     const [baseline] = await evaluator.evaluateMany(
         path, config, [variables.map(variable => variable.initial)]
     );
+    throwIfAborted(signal);
     const stageDefinitions = OPTIMIZATION_STAGE_DEFINITIONS
         .map(definition => ({
             ...definition,
@@ -1126,20 +1280,29 @@ export async function solveGravitySculpt({
     };
     const curriculum = buildWaypointCurriculum(path, stageDefinitions, config);
     const prefixArchives = [];
+    const stagePopulations = new Map();
     let archive = [baseline];
     let population = [baseline];
     for (const phase of curriculum) {
+        throwIfAborted(signal);
         const isCompleteRoute = phase.path.length === path.length;
         const phaseConfig = curriculumConfig(config, isCompleteRoute);
-        archive = await reevaluateSeeds(archive, phase.path, phaseConfig, progress, evaluator);
         for (const { name, activeIndices, useInfluenceGuidance } of stageDefinitions) {
             const generations = phase.stageGenerations[name];
             if (generations <= 0) continue;
+            const stageConfig = { ...config.stages[name], generations };
+            const populationSize = populationSizeForStage(activeIndices, stageConfig, phaseConfig);
+            const seeds = mergeStageSeeds(
+                archive,
+                stagePopulations.get(name) || [],
+                populationSize
+            );
             population = await runDifferentialEvolutionStage({
                 name: `${name} · waypoint ${phase.waypointCount}/${path.length - 1}`,
-                seeds: archive,
+                stageName: name,
+                seeds,
                 activeIndices,
-                stageConfig: { ...config.stages[name], generations },
+                stageConfig,
                 state,
                 path: phase.path,
                 launch: resolvedLaunch,
@@ -1148,8 +1311,11 @@ export async function solveGravitySculpt({
                 random,
                 progress,
                 useInfluenceGuidance,
-                evaluator
+                evaluator,
+                enableRobustness: isCompleteRoute,
+                signal
             });
+            stagePopulations.set(name, population);
             archive = selectDiverseCandidates(
                 population,
                 variables,
@@ -1166,14 +1332,17 @@ export async function solveGravitySculpt({
     const selectedCandidates = selectDiverseCandidates(
         [...archive, ...population], variables, config
     );
-    const hydratedCandidates = evaluator.backend === 'wasm'
-        ? await evaluator.evaluateMany(
-            path,
-            config,
-            selectedCandidates.map(candidate => candidate.values),
-            { captureTrajectories: true }
-        )
-        : selectedCandidates;
+    const hydratedCandidates = await evaluator.evaluateMany(
+        path,
+        config,
+        selectedCandidates.map(candidate => candidate.values),
+        { captureTrajectories: evaluator.backend === 'wasm' }
+    );
+    throwIfAborted(signal);
+    progress.evaluations += hydratedCandidates.reduce(
+        (sum, candidate) => sum + candidate.simulationCount,
+        0
+    );
     const candidates = hydratedCandidates.map(candidate =>
         materializeCandidate(candidate, state, variables, planetIndices)
     );
@@ -1197,3 +1366,4 @@ export async function solveGravitySculpt({
 }
 
 export { DEFAULT_OPTIONS as GRAVITY_SCULPT_DEFAULTS };
+import { PenguinState } from '../runtime/penguinState.js';

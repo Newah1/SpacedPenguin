@@ -67,14 +67,15 @@ export class GameplayInputContext {
                 game.showQuitDialog();
                 return InputResponse.handled({ preventDefault: true });
             case 'Space':
-                if (game.penguin?.state !== 'crashed' && game.penguin?.state !== 'hitTarget') {
+                if (game.penguin?.state !== PenguinState.CRASHED && game.penguin?.state !== PenguinState.HIT_TARGET) {
                     return InputResponse.consumed();
                 }
                 game.resetLevel();
                 return InputResponse.handled({ preventDefault: true });
             default:
-                if (game.penguin?.state === 'soaring') game.tryAgain();
+                if (game.penguin?.state === PenguinState.SOARING) game.tryAgain();
                 return InputResponse.consumed();
         }
     }
 }
+import { PenguinState } from '../../runtime/penguinState.js';

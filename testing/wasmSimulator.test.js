@@ -92,7 +92,7 @@ test('Rust/Wasm terminal summaries agree across every shipped level', async () =
     }
 });
 
-test('Rust/Wasm preserves speed-booster and portal transitions', async () => {
+test('Rust/Wasm preserves speed-booster, portal, and deflector transitions', async () => {
     const level = {
         name: 'Wasm interactive-object parity fixture',
         startPosition: { x: 0, y: 0 },
@@ -107,6 +107,9 @@ test('Rust/Wasm preserves speed-booster and portal transitions', async () => {
             } },
             { type: 'portal', position: { x: 450, y: 300 }, properties: {
                 id: 'b', pairedPortalId: 'a', color: 'blue', rotation: 90
+            } },
+            { type: 'deflectorbumper', position: { x: 600, y: 300 }, properties: {
+                id: 'bumper', radius: 24, restitution: 1.1, playSound: false
             } },
             { type: 'target', position: { x: 700, y: 300 }, properties: { width: 80, height: 80 } }
         ],
@@ -128,8 +131,11 @@ test('Rust/Wasm preserves speed-booster and portal transitions', async () => {
     const actualBooster = actual.events.find(event => event.type === 'speed_booster_activated');
     const expectedPortal = expected.events.find(event => event.type === 'portal_teleported');
     const actualPortal = actual.events.find(event => event.type === 'portal_teleported');
+    const expectedDeflector = expected.events.find(event => event.type === 'deflector_bounced');
+    const actualDeflector = actual.events.find(event => event.type === 'deflector_bounced');
     assert.deepEqual(actualBooster, expectedBooster);
     assert.deepEqual(actualPortal, expectedPortal);
+    assert.deepEqual(actualDeflector, expectedDeflector);
     close(actual.finalPosition.x, expected.finalPosition.x, 'interactive final x');
     close(actual.finalPosition.y, expected.finalPosition.y, 'interactive final y');
     close(actual.distance, expected.distance, 'interactive distance');

@@ -69,6 +69,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
     const bonuses = [];
     const portals = [];
     const speedBoosters = [];
+    const deflectorBumpers = [];
     const decorations = [];
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
@@ -123,6 +124,15 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 playSound: properties.playSound ?? LEVEL_DEFAULTS.speedBooster.playSound,
                 waypointPath: waypointPathFromDefinition(definition)
             });
+        } else if (type === LevelObjectType.DEFLECTOR_BUMPER) {
+            deflectorBumpers.push({
+                id: nextId(type, properties.id),
+                position: clonePoint(objectPosition(definition)),
+                radius: properties.radius ?? LEVEL_DEFAULTS.deflectorBumper.radius,
+                restitution: properties.restitution ?? LEVEL_DEFAULTS.deflectorBumper.restitution,
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.deflectorBumper.playSound,
+                waypointPath: waypointPathFromDefinition(definition)
+            });
         } else if (type === LevelObjectType.TEXT || type === LevelObjectType.POINTING_ARROW) {
             decorations.push({
                 id: nextId(type, properties.id),
@@ -157,7 +167,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
             position: clonePoint(startPosition),
             velocity: { x: 0, y: 0 },
             radius: options.penguinRadius ?? LEVEL_DEFAULTS.penguin.radius,
-            state: 'idle',
+            state: PenguinState.IDLE,
             crashFramesRemaining: 0,
             portalLockId: null,
             speedBoosterLockId: null
@@ -166,6 +176,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
         bonuses,
         portals,
         speedBoosters,
+        deflectorBumpers,
         decorations,
         target,
         slingshot: {
@@ -231,6 +242,11 @@ export function cloneSimulationState(state) {
             position: clonePoint(speedBooster.position),
             waypointPath: cloneWaypointPathState(speedBooster.waypointPath)
         })),
+        deflectorBumpers: (state.deflectorBumpers || []).map(bumper => ({
+            ...bumper,
+            position: clonePoint(bumper.position),
+            waypointPath: cloneWaypointPathState(bumper.waypointPath)
+        })),
         decorations: (state.decorations || []).map(decoration => ({
             ...decoration,
             position: clonePoint(decoration.position),
@@ -268,3 +284,4 @@ export function resetSimulationAttempt(initialState, currentState = initialState
     reset.counters.distance = 0;
     return reset;
 }
+import { PenguinState } from '../runtime/penguinState.js';

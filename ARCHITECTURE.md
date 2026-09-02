@@ -275,20 +275,26 @@ flowchart LR
 
 ### Deterministic simulation path
 
-`stepSimulation(state, delta)` is the authoritative immutable JavaScript gameplay transition and fallback. The browser's normal path uses the Rust/Wasm implementation through one persistent runtime state handle per live simulation; it synchronizes moving world positions through a reusable `Float64Array` buffer and applies the generated binary `StepPatch`/event-union response. Wasm initialization failure selects the JavaScript implementation. The shared transition kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
+`stepSimulation(state, delta)` is the authoritative immutable JavaScript gameplay transition and fallback. The browser's normal path uses the Rust/Wasm implementation through one persistent runtime state handle per live simulation; it synchronizes moving world positions through a reusable `Float64Array` buffer and applies the generated binary `StepPatch`/event-union response. Wasm initialization failure selects the JavaScript implementation. The shared transition kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, resolves swept deflector, booster, and portal interactions, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
 
-The logical result is `{ state, events }`; the Wasm boundary carries its generated versioned binary `StepPatch` and event union. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same Rust candidate-transition function with browser-only movement observations disabled, so it is a runner rather than a second physics implementation. Its portable backend uses Wasm; its optimized native backend validates and compiles world motion in the existing Node adapter, then sends one canonical sweep request to `spaced-penguin-headless`. Candidate simulation, success filtering, near-miss ranking, and detailed capture stay inside that Rust process. Headless batch trajectory envelopes may remain JSON because they are outside the per-frame hot path.
+The logical result is `{ state, events }`; the Wasm boundary carries its generated versioned binary `StepPatch` and event union. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, deflector reflection, portal/booster activation, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same Rust candidate-transition function with browser-only movement observations disabled, so it is a runner rather than a second physics implementation. Its portable backend uses Wasm; its optimized native backend validates and compiles world motion in the existing Node adapter, then sends one canonical sweep request to `spaced-penguin-headless`. Candidate simulation, success filtering, near-miss ranking, and detailed capture stay inside that Rust process. Headless batch trajectory envelopes may remain JSON because they are outside the per-frame hot path.
 
 For a trajectory sweep, world motion is candidate-independent: planets, bonuses, and the target never react to the penguin. `CompiledWorldTimeline` therefore advances the same orbit graph once for every fixed step and stores exact positions and mutable orbit fields. Each candidate owns a fresh mutable penguin/bonus/counter state, applies the corresponding world frame, and invokes the shared kernel with orbit advancement disabled. Timeline frames follow the production ordering—world advance first, then collision/gravity/bonus/target evaluation. Optional worker threads each own their timeline and candidate subset; results are restored to canonical grid order before returning.
 
 Gravity Sculpt keeps differential-evolution policy, curriculum assembly, and
 editor commands in JavaScript, but evaluates complete population/probe batches
-inside a bounded pool of persistent Rust/Wasm sculpt contexts hosted beneath a
-module worker. Rust
+inside persistent Rust/Wasm sculpt contexts hosted beneath a module worker.
+The minimum search budget uses one context to avoid worker-hop overhead; larger
+budgets use a bounded pool. Rust
 applies supported planet/launch variables, advances the shared transition, and
 returns objective metrics plus matched waypoint samples. Discarded candidates
 do not cross the boundary with complete trajectories; the final candidate set
-is re-evaluated with preview capture. Moving orbit/waypoint worlds and custom
+is re-evaluated with preview capture. Waypoint-only evaluations stop as soon as
+the ordered route is complete. Curriculum phases preserve each optimization
+stage's population, robust launch perturbations are deferred to the final part
+of the complete-route joint stage, optional influence guidance is disabled by
+default, and stagnant stages may stop early. Moving
+orbit/waypoint worlds and custom
 variable functions use the JavaScript evaluator because the current sculpt
 batch contexts intentionally model stationary candidate worlds. This fallback
 preserves capability without introducing a second moving-world implementation.
@@ -421,6 +427,8 @@ Search resets the result set and cancels the prior request. Pagination appends o
 | `text`, `textobject` | `TextObject` | content, sizing, font/color, visibility/fade, render order | Supports a deliberately small HTML-like formatting parser, not arbitrary DOM HTML rendering. |
 | `arrow`, `pointingarrow` | `PointingArrow` | colors, sizing, pulse, render order, `pointingAt`, `pointAfterDelay` | `pointAfterDelay` hides the arrow until it begins pointing at the configured `pointingAt` target. |
 | `portal` | `Portal` | `id`, `pairedPortalId`, `color`, width, height, rotation, `playSound` | Red/blue endpoints must pair reciprocally. Swept teleportation is deterministic; clipped dual-penguin visuals and audio are browser effects. |
+| `speedbooster`, `booster` | `SpeedBooster` | `id`, width, height, rotation, `speedMultiplier`, `playSound` | Swept contact redirects momentum along the authored rotation and applies the configured multiplier. |
+| `deflectorbumper`, `deflector`, `bumper` | `DeflectorBumper` | `id`, `radius`, `restitution`, `color`, `playSound` | Swept circular contact reflects momentum across the impact normal without ending the attempt; glow, flash, and audio remain browser effects. |
 | `penguin` | none | exported state only | Accepted for compatibility with older editor exports; runtime creates the singleton penguin from `startPosition`. |
 
 ### Orbit contract
@@ -469,7 +477,7 @@ Validation explicitly rejects duplicate IDs, missing or unavailable references, 
 
 `properties.waypointPath` is the shared fixed-path motion definition for every authored object. It contains at least two absolute `waypoints`, a world-units-per-second `speed`, a `pingpong` or `loop` mode, and an optional distance `phase`. `waypointSimulation.js` owns normalization-independent pure stepping and the lightweight runtime facade. Orbit and waypoint motion are mutually exclusive for one object.
 
-The simulation engine advances waypoint-controlled planets, bonuses, portals, speed boosters, the target, slingshot, and decorative objects at the same fixed-step boundary used for orbits. `CompiledWorldTimeline` stores their positions and waypoint phase so headless sweeps remain exact. The browser adapter only applies those positions to runtime objects. The editor uses the same pure step for previews and renders numbered fixed paths; its inspector mutations remain canonical `LevelDocument` commands.
+The simulation engine advances waypoint-controlled planets, bonuses, portals, speed boosters, deflector bumpers, the target, slingshot, and decorative objects at the same fixed-step boundary used for orbits. `CompiledWorldTimeline` stores their positions and waypoint phase so headless sweeps remain exact. The browser adapter only applies those positions to runtime objects. The editor uses the same pure step for previews and renders numbered fixed paths; its inspector mutations remain canonical `LevelDocument` commands.
 
 ### Level rules
 

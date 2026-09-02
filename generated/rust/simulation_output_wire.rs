@@ -5,7 +5,7 @@ use crate::generated_simulation_events::SimulationEvent;
 use crate::generated_simulation_output::*;
 
 const MAGIC: u32 = 0x53505731;
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 struct Writer {
     bytes: Vec<u8>,
@@ -158,6 +158,24 @@ fn write_simulation_event(writer: &mut Writer, value: &SimulationEvent) -> Resul
             writer.tag(10);
             writer.string(rule);
             writer.string(reason);
+        }
+        SimulationEvent::DeflectorBounced {
+            deflector_bumper_id,
+            deflector_bumper_index,
+            position,
+            normal,
+            incoming_velocity,
+            velocity,
+            play_sound,
+        } => {
+            writer.tag(11);
+            writer.string(deflector_bumper_id);
+            writer.f64(*deflector_bumper_index as f64);
+            write_point(writer, position)?;
+            write_point(writer, normal)?;
+            write_point(writer, incoming_velocity)?;
+            write_point(writer, velocity)?;
+            writer.u8(*play_sound);
         }
     }
     Ok(())

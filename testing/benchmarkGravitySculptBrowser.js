@@ -35,15 +35,17 @@ try {
             ],
             rules: { gravitationalConstant: 3 }
         });
-        const baseRequest = () => ({
+        const baseRequest = budgetMultiplier => ({
             state: state(),
             desiredPath: [
                 { x: 70, y: 300 }, { x: 280, y: 225 },
                 { x: 500, y: 350 }, { x: 730, y: 245 }
             ],
             planetIndices: [0, 1, 2],
-            launch: { velocity: { x: 235, y: 0 }, angleDegrees: 0, pullbackPower: 150 },
-            options: { adjustPosition: false, adjustMass: true, seed: 284117 }
+            options: {
+                adjustPosition: false, adjustMass: true, adjustLaunch: true,
+                budgetMultiplier, seed: 284117
+            }
         });
         const javascriptFactory = async ({ state: base, launch, variables }) => ({
             backend: 'javascript',
@@ -68,32 +70,48 @@ try {
         };
         const median = values => [...values]
             .sort((left, right) => left.milliseconds - right.milliseconds)[Math.floor(values.length / 2)];
-        await solveGravitySculpt({ ...baseRequest(), evaluatorFactory: javascriptFactory });
-        const javascriptRuns = [];
-        for (let index = 0; index < 3; index++) {
-            javascriptRuns.push(await measure(() =>
-                solveGravitySculpt({ ...baseRequest(), evaluatorFactory: javascriptFactory })
-            ));
+        const results = [];
+        for (const budgetMultiplier of [0.5, 1]) {
+            await solveGravitySculpt({
+                ...baseRequest(budgetMultiplier), evaluatorFactory: javascriptFactory
+            });
+            const javascriptRuns = [];
+            for (let index = 0; index < 3; index++) {
+                javascriptRuns.push(await measure(() => solveGravitySculpt({
+                    ...baseRequest(budgetMultiplier), evaluatorFactory: javascriptFactory
+                })));
+            }
+            await solveGravitySculptOffThread(baseRequest(budgetMultiplier));
+            const wasmRuns = [];
+            for (let index = 0; index < 3; index++) {
+                wasmRuns.push(await measure(() =>
+                    solveGravitySculptOffThread(baseRequest(budgetMultiplier))
+                ));
+            }
+            results.push({
+                budgetMultiplier,
+                javascript: median(javascriptRuns),
+                offThreadWasm: median(wasmRuns),
+                javascriptRuns: javascriptRuns.map(value => value.milliseconds),
+                wasmRuns: wasmRuns.map(value => value.milliseconds)
+            });
         }
-        await solveGravitySculptOffThread(baseRequest());
-        const wasmRuns = [];
-        for (let index = 0; index < 3; index++) {
-            wasmRuns.push(await measure(() => solveGravitySculptOffThread(baseRequest())));
-        }
-        return {
-            javascript: median(javascriptRuns),
-            wasmPool: median(wasmRuns),
-            javascriptRuns: javascriptRuns.map(value => value.milliseconds),
-            wasmRuns: wasmRuns.map(value => value.milliseconds)
-        };
+        return results;
     });
-    console.log(JSON.stringify({
-        javascript: { ...result.javascript, milliseconds: Number(result.javascript.milliseconds.toFixed(2)) },
-        wasmPool: { ...result.wasmPool, milliseconds: Number(result.wasmPool.milliseconds.toFixed(2)) },
-        speedup: Number((result.javascript.milliseconds / result.wasmPool.milliseconds).toFixed(2)),
-        javascriptRunsMilliseconds: result.javascriptRuns.map(value => Number(value.toFixed(2))),
-        wasmPoolRunsMilliseconds: result.wasmRuns.map(value => Number(value.toFixed(2)))
-    }, null, 2));
+    console.log(JSON.stringify(result.map(entry => ({
+        budgetMultiplier: entry.budgetMultiplier,
+        javascript: {
+            ...entry.javascript,
+            milliseconds: Number(entry.javascript.milliseconds.toFixed(2))
+        },
+        offThreadWasm: {
+            ...entry.offThreadWasm,
+            milliseconds: Number(entry.offThreadWasm.milliseconds.toFixed(2))
+        },
+        speedup: Number((entry.javascript.milliseconds / entry.offThreadWasm.milliseconds).toFixed(2)),
+        javascriptRunsMilliseconds: entry.javascriptRuns.map(value => Number(value.toFixed(2))),
+        wasmRunsMilliseconds: entry.wasmRuns.map(value => Number(value.toFixed(2)))
+    })), null, 2));
 } finally {
     await browser.close();
     await stopStaticServer(server);

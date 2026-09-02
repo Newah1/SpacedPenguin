@@ -2,6 +2,7 @@
 // Centralized input handling with contextual actions
 
 import { GameState } from '../runtime/gameState.js';
+import { PenguinState } from '../runtime/penguinState.js';
 import { screenToStage } from '../rendering/viewport.js';
 import { INPUT_CONFIG } from '../config/inputConfig.js';
 
@@ -265,7 +266,7 @@ export class KeyboardInputAction extends InputAction {
                 game.showQuitDialog();
                 break;
             case 'Space':
-                if (game.penguin.state === 'crashed' || game.penguin.state === 'hitTarget') {
+                if (game.penguin.state === PenguinState.CRASHED || game.penguin.state === PenguinState.HIT_TARGET) {
                     e.preventDefault();
                     game.resetLevel();
                 }
