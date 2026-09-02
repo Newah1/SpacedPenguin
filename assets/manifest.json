@@ -42,6 +42,7 @@
     "21_snd_enterShip": "audio/21_snd_enterShip.wav",
     "bgm_penguins_ska": { "src": "audio/bgm/penguins-ska.mp3", "blocking": false },
     "bgm_penguins_ska_2": { "src": "audio/bgm/penguins-ska-2.mp3", "blocking": false },
-    "bgm_penguins_drum": { "src": "audio/bgm/penguins-drums.mp3", "blocking": false }
+    "bgm_penguins_drum": { "src": "audio/bgm/penguins-drums.mp3", "blocking": false },
+    "credits": { "src": "audio/bgm/credits.mp3", "blocking": false }
   }
 }

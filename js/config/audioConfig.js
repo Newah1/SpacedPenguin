@@ -15,7 +15,7 @@ export const AUDIO_CONFIG = deepFreeze({
     defaultMasterVolume: 0.7,
     scoringLoopVolume: 0.6,
     backgroundMusic: {
-        trackIds: ['bgm_penguins_ska', 'bgm_penguins_ska_2', 'bgm_penguins_drum'],
+        trackIds: ['bgm_penguins_ska', 'bgm_penguins_ska_2', 'bgm_penguins_drum', 'credits'],
         volume: 0.55,
         menuVolumeMultiplier: 0.25,
         fadeSeconds: 0.25
