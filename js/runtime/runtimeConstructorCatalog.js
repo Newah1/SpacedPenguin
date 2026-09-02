@@ -1,4 +1,5 @@
 import * as coreGameObjects from './entities/gameObjects.js';
+import * as visibleBonusObjects from './entities/visibleBonus.js';
 import * as blackHoleObjects from './entities/blackHole.js';
 import * as penguinObjects from './entities/penguin.js';
 
@@ -7,6 +8,7 @@ import * as penguinObjects from './entities/penguin.js';
 // without another per-class entry in LevelLoader.
 const RUNTIME_MODULES = Object.freeze([
     coreGameObjects,
+    visibleBonusObjects,
     blackHoleObjects,
     penguinObjects
 ]);
