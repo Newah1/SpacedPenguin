@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
     analyzeSculptTrajectory,
@@ -10,6 +11,8 @@ import {
     solveGravitySculpt
 } from '../js/simulation/gravitySculptor.js';
 import { solveGravitySculptOffThread } from '../js/simulation/gravitySculptWorkerClient.js';
+import { createSimulationStateFromLevel } from '../js/simulation/simulationState.js';
+import { initializeWasmSimulation } from '../js/simulation/wasmSimulationBridge.js';
 
 function simulationState() {
     return {
@@ -293,16 +296,36 @@ test('gravity sculpt improves a layout without mutating the live simulation snap
     assert.deepEqual(state, original);
 });
 
+function prefixCurriculumState() {
+    return createSimulationStateFromLevel({
+        name: 'Prefix curriculum',
+        startPosition: { x: 70, y: 300 },
+        targetPosition: { x: 760, y: 300 },
+        objects: [
+            { type: 'slingshot', position: { x: 70, y: 300 }, properties: {
+                velocityMultiplier: 1, maxPullback: 150, minPullback: 25
+            } },
+            { type: 'planet', position: { x: 270, y: 175 }, properties: {
+                id: 'upper', radius: 18, mass: 120, gravitationalReach: 900
+            } },
+            { type: 'planet', position: { x: 470, y: 430 }, properties: {
+                id: 'lower', radius: 18, mass: 120, gravitationalReach: 900
+            } },
+            { type: 'planet', position: { x: 650, y: 170 }, properties: {
+                id: 'exit', radius: 18, mass: 120, gravitationalReach: 900
+            } },
+            { type: 'target', position: { x: 760, y: 300 }, properties: {
+                width: 20, height: 20
+            } }
+        ],
+        rules: { gravitationalConstant: 3 }
+    });
+}
+
 test('prefix curriculum improves a small multi-waypoint search without crowding its population', async () => {
-    const state = simulationState();
-    state.penguin.position = { x: 70, y: 300 };
-    state.slingshot.position = { x: 70, y: 300 };
-    state.target.position = { x: 760, y: 300 };
-    state.planets = [
-        { id: 'upper', position: { x: 270, y: 175 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null },
-        { id: 'lower', position: { x: 470, y: 430 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null },
-        { id: 'exit', position: { x: 650, y: 170 }, radius: 18, collisionRadius: 24, mass: 120, gravitationalReach: 900, orbit: null }
-    ];
+    const bytes = await readFile(new URL('../rust/simulator/pkg/spaced_penguin_simulator.wasm', import.meta.url));
+    await initializeWasmSimulation(bytes);
+    const state = prefixCurriculumState();
     const desiredPath = [
         { x: 70, y: 300 },
         { x: 280, y: 225 },
@@ -344,6 +367,8 @@ test('prefix curriculum improves a small multi-waypoint search without crowding 
         }
     });
 
+    assert.equal(unguided.evaluationBackend, 'wasm');
+    assert.equal(curriculum.evaluationBackend, 'wasm');
     assert.ok(curriculum.missedWaypointCount < unguided.missedWaypointCount);
     assert.ok(curriculum.checkpointCoverage > unguided.checkpointCoverage);
     assert.deepEqual(

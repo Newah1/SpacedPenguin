@@ -859,8 +859,6 @@ test('simulation state reconciles reordered runtime collections by stable ID', (
     assert.equal(state.planets[0].collidable, true, 'ordinary runtime planets default to collidable');
     assert.equal(state.planets[1].collidable, false, 'explicit non-collidable planets remain disabled');
     assert.equal(planetA.id, '__planet_1');
-    assert.equal(state.planets[0].collidable, true);
-    assert.equal(state.planets[1].collidable, true);
     assert.equal(bonusA.id, '__bonus_1');
     assert.equal(game.target.id, '__target_1');
 
