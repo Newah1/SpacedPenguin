@@ -1,6 +1,6 @@
 ---
 name: architecture-compass
-description: Identify this repository's current and intended architecture, then guide a change toward its existing boundaries. Use for design reviews, feature placement, refactoring plans, and dependency questions in Spaced Penguin.
+description: Identify this repository's current and intended architecture, including its authoritative Rust gameplay core, then guide a change toward existing boundaries. Use for design reviews, feature placement, refactoring plans, and dependency questions in Spaced Penguin.
 ---
 
 # Spaced Penguin Architecture Compass
@@ -9,7 +9,7 @@ Use this skill to decide where a change belongs and which architectural directio
 
 ## Establish the architectural context
 
-Read `AGENTS.md` and the relevant parts of `ARCHITECTURE.md` before making an architecture recommendation. For level-format, orbit, or object-graph work, also read `levels/README.md`.
+Read `AGENTS.md` and the relevant parts of `ARCHITECTURE.md` before making an architecture recommendation. For deterministic gameplay boundaries, also read `rust/simulator/README.md`; for level-format, orbit, or object-graph work, also read `levels/README.md`.
 
 Inspect the proposed change's direct callers, collaborators, and tests. Use imports and executable behavior as the tie-breaker when documentation and code appear to differ. State the evidence behind conclusions, including the modules or documented contracts that establish an ownership boundary.
 
@@ -19,7 +19,7 @@ Describe the project in these terms when they fit the evidence:
 
 - **Deployment shape:** a client-only, static, browser-native ES-module application; it is not a distributed service architecture.
 - **Application shape:** a modular monolith. `GameManager` is the browser composition and lifecycle owner; `Game` remains the mutable runtime aggregate and integration hotspot.
-- **Gameplay seam:** functional-core / imperative-shell design. `simulationEngine.js`, `simulationState.js`, and `orbitSimulation.js` form a deterministic, browser-free transition boundary. `gameSimulationAdapter.js` translates between that state and live browser objects and effects.
+- **Gameplay seam:** functional-core / imperative-shell design. The Rust simulator is the behavioral source of truth for deterministic gameplay transitions. `simulationEngine.js` preserves the browser-facing contract and JavaScript fallback, `simulationState.js` normalizes state, `orbitSimulation.js` advances the moving-world graph, and `gameSimulationAdapter.js` translates between the Rust/Wasm boundary, live browser objects, and effects.
 - **Edge adapters:** Canvas/DOM rendering, Web Audio, `fetch`, `localStorage`, file download, editor UI, and Node headless tooling are environment-facing concerns. They must not drive authoritative gameplay transitions.
 - **Content pipeline:** levels are data-driven JSON. Schema normalization and validation precede runtime mutation; construction uses a two-pass object/orbit resolution process.
 
@@ -37,12 +37,12 @@ For each proposed feature or refactor, answer briefly:
 
 Apply these placement rules:
 
-- Gameplay movement, collision, scoring, launch, orbit, bonuses, targets, and enforced rules belong in the shared simulation transition kernel. Extend its state and domain events as needed; translate visual, audio, DOM, timer, and message effects in the browser adapter.
+- Gameplay flight, collision, launch, bonuses, targets, enforced rules, and in-flight counters belong first in the authoritative Rust transition. Extend schema-backed state and domain events as needed, mirror Rust semantics in the JavaScript fallback, and translate visual, audio, DOM, timer, and message effects in the browser adapter. Orbit and waypoint world advancement remain in the pure JavaScript world-motion boundary and synchronize positions into Rust. Final level/campaign score assembly remains JavaScript session/replay policy outside the Rust step boundary.
 - Shared authored vocabulary, aliases, defaults, and semantic validation belong in `levelSchema.js` and `levelValidation.js`, not in individual loaders, tools, or editor-only code. Validate before clearing or mutating the live world.
 - Browser frame scheduling, responsive display mapping, visibility, and input-context assembly belong in `main.js` / `GameManager`. Only that lifecycle owner schedules the recurring animation frame.
 - Rendering consumes simulation-applied state and must not independently advance flight or normal orbit physics. Camera and display transforms are presentation concerns, not simulation coordinates.
 - Editor changes operate on the live runtime graph; keep its typed and physics collections synchronized and account for loader/export round trips.
-- Headless runners reuse the shared simulation kernel. They may optimize candidate-independent world motion but must not create a second gameplay implementation.
+- Headless runners reuse the authoritative Rust candidate transition. They may optimize candidate-independent world motion but must not create a second gameplay implementation. A JavaScript headless mode is a fallback/parity surface, not an alternate source of truth.
 
 ## Report architecture findings
 

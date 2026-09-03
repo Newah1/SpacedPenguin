@@ -4,7 +4,7 @@
 
 **Audience:** Software architects, maintainers, game/system developers, and level-tooling developers
 
-**Last verified:** 2026-08-28 against the repository source
+**Last verified:** 2026-09-03 against the repository source
 
 **Scope:** The browser-based HTML5 rewrite. `OldSource/` is reference material, not a runtime dependency.
 
@@ -14,7 +14,7 @@ Spaced Penguin is a client-only, static web game. The browser loads one HTML pag
 
 `Game` is the browser-runtime facade and lifecycle coordinator. Mutable session data belongs to `GameSession`; entity collections, physics registration, and render invalidation belong to `RuntimeWorld`; rendering and flight presentation belong to `GameRenderer` and `FlightPresentation`; gameplay gestures belong to `GameplayController`; and browser effects, settings, community runs, and runtime serialization have dedicated coordinators. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router. Main-menu and bootstrap-loading presentation live in separate browser UI views assembled by that composition root.
 
-The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. The facade preserves existing call sites while dedicated collaborators provide explicit ownership boundaries. Some browser diagnostics still use global access through `window`. Gameplay transitions live in a deterministic, environment-independent simulation core shared exactly by the browser adapter and Node headless runner, while browser-only rendering and effects remain at the edge.
+The architecture favors direct browser execution and fidelity to the original Shockwave game over framework abstraction. The facade preserves existing call sites while dedicated collaborators provide explicit ownership boundaries. Some browser diagnostics still use global access through `window`. The Rust simulation crate is the behavioral source of truth for deterministic gameplay transitions used by the browser and headless runners; JavaScript owns browser orchestration, moving-world advancement, and a compatibility fallback that must match Rust. Browser-only rendering and effects remain at the edge.
 
 ## 2. System context
 
@@ -111,7 +111,8 @@ flowchart TB
     Game --> Loader[LevelLoader and GameObjectFactory]
     Game --> Adapter[GameSimulationAdapter]
     Adapter --> Effects[GameEffectsCoordinator]
-    Adapter --> Simulation[SimulationEngine and SimulationState]
+    Adapter --> RustCore[Rust/Wasm Simulation Core]
+    Adapter --> Simulation[JS Contract, State, and Fallback]
     Simulation --> Orbit[OrbitSimulation]
     Game --> Physics[Physics registry and helpers]
     Game --> Entities[Penguin and GameObjects]
@@ -157,7 +158,8 @@ flowchart TB
 | `LevelBrowserScreen` | Async level discovery and context-aware play/open UI | `LevelCatalogService`, `Game`, `UIManager` | Owns source tabs, query/loading/error/detail state, debounced search, incremental pages, context-specific actions, unsaved-editor confirmation, focus containment, and lazy thumbnails. |
 | `LevelSaveService` | Create or update locally owned editor records | `LocalLevelRepository`, save strategy pipeline | Persists local definitions and metadata; read/discovery behavior belongs to the catalog boundary. |
 | `GameObjectFactory` | Normalize validated JSON and dispatch registry-owned runtime construction | Object registry, entity constructors, `LevelSchema` | Object-specific constructors and exceptional behavior live in registry hooks; declarative defaults come from generated schema contracts. Shared orbit configuration remains in the factory. |
-| `SimulationEngine` | Deterministic fixed-step world advancement and domain events | State, geometry, gravity, orbit simulation | Exposes an immutable browser API and the same mutable kernel for optimized headless sessions; authoritative for flight, crash, collision, bonuses, target outcomes, rules, launch math, and scoring. |
+| Rust simulator (`rust/simulator/src/`) | Deterministic fixed-step gameplay transitions and domain events | Generated state/wire contracts, browser Wasm bridge, headless adapters | Behavioral source of truth for flight, gravity, crash, collision, bonuses, target outcomes, portals, boosters, deflectors, enforced rules, launch math, and in-flight counters across browser Wasm, Wasm/native headless, and supported Gravity Sculpt evaluation. |
+| `SimulationEngine` | Browser-facing simulation API, moving-world advancement, deterministic fallback, and final score helper | State, geometry, orbit simulation, Rust parity tests | Preserves an immutable JavaScript contract and a compatibility implementation for Wasm initialization failure. Where it duplicates a gameplay transition, it must mirror Rust rather than define competing semantics. Final level/campaign score assembly remains JavaScript session/replay policy outside the Rust step boundary. |
 | `SimulationState` | Normalized serializable world contract and reset/clone operations | Level validator, simulation engine | Separates deterministic gameplay data from rendering objects and browser services. |
 | `CompiledWorldTimeline` | Exact fixed-step world-state cache for repeated headless candidates | Orbit simulation, simulation state | Stores positions plus orbit angle/velocity in compact `Float64Array` buffers; it changes evaluation cost, not gameplay semantics. |
 | `GameSimulationAdapter` | Translate live browser objects to/from simulation state and dispatch typed domain events | `Game`, simulation engine, effects coordinator | State adaptation remains separate from browser-effect execution. |
@@ -227,7 +229,7 @@ sequenceDiagram
     participant GM as GameManager
     participant IA as InputManager
     participant G as Game
-    participant S as SimulationEngine
+    participant S as JS world motion + Rust/Wasm core
     participant A as GameSimulationAdapter
     participant E as Visual Entities
     participant UI as UIManager
@@ -243,8 +245,8 @@ sequenceDiagram
             G-->>GM: gameplay update returns early
         else active world
             G->>A: stepGameSimulation(1/60)
-            A->>S: stepSimulation(snapshot, 1/60) via persistent Rust/Wasm state handle
-            S-->>A: generated binary StepPatch + event union
+            A->>S: advance JS-owned moving world, then step persistent Rust/Wasm state
+            S-->>A: authoritative binary StepPatch + event union
             A->>G: apply positions/counters and effects
             G->>E: update visuals with orbit stepping disabled
         end
@@ -275,7 +277,9 @@ flowchart LR
 
 ### Deterministic simulation path
 
-`stepSimulation(state, delta)` is the authoritative immutable JavaScript gameplay transition and fallback. The browser's normal path uses the Rust/Wasm implementation through one persistent runtime state handle per live simulation; it synchronizes moving world positions through a reusable `Float64Array` buffer and applies the generated binary `StepPatch`/event-union response. Wasm initialization failure selects the JavaScript implementation. The shared transition kernel divides elapsed time into maximum 1/60-second slices, advances the dependency-ordered orbit graph, then handles penguin state. A soaring slice checks pre-move planet collision, integrates gravity/movement, resolves swept deflector, booster, and portal interactions, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends.
+The Rust crate documented in [`rust/simulator/README.md`](rust/simulator/README.md) is the behavioral source of truth for deterministic gameplay transitions. The browser's normal path uses that Rust implementation through one persistent Wasm runtime state handle per live simulation; it synchronizes JavaScript-advanced moving-world positions through a reusable `Float64Array` buffer and applies the generated binary `StepPatch`/event-union response. `stepSimulation(state, delta)` remains the immutable browser-facing JavaScript contract and graceful fallback when Wasm initialization fails, but duplicated gameplay rules in that fallback must reproduce Rust semantics.
+
+The adapter divides elapsed time into maximum 1/60-second slices and advances the dependency-ordered JavaScript orbit/waypoint graph before entering the Rust transition. A soaring Rust slice checks pre-move planet collision, integrates gravity/movement, resolves swept deflector, booster, and portal interactions, accumulates distance, collects bonuses, evaluates target victory, checks flight bounds, and emits failure events. A crashed slice advances bounce motion and emits an attempt-reset event when its deterministic legacy-frame countdown ends. If Rust and JavaScript disagree for equivalent normalized input, investigate wire encoding, tick slicing, and moving-world order first; absent an intentional Rust behavior change, repair the compatibility path rather than treating it as a second authority.
 
 The logical result is `{ state, events }`; the Wasm boundary carries its generated versioned binary `StepPatch` and event union. State contains only gameplay data; events include movement, bonus collection, planet collision/bounce, deflector reflection, portal/booster activation, target success/blocking, bounds exit, rule failure, and reset requests. `GameSimulationAdapter` applies state to browser objects and turns events into effects. `HeadlessGameEngine` invokes the same Rust candidate-transition function with browser-only movement observations disabled, so it is a runner rather than a second physics implementation. Its portable backend uses Wasm; its optimized native backend validates and compiles world motion in the existing Node adapter, then sends one canonical sweep request to `spaced-penguin-headless`. Candidate simulation, success filtering, near-miss ranking, and detailed capture stay inside that Rust process. Headless batch trajectory envelopes may remain JSON because they are outside the per-frame hot path.
 
@@ -625,7 +629,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or sub
 
 **Why:** Constants, state names, scoring, traces, crash timing, and reference assets are intended to preserve the Shockwave feel.
 
-**Trade-off:** The browser adapter still performs the required state reconciliation, but the persistent Rust handle, reusable position buffer, and generated binary patch/event union avoid repeated runtime initialization and JSON work in the per-frame boundary. Gameplay behavior remains deterministic, testable without the DOM, and shared exactly by browser and headless runners.
+**Trade-off:** The browser adapter still performs the required state reconciliation, and a JavaScript compatibility copy must be maintained for graceful Wasm failure. The persistent Rust handle, reusable position buffer, and generated binary patch/event union avoid repeated runtime initialization and JSON work in the per-frame boundary. Naming Rust as the behavioral authority gives parity failures a deterministic resolution rule while keeping gameplay testable without the DOM and shared by browser and headless runners.
 
 ### Graceful media degradation
 
@@ -647,8 +651,8 @@ Maintain these constraints when changing the system:
 8. New level fields need coordinated changes in the canonical schema, generated contracts, editor property UI, serializer/export, examples, and tests. Run the generator and drift check before committing.
 9. Asset keys must match loader normalization and consumer lookup names.
 10. A failed optional asset must not prevent bootstrap; an invalid structural level should fail validation rather than silently create a misleading partial level.
-11. Gameplay movement and outcomes must enter through `stepSimulation`; rendering objects and adapters may apply state/effects but must not independently advance orbit or flight physics.
-12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and run on exact 1/60-second ticks regardless of display refresh rate. The browser-facing JavaScript `stepSimulation` contract is immutable; the normal browser path uses a persistent Rust/Wasm state handle and generated versioned binary input/output layouts, while mutable entry points are restricted to isolated sessions that own their state.
+11. Gameplay movement and outcomes must enter through the simulation boundary; authoritative flight and outcome rules belong in Rust, while JavaScript advances the dependency-ordered moving world and adapts state/effects. Rendering objects must not independently advance orbit or flight physics.
+12. Simulation transitions must remain deterministic, dependency-free from DOM/audio/timers, and run on exact 1/60-second ticks regardless of display refresh rate. Rust is the behavioral source of truth. The browser-facing JavaScript `stepSimulation` contract is immutable and its fallback must mirror Rust; the normal browser path uses a persistent Rust/Wasm state handle and generated versioned binary input/output layouts, while mutable entry points are restricted to isolated sessions that own their state.
 13. Every gameplay-authored property must map to simulation state or have a reasoned exclusion. Every reachable binary input/output field must be declared in the ordered schema wire records; versions and fingerprints in `domain/simulation-wire-versions.json` must match generated output. CI and Pages must rebuild and deploy the exact verified Wasm artifact.
 
 ## 15. Extension playbooks
@@ -661,7 +665,7 @@ See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the v
 2. Define vocabulary, defaults, membership, capabilities, straightforward inspector metadata, and serialization fields in `domain/gameObjects.schema.json`, then run `npm run generate:domain`. Mark only the fields that must remain in the public `LEVEL_DEFAULTS` compatibility view.
 3. Register handwritten validation, authoring factories, runtime creation, clone behavior, and transient property hooks in `gameObjectRegistry.js`.
 4. Add cross-object semantic validation separately where the generated basic constraints are insufficient.
-5. When gameplay-relevant, add state/events to `domain/simulation.schema.json`, cover every reachable binary input/output field by encoding or explicit exclusion, update the gameplay-object projection metadata, regenerate/rebuild Wasm, and update the deterministic kernel, browser adapter/effects, headless timeline, and `Game` export support.
+5. When gameplay-relevant, add state/events to `domain/simulation.schema.json`, cover every reachable binary input/output field by encoding or explicit exclusion, update the gameplay-object projection metadata, implement the behavior in the authoritative Rust core, mirror it in the JavaScript fallback, regenerate/rebuild Wasm, and update the browser adapter/effects, headless timeline, and `Game` export support.
 6. Add assets to the manifest if required, with programmatic fallback where appropriate.
 7. Add a focused browser harness and a production-level integration test.
 8. Update this document and `levels/README.md`.
@@ -669,7 +673,7 @@ See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the v
 ### Add a level rule
 
 1. Add it to validated/normalized `SimulationState.rules` without using truthiness when zero/false is meaningful.
-2. Evaluate it in `simulationEngine.js` at the defined transition boundary and emit a domain event when effects are needed.
+2. Evaluate it first in the Rust core at the defined transition boundary, mirror it in the JavaScript fallback, and emit a domain event when effects are needed.
 3. Handle the effect in `GameSimulationAdapter`; keep DOM/audio out of the core.
 4. Reset associated counters through simulation-state reset operations.
 5. Export it from `Game.exportLevelRules`, expose it in the editor if authorable, and test browser/headless parity.
@@ -694,7 +698,7 @@ See [`GAME_OBJECT_EXTENSION_GUIDE.md`](GAME_OBJECT_EXTENSION_GUIDE.md) for the v
 There are three current test surfaces:
 
 1. `testing/manual/` contains indexed manual browser harnesses for audio, bonus behavior, gravity/orbits, input, level transitions, mobile/responsive behavior, and editor scenarios. They are useful diagnostics but have no shared runner or assertions.
-2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless paths consume the same simulation transition kernel, orbit graph, collision/bonus/target/rule outcomes, launch math, reset contract, and scoring functions. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
+2. `testing/` contains dependency-free Node regression suites plus a headless runner, shared level validation, and trajectory search CLI. Browser and headless production paths consume the authoritative Rust transition, while parity suites keep the JavaScript fallback aligned. They share the JavaScript moving-world graph and the Rust collision/bonus/target/rule outcomes, launch math, reset contract, and in-flight counters; final level/campaign score assembly is tested separately as JavaScript session/replay policy. Headless sweeps reuse an exact compiled world timeline, suppress movement-only events, and can partition large candidate grids across a bounded worker pool. The CLI can render successful routes as terminal ASCII maps.
 3. `e2e/` contains Playwright smoke tests against a dependency-free local static server. They exercise production bootstrap, canvas input and rendering, pause/resume, scoring transition, failed-audio degradation, responsive coordinate mapping, and editor download/export. Network substitution supplies a deterministic level while leaving the production runtime path intact.
 
 The `.github/workflows/ci.yml` workflow regenerates/checks domain contracts, builds the native headless executable, builds and uploads the verified Rust/Wasm artifact, then runs Node tests, configuration policy checks, shipped-level validation, syntax checks, and Chromium smoke tests against that exact Wasm artifact. The Pages workflow performs the browser contract/build verification and deploys the packaged Wasm alongside the static files; the platform-specific native executable is a development/test tool and is not part of the browser deployment. Failed browser runs retain traces, screenshots, videos, and an HTML report. Playwright uses one worker in CI and caps local execution at four workers because each page bootstraps and decodes the full audio manifest.
@@ -808,7 +812,7 @@ These items are intentionally separate from the completed low-risk cleanup. They
 
 ### 18.5 Retire internal legacy compatibility layers deliberately
 
-**Current state.** Some compatibility is part of the level contract and should remain: object-type aliases, exported `penguin` definitions, zero gravitational-reach normalization, and `globalConstants.js` views. Other compatibility is internal and appears to have no current production caller, including the deprecated `Game.setupEventListeners()` and `UIManager.setupEventListeners()` paths. `Physics` also retains registry, trace, and helper APIs even though the shared simulation engine is authoritative for gameplay movement.
+**Current state.** Some compatibility is part of the level contract and should remain: object-type aliases, exported `penguin` definitions, zero gravitational-reach normalization, and `globalConstants.js` views. Other compatibility is internal and appears to have no current production caller, including the deprecated `Game.setupEventListeners()` and `UIManager.setupEventListeners()` paths. `Physics` also retains registry, trace, and helper APIs even though the Rust simulation core is authoritative for gameplay movement.
 
 **Why it matters.** Compatibility code is useful only when its supported caller and removal condition are known. Otherwise it preserves duplicate behavior, increases the surface area for new features, and makes it unclear which path is authoritative.
 
@@ -859,6 +863,7 @@ These seams support better tests and eventual TypeScript or framework adoption w
 | Path | Purpose | Authority |
 |---|---|---|
 | `ARCHITECTURE.md` | Current system design, contracts, flows, decisions, and debt | Primary architecture reference |
+| `rust/simulator/README.md` | Rust execution surfaces, authority boundaries, invariants, change workflow, and verification | Deterministic gameplay behavior reference |
 | `README.md` | Project entry point, run instructions, capabilities, document links | Current overview |
 | `levels/README.md` | Current level authoring contract | Level-authoring reference |
 | `GAME_OBJECT_EXTENSION_GUIDE.md` | End-to-end object-type addition process and extension-seam review | Current implementation guide |

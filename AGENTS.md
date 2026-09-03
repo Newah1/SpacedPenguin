@@ -1,6 +1,6 @@
 # Repository Working Guide
 
-This file is a concise implementation guide for coding agents and contributors. The authoritative design reference is [`ARCHITECTURE.md`](ARCHITECTURE.md); level authors should also read [`levels/README.md`](levels/README.md).
+This file is a concise implementation guide for coding agents and contributors. The authoritative design reference is [`ARCHITECTURE.md`](ARCHITECTURE.md); deterministic gameplay work must also follow the Rust-core authority in [`rust/simulator/README.md`](rust/simulator/README.md), and level authors should read [`levels/README.md`](levels/README.md).
 
 ## Project
 
@@ -35,7 +35,8 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 - `js/rendering/gameRenderer.js` and `js/rendering/flightPresentation.js`: render pipeline, draw-order cache, trails, starfield, portals, and alpha-mask visuals.
 - `js/input/gameplayController.js`: gameplay pointer, touch, keyboard, and mobile-control behavior.
 - `js/runtime/gameEffectsCoordinator.js`: browser-side handling of deterministic simulation events.
-- `js/simulation/simulationEngine.js`: authoritative deterministic gameplay transitions, launch math, collisions, bonuses, target outcomes, rules, and scoring.
+- `rust/simulator/src/lib.rs`: behavioral source of truth for deterministic gameplay transitions shared by browser Wasm, Wasm/native headless runs, and supported Gravity Sculpt evaluations.
+- `js/simulation/simulationEngine.js`: browser-facing simulation contract, moving-world advancement, deterministic compatibility fallback that must mirror Rust gameplay semantics, and final score helper outside the Rust step boundary.
 - `js/runtime/gameSimulationAdapter.js`: browser object snapshots/state application and typed event dispatch to the effects coordinator.
 - `js/simulation/orbitSimulation.js`: pure circular, elliptical, figure-8, gravity, and hierarchical orbit advancement.
 - `js/simulation/simulationState.js`: normalized serializable simulation state and reset/clone operations.
@@ -43,11 +44,11 @@ The Node suite uses built-in `node:test`; there are no package dependencies. Roo
 - `js/runtime/physics.js`: entity registries, trace data, and legacy helper compatibility; it is not the active gameplay integrator.
 - `js/levels/levelSchema.js` and `js/levels/levelValidation.js`: shared level vocabulary, normalization, capabilities, and executable diagnostics.
 - `js/levels/levelLoader.js`: validated JSON loading and runtime entity construction.
-- `testing/headlessEngine.js`: exact trajectory runner over the shared transition kernel.
+- `testing/headlessEngine.js`: exact trajectory adapter for the Rust transition and JavaScript parity fallback.
 - `rust/simulator/src/bin/spaced-penguin-headless.rs`: optimized native sweep executable; the Node adapter retains authored-level validation and compiled-world preparation.
 - `js/simulation/gravitySculptor.js` and its worker pool: JavaScript optimization policy with schema-backed batched Rust/Wasm evaluation for stationary candidate worlds and deterministic JavaScript fallback for moving/custom cases.
 
-The browser explicitly loads the packaged Rust/Wasm simulator during bootstrap and falls back to the JavaScript kernel if initialization fails. Each live browser simulation reuses one Rust state handle and a moving-position buffer, receiving generated binary `StepPatch`/event-union results. Headless sweeps use the same Rust candidate-transition function with exact precompiled world frames and movement-only events disabled; batch trajectory envelopes may remain JSON outside the per-frame hot path. Do not introduce separate headless physics.
+The Rust core is the source of truth for deterministic gameplay behavior; the schemas remain authoritative for vocabulary and wire layouts. The browser explicitly loads the packaged Rust/Wasm simulator during bootstrap and falls back to a JavaScript compatibility implementation if initialization fails. Each live browser simulation reuses one Rust state handle and a moving-position buffer, receiving generated binary `StepPatch`/event-union results. Headless sweeps use the same Rust candidate-transition function with exact precompiled world frames and movement-only events disabled; batch trajectory envelopes may remain JSON outside the per-frame hot path. Resolve equivalent-input parity disagreements in favor of Rust unless intentionally changing the Rust behavior. Do not introduce separate headless physics.
 
 For large local sweeps, `--backend native` runs the release executable through the same Node level-validation/timeline adapter. Build it with `npm.cmd run build:simulator-native` or use `npm.cmd run headless:native -- --level <path>` to verify/build it on demand.
 
@@ -55,7 +56,7 @@ For large local sweeps, `--backend native` runs the release executable through t
 
 1. The logical world is 800 × 600; display scaling must not alter simulation coordinates.
 2. `GameManager` owns the only recurring `requestAnimationFrame` chain.
-3. Gameplay changes enter through the shared simulation kernel. Visual objects must not independently advance flight or orbit physics during normal game frames.
+3. Gameplay changes enter through the Rust simulation core first and are then mirrored in the JavaScript fallback. Visual objects must not independently advance flight or orbit physics during normal game frames.
 4. Level validation occurs before the current world is cleared or mutated.
 5. Shared declarative object vocabulary and defaults belong in `domain/` and its generated contracts; compatibility normalization and semantic validation belong in `levelSchema.js` / `levelValidation.js`, not individual loaders or tools.
 6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, and bonuses may be orbit targets; planets, black holes, bonuses, and targets may be orbit sources.
@@ -69,11 +70,11 @@ For large local sweeps, `--backend native` runs the release executable through t
 
 ### Add a game object
 
-Update `domain/gameObjects.schema.json` for vocabulary, defaults, collections, capabilities, straightforward inspector fields, serialization metadata, and gameplay-object simulation projections; regenerate contracts; then update the runtime class and handwritten registry hooks, semantic validation, simulation state if gameplay-relevant, export paths, tests, and level documentation. Every gameplay-authored property must map to simulation state or have a reasoned exclusion. `GameObjectFactory` should remain generic registry dispatch plus shared orbit configuration.
+Update `domain/gameObjects.schema.json` for vocabulary, defaults, collections, capabilities, straightforward inspector fields, serialization metadata, and gameplay-object simulation projections; regenerate contracts; then update the runtime class and handwritten registry hooks, semantic validation, simulation state if gameplay-relevant, the authoritative Rust behavior, the JavaScript fallback, export paths, tests, and level documentation. Every gameplay-authored property must map to simulation state or have a reasoned exclusion. `GameObjectFactory` should remain generic registry dispatch plus shared orbit configuration.
 
 ### Add a rule
 
-Normalize and validate it, add it to `SimulationState.rules`, enforce it at an explicit transition boundary, translate any effect in the browser adapter, export it, and add browser/headless parity tests. `timeLimit` and `customBehaviors` are currently parsed but not enforced.
+Normalize and validate it, add it to `SimulationState.rules`, enforce it first in the Rust core at an explicit transition boundary, mirror it in the JavaScript fallback, translate any effect in the browser adapter, export it, and add browser/headless parity tests. `timeLimit` and `customBehaviors` are currently parsed but not enforced.
 
 ### Add an orbit type
 
@@ -86,6 +87,7 @@ Add the WAV to `assets/audio/`, register it in `assets/manifest.json`, trigger i
 ## Documentation scope
 
 - `ARCHITECTURE.md`: current architecture authority.
+- `rust/simulator/README.md`: deterministic gameplay behavior authority and Rust-core development guide.
 - `README.md`: current entry point and operations.
 - `levels/README.md`: current level contract.
 - `LEVEL_EDITOR_DOCUMENTATION.md`: current editor behavior and limitations.

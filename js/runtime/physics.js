@@ -1,5 +1,6 @@
 // Runtime physics membership and trace state for Spaced Penguin.
-// Gameplay integration/collision rules live exclusively in simulationEngine.js.
+// Gameplay integration/collision rules are authoritative in the Rust simulator;
+// simulationEngine.js is the browser-facing compatibility fallback.
 
 import Utils from '../platform/utils.js';
 import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from '../config/legacyConstants.js';

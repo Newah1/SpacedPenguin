@@ -99,13 +99,16 @@ flowchart LR
     Main --> Input[InputManager + policy contexts]
     Main --> Game[Game aggregate]
     Game --> Levels[LevelLoader + JSON factory]
-    Game --> Sim[Shared deterministic simulation core]
-    Sim --> World[Penguin + game objects + orbits]
+    Game --> Adapter[Browser simulation adapter]
+    Adapter --> Sim[Rust/Wasm gameplay core]
+    Adapter --> World[Penguin + game objects + JS world motion]
     Game --> Physics[Physics registries/helpers]
     Game --> UI[UI screens + editor + fullscreen]
 ```
 
 The game keeps a fixed 800 x 600 logical display surface while levels may opt into a larger world-space playfield. Legacy levels retain their exact fixed camera. Expanded levels may fit the full playfield or use a clamped, smoothly following camera. A centered contain transform maps the logical display to the viewport's actual backing resolution, with gutters where necessary. `GameManager` owns bootstrap and the animation loop; `Game` owns the mutable runtime graph and coordinates levels, entities, physics, scoring, rendering, UI, and editing.
+
+The [Rust simulation core](rust/simulator/README.md) is the behavioral source of truth for deterministic gameplay. The domain schemas remain authoritative for vocabulary and wire formats, while `js/simulation/simulationEngine.js` supplies world-motion orchestration and a compatibility fallback that must match Rust. New gameplay behavior is implemented in Rust first, mirrored in the fallback, and protected by browser/headless parity tests.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for system boundaries, lifecycle and state diagrams, data contracts, design decisions, invariants, extension paths, risks, and testing architecture.
 
@@ -126,6 +129,7 @@ testing/                   Node tests, trajectory CLI, and organized manual harn
 domain/                    Canonical JSON Schema domain contracts
 generated/                 Generated JavaScript, Rust, and external level contracts
 rust/simulator/             Shared browser/headless Rust/Wasm transition core
+rust/simulator/README.md    Authoritative Rust-core behavior and development guide
 tools/generateDomainContracts.js  Deterministic contract generator and drift check
 server/                    Optional Node HTTP API, SQLite repository, replay workers, and server tests
 e2e/                       Automated Playwright browser smoke tests
@@ -169,7 +173,7 @@ npm test
 
 Individual gates are available as `npm run test:unit`, `npm run test:server`, `npm run test:levels`, `npm run test:syntax`, and `npm run test:e2e`. GitHub Actions runs the same gates on every push and pull request and retains Playwright traces, screenshots, videos, and the HTML report for diagnosis.
 
-The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same Rust candidate-transition function mutably with exact compiled world frames. Both paths share orbit, gravity, collision, bonus, target, rules, reset, launch, and scoring logic, so headless launch commands reproduce independently of display refresh rate.
+The browser accumulates display-frame time and advances gameplay in exact 1/60-second ticks; isolated headless sessions use the same authoritative Rust candidate-transition function mutably with exact compiled world frames. Both paths share orbit inputs and Rust-owned gravity, collision, bonus, target, rule, reset, launch, and in-flight counter behavior, so headless launch commands reproduce independently of display refresh rate. Final level/campaign score assembly remains JavaScript session/replay policy outside the Rust step boundary.
 
 Add `--ascii` to a level-tester sweep to print terminal maps of the reported successful trajectories. Maps mark the slingshot (`S`), target (`T`), root/static planets (`O`), orbiting planets (`o`), and interpolated flight path (`.`).
 

@@ -34,7 +34,7 @@ node --input-type=module -e "import {readFile} from 'node:fs/promises'; import {
 
 ## Keep simulation behavior deterministic
 
-- Implement the transition in the shared JavaScript simulation kernel and in the Rust candidate kernel. Do not put active collision or flight advancement in visual entity classes.
+- Read `rust/simulator/README.md`. Implement the transition in the authoritative Rust core first, then port the same semantics to the JavaScript compatibility fallback. Do not put active collision or flight advancement in visual entity classes.
 - Emit typed deterministic events for browser-visible consequences. Handle audio, flashes, messages, timers, and other presentation in `GameEffectsCoordinator` or another browser-side collaborator.
 - A renderer entity may retain short-lived presentation state, such as a hit flash, when that state is driven by an emitted event and does not affect simulation.
 - Update reset, clone, normalization, serialization, and headless candidate construction. If Rust `InitialState` gains a field, search every constructor, including optimizer paths such as `gravity_sculpt.rs`.
@@ -67,7 +67,8 @@ On Windows, do not assume `cargo` is on `PATH`. The repository scripts locate th
 
 Add focused coverage for:
 
-- JavaScript kernel behavior and edge cases.
+- Authoritative Rust behavior and edge cases.
+- JavaScript fallback agreement with the Rust result.
 - Validation, aliases, factory construction, editor mutation, and export round trips.
 - Generated binary round trips for every event variant.
 - Browser Wasm slice parity.
