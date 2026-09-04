@@ -158,7 +158,10 @@ export function createExistingPlanetVariables(state, planetIndices, options = {}
     const config = { ...DEFAULT_OPTIONS, ...options };
     return planetIndices.flatMap(index => {
         const planet = state.planets[index];
-        if (!planet || planet.orbit) return [];
+        // Repulsor stars occupy the shared gravity-source collection with a
+        // negative signed mass. Gravity Sculpt's log-scaled mass variables
+        // currently model attractive bodies only.
+        if (!planet || planet.orbit || planet.mass < 0) return [];
         return PLANET_PARAMETER_DEFINITIONS
             .filter(definition => config[definition.enabledBy] !== false)
             .map(definition => ({

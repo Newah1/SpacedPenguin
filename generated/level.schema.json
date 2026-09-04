@@ -432,6 +432,78 @@
           "properties": {
             "type": {
               "enum": [
+                "repulsorstar",
+                "repulsor_star",
+                "repulsor"
+              ]
+            },
+            "position": {
+              "$ref": "#/$defs/Point"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "radius": {
+                  "type": "number",
+                  "default": 30,
+                  "exclusiveMinimum": 0,
+                  "x-editor": {
+                    "label": "Radius",
+                    "min": 1
+                  }
+                },
+                "strength": {
+                  "type": "number",
+                  "default": 100,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Repulsion Strength",
+                    "min": 0
+                  }
+                },
+                "repulsionReach": {
+                  "type": "number",
+                  "default": 5000,
+                  "minimum": 0,
+                  "x-editor": {
+                    "label": "Repulsion Reach",
+                    "min": 0
+                  }
+                },
+                "collisionRadius": {
+                  "const": 0,
+                  "default": 0
+                },
+                "collidable": {
+                  "const": false,
+                  "default": false
+                },
+                "orbit": {
+                  "$ref": "#/$defs/Orbit"
+                },
+                "waypointPath": {
+                  "$ref": "#/$defs/WaypointPath"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
                 "bonus"
               ]
             },

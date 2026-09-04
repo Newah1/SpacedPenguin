@@ -391,7 +391,7 @@ flowchart TB
 
 Validation is a precondition to mutation. `levelValidation.js` is a pure boundary shared by browser and Node loading; it accumulates stable `{ severity, code, path, message }` diagnostics. `levelObjectVocabulary.js` owns stable names and aliases, while `gameObjectRegistry.js` owns type capabilities and per-type normalization/validation hooks consumed by `levelSchema.js` and the validator. The loader validates fetched JSON before caching and revalidates a selected definition before the current world is cleared.
 
-The two-pass construction design remains an important invariant. Object-referenced planet/bonus orbits can point forward to entities declared later in the JSON. Each referenced object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. The shared simulation advances planet, bonus, and target orbit sources. Only planets and bonuses may act as `orbitTargetId` centers, while active slingshot, text, and pointing-arrow orbits are rejected because those entities are not part of simulation stepping.
+The two-pass construction design remains an important invariant. Object-referenced gravity-body/bonus orbits can point forward to entities declared later in the JSON. Each referenced object must have a unique stable `properties.id`; duplicates, missing targets, self-references, and cycles are rejected before construction. The shared simulation advances planets, black holes, repulsor stars, bonuses, and target orbit sources. Planets, black holes, repulsor stars, and bonuses may act as `orbitTargetId` centers, while active slingshot, text, and pointing-arrow orbits are rejected because those entities are not part of simulation stepping.
 
 ### Canonical top-level contract
 
@@ -425,6 +425,8 @@ Search resets the result set and cancels the prior request. Pagination appends o
 | JSON type | Runtime type | Core properties | Notes |
 |---|---|---|---|
 | `planet` | `Planet` | `id`, `name`, `radius`, `mass`, `gravitationalReach`, `planetType`, `orbit` | Registered in both `game.planets` and `Physics`. Reach values omitted or exported as zero normalize to the legacy default `5000`; use zero mass for no gravity. |
+| `blackhole`, `black_hole` | `BlackHole` | `id`, `name`, `radius`, `mass`, `gravitationalReach`, `orbit` | Reuses the gravity-source collection with collision disabled; animated accretion is browser-only. |
+| `repulsorstar`, `repulsor_star`, `repulsor` | `RepulsorStar` | `id`, `name`, `radius`, `strength`, `repulsionReach`, `orbit` | Normalizes positive authored strength to negative simulation mass, producing deterministic outward force with no collision. Its white core, rays, and outward particles are browser-only. |
 | `bonus` | `Bonus` | `id`, `name`, `value`, `orbit` | Registered in both `game.bonuses` and `Physics`. |
 | `target` | `Target` | `id`, `name`, `width`, `height`, `spriteType`, `orbit` | First target definition becomes the singleton goal; otherwise `targetPosition` creates a default. |
 | `slingshot` | `Slingshot` | `name`, `anchorX`, `anchorY`, `stretchLimit`, `velocityMultiplier` | First definition becomes the singleton launcher; otherwise `startPosition` creates a default. |
@@ -623,7 +625,7 @@ The HTML5 rewrite does **not** call the original Big Idea Fun leaderboard or sub
 
 **Why:** Supports hierarchical and forward object references independent of declaration order.
 
-**Trade-off:** IDs form a relational schema that requires coordinated validation and construction passes; current object-target lookup is intentionally limited to planets and bonuses.
+**Trade-off:** IDs form a relational schema that requires coordinated validation and construction passes; current object-target lookup is intentionally limited to registered gravity bodies and bonuses.
 
 ### Fidelity-oriented physics
 

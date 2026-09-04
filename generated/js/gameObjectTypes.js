@@ -3,6 +3,7 @@
 export const LevelObjectType = Object.freeze({
     "PLANET": "planet",
     "BLACK_HOLE": "blackhole",
+    "REPULSOR_STAR": "repulsorstar",
     "BONUS": "bonus",
     "TARGET": "target",
     "SLINGSHOT": "slingshot",
@@ -16,6 +17,8 @@ export const LevelObjectType = Object.freeze({
 
 export const LEVEL_OBJECT_TYPE_ALIASES = Object.freeze({
     "black_hole": "blackhole",
+    "repulsor_star": "repulsorstar",
+    "repulsor": "repulsorstar",
     "text": "textobject",
     "arrow": "pointingarrow",
     "booster": "speedbooster",
@@ -150,6 +153,63 @@ export const GAME_OBJECT_CONTRACTS = Object.freeze({
         ],
         "serializedProperties": [
             "gravitationalReach",
+            "collisionRadius",
+            "collidable"
+        ],
+        "capabilities": {
+            "gameplay": true,
+            "editable": true,
+            "orbitSource": true,
+            "orbitTarget": true,
+            "waypointSource": true
+        }
+    },
+    "RepulsorStar": {
+        "className": "RepulsorStar",
+        "type": "repulsorstar",
+        "label": "Repulsor Star",
+        "aliases": [
+            "repulsor_star",
+            "repulsor"
+        ],
+        "collections": [
+            "planets"
+        ],
+        "singleton": null,
+        "levelRole": null,
+        "relationshipValidator": null,
+        "physicsAdd": "addPlanet",
+        "physicsRemove": "removePlanet",
+        "defaults": {
+            "radius": 30,
+            "strength": 100,
+            "repulsionReach": 5000,
+            "collisionRadius": 0,
+            "collidable": false
+        },
+        "properties": [
+            {
+                "key": "radius",
+                "label": "Radius",
+                "type": "number",
+                "min": 1
+            },
+            {
+                "key": "strength",
+                "label": "Repulsion Strength",
+                "type": "number",
+                "min": 0
+            },
+            {
+                "key": "repulsionReach",
+                "label": "Repulsion Reach",
+                "type": "number",
+                "min": 0
+            }
+        ],
+        "serializedProperties": [
+            "strength",
+            "repulsionReach",
             "collisionRadius",
             "collidable"
         ],
@@ -758,6 +818,11 @@ export const LEVEL_DEFAULTS = freezeLevelDefaults({
         "mass": 100,
         "gravitationalReach": 5000,
         "collisionPadding": 8
+    },
+    "repulsorStar": {
+        "radius": 30,
+        "strength": 100,
+        "repulsionReach": 5000
     },
     "bonus": {
         "width": 42.5,

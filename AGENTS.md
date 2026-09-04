@@ -59,7 +59,7 @@ For large local sweeps, `--backend native` runs the release executable through t
 3. Gameplay changes enter through the Rust simulation core first and are then mirrored in the JavaScript fallback. Visual objects must not independently advance flight or orbit physics during normal game frames.
 4. Level validation occurs before the current world is cleared or mutated.
 5. Shared declarative object vocabulary and defaults belong in `domain/` and its generated contracts; compatibility normalization and semantic validation belong in `levelSchema.js` / `levelValidation.js`, not individual loaders or tools.
-6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, and bonuses may be orbit targets; planets, black holes, bonuses, and targets may be orbit sources.
+6. Object-referenced orbits require unique IDs and an acyclic reference graph. Planets, black holes, repulsor stars, and bonuses may be orbit targets; planets, black holes, repulsor stars, bonuses, and targets may be orbit sources.
 7. Shipped legacy `gravitationalReach: 0` means the effective default reach of 5000. Use `mass: 0` for a planet that exerts no gravity.
 8. Preserve zero with nullish defaults where zero is meaningful, including `gravitationalConstant: 0` and `requiredBonuses: 0`.
 9. Browser effects—DOM, Canvas drawing, audio, timers, and messages—stay outside the deterministic simulation modules.

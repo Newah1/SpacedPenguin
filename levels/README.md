@@ -92,6 +92,24 @@ Defaults are `radius: 30`, `mass: 100`, and `gravitationalReach: 5000`. For comp
 
 Black holes use the same gravity model as planets but never collide with Kevin. Their collision radius is normalized to `0` and `collidable` is always `false`. The editor exposes radius, mass, gravitational reach, and orbit controls; the animated accretion particles are render-only and do not affect deterministic simulation. Black holes may be used anywhere a planet is accepted as an orbit source or orbit target.
 
+### Repulsor star
+
+```json
+{
+  "type": "repulsorstar",
+  "position": { "x": 400, "y": 250 },
+  "properties": {
+    "id": "repulsor_1",
+    "name": "White Dwarf",
+    "radius": 30,
+    "strength": 100,
+    "repulsionReach": 5000
+  }
+}
+```
+
+Repulsor stars push Kevin directly away from their center using the same calibrated inverse-distance gravity model as planets, with the force direction reversed. They never collide with Kevin: `collisionRadius` is normalized to `0` and `collidable` to `false`. `strength` is a non-negative authored magnitude; it is projected to signed negative mass only inside deterministic simulation state. Omitted, null, or zero `repulsionReach` uses the legacy effective reach of `5000`. The bright white core, pulsing rays, and outward-flicking particles are render-only. Canonical exports use `repulsorstar`; `repulsor_star` and `repulsor` are accepted aliases.
+
 ### Bonus
 
 ```json
@@ -390,12 +408,12 @@ Gravity orbit motion is numerically integrated. Editor export after a play previ
 ]
 ```
 
-The loader constructs ordinary objects and IDs first, then attaches orbits, so forward references between planets and bonuses are allowed. Validation requires author IDs to be unique and rejects missing targets, self-references, and cycles before runtime construction.
+The loader constructs ordinary objects and IDs first, then attaches orbits, so forward references between planets, black holes, repulsor stars, and bonuses are allowed. Validation requires author IDs to be unique and rejects missing targets, self-references, and cycles before runtime construction.
 
 Current hierarchy limitations:
 
-- Orbit targets may currently be planet or bonus IDs.
-- Orbiting sources may be planets, bonuses, or the target.
+- Orbit targets may currently be planet, black-hole, repulsor-star, or bonus IDs.
+- Orbiting sources may be planets, black holes, repulsor stars, bonuses, or the target.
 - Active slingshot, text, and pointing-arrow orbit definitions are rejected because those entities are not part of simulation orbit stepping.
 - Hierarchical parents are resolved before children regardless of declaration order.
 
@@ -433,7 +451,7 @@ Any authored object may follow a fixed waypoint path. Put `waypointPath` beside 
 - `phase` is the optional starting distance along the repeating route. It defaults to zero.
 - An object cannot combine `orbit` and `waypointPath`; validation rejects ambiguous double-motion definitions.
 
-Planets, black holes, bonuses, targets, portals, speed boosters, and the slingshot move inside the deterministic simulation before collision and gravity checks. Text and pointing-arrow paths use the same deterministic path math and move as part of world state. Headless compiled timelines preserve waypoint positions and phase.
+Planets, black holes, repulsor stars, bonuses, targets, portals, speed boosters, and the slingshot move inside the deterministic simulation before collision and gravity checks. Text and pointing-arrow paths use the same deterministic path math and move as part of world state. Headless compiled timelines preserve waypoint positions and phase.
 
 In the level editor, select an object and set **Waypoint Motion** to `pingpong` or `loop`. The inspector creates a two-point path, exposes speed and every point's X/Y coordinates, and provides add/remove controls. The canvas draws the route and numbered waypoint handles. Click and drag any numbered handle to reshape the path directly; the drag is one undoable editor command and keeps the inspector coordinates synchronized. Edit-mode preview animates the object without changing its authored position. Set **Waypoint Motion** back to `none` to remove the path.
 

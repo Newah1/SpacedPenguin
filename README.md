@@ -144,6 +144,8 @@ SpacedPenguin_Documentation.md Original Shockwave behavior/provenance
 
 Levels use a JSON envelope containing `startPosition`, `targetPosition`, `objects`, and `rules`. The current schema, object properties, canonical orbit form, rule support, and known limitations are documented in [levels/README.md](levels/README.md).
 
+Authored levels can use `repulsorstar` for a bright, non-colliding gravity source that pushes Kevin away. Its configurable fields are `radius`, `strength`, and `repulsionReach`; see the level authoring guide for the complete contract.
+
 For a pointing tutorial arrow, use `pointingAt`:
 
 ```json

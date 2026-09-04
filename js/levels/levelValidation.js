@@ -261,7 +261,7 @@ function validateOrbits(objects, identifiers, collector) {
                 if (!target) {
                     collector.error('ORBIT_TARGET_MISSING', `${path}.orbitTargetId`, `references unknown object ID "${orbit.targetId}"`);
                 } else if (!ORBIT_LOOKUP_TARGET_TYPES.includes(target.type)) {
-                    collector.error('ORBIT_TARGET_UNAVAILABLE', `${path}.orbitTargetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, and bonus IDs`);
+                    collector.error('ORBIT_TARGET_UNAVAILABLE', `${path}.orbitTargetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, repulsor star, and bonus IDs`);
                 } else if (target === entry) {
                     collector.error('ORBIT_SELF_REFERENCE', `${path}.orbitTargetId`, 'cannot reference the same object');
                 } else if (typeof entry.properties.id !== 'string') {
@@ -292,7 +292,7 @@ function validateOrbits(objects, identifiers, collector) {
                         if (!target) {
                             collector.error('ORBIT_TARGET_MISSING', `${sourcePath}.targetId`, `references unknown object ID "${source.targetId}"`);
                         } else if (!ORBIT_LOOKUP_TARGET_TYPES.includes(target.type)) {
-                            collector.error('ORBIT_TARGET_UNAVAILABLE', `${sourcePath}.targetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, and bonus IDs`);
+                            collector.error('ORBIT_TARGET_UNAVAILABLE', `${sourcePath}.targetId`, `references ${target.type}, but runtime orbit lookup supports planet, black hole, repulsor star, and bonus IDs`);
                         } else if (target === entry) {
                             collector.error('ORBIT_SELF_REFERENCE', `${sourcePath}.targetId`, 'cannot reference the same object');
                         } else if (typeof entry.properties.id === 'string') {
@@ -312,7 +312,7 @@ function validateOrbits(objects, identifiers, collector) {
         const activeNonGravityOrbit = orbit.type !== LevelOrbitType.GRAVITY && orbit.radius > 0 && orbit.speed !== 0;
         const activePhysicsOrbit = orbit.type === LevelOrbitType.GRAVITY || orbit.type === LevelOrbitType.DIRECTOR_GRAVITY;
         if ((activeNonGravityOrbit || activePhysicsOrbit) && !ORBIT_SOURCE_TYPES.includes(entry.type)) {
-            collector.error('ORBIT_SOURCE_UNAVAILABLE', path, `runtime orbit stepping supports planet, bonus, and target sources, not ${entry.type}`);
+            collector.error('ORBIT_SOURCE_UNAVAILABLE', path, `runtime orbit stepping supports gravity-body, bonus, and target sources, not ${entry.type}`);
         }
         if ((activeNonGravityOrbit || orbit.type === LevelOrbitType.GRAVITY) && orbit.targetId === null && orbit.center === null) {
             collector.error('ORBIT_CENTER_REQUIRED', path, 'an active orbit requires orbitTargetId or orbitCenter');

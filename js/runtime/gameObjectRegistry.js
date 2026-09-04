@@ -45,6 +45,9 @@ const SINGLE_AUTHORING_FACTORIES = Object.freeze({
         mass: EDITOR_CONFIG.authoringDefaults.planet.mass,
         gravitationalReach: EDITOR_CONFIG.authoringDefaults.planet.gravitationalReach
     }),
+    RepulsorStar: ({ x, y }) => objectDefinition(LevelObjectType.REPULSOR_STAR, x, y, {
+        ...LEVEL_DEFAULTS.repulsorStar
+    }),
     Bonus: ({ x, y }) => objectDefinition(LevelObjectType.BONUS, x, y, {
         value: EDITOR_CONFIG.authoringDefaults.bonus.value
     }),
@@ -198,6 +201,16 @@ function createBlackHoleRuntime({ constructors, position, properties, gameObject
     ), properties, applyOrbit, gameObjectLookup);
 }
 
+function createRepulsorStarRuntime({ constructors, position, properties, gameObjectLookup, applyOrbit }) {
+    return applyCommonRuntimeProperties(new constructors.RepulsorStar(
+        position.x, position.y,
+        properties.radius ?? LEVEL_DEFAULTS.repulsorStar.radius,
+        properties.strength ?? LEVEL_DEFAULTS.repulsorStar.strength,
+        properties.repulsionReach ?? LEVEL_DEFAULTS.repulsorStar.repulsionReach,
+        gameObjectLookup
+    ), properties, applyOrbit, gameObjectLookup);
+}
+
 function createBonusRuntime({ constructors, position, properties, assetLoader, gameObjectLookup, applyOrbit }) {
     return applyCommonRuntimeProperties(new constructors.Bonus(
         position.x, position.y,
@@ -331,6 +344,45 @@ function validateGravityProperties({ type, properties, propertyPath, collector, 
     }
 }
 
+function validateRepulsorStarProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.strength, `${propertyPath}.strength`, collector, { min: 0 });
+    helpers.optionalNumber(properties.repulsionReach, `${propertyPath}.repulsionReach`, collector, { min: 0 });
+    if (properties.collisionRadius !== undefined && properties.collisionRadius !== 0) {
+        collector.error('REPULSOR_STAR_COLLISION_RADIUS', `${propertyPath}.collisionRadius`, 'must be 0 because repulsor stars are non-collidable');
+    }
+    if (properties.collidable !== undefined && properties.collidable !== false) {
+        collector.error('REPULSOR_STAR_COLLIDABLE', `${propertyPath}.collidable`, 'must be false because repulsor stars are non-collidable');
+    }
+}
+
+function applyRepulsorStarRuntimeProperty({ object, property, value }) {
+    if (property === 'radius') {
+        object.radius = value;
+        object.width = value * 2;
+        object.height = value * 2;
+        return true;
+    }
+    if (property === 'strength') {
+        object.setRepulsionStrength(value);
+        return true;
+    }
+    if (property === 'repulsionReach') {
+        object.setRepulsionReach(value);
+        return true;
+    }
+    return false;
+}
+
+function serializeRepulsorStarRuntime({ object, properties }) {
+    delete properties.width;
+    delete properties.height;
+    delete properties.mass;
+    delete properties.gravitationalReach;
+    properties.strength = object.strength;
+    properties.repulsionReach = object.repulsionReach;
+}
+
 function validateBonusProperties({ properties, propertyPath, collector, helpers }) {
     helpers.optionalNumber(properties.value, `${propertyPath}.value`, collector, { min: 0 });
 }
@@ -421,6 +473,17 @@ const BASE_DEFINITIONS = {
         validateProperties: validateGravityProperties,
         createRuntime: createBlackHoleRuntime,
         afterRuntimePropertyChanged: refreshGravityRuntime
+    },
+    RepulsorStar: {
+        normalizeProperties(properties) {
+            properties.collisionRadius = 0;
+            properties.collidable = false;
+        },
+        validateProperties: validateRepulsorStarProperties,
+        createRuntime: createRepulsorStarRuntime,
+        applyRuntimeProperty: applyRepulsorStarRuntimeProperty,
+        afterRuntimePropertyChanged: refreshGravityRuntime,
+        serializeRuntimeProperties: serializeRepulsorStarRuntime
     },
     Bonus: {
         validateProperties: validateBonusProperties,

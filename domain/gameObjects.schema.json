@@ -92,6 +92,40 @@
       "serializedProperties": ["gravitationalReach", "collisionRadius", "collidable"]
     },
     {
+      "className": "RepulsorStar",
+      "type": "repulsorstar",
+      "label": "Repulsor Star",
+      "aliases": ["repulsor_star", "repulsor"],
+      "collections": ["planets"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": true, "orbitTarget": true, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "Planet",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "radius": { "excluded": "Repulsor-star radius controls browser presentation and editor geometry; the star is non-colliding." },
+          "strength": { "field": "mass", "reason": "Authored positive strength is normalized to a negative simulation mass so the shared gravity kernel applies an outward force." },
+          "repulsionReach": { "field": "gravitationalReach", "reason": "Repulsion uses the shared finite gravity-reach slot after normalization." },
+          "collisionRadius": { "field": "collisionRadius" }, "collidable": { "field": "collidable" },
+          "orbit": { "excluded": "Orbit motion is resolved before the transition step." },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "physics": { "add": "addPlanet", "remove": "removePlanet" },
+      "x-spaced-penguin-level-defaults": {
+        "key": "repulsorStar",
+        "include": ["radius", "strength", "repulsionReach"]
+      },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" },
+        "radius": { "type": "number", "default": 30, "exclusiveMinimum": 0, "x-editor": { "label": "Radius", "min": 1 } },
+        "strength": { "type": "number", "default": 100, "minimum": 0, "x-editor": { "label": "Repulsion Strength", "min": 0 } },
+        "repulsionReach": { "type": "number", "default": 5000, "minimum": 0, "x-editor": { "label": "Repulsion Reach", "min": 0 } },
+        "collisionRadius": { "const": 0, "default": 0 }, "collidable": { "const": false, "default": false },
+        "orbit": { "type": "object" }, "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["strength", "repulsionReach", "collisionRadius", "collidable"]
+    },
+    {
       "className": "Bonus",
       "type": "bonus",
       "label": "Bonus",

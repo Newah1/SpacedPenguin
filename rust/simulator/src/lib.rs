@@ -973,6 +973,10 @@ fn integrate_gravity(
         if separation >= planet.gravitational_reach {
             continue;
         }
+        // Mass is deliberately signed at the simulation boundary. Ordinary
+        // planets and black holes are positive; authored repulsor stars are
+        // normalized to negative mass and therefore accelerate away from the
+        // source through this same authoritative transition.
         let force = planet.mass * constant / squared;
         velocity.x += force * dx * dt * legacy_fps;
         velocity.y += force * dy * dt * legacy_fps;
@@ -1507,4 +1511,36 @@ fn apply_portals(
     }
     state.position = end;
     events
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn negative_mass_gravity_source_repels_without_collision_state() {
+        let mut position = Point { x: 100.0, y: 300.0 };
+        let mut velocity = Point { x: 0.0, y: 0.0 };
+        let repulsor = Planet {
+            id: "repulsor-1".to_owned(),
+            position: Point { x: 300.0, y: 300.0 },
+            collision_radius: 0.0,
+            collidable: false,
+            mass: -500.0,
+            gravitational_reach: 5000.0,
+        };
+
+        integrate_gravity(
+            &mut position,
+            &mut velocity,
+            &[repulsor],
+            3.0,
+            1.0 / 60.0,
+            60.0,
+        );
+
+        assert!(velocity.x < 0.0, "negative mass must push away from the source");
+        assert_eq!(velocity.y, 0.0);
+        assert!(position.x < 100.0);
+    }
 }

@@ -74,18 +74,25 @@ export function createSimulationStateFromLevel(level, options = {}) {
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
         const properties = definition.properties || {};
-        if (type === LevelObjectType.PLANET || type === LevelObjectType.BLACK_HOLE) {
+        if (type === LevelObjectType.PLANET || type === LevelObjectType.BLACK_HOLE ||
+            type === LevelObjectType.REPULSOR_STAR) {
             const isBlackHole = type === LevelObjectType.BLACK_HOLE;
+            const isRepulsorStar = type === LevelObjectType.REPULSOR_STAR;
+            const isNonCollidingGravitySource = isBlackHole || isRepulsorStar;
             planets.push({
                 id: nextId(type, properties.id),
                 type,
                 position: clonePoint(objectPosition(definition)),
                 radius: properties.radius ?? LEVEL_DEFAULTS.planet.radius,
-                collisionRadius: isBlackHole ? 0 : properties.collisionRadius ??
+                collisionRadius: isNonCollidingGravitySource ? 0 : properties.collisionRadius ??
                     (properties.radius ?? LEVEL_DEFAULTS.planet.radius) + LEVEL_DEFAULTS.planet.collisionPadding,
-                collidable: !isBlackHole && properties.collidable !== false,
-                mass: properties.mass ?? LEVEL_DEFAULTS.planet.mass,
-                gravitationalReach: effectiveGravitationalReach(properties.gravitationalReach),
+                collidable: !isNonCollidingGravitySource && properties.collidable !== false,
+                mass: isRepulsorStar
+                    ? -Math.abs(properties.strength ?? LEVEL_DEFAULTS.repulsorStar.strength)
+                    : properties.mass ?? LEVEL_DEFAULTS.planet.mass,
+                gravitationalReach: effectiveGravitationalReach(isRepulsorStar
+                    ? properties.repulsionReach
+                    : properties.gravitationalReach),
                 orbit: orbitFromDefinition(definition),
                 waypointPath: waypointPathFromDefinition(definition)
             });

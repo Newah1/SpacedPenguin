@@ -97,7 +97,7 @@ Located on the right side of the screen when an object is selected:
 
 ### Visual Indicators
 - **Green Selection Highlight**: Shows which object is currently selected
-- **Orbit Center Dots**: Red dots indicate orbit centers for planets and bonuses
+- **Orbit Center Dots**: Red dots indicate orbit centers for gravity bodies and bonuses
 - **Arrow Target Lines**: Cyan lines show what PointingArrows are pointing at
 - **Mode Indicator**: "EDIT MODE" or "PLAY MODE" text in top-right corner
 
@@ -105,6 +105,7 @@ Located on the right side of the screen when an object is selected:
 The desktop add-button row and mobile **+** menu expose these types:
 - Planet
 - BlackHole
+- RepulsorStar
 - Bonus
 - Target
 - Slingshot
@@ -129,6 +130,7 @@ The desktop add-button row and mobile **+** menu expose these types:
 |-------------|-------------------|
 | **Planet** | 50px radius, 1000 mass, planet_grey sprite |
 | **BlackHole** | Planet-style radius/mass/reach, zero collision |
+| **RepulsorStar** | 30px radius, 100 repulsion strength, 5000 reach, zero collision |
 | **Bonus** | 100 point value, default rotation |
 | **Target** | 60x60 size, ship_open sprite |
 | **Slingshot** | Standard stretch limit and velocity |
@@ -212,6 +214,18 @@ Gravity-only bodies with an ominous animated event-horizon/accretion visual. The
 - **Collision**: Always disabled; collision radius remains `0`
 
 Black holes can be cloned, exported/imported as `blackhole`, and selected by Gravity Sculpt because they participate in the shared gravity-body collection.
+
+### RepulsorStar
+Bright, non-colliding force sources that push Kevin away from their center. Their pulsing white core and outward-flicking particles are visual only.
+
+**Core Properties:**
+- **Position**: X, Y coordinates
+- **Radius**: Visual star size
+- **Repulsion Strength**: Non-negative magnitude of the outward force
+- **Repulsion Reach**: Maximum influence distance; omitted or zero uses `5000`
+- **Collision**: Always disabled; collision radius remains `0`
+
+Repulsor stars can be cloned, orbited, waypoint-animated, and exported/imported as `repulsorstar`. Gravity Sculpt currently leaves them locked because its adjustable mass search is defined only for attractive gravity bodies.
 
 ### Bonus
 Collectible items that add to the player's score.

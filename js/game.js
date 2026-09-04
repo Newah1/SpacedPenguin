@@ -3,6 +3,7 @@
 
 import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper } from './runtime/entities/gameObjects.js';
 import { BlackHole } from './runtime/entities/blackHole.js';
+import { RepulsorStar } from './runtime/entities/repulsorStar.js';
 import Utils from './platform/utils.js';
 import { LevelLoader } from './levels/levelLoader.js';
 import { UIManager } from './ui/uiManager.js';
@@ -286,6 +287,7 @@ export class Game {
         this.levelEditor.gameObjectClasses = {
             Planet,
             BlackHole,
+            RepulsorStar,
             Bonus,
             BonusPopup,
             Target,

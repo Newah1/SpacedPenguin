@@ -1,6 +1,7 @@
 import * as coreGameObjects from './entities/gameObjects.js';
 import * as visibleBonusObjects from './entities/visibleBonus.js';
 import * as blackHoleObjects from './entities/blackHole.js';
+import * as repulsorStarObjects from './entities/repulsorStar.js';
 import * as penguinObjects from './entities/penguin.js';
 
 // Browser-only runtime composition. The domain registry remains safe to import
@@ -10,6 +11,7 @@ const RUNTIME_MODULES = Object.freeze([
     coreGameObjects,
     visibleBonusObjects,
     blackHoleObjects,
+    repulsorStarObjects,
     penguinObjects
 ]);
 

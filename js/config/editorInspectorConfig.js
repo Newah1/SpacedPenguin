@@ -29,7 +29,8 @@ export const EDITABLE_STATE_PROPERTIES = deepFreeze([
     'collisionRadius', 'gravitationalReach', 'color', 'planetType', 'value',
     'rotationSpeed', 'state', 'spriteType', 'maxPullback', 'stretchLimit',
     'velocityMultiplier', 'content', 'fontSize', 'fontFamily', 'textAlign',
-    'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth',
+    'backgroundColor', 'padding', 'maxWidth', 'autoSize', 'baseWidth', 'strength',
+    'repulsionReach',
     'glowColor', 'scaleWithDistance', 'playSound', 'pairedPortalId', 'restitution'
 ]);
 
@@ -116,6 +117,8 @@ export const EDITOR_NUMERIC_FALLBACKS = deepFreeze({
     radius: LEVEL_DEFAULTS.planet.radius,
     mass: LEVEL_DEFAULTS.planet.mass,
     gravitationalReach: LEVEL_DEFAULTS.planet.gravitationalReach,
+    strength: LEVEL_DEFAULTS.repulsorStar.strength,
+    repulsionReach: LEVEL_DEFAULTS.repulsorStar.repulsionReach,
     width: LEVEL_DEFAULTS.target.width,
     height: LEVEL_DEFAULTS.target.height,
     value: LEVEL_DEFAULTS.bonus.value,

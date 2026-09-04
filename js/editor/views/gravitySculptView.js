@@ -169,10 +169,13 @@ export class GravitySculptView {
         this.planetInputs = this.editor.game.planets.map((planet, index) => {
             const orbiting = Boolean(planet.orbitSystem?.orbitTargetId ||
                 (planet.orbitSystem?.orbitCenter && planet.orbitSystem?.orbitRadius > 0));
-            const item = checkbox(orbiting ? `${planet.name || `Planet ${index + 1}`} (orbit locked)` : (planet.name || `Planet ${index + 1}`), !orbiting);
-            item.input.disabled = orbiting;
+            const repulsor = planet.mass < 0;
+            const lockedReason = orbiting ? 'orbit locked' : repulsor ? 'repulsor locked' : null;
+            const label = planet.name || `Planet ${index + 1}`;
+            const item = checkbox(lockedReason ? `${label} (${lockedReason})` : label, !lockedReason);
+            item.input.disabled = Boolean(lockedReason);
             item.input.dataset.planetIndex = String(index);
-            if (orbiting) item.wrapper.classList.add('is-disabled');
+            if (lockedReason) item.wrapper.classList.add('is-disabled');
             this.planets.appendChild(item.wrapper);
             return item.input;
         });
