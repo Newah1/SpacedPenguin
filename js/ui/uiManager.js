@@ -2,7 +2,7 @@
 // Provides an extensible system for menus, dialogs, and overlays
 
 import { STAGE_HEIGHT, STAGE_WIDTH, screenToStage } from '../rendering/viewport.js';
-import { INPUT_CONFIG, isMobileViewport } from '../config/inputConfig.js';
+import { INPUT_CONFIG } from '../config/inputConfig.js';
 import { UI_CONFIG } from '../config/uiConfig.js';
 import { CanvasButton } from './buttonFramework.js';
 
@@ -23,18 +23,6 @@ export class UIManager {
         this.handleKeyPress = this.handleKeyPress.bind(this);
         
         // Note: Event listeners are managed by InputManager contexts.
-    }
-    
-    setupEventListeners() {
-        // This method is now deprecated - input handling managed by InputManager
-        console.warn('UIManager.setupEventListeners() is deprecated - input now managed by InputManager');
-        
-        // Mobile device detection
-        this.isMobile = this.detectMobile();
-    }
-    
-    detectMobile() {
-        return isMobileViewport();
     }
     
     handleTouchStart(event) {

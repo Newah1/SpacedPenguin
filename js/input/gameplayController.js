@@ -98,13 +98,6 @@ export class GameplayController {
         }, RUNTIME_CONFIG.mobileInstructionsFadeDelayMs);
     }
 
-    // Kept as a no-op for the browser facade's legacy method contract. Mobile
-    // launch feedback is now communicated by the instruction pill.
-    createLaunchFeedback() {}
-
-    // Kept as a no-op for callers from older game lifecycle paths.
-    showLaunchFeedback() {}
-
     setLookAroundMode(enabled) {
         const nextMode = Boolean(enabled);
         if (nextMode === this.lookAroundMode) return;

@@ -12,6 +12,7 @@ import {
     stepSimulationMutable
 } from '../js/simulation/simulationEngine.js';
 import { CompiledWorldTimeline } from '../js/simulation/compiledWorldTimeline.js';
+import { applyGameSimulationState } from '../js/runtime/gameSimulationAdapter.js';
 import DocumentMutationService from '../js/editor/services/documentMutationService.js';
 import { serializeRuntimeObject } from '../js/runtime/runtimeObjectSerialization.js';
 
@@ -112,6 +113,80 @@ test('decorations and an idle penguin follow their waypoint-controlled world obj
     assert.deepEqual(state.penguin.position, state.slingshot.position);
     assert.equal(state.decorations[0].position.x, 10);
     assert.ok(Math.abs(state.decorations[0].position.y - 35) < 1e-9);
+});
+
+test('moving slingshots preserve their launch anchor and do not cancel pullback', () => {
+    const state = createSimulationStateFromLevel({
+        startPosition: { x: 100, y: 100 },
+        objects: [{
+            type: 'slingshot', position: { x: 100, y: 100 }, properties: {
+                anchorPosition: { x: 80, y: 100 },
+                launchModel: 'director',
+                waypointPath: {
+                    waypoints: [{ x: 100, y: 100 }, { x: 200, y: 100 }],
+                    speed: 50, mode: 'pingpong'
+                }
+            }
+        }]
+    }, { validate: false });
+
+    stepSimulationMutable(state, 0.5);
+    assert.ok(Math.abs(state.slingshot.position.x - 125) < 1e-9);
+    assert.equal(state.slingshot.position.y, 100);
+    assert.ok(Math.abs(state.slingshot.anchorPosition.x - 105) < 1e-9);
+    assert.equal(state.slingshot.anchorPosition.y, 100);
+    assert.deepEqual(state.penguin.position, state.slingshot.position);
+
+    state.penguin.state = 'pullback';
+    state.penguin.position = { x: 75, y: 125 };
+    stepSimulationMutable(state, 0.5);
+    assert.ok(Math.abs(state.slingshot.position.x - 150) < 1e-9);
+    assert.equal(state.slingshot.position.y, 100);
+    assert.ok(Math.abs(state.slingshot.anchorPosition.x - 130) < 1e-9);
+    assert.equal(state.slingshot.anchorPosition.y, 100);
+    assert.deepEqual(state.penguin.position, { x: 75, y: 125 });
+});
+
+test('runtime application keeps a moving slingshot pullback detached from its anchor', () => {
+    const state = createSimulationStateFromLevel({
+        startPosition: { x: 100, y: 100 },
+        objects: [{
+            type: 'slingshot', position: { x: 100, y: 100 }, properties: {
+                anchorPosition: { x: 80, y: 100 },
+                launchModel: 'director',
+                waypointPath: {
+                    waypoints: [{ x: 100, y: 100 }, { x: 200, y: 100 }],
+                    speed: 50, mode: 'pingpong'
+                }
+            }
+        }]
+    }, { validate: false });
+    state.slingshot.position = { x: 125, y: 100 };
+    state.slingshot.anchorPosition = { x: 105, y: 100 };
+    state.penguin.state = 'pullback';
+    state.penguin.position = { x: 75, y: 125 };
+
+    const anchor = { x: 80, y: 100 };
+    const game = {
+        penguin: {
+            x: 0, y: 0, vx: 0, vy: 0, state: 'idle',
+            setPosition(x, y) { this.x = x; this.y = y; }
+        },
+        planets: [], bonuses: [], portals: [], speedBoosters: [],
+        deflectorBumpers: [], forceFields: [], textObjects: [], pointingArrows: [],
+        target: { position: { x: 0, y: 0 }, orbitSystem: null, waypointSystem: null },
+        slingshot: {
+            position: anchor,
+            anchor,
+            resetPosition: { x: 100, y: 100 },
+            waypointSystem: { phase: 0 }
+        }
+    };
+
+    applyGameSimulationState(game, state);
+    assert.deepEqual(game.slingshot.anchor, { x: 105, y: 100 });
+    assert.deepEqual(game.slingshot.resetPosition, { x: 125, y: 100 });
+    assert.deepEqual({ x: game.penguin.x, y: game.penguin.y }, { x: 75, y: 125 });
 });
 
 test('editor waypoint commands create, extend, edit, and remove canonical paths', () => {

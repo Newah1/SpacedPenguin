@@ -55,7 +55,15 @@ export class EditorRuntimeProjector {
     }
 
     rebuild(definition) {
-        this.game.loadLevel(structuredClone(definition));
+        const { saveId, catalogReference } = this.game.levelMetadata || {};
+        try {
+            this.game.loadLevel(structuredClone(definition));
+        } finally {
+            // These identify the editor document, not its disposable runtime.
+            this.game.levelMetadata ||= {};
+            if (saveId !== undefined) this.game.levelMetadata.saveId = saveId;
+            if (catalogReference !== undefined) this.game.levelMetadata.catalogReference = catalogReference;
+        }
         this.indexRuntimeObjects();
         this.#refreshOrbitLookups();
         return this;

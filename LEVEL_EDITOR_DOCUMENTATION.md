@@ -30,7 +30,8 @@ The Spaced Penguin Level Editor is an in-game tool for creating, modifying, prev
 - **Play Mode Testing**: Switch between edit and play modes to test levels immediately
 - **Editor-native Completion**: Completing a play-test stays in the editor, reports success in the toolbar, and unlocks publishing when a community server is configured
 - **Publish Confirmation**: Publishing opens a compact form to confirm the public level name and description before upload
-- **Visual Indicators**: Shows orbit centers, waypoint paths and handles, arrow targets, and selection highlights
+- **Focused Toolbar**: Groups play-testing, object, tool, document, and navigation actions in a compact game-themed command bar; object actions appear only when relevant
+- **Visual Indicators**: Shows orbit centers, the selected object's waypoint path and handles, arrow targets, and selection highlights. Other waypoint paths stay hidden to keep the canvas readable.
 
 ## Getting Started
 
@@ -165,8 +166,9 @@ All property changes apply in real-time:
 
 1. **Select Object**: Click on the object you want to edit
 2. **Locate Property**: Find the property in the properties panel
-3. **Modify Value**: Change the value using appropriate input type
-4. **See Changes**: Visual updates happen immediately
+3. **Adjust Numbers**: Use `−` / `+` for precise steps and `−−` / `++` for magnitude-aware large steps, or type an exact value
+4. **Modify Other Values**: Change the value using the appropriate input type
+5. **See Changes**: Visual updates happen immediately
 
 ### Input Types
 

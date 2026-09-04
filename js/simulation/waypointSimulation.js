@@ -82,10 +82,16 @@ export function stepWaypointPath(pathInput, currentPosition, deltaTime) {
 export function advanceWaypointPathsMutable(entities, deltaTime) {
     for (const entity of entities) {
         if (!entity.waypointPath) continue;
+        const previousPosition = clonePoint(entity.position);
         const stepped = stepWaypointPath(entity.waypointPath, entity.position, deltaTime);
         entity.position = stepped.position;
         entity.waypointPath = stepped.waypointPath;
-        if (entity.anchorPosition) entity.anchorPosition = clonePoint(stepped.position);
+        if (entity.anchorPosition) {
+            entity.anchorPosition = {
+                x: entity.anchorPosition.x + stepped.position.x - previousPosition.x,
+                y: entity.anchorPosition.y + stepped.position.y - previousPosition.y
+            };
+        }
     }
     return entities;
 }

@@ -4,14 +4,20 @@ import { createButton } from '../../ui/buttonFramework.js';
 import { getGameObjectDefinition } from '../../runtime/gameObjectRegistry.js';
 import { EditorEventType } from '../state/editorEvents.js';
 
-function button(label, background, action) {
+function button(label, tone, action, accessibleLabel = label) {
     const element = createButton(label, action, {
-        backgroundColor: background,
-        hoverColor: background,
-        textColor: 'white',
-        borderColor: 'rgba(255, 255, 255, .25)'
+        textColor: '#fff6d6'
     });
     element.classList.add('editor-toolbar-button');
+    element.dataset.toolbarTone = tone;
+    element.setAttribute('aria-label', accessibleLabel);
+    return element;
+}
+
+function group(...controls) {
+    const element = document.createElement('div');
+    element.className = 'editor-toolbar-group';
+    element.append(...controls);
     return element;
 }
 
@@ -32,30 +38,26 @@ export class LevelEditorToolbarView {
         this.wrapper.className = 'editor-toolbar-wrapper';
         this.toolbar = document.createElement('div');
         this.toolbar.className = 'editor-toolbar';
-        this.modeButton = button('Switch to Play Mode', '#4CAF50', () => this.editor.toggleMode());
-        this.toggleButton = button('Add Objects ▼', '#2196F3', event => {
+        this.modeBadge = document.createElement('span');
+        this.modeBadge.className = 'editor-mode-badge';
+        this.modeBadge.textContent = 'EDIT';
+        this.modeBadge.title = 'Drag toolbar';
+        this.modeButton = button('▶ Play-test', 'primary', () => this.editor.toggleMode(), 'Switch to Play Mode');
+        this.toggleButton = button('+ Object ▼', 'accent', event => {
             event.stopPropagation();
             this.section.style.display === 'none' ? this.open() : this.close();
-        });
-        this.deleteButton = button('Delete Selected', '#f44336', () => this.editor.deleteSelectedObject());
-        this.cloneButton = button('Clone Selected', '#9C27B0', () => this.editor.cloneSelected());
-        this.exportButton = button('Export Level', '#FF9800', () => this.editor.exportLevel());
-        this.saveButton = button('Save', '#2e8b57', () => this.editor.saveLevel());
-        this.publishButton = button('Publish', '#7b4bb7', () => this.editor.publishLevel());
+        }, 'Add Objects');
+        this.deleteButton = button('Delete', 'danger', () => this.editor.deleteSelectedObject(), 'Delete Selected');
+        this.cloneButton = button('Clone', 'neutral', () => this.editor.cloneSelected(), 'Clone Selected');
+        this.exportButton = button('Export', 'neutral', () => this.editor.exportLevel(), 'Export Level');
+        this.saveButton = button('Save', 'success', () => this.editor.saveLevel());
+        this.publishButton = button('Publish', 'primary', () => this.editor.publishLevel());
         this.publishButton.hidden = !this.editor.game.communityLevelClient;
-        this.publishHint = document.createElement('span');
-        this.publishHint.textContent = 'Play-test first';
-        this.publishHint.title = 'Complete this level in Play Mode to unlock Publish';
-        this.publishHint.setAttribute('aria-label', this.publishHint.title);
-        this.publishHint.className = 'editor-publish-hint';
-        this.publishControl = document.createElement('span');
-        this.publishControl.className = 'editor-publish-control';
-        this.publishControl.append(this.publishButton, this.publishHint);
         this.updatePublishAvailability();
-        this.loadButton = button('Open Level…', '#3d74b8', () => this.editor.loadLevel());
-        this.menuButton = button('Main Menu', '#704c3b', () => this.editor.exitToMenu());
-        this.sculptButton = button('Gravity Sculpt', '#00A6A6', () => this.editor.gravitySculptController.toggle());
-        this.minimizeButton = button('−', '#555', event => {
+        this.loadButton = button('Open', 'neutral', () => this.editor.loadLevel(), 'Open Level…');
+        this.menuButton = button('Exit', 'quiet', () => this.editor.exitToMenu(), 'Main Menu');
+        this.sculptButton = button('✦ Sculpt', 'accent', () => this.editor.gravitySculptController.toggle(), 'Gravity Sculpt');
+        this.minimizeButton = button('−', 'quiet', event => {
             event.stopPropagation();
             this.setMinimized(!this.minimized);
         });
@@ -68,11 +70,13 @@ export class LevelEditorToolbarView {
         this.addButtonContainer = document.createElement('div');
         this.addButtonContainer.className = 'editor-add-button-container';
         this.section.appendChild(this.addButtonContainer);
+        this.contextGroup = group(this.cloneButton, this.deleteButton);
         this.toolbarControls = [
-            this.modeButton, this.toggleButton, this.deleteButton,
-            this.cloneButton, this.sculptButton, this.exportButton,
-            this.saveButton, this.publishControl,
-            this.loadButton, this.menuButton
+            group(this.modeBadge, this.modeButton, this.toggleButton),
+            this.contextGroup,
+            group(this.sculptButton),
+            group(this.saveButton, this.loadButton, this.exportButton, this.publishButton),
+            group(this.menuButton)
         ];
         this.status = document.createElement('span');
         this.status.setAttribute('role', 'status');
@@ -127,6 +131,7 @@ export class LevelEditorToolbarView {
             this.cloneButton.hidden = !canCloneObject;
             this.cloneButton.setAttribute('aria-hidden', String(!canCloneObject));
         }
+        if (this.contextGroup) this.contextGroup.hidden = !canEditObject;
     }
 
     updatePublishAvailability() {
@@ -137,8 +142,6 @@ export class LevelEditorToolbarView {
         );
         this.publishButton.disabled = !canPublish;
         this.publishButton.textContent = canPublish ? 'Publish' : '🔒 Publish';
-        if (this.publishHint) this.publishHint.hidden = this.publishButton.hidden || canPublish;
-        if (this.publishControl) this.publishControl.hidden = this.publishButton.hidden;
         this.publishButton.title = canPublish
             ? 'Publish this completed level'
             : 'Complete this level in Play Mode to enable publishing';
@@ -150,8 +153,8 @@ export class LevelEditorToolbarView {
         toolbar.className = 'editor-mobile-toolbar';
         toolbar.classList.toggle('is-visible', isCompactEditorViewport());
         toolbar.append(
-            button('Clear', '#f44336', () => this.editor.selectObject(null)),
-            button('Add', '#2196F3', () => this.editor.showMobileAddMenu())
+            button('Clear', 'danger', () => this.editor.selectObject(null)),
+            button('+ Object', 'accent', () => this.editor.showMobileAddMenu(), 'Add')
         );
         return toolbar;
     }
@@ -160,7 +163,7 @@ export class LevelEditorToolbarView {
         this.addButtonContainer.replaceChildren();
         this.addButtons = {};
         for (const className of classNames) {
-            const element = button(`Add ${className}`, '#2196F3', event => {
+            const element = button(`Add ${className}`, 'accent', event => {
                 event.stopPropagation();
                 this.editor.addObject(className);
             });
@@ -172,19 +175,22 @@ export class LevelEditorToolbarView {
 
     updateMode(mode) {
         const editing = mode === 'edit';
-        this.modeButton.textContent = editing ? 'Switch to Play Mode' : 'Switch to Edit Mode';
-        this.modeButton.style.background = editing ? '#4CAF50' : '#FF9800';
+        this.modeBadge.textContent = editing ? 'EDIT' : 'PLAY-TEST';
+        this.modeBadge.dataset.mode = editing ? 'edit' : 'play';
+        this.modeButton.textContent = editing ? '▶ Play-test' : '✎ Edit';
+        this.modeButton.setAttribute('aria-label', editing ? 'Switch to Play Mode' : 'Switch to Edit Mode');
+        this.modeButton.dataset.toolbarTone = editing ? 'primary' : 'accent';
     }
 
     open() {
         this.section.style.display = 'flex';
         this.sectionDrag?.clampToViewport();
-        this.toggleButton.textContent = 'Add Objects ▲';
+        this.toggleButton.textContent = '+ Object ▲';
     }
 
     close() {
         this.section.style.display = 'none';
-        this.toggleButton.textContent = 'Add Objects ▼';
+        this.toggleButton.textContent = '+ Object ▼';
     }
 
     setMinimized(minimized) {

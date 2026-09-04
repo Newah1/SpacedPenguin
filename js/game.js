@@ -369,9 +369,7 @@ export class Game {
     setupMobileControls() { this.gameplayController.setupMobileControls(); }
     isMobileDevice() { return this.gameplayController.isMobileDevice(); }
     createMobileControlButtons() { return this.gameplayController.createMobileControlButtons(); }
-    createLaunchFeedback() { return this.gameplayController.createLaunchFeedback(); }
     updateMobileInstructions() { return this.gameplayController.updateMobileInstructions(); }
-    showLaunchFeedback(show = true) { return this.gameplayController.showLaunchFeedback(show); }
     getMousePosition(event) { return this.gameplayController.getMousePosition(event); }
     setCanvasScale(scaleX, scaleY) {
         this.canvasScaleX = scaleX;
@@ -792,7 +790,10 @@ export class Game {
         // already materialized definitions, so register them with the loader
         // before asking it to validate and construct the world.
         if (level && typeof level === 'object') {
-            const customLevelKey = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            // One replaceable slot holds the active materialized level. Editor
+            // rebuilds and play tests must not retain every historical snapshot.
+            assertValidLevelDefinition(level, 'custom level');
+            const customLevelKey = 'custom-preview';
             this.levelLoader.levels.set(customLevelKey, level);
             this.level = customLevelKey;
             level = customLevelKey;
@@ -1260,7 +1261,6 @@ export class Game {
         
         // Update mobile UI feedback
         if (this.isMobileDevice()) {
-            this.showLaunchFeedback(false);
             this.updateMobileInstructions();
         }
         

@@ -122,14 +122,28 @@ export class EditorCommandBus {
     }
 
     undo() {
-        if (this.transaction || !this.history.undo()) return false;
+        if (this.transaction) return false;
+        try {
+            if (!this.history.undo()) return false;
+            this.lastError = null;
+        } catch (error) {
+            this.lastError = error;
+            return false;
+        }
         this.#emitHistory('undo');
         this.events?.emit(EditorEventType.DOCUMENT_CHANGED, { source: 'undo' });
         return true;
     }
 
     redo() {
-        if (this.transaction || !this.history.redo()) return false;
+        if (this.transaction) return false;
+        try {
+            if (!this.history.redo()) return false;
+            this.lastError = null;
+        } catch (error) {
+            this.lastError = error;
+            return false;
+        }
         this.#emitHistory('redo');
         this.events?.emit(EditorEventType.DOCUMENT_CHANGED, { source: 'redo' });
         return true;

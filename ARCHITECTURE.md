@@ -175,6 +175,8 @@ flowchart TB
 | `PenguinLogger` / `Console` | Themed logs and debug commands | DOM and global runtime handles | Operational diagnostics, not durable telemetry. |
 | `PerformanceUtils` | Frame-time tracking and browser timing helpers | `GameManager` | The main loop records capped frame durations. |
 
+Editor projection rebuilds preserve the document's local save ID and catalog reference, including failure recovery. Materialized level loads reuse one preview slot in the loader rather than retaining each editor snapshot. Runtime-only editing compatibility is isolated in `js/editor/services/legacyRuntimeEdits.js`; normal authoring continues through document commands and `DocumentMutationService`.
+
 ### Configuration ownership
 
 Shared policy is split by domain under `js/config/`. `gameConfig.js` owns the world, catalog, generator, simulation, and physics settings, and exposes the compatibility/public `LEVEL_DEFAULTS` view assembled from generated schema contracts. Authored object defaults are generated from `domain/gameObjects.schema.json`; level-rule defaults are generated from `domain/level.schema.json`. The adjacent runtime, render, UI, input, editor, asset, and audio modules own their respective browser concerns. Editor interaction and authoring tuning belongs in `editorConfig.js`, while declarative inspector fields, ranges, option catalogs, editable snapshots, and clone serialization lists belong in `editorInspectorConfig.js`. The Node trajectory tooling has a separate `testing/trajectoryConfig.js` because its search budgets and terminal output are not product behavior. Frozen configuration is consumed directly; `globalConstants.js` remains only as a compatibility view for older imports.
@@ -815,7 +817,7 @@ These items are intentionally separate from the completed low-risk cleanup. They
 
 ### 18.5 Retire internal legacy compatibility layers deliberately
 
-**Current state.** Some compatibility is part of the level contract and should remain: object-type aliases, exported `penguin` definitions, zero gravitational-reach normalization, and `globalConstants.js` views. Other compatibility is internal and appears to have no current production caller, including the deprecated `Game.setupEventListeners()` and `UIManager.setupEventListeners()` paths. `Physics` also retains registry, trace, and helper APIs even though the Rust simulation core is authoritative for gameplay movement.
+**Current state.** Some compatibility is part of the level contract and should remain: object-type aliases, exported `penguin` definitions, zero gravitational-reach normalization, and `globalConstants.js` views. The unused event-listener setup shims and empty mobile launch-feedback hooks have been removed. `Physics` retains runtime membership, trace state, and configuration methods; unused geometry helpers and collection getters have been removed. The Rust simulation core remains authoritative for gameplay movement.
 
 **Why it matters.** Compatibility code is useful only when its supported caller and removal condition are known. Otherwise it preserves duplicate behavior, increases the surface area for new features, and makes it unclear which path is authoritative.
 

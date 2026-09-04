@@ -295,19 +295,16 @@ test('level editor publish is disabled until the current level is completed', ()
     const view = Object.create(LevelEditorToolbarView.prototype);
     view.editor = { game };
     view.publishButton = publishButton;
-    view.publishHint = { hidden: true };
 
     view.updatePublishAvailability();
     assert.equal(publishButton.disabled, true);
     assert.equal(publishButton.textContent, '🔒 Publish');
-    assert.equal(view.publishHint.hidden, false);
     assert.match(publishButton.title, /Complete this level/);
 
     game.completedRun = { level: {}, proof: {} };
     view.updatePublishAvailability();
     assert.equal(publishButton.disabled, false);
     assert.equal(publishButton.textContent, 'Publish');
-    assert.equal(view.publishHint.hidden, true);
     assert.match(publishButton.title, /Publish this completed level/);
 });
 

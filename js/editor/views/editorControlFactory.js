@@ -33,6 +33,68 @@ function createInput(definition) {
     return control;
 }
 
+function decimalPlaces(value) {
+    const text = String(value).toLowerCase();
+    if (text.includes('e-')) return Number(text.split('e-')[1]) || 0;
+    return text.includes('.') ? text.length - text.indexOf('.') - 1 : 0;
+}
+
+export function getNumericNudge(definition, currentValue, scale = 1) {
+    const configuredStep = Number(definition.step);
+    const value = Number(currentValue);
+    const magnitude = Math.abs(Number.isFinite(value) ? value : 0);
+    const baseStep = Number.isFinite(configuredStep) && configuredStep > 0
+        ? configuredStep
+        : magnitude > 0 && magnitude < 1
+            ? 10 ** Math.floor(Math.log10(magnitude))
+            : 1;
+    if (scale === 1) return baseStep;
+    const magnitudeStep = magnitude > 0
+        ? 10 ** Math.floor(Math.log10(magnitude))
+        : baseStep * 10;
+    return Math.max(baseStep * scale, magnitudeStep);
+}
+
+export function adjustNumericValue(definition, currentValue, direction, scale = 1) {
+    const parsed = Number(currentValue);
+    const fallback = definition.min ?? 0;
+    const value = currentValue !== '' && Number.isFinite(parsed) ? parsed : fallback;
+    const nudge = getNumericNudge(definition, value, scale);
+    const min = definition.min === undefined ? -Infinity : Number(definition.min);
+    const max = definition.max === undefined ? Infinity : Number(definition.max);
+    const adjusted = Math.min(max, Math.max(min, value + direction * nudge));
+    const precision = Math.max(decimalPlaces(value), decimalPlaces(nudge));
+    return Number(adjusted.toFixed(Math.min(precision, 12)));
+}
+
+function createNudgeButton(label, title, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'editor-number-nudge';
+    button.textContent = label;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+function wrapNumericInput(control, definition) {
+    const group = document.createElement('div');
+    group.className = 'editor-number-control';
+    const adjust = (direction, scale) => {
+        control.value = String(adjustNumericValue(definition, control.value, direction, scale));
+        control.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    group.append(
+        createNudgeButton('\u2212\u2212', 'Decrease by a large step', () => adjust(-1, 10)),
+        createNudgeButton('\u2212', 'Decrease by one step', () => adjust(-1, 1)),
+        control,
+        createNudgeButton('+', 'Increase by one step', () => adjust(1, 1)),
+        createNudgeButton('++', 'Increase by a large step', () => adjust(1, 10))
+    );
+    return group;
+}
+
 export function createEditorPropertyControl(definition, { onFocus, onInput, onAction } = {}) {
     const row = document.createElement('div');
     row.className = 'editor-property';
@@ -48,7 +110,7 @@ export function createEditorPropertyControl(definition, { onFocus, onInput, onAc
     } else {
         control.addEventListener('input', event => onInput?.(event));
     }
-    row.append(label, control);
+    row.append(label, control.type === 'number' ? wrapNumericInput(control, definition) : control);
     return { row, control };
 }
 

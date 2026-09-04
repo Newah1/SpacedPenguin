@@ -2,7 +2,6 @@
 // Gameplay integration/collision rules are authoritative in the Rust simulator;
 // simulationEngine.js is the browser-facing compatibility fallback.
 
-import Utils from '../platform/utils.js';
 import { effectiveGravitationalReach, GRAVITATIONAL_CONSTANT } from '../config/legacyConstants.js';
 import { RENDER_CONFIG } from '../config/renderConfig.js';
 
@@ -79,18 +78,6 @@ export class Physics {
         ctx.globalAlpha = 1.0;
     }
 
-    isInBounds(position, bounds) {
-        return Utils.inside(position, bounds);
-    }
-
-    calculateDistanceTraveled(positions) {
-        let totalDistance = 0;
-        for (let index = 1; index < positions.length; index++) {
-            totalDistance += Utils.distance(positions[index - 1], positions[index]);
-        }
-        return totalDistance;
-    }
-
     setGravitationalConstant(constant) {
         this.gravitationalConstant = constant;
     }
@@ -100,19 +87,4 @@ export class Physics {
         if (!enabled) this.clearTrace();
     }
 
-    setTraceColor(color) {
-        this.traceColor = color;
-    }
-
-    getPlanets() {
-        return this.planets;
-    }
-
-    getBonuses() {
-        return this.bonuses;
-    }
-
-    getTracePoints() {
-        return this.tracePoints;
-    }
 }

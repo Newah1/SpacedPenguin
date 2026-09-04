@@ -74,7 +74,32 @@ export class DocumentMutationService {
         const next = clone(definition);
         const record = findRecord(next, objectId);
         if (!record) return null;
-        record.position = { x: position.x, y: position.y };
+        const authoredPosition = record.position || { x: position.x, y: position.y };
+        const anchorPosition = normalizeLevelObjectType(record.type) === 'slingshot'
+            ? record.properties?.anchorPosition
+            : null;
+        const displayedPosition = anchorPosition || authoredPosition;
+        const delta = {
+            x: position.x - displayedPosition.x,
+            y: position.y - displayedPosition.y
+        };
+        record.position = {
+            x: authoredPosition.x + delta.x,
+            y: authoredPosition.y + delta.y
+        };
+        if (anchorPosition) {
+            record.properties.anchorPosition = {
+                x: anchorPosition.x + delta.x,
+                y: anchorPosition.y + delta.y
+            };
+        }
+        const waypoints = record.properties?.waypointPath?.waypoints;
+        if (Array.isArray(waypoints)) {
+            record.properties.waypointPath.waypoints = waypoints.map(waypoint => ({
+                x: waypoint.x + delta.x,
+                y: waypoint.y + delta.y
+            }));
+        }
         return next;
     }
 

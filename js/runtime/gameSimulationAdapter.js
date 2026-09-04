@@ -287,11 +287,12 @@ export function applyGameSimulationState(game, state) {
         applyWaypointPathToRuntime(decoration.waypointSystem, decorationState.waypointPath);
     });
     if (state.slingshot?.waypointPath) {
-        Object.assign(game.slingshot.position, state.slingshot.position);
-        Object.assign(game.slingshot.anchor, state.slingshot.position);
+        const anchorPosition = state.slingshot.anchorPosition || state.slingshot.position;
+        Object.assign(game.slingshot.position, anchorPosition);
+        Object.assign(game.slingshot.anchor, anchorPosition);
         Object.assign(game.slingshot.resetPosition, state.slingshot.position);
         applyWaypointPathToRuntime(game.slingshot.waypointSystem, state.slingshot.waypointPath);
-        if (game.penguin.state !== PenguinState.SOARING && game.penguin.state !== PenguinState.CRASHED) {
+        if (game.penguin.state === PenguinState.IDLE) {
             game.penguin.setPosition?.(state.slingshot.position.x, state.slingshot.position.y);
             state.penguin.position = { ...state.slingshot.position };
         }

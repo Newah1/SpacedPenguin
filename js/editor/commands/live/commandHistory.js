@@ -31,29 +31,26 @@ export class CommandHistory {
     }
 
     undo() {
-        const command = this.undoStack.pop();
+        const command = this.undoStack.at(-1);
         if (!command) return false;
-        if (command.undo() === false) {
-            this.undoStack.push(command);
-            return false;
-        }
+        if (command.undo() === false) return false;
+        this.undoStack.pop();
         this.redoStack.push(command);
         return true;
     }
 
     redo() {
-        const command = this.redoStack.pop();
+        const command = this.redoStack.at(-1);
         if (!command) return false;
         try {
             if (command.do() === false) {
-                this.redoStack.push(command);
                 return false;
             }
         } catch (error) {
             try { command.undo(); } catch {}
-            this.redoStack.push(command);
             throw error;
         }
+        this.redoStack.pop();
         this.undoStack.push(command);
         return true;
     }

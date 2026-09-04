@@ -164,10 +164,7 @@ export function advanceSimulationWorldMutable(state, deltaTime) {
     }
     advanceOrbitGraphMutable(cached.entities, deltaTime, cached.graph);
     advanceWaypointPathsMutable(cached.entities, deltaTime);
-    if (state.slingshot.waypointPath &&
-        state.penguin.state !== PenguinState.SOARING &&
-        state.penguin.state !== PenguinState.CRASHED &&
-        state.penguin.state !== PenguinState.HIT_TARGET) {
+    if (state.slingshot.waypointPath && state.penguin.state === PenguinState.IDLE) {
         state.penguin.position = clonePoint(state.slingshot.position);
     }
 }

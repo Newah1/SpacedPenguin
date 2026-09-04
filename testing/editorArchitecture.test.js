@@ -200,6 +200,35 @@ test('document-first live movement commits one entry and cancel restores the aut
     assert.deepEqual(harness.document.getObject(planetId).position, { x: 300, y: 300 });
 });
 
+test('moving a Director slingshot translates its reset position, anchor, and waypoint path', () => {
+    const mutations = new DocumentMutationService();
+    const definition = {
+        startPosition: { x: 100, y: 100 },
+        objects: [{
+            type: 'slingshot',
+            position: { x: 100, y: 100 },
+            properties: {
+                id: 'slingshot_1',
+                launchModel: 'director',
+                anchorPosition: { x: 80, y: 100 },
+                waypointPath: {
+                    waypoints: [{ x: 100, y: 100 }, { x: 200, y: 100 }],
+                    speed: 50,
+                    mode: 'pingpong'
+                }
+            }
+        }]
+    };
+
+    const moved = mutations.setObjectPosition(definition, 'slingshot_1', { x: 130, y: 140 });
+    assert.deepEqual(moved.objects[0].position, { x: 150, y: 140 });
+    assert.deepEqual(moved.objects[0].properties.anchorPosition, { x: 130, y: 140 });
+    assert.deepEqual(moved.objects[0].properties.waypointPath.waypoints, [
+        { x: 150, y: 140 },
+        { x: 250, y: 140 }
+    ]);
+});
+
 test('waypoint drags commit one document-first undo entry', () => {
     const harness = createDocumentCommandHarness();
     const planetId = harness.document.listObjects()[0].properties.id;
