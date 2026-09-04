@@ -33,6 +33,11 @@ export const LEVEL_COLLECTION_CONFIG = deepFreeze({
         id: 'manual', aliases: ['manual'], firstLevel: 1,
         levelCount: 20, maximumSelectableLevel: 20,
         pathPrefix: 'levels/manual/level', pathSuffix: '.json', padWidth: 0
+    },
+    challenge: {
+        id: 'challenge', aliases: ['puzzle'], firstLevel: 1,
+        levelCount: 1, maximumSelectableLevel: 1,
+        pathPrefix: 'levels/challenge/level', pathSuffix: '.json', padWidth: 2
     }
 });
 

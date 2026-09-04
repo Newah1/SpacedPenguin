@@ -1,0 +1,243 @@
+{
+  "level": 1,
+  "name": "The Locked Circuit",
+  "description": "Route Kevin around the dead planet, collect all three circuit keys, and time the one-way gate on the return leg.",
+  "startPosition": {
+    "x": 80,
+    "y": 520
+  },
+  "targetPosition": {
+    "x": 320,
+    "y": 500
+  },
+  "bounds": {
+    "stage": {
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 600
+    },
+    "flight": {
+      "x": -200,
+      "y": -200,
+      "width": 1200,
+      "height": 1000
+    }
+  },
+  "objects": [
+    {
+      "type": "slingshot",
+      "position": {
+        "x": 80,
+        "y": 520
+      },
+      "properties": {
+        "id": "circuit_slingshot",
+        "anchorPosition": {
+          "x": 80,
+          "y": 520
+        },
+        "maxPullback": 100,
+        "minPullback": 10,
+        "velocityMultiplier": 15,
+        "launchModel": "modern"
+      }
+    },
+    {
+      "type": "speedbooster",
+      "position": {
+        "x": 220,
+        "y": 520
+      },
+      "properties": {
+        "id": "circuit_north",
+        "name": "North relay",
+        "width": 60,
+        "height": 10,
+        "rotation": 270,
+        "speedMultiplier": 1,
+        "playSound": true
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 198,
+        "y": 315
+      },
+      "properties": {
+        "id": "circuit_key_west",
+        "name": "West circuit key",
+        "value": 800,
+        "width": 10,
+        "height": 10
+      }
+    },
+    {
+      "type": "speedbooster",
+      "position": {
+        "x": 220,
+        "y": 88
+      },
+      "properties": {
+        "id": "circuit_east",
+        "name": "East relay",
+        "width": 60,
+        "height": 10,
+        "rotation": 0,
+        "speedMultiplier": 1.08,
+        "playSound": true
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 445,
+        "y": 116
+      },
+      "properties": {
+        "id": "circuit_key_north",
+        "name": "North circuit key",
+        "value": 1200,
+        "width": 10,
+        "height": 10
+      }
+    },
+    {
+      "type": "speedbooster",
+      "position": {
+        "x": 690,
+        "y": 88
+      },
+      "properties": {
+        "id": "circuit_south",
+        "name": "South relay",
+        "width": 60,
+        "height": 10,
+        "rotation": 90,
+        "speedMultiplier": 0.92,
+        "playSound": true
+      }
+    },
+    {
+      "type": "bonus",
+      "position": {
+        "x": 662,
+        "y": 305
+      },
+      "properties": {
+        "id": "circuit_key_east",
+        "name": "East circuit key",
+        "value": 1600,
+        "width": 10,
+        "height": 10
+      }
+    },
+    {
+      "type": "speedbooster",
+      "position": {
+        "x": 690,
+        "y": 520
+      },
+      "properties": {
+        "id": "circuit_west",
+        "name": "West relay",
+        "width": 60,
+        "height": 10,
+        "rotation": 180,
+        "speedMultiplier": 1,
+        "playSound": true
+      }
+    },
+    {
+      "type": "onewayforcefield",
+      "position": {
+        "x": 410,
+        "y": 470
+      },
+      "properties": {
+        "id": "circuit_return_gate",
+        "name": "Return timing gate",
+        "width": 14,
+        "height": 120,
+        "rotation": 0,
+        "restitution": 0,
+        "color": "#ffb347",
+        "playSound": true,
+        "waypointPath": {
+          "waypoints": [
+            {
+              "x": 410,
+              "y": 390
+            },
+            {
+              "x": 410,
+              "y": 550
+            }
+          ],
+          "speed": 70,
+          "mode": "pingpong",
+          "phase": 200
+        }
+      }
+    },
+    {
+      "type": "planet",
+      "position": {
+        "x": 445,
+        "y": 315
+      },
+      "properties": {
+        "id": "circuit_dead_planet",
+        "name": "Dead Planet",
+        "radius": 118,
+        "mass": 0,
+        "gravitationalReach": 5000,
+        "planetType": "planet_grey"
+      }
+    },
+    {
+      "type": "target",
+      "position": {
+        "x": 320,
+        "y": 500
+      },
+      "properties": {
+        "id": "circuit_target",
+        "name": "Circuit vault",
+        "width": 28,
+        "height": 28,
+        "spriteType": "ship_open"
+      }
+    },
+    {
+      "type": "textobject",
+      "position": {
+        "x": 28,
+        "y": 70
+      },
+      "properties": {
+        "id": "circuit_hint",
+        "content": "<b>THE LOCKED CIRCUIT</b><br>Three keys. Four relays.<br>The amber gate only argues in one direction.",
+        "width": 260,
+        "height": 82,
+        "visible": true,
+        "textAlign": "left",
+        "fontSize": 14,
+        "fontFamily": "Arial, sans-serif",
+        "color": "#fff0cc",
+        "backgroundColor": "rgba(5, 18, 35, 0.8)",
+        "padding": 10,
+        "autoSize": true,
+        "fadeIn": true,
+        "fadeInDuration": 0.6,
+        "renderOrder": 8
+      }
+    }
+  ],
+  "rules": {
+    "requiredBonuses": 3,
+    "gravitationalConstant": 0,
+    "scoreMultiplier": 1.5
+  }
+}

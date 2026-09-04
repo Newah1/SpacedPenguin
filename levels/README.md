@@ -1,6 +1,6 @@
 # Spaced Penguin Level Authoring Reference
 
-This directory contains the 25 JSON levels loaded by the default HTML5 runtime. The archived `manual/` catalog contains 20 earlier hand-authored levels. Canonical declarative vocabulary lives in `domain/`, generated runtime descriptors are under `generated/js/`, executable normalization and semantic validation remain in `js/levels/levelSchema.js` and `js/levels/levelValidation.js`, and construction remains in `js/levels/levelLoader.js`. The generated external schema is `generated/level.schema.json`.
+This directory contains the 25 JSON levels loaded by the default HTML5 runtime. The archived `manual/` catalog contains 20 earlier hand-authored levels, while `challenge/` contains opt-in standalone puzzles. Canonical declarative vocabulary lives in `domain/`, generated runtime descriptors are under `generated/js/`, executable normalization and semantic validation remain in `js/levels/levelSchema.js` and `js/levels/levelValidation.js`, and construction remains in `js/levels/levelLoader.js`. The generated external schema is `generated/level.schema.json`.
 
 Every browser, editor, and headless consumer passes a level through the shared `LevelSchema` normalizer. Omitted fields receive the same configured defaults everywhere; explicit `0`, `false`, and empty-string values are retained unless validation rejects them for that specific field.
 
@@ -519,7 +519,7 @@ flowchart LR
   Pass2 --> Rules[Apply rules]
 ```
 
-- All 25 default-catalog authored files are fetched sequentially during bootstrap. The archived manual catalog is loaded on demand when selected with `?level=manual:N`.
+- All 25 default-catalog authored files are fetched sequentially during bootstrap. Named collections are loaded on demand when selected with URLs such as `?level=manual:N` or `?level=challenge:N`.
 - HTTP status, JSON parsing, structure, numeric constraints, composition, IDs, orbit references/cycles, and level rules are checked before caching.
 - Unknown object types and invalid definitions are rejected rather than partially instantiated.
 - A missing level definition is masked by random fallback generation when selected.

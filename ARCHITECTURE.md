@@ -10,7 +10,7 @@
 
 ## 1. Executive summary
 
-Spaced Penguin is a client-only, static web game. The browser loads one HTML page, an ES-module graph, and the packaged Rust/Wasm simulator; there is no JavaScript application build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 logical display surface with an optional level camera over a larger world-space playfield, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
+Spaced Penguin is a client-only, static web game. The browser loads one HTML page, an ES-module graph, and the packaged Rust/Wasm simulator; there is no JavaScript application build step, application server, database, or current network API beyond static-file `fetch` calls. The game uses a fixed 800 x 600 logical display surface with an optional level camera over a larger world-space playfield, renders into a backing buffer sized for the viewport and device pixel ratio, loads a manifest of images and audio, loads 25 default JSON level definitions, and then runs a `requestAnimationFrame` update/render loop.
 
 `Game` is the browser-runtime facade and lifecycle coordinator. Mutable session data belongs to `GameSession`; entity collections, physics registration, and render invalidation belong to `RuntimeWorld`; rendering and flight presentation belong to `GameRenderer` and `FlightPresentation`; gameplay gestures belong to `GameplayController`; and browser effects, settings, community runs, and runtime serialization have dedicated coordinators. `GameManager` owns browser lifecycle concerns: bootstrap, responsive display sizing, page visibility, the frame loop, and construction of the state-aware input router. Main-menu and bootstrap-loading presentation live in separate browser UI views assembled by that composition root.
 
@@ -40,9 +40,9 @@ flowchart LR
 |---|---|---|---|
 | Player input | DOM mouse, touch, keyboard, click, resize, visibility events | `InputManager`, registered input contexts, `Game`, `UIManager`, `FullscreenManager` | Contexts own activation and handling; the manager only orders and dispatches. |
 | Asset catalog | `assets/manifest.json` | `AssetLoader` | Resolves images, SVGs, sprite sheets, and WAV files. |
-| Level definitions | `levels/level01.json` through `level25.json` | `LevelLoader` | Loaded at startup and held in an in-memory `Map`. |
+| Level definitions | `levels/level01.json` through `level25.json`, plus opt-in collections | `LevelLoader` | The default catalog is loaded at startup; named collections are loaded on demand and held in an in-memory `Map`. |
 | Level discovery catalog | Shipped definitions, `localStorage.spacedPenguinSavedLevels`, and the optional community API | `LevelCatalogService`, `LevelBrowserScreen` | Official, owned, and community sources share asynchronous summary paging while details and playable definitions resolve separately. |
-| URL level selector | `?level=N` | `GameManager` / `Utils` | Numeric selectors address the 25-level shipped catalog; `manual:N` selects the archived 20-level catalog. |
+| URL level selector | `?level=N` | `GameManager` / `Utils` | Numeric selectors address the 25-level shipped catalog; named selectors include `manual:N` and `challenge:N`. |
 | High scores | `localStorage.spacedPenguinHighScores` plus legacy best-score key | `HighScoreStore` / `Game` | Local all-time and today top-ten entries; no network submission. |
 
 ### Outputs
@@ -341,7 +341,7 @@ stateDiagram-v2
 
 `Game.setState` remains the preferred transition operation for state-related effects. Input contexts inspect live state for every event, so direct state changes do not require listener reconciliation on a later frame.
 
-The end screen derives its terminal branch from the configured maximum selectable level. All 25 default-catalog levels are shipped JSON definitions, and completion of level 25 enters `GAME_OVER`. The archived `manual` catalog contains 20 levels and remains within that catalog when advancing.
+The end screen derives its terminal branch from the configured maximum selectable level. All 25 default-catalog levels are shipped JSON definitions, and completion of level 25 enters `GAME_OVER`. Named collections such as `manual` and `challenge` remain within their own configured range when advancing.
 
 ### Penguin state
 

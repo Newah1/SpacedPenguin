@@ -34,6 +34,7 @@ await validateCatalog(
     builtInLevelPath
 );
 await validateCatalog('manual', 1, 20, level => levelCollectionPath('manual', level));
+await validateCatalog('challenge', 1, 1, level => levelCollectionPath('challenge', level));
 
 if (failedLevels > 0) {
     console.error(`${failedLevels} shipped level(s) failed validation.`);

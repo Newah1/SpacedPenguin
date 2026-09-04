@@ -73,11 +73,14 @@ test('game configuration is deeply frozen and satisfies core invariants', () => 
     assert.equal(levelCollectionPath('manual', 6), 'levels/manual/level6.json');
     assert.deepEqual(parseLevelSelector('5'), { collection: 'shipped', level: 5 });
     assert.deepEqual(parseLevelSelector('manual:06'), { collection: 'manual', level: 6 });
+    assert.deepEqual(parseLevelSelector('challenge:1'), { collection: 'challenge', level: 1 });
+    assert.deepEqual(parseLevelSelector('puzzle:01'), { collection: 'challenge', level: 1 });
     assert.equal(parseLevelSelector('shipped:6'), null);
     assert.equal(parseLevelSelector('current:6'), null);
     assert.equal(parseLevelSelector('original:6'), null);
     assert.equal(parseLevelSelector('extracted:25'), null);
     assert.equal(parseLevelSelector('manual:21'), null);
+    assert.equal(parseLevelSelector('challenge:2'), null);
     assert.equal(parseLevelSelector('mystery:1'), null);
     assert.equal(formatLevelSelector('shipped', 7), '7');
     assert.equal(formatLevelSelector('manual', 7), 'manual:7');
