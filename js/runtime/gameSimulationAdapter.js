@@ -90,6 +90,7 @@ export function captureGameSimulationState(game) {
     const portalIds = ensureStableRuntimeIds(game.portals || [], 'portal');
     const speedBoosterIds = ensureStableRuntimeIds(game.speedBoosters || [], 'speedbooster');
     const deflectorBumperIds = ensureStableRuntimeIds(game.deflectorBumpers || [], 'deflectorbumper');
+    const forceFieldIds = ensureStableRuntimeIds(game.forceFields || [], 'onewayforcefield');
     const decorationObjects = [...(game.textObjects || []), ...(game.pointingArrows || [])];
     const decorationIds = ensureStableRuntimeIds(decorationObjects, 'decoration');
     const targetId = ensureStableRuntimeIds([game.target], 'target')[0];
@@ -152,6 +153,16 @@ export function captureGameSimulationState(game) {
             restitution: bumper.restitution,
             playSound: bumper.playSound,
             waypointPath: waypointPathFromRuntime(bumper.waypointSystem)
+        })),
+        forceFields: (game.forceFields || []).map((field, index) => ({
+            id: forceFieldIds[index],
+            position: { ...field.position },
+            width: field.width,
+            height: field.height,
+            rotation: field.rotation,
+            restitution: field.restitution,
+            playSound: field.playSound,
+            waypointPath: waypointPathFromRuntime(field.waypointSystem)
         })),
         decorations: decorationObjects.map((object, index) => ({
             id: decorationIds[index],
@@ -257,6 +268,13 @@ export function applyGameSimulationState(game, state) {
         if (!bumper) return;
         Object.assign(bumper.position, bumperState.position);
         applyWaypointPathToRuntime(bumper.waypointSystem, bumperState.waypointPath);
+    });
+    const forceFieldsById = runtimeObjectsById(game.forceFields || []);
+    state.forceFields?.forEach(fieldState => {
+        const field = forceFieldsById.get(fieldState.id);
+        if (!field) return;
+        Object.assign(field.position, fieldState.position);
+        applyWaypointPathToRuntime(field.waypointSystem, fieldState.waypointPath);
     });
     const decorationsById = runtimeObjectsById([
         ...(game.textObjects || []),
@@ -413,6 +431,17 @@ class DeflectorBouncedEventStrategy extends GameSimulationEventStrategy {
     }
 }
 
+class ForceFieldReflectedEventStrategy extends GameSimulationEventStrategy {
+    constructor() {
+        super(SimulationEventType.FORCE_FIELD_REFLECTED);
+    }
+
+    execute(game, event) {
+        const field = runtimeObjectForSimulationIndex(game, 'forceFields', event.forceFieldIndex);
+        effectsFor(game).forceFieldReflected(event, field);
+    }
+}
+
 class TargetHitEventStrategy extends GameSimulationEventStrategy {
     constructor() {
         super(SimulationEventType.TARGET_HIT);
@@ -481,6 +510,7 @@ export const gameSimulationEventStrategies = Object.freeze([
     new PortalTeleportedEventStrategy(),
     new SpeedBoosterActivatedEventStrategy(),
     new DeflectorBouncedEventStrategy(),
+    new ForceFieldReflectedEventStrategy(),
     new TargetHitEventStrategy(),
     new TargetBlockedEventStrategy(),
     new OutOfBoundsEventStrategy(),

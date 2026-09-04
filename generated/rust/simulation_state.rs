@@ -102,6 +102,8 @@ pub(crate) struct InitialState {
     #[serde(default)]
     pub(crate) deflector_bumpers: Vec<DeflectorBumper>,
     #[serde(default)]
+    pub(crate) force_fields: Vec<OneWayForceField>,
+    #[serde(default)]
     pub(crate) decorations: Vec<serde_json::Value>,
     pub(crate) target: Target,
     pub(crate) slingshot: Slingshot,

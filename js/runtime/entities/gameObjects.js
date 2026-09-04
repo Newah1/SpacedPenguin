@@ -577,6 +577,55 @@ class DeflectorBumper extends GameObject {
     }
 }
 
+class OneWayForceField extends GameObject {
+    constructor(x, y, options = {}) {
+        const defaults = LEVEL_DEFAULTS.oneWayForceField;
+        super(x, y, options.width ?? defaults.width, options.height ?? defaults.height);
+        this.rotation = options.rotation ?? defaults.rotation;
+        this.restitution = options.restitution ?? defaults.restitution;
+        this.color = options.color ?? defaults.color;
+        this.playSound = options.playSound ?? defaults.playSound;
+        this.renderOrder = RENDER_CONFIG.layers.forceField;
+    }
+
+    drawSprite(ctx, timeMilliseconds = globalThis.performance?.now?.() ?? 0) {
+        const config = RENDER_CONFIG.entities.forceField;
+        const halfWidth = this.width / 2;
+        const halfHeight = this.height / 2;
+        const pulse = 0.8 + Math.sin(timeMilliseconds * config.pulseRadiansPerMillisecond) * 0.2;
+        const reflectionAge = timeMilliseconds - (this.lastReflectionTime ?? Number.NEGATIVE_INFINITY);
+        const flash = reflectionAge >= 0 && reflectionAge < config.reflectionFlashMilliseconds
+            ? 1 - reflectionAge / config.reflectionFlashMilliseconds
+            : 0;
+
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = config.glowBlur + flash * 10;
+        ctx.globalAlpha *= config.fillAlpha + flash * 0.2;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-halfWidth, -halfHeight, this.width, this.height);
+        ctx.globalAlpha /= config.fillAlpha + flash * 0.2;
+        ctx.lineWidth = config.borderWidth + flash * 3;
+        ctx.strokeStyle = this.color;
+        ctx.strokeRect(-halfWidth, -halfHeight, this.width, this.height);
+
+        ctx.globalAlpha *= config.coreAlpha * pulse;
+        ctx.beginPath();
+        ctx.moveTo(halfWidth, -halfHeight);
+        ctx.lineTo(halfWidth, halfHeight);
+        ctx.stroke();
+        for (let y = -halfHeight + config.arrowSpacing / 2; y < halfHeight; y += config.arrowSpacing) {
+            ctx.beginPath();
+            ctx.moveTo(halfWidth + config.arrowSize, y);
+            ctx.lineTo(halfWidth, y - config.arrowSize);
+            ctx.lineTo(halfWidth, y + config.arrowSize);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.globalAlpha /= config.coreAlpha * pulse;
+        ctx.shadowBlur = 0;
+    }
+}
+
 // Penguin class moved to penguin.js
 
 class PenguinOld extends GameObject {
@@ -1908,5 +1957,5 @@ class PointingArrow extends GameObject {
 }
 
 // Export all classes
-export { GameObject, OrbitSystem, WaypointSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper };
+export { GameObject, OrbitSystem, WaypointSystem, Planet, Bonus, BonusPopup, Target, Arrow, Slingshot, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper, OneWayForceField };
 import { PenguinState } from '../penguinState.js';

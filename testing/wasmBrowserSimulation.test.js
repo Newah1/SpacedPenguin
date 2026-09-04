@@ -95,6 +95,38 @@ test('browser Wasm slice preserves collision, crash, and rule events', async () 
     assert.deepEqual(wasm.counters, javascript.counters);
 });
 
+test('browser Wasm matches one-way force-field front reflection and back passage', async () => {
+    const bytes = await readFile(new URL('../rust/simulator/pkg/spaced_penguin_simulator.wasm', import.meta.url));
+    await initializeWasmSimulation(bytes);
+    const makeState = () => createSimulationStateFromLevel({
+        name: 'Force field parity', startPosition: { x: 160, y: 100 }, targetPosition: { x: 700, y: 500 },
+        objects: [
+            { type: 'slingshot', position: { x: 160, y: 100 }, properties: {} },
+            { type: 'onewayforcefield', position: { x: 100, y: 100 }, properties: {
+                id: 'field', width: 12, height: 80, rotation: 0, restitution: 0.8, playSound: false
+            } },
+            { type: 'target', position: { x: 700, y: 500 }, properties: {} }
+        ], rules: { gravitationalConstant: 0 }
+    });
+
+    for (const [position, velocity] of [
+        [{ x: 160, y: 100 }, { x: -3000, y: 0 }],
+        [{ x: 40, y: 100 }, { x: 3000, y: 0 }]
+    ]) {
+        const initial = makeState();
+        initial.penguin.position = position;
+        initial.penguin.velocity = velocity;
+        initial.penguin.state = 'soaring';
+        const javascript = cloneSimulationState(initial);
+        const wasm = cloneSimulationState(initial);
+        const expected = stepSimulationMutable(javascript, 1 / 60);
+        advanceSimulationWorldMutable(wasm, 1 / 60);
+        const actual = stepSimulationSliceWasmMutable(wasm, 1 / 60, false);
+        assert.deepEqual(actual.events, expected.events);
+        assert.deepEqual(wasm.penguin, javascript.penguin);
+    }
+});
+
 test('browser Wasm slice preserves collidable planets captured from runtime objects', async () => {
     const bytes = await readFile(new URL('../rust/simulator/pkg/spaced_penguin_simulator.wasm', import.meta.url));
     await initializeWasmSimulation(bytes);

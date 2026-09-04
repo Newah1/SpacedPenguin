@@ -5,27 +5,28 @@
   "description": "Serializable simulation state and the complete discriminated union of domain events shared by JavaScript and Rust.",
   "x-spaced-penguin-wire": {
     "name": "simulation-step",
-    "version": 2,
+    "version": 3,
     "endianness": "little",
     "encoding": "generated-typed-array",
     "magic": "0x53505731",
     "root": "SimulationStepInput",
     "fingerprints": {
-      "input": "sha256:f950a8082c6e2f8479fd62008f6f68a3432c5c7120844ac6f19c1b33f2f8a81f",
-      "output": "sha256:27ce3d72944a5655ecaa90f0d4e4365f677cf87a6230d0ebcd6e7c9eb7bd043d"
+      "input": "sha256:c7e23fb8b6593b6310ca5d9e114d66308682484b53402ad5b6ba02afe29d04bb",
+      "output": "sha256:4441e46627f0923da0a7da301a710d2bf198431b9b506a1478829e0e0cc50487"
     },
     "records": {
       "SimulationStepInput": [{ "field": "simulation" }, { "field": "state" }],
       "SimulationConfig": [{ "field": "legacyPhysicsFps" }, { "field": "launchCurve" }, { "field": "collision" }],
       "LaunchCurve": [{ "field": "minimumSpeedFactor" }, { "field": "maximumSpeedFactor" }, { "field": "responseExponent" }],
       "CollisionConfig": [{ "field": "planetCrashFrames" }, { "field": "terminalCrashFrames" }, { "field": "restitution" }, { "field": "minimumBounceSpeed" }, { "field": "separationPadding" }],
-      "SimulationState": [{ "field": "time" }, { "field": "runTick" }, { "field": "penguin" }, { "field": "planets" }, { "field": "bonuses" }, { "field": "portals" }, { "field": "speedBoosters" }, { "field": "deflectorBumpers" }, { "field": "decorations", "excluded": "Browser-only decoration state is not consumed by deterministic transitions." }, { "field": "target" }, { "field": "slingshot" }, { "field": "bounds" }, { "field": "rules" }, { "field": "counters" }],
+      "SimulationState": [{ "field": "time" }, { "field": "runTick" }, { "field": "penguin" }, { "field": "planets" }, { "field": "bonuses" }, { "field": "portals" }, { "field": "speedBoosters" }, { "field": "deflectorBumpers" }, { "field": "forceFields" }, { "field": "decorations", "excluded": "Browser-only decoration state is not consumed by deterministic transitions." }, { "field": "target" }, { "field": "slingshot" }, { "field": "bounds" }, { "field": "rules" }, { "field": "counters" }],
       "Penguin": [{ "field": "radius" }, { "field": "position" }, { "field": "velocity" }, { "field": "state" }, { "field": "crashFramesRemaining" }, { "field": "portalLockId" }, { "field": "speedBoosterLockId" }],
       "Planet": [{ "field": "id" }, { "field": "type", "excluded": "Canonical object type is already established before simulation." }, { "field": "position" }, { "field": "radius", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "collisionRadius" }, { "field": "collidable" }, { "field": "mass" }, { "field": "gravitationalReach" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "Bonus": [{ "field": "id" }, { "field": "position" }, { "field": "width", "excluded": "Collection radius is normalized separately and is the transition input." }, { "field": "value" }, { "field": "collected" }, { "field": "collectionRadius" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "Portal": [{ "field": "id" }, { "field": "position" }, { "field": "width" }, { "field": "height" }, { "field": "rotation" }, { "field": "color", "excluded": "Portal color is presentation-only." }, { "field": "pairedPortalId" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "SpeedBooster": [{ "field": "id" }, { "field": "position" }, { "field": "width" }, { "field": "height" }, { "field": "rotation" }, { "field": "speedMultiplier" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "DeflectorBumper": [{ "field": "id" }, { "field": "position" }, { "field": "radius" }, { "field": "restitution" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
+      "OneWayForceField": [{ "field": "id" }, { "field": "position" }, { "field": "width" }, { "field": "height" }, { "field": "rotation" }, { "field": "restitution" }, { "field": "playSound" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "Target": [{ "field": "id", "excluded": "Target identity is not consumed by deterministic transitions." }, { "field": "position" }, { "field": "width", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "height", "excluded": "Collision radius is normalized separately and is the transition input." }, { "field": "collisionRadius" }, { "field": "orbit", "excluded": "Orbit motion is resolved before the transition step." }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "Slingshot": [{ "field": "position" }, { "field": "anchorPosition" }, { "field": "launchModel" }, { "field": "sourceFrameRate" }, { "field": "coordinateScale" }, { "field": "velocityMultiplier" }, { "field": "maxPullback" }, { "field": "minPullback" }, { "field": "waypointPath", "excluded": "Waypoint motion is resolved before the transition step." }],
       "Bounds": [{ "field": "stage" }, { "field": "flight" }],
@@ -46,7 +47,8 @@
           { "type": "target_hit", "tag": 4 }, { "type": "target_blocked", "tag": 5 },
           { "type": "out_of_bounds", "tag": 6 }, { "type": "portal_teleported", "tag": 7 },
           { "type": "speed_booster_activated", "tag": 8 }, { "type": "attempt_reset_required", "tag": 9 },
-          { "type": "rule_failure", "tag": 10 }, { "type": "deflector_bounced", "tag": 11 }
+          { "type": "rule_failure", "tag": 10 }, { "type": "deflector_bounced", "tag": 11 },
+          { "type": "force_field_reflected", "tag": 12 }
         ]
       },
       "records": {
@@ -133,6 +135,15 @@
       },
       "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "radius", "restitution", "playSound"] }
     },
+    "OneWayForceField": {
+      "type": "object", "required": ["id", "position", "width", "height", "rotation", "restitution"],
+      "properties": {
+        "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "width": { "type": "number" }, "height": { "type": "number" }, "rotation": { "type": "number", "default": 0 },
+        "restitution": { "type": "number", "default": 1 }, "playSound": { "type": "boolean", "default": true }, "waypointPath": {}
+      },
+      "x-spaced-penguin-rust": { "module": "game_objects", "derive": ["Clone", "Debug", "Deserialize"], "include": ["id", "position", "width", "height", "rotation", "restitution", "playSound"] }
+    },
     "Target": {
       "type": "object", "required": ["position", "collisionRadius"],
       "properties": { "id": { "type": "string" }, "position": { "$ref": "#/$defs/Point" }, "width": { "type": "number" }, "height": { "type": "number" }, "collisionRadius": { "type": "number" }, "orbit": {}, "waypointPath": {} },
@@ -188,6 +199,7 @@
         "bonuses": { "type": "array", "items": { "$ref": "#/$defs/Bonus" } }, "portals": { "type": "array", "default": [], "items": { "$ref": "#/$defs/Portal" } },
         "speedBoosters": { "type": "array", "default": [], "items": { "$ref": "#/$defs/SpeedBooster" } },
         "deflectorBumpers": { "type": "array", "default": [], "items": { "$ref": "#/$defs/DeflectorBumper" } },
+        "forceFields": { "type": "array", "default": [], "items": { "$ref": "#/$defs/OneWayForceField" } },
         "decorations": { "type": "array", "default": [], "items": {} }, "target": { "$ref": "#/$defs/Target" },
         "slingshot": { "$ref": "#/$defs/Slingshot" }, "bounds": { "$ref": "#/$defs/Bounds" },
         "rules": { "$ref": "#/$defs/Rules" }, "counters": { "$ref": "#/$defs/Counters", "default": {} }
@@ -383,7 +395,8 @@
         { "type": "object", "required": ["type", "speedBoosterId", "speedBoosterIndex", "position", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "speed_booster_activated" }, "speedBoosterId": { "type": "string" }, "speedBoosterIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } },
         { "type": "object", "required": ["type"], "properties": { "type": { "const": "attempt_reset_required" } } },
         { "type": "object", "required": ["type", "rule", "reason"], "properties": { "type": { "const": "rule_failure" }, "rule": { "type": "string" }, "reason": { "type": "string" } } },
-        { "type": "object", "required": ["type", "deflectorBumperId", "deflectorBumperIndex", "position", "normal", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "deflector_bounced" }, "deflectorBumperId": { "type": "string" }, "deflectorBumperIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" }, "normal": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } }
+        { "type": "object", "required": ["type", "deflectorBumperId", "deflectorBumperIndex", "position", "normal", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "deflector_bounced" }, "deflectorBumperId": { "type": "string" }, "deflectorBumperIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" }, "normal": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } },
+        { "type": "object", "required": ["type", "forceFieldId", "forceFieldIndex", "position", "normal", "incomingVelocity", "velocity", "playSound"], "properties": { "type": { "const": "force_field_reflected" }, "forceFieldId": { "type": "string" }, "forceFieldIndex": { "type": "integer" }, "position": { "$ref": "#/$defs/Point" }, "normal": { "$ref": "#/$defs/Point" }, "incomingVelocity": { "$ref": "#/$defs/Point" }, "velocity": { "$ref": "#/$defs/Point" }, "playSound": { "type": "boolean" } } }
       ],
       "x-spaced-penguin-rust": { "module": "simulation_events", "name": "SimulationEvent" }
     }

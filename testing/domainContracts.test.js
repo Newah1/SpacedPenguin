@@ -132,7 +132,7 @@ test('generated simulation wire encodes the canonical state more compactly than 
     });
     const wire = encodeSimulationStepInput(state, SIMULATION_CONFIG);
     const json = new TextEncoder().encode(JSON.stringify({ state, simulation: SIMULATION_CONFIG }));
-    assert.equal(SIMULATION_WIRE_VERSION, 2);
+    assert.equal(SIMULATION_WIRE_VERSION, 3);
     assert.ok(wire.byteLength < json.byteLength, `${wire.byteLength} should be less than ${json.byteLength}`);
 });
 
@@ -185,7 +185,8 @@ test('simulation output binary codec round-trips every event variant and optiona
         { type: 'speed_booster_activated', speedBoosterId: 's', speedBoosterIndex: 0, position: point, incomingVelocity: point, velocity: point, playSound: false },
         { type: 'attempt_reset_required' },
         { type: 'rule_failure', rule: 'maxTries', reason: '' },
-        { type: 'deflector_bounced', deflectorBumperId: 'd', deflectorBumperIndex: 0, position: point, normal: point, incomingVelocity: point, velocity: point, playSound: false }
+        { type: 'deflector_bounced', deflectorBumperId: 'd', deflectorBumperIndex: 0, position: point, normal: point, incomingVelocity: point, velocity: point, playSound: false },
+        { type: 'force_field_reflected', forceFieldId: 'f', forceFieldIndex: 0, position: point, normal: point, incomingVelocity: point, velocity: point, playSound: false }
     ];
     const patch = {
         time: 0, runTick: 0,

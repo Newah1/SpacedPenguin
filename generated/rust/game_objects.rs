@@ -75,6 +75,21 @@ pub(crate) struct DeflectorBumper {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct OneWayForceField {
+    pub(crate) id: String,
+    pub(crate) position: Point,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+    #[serde(default)]
+    pub(crate) rotation: f64,
+    #[serde(default = "default_one")]
+    pub(crate) restitution: f64,
+    #[serde(default = "default_true")]
+    pub(crate) play_sound: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Target {
     pub(crate) position: Point,
     pub(crate) collision_radius: f64,

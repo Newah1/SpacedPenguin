@@ -3,8 +3,8 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const MAGIC = 0x53505731;
-export const SIMULATION_WIRE_VERSION = 2;
-export const SIMULATION_OUTPUT_WIRE_VERSION = 2;
+export const SIMULATION_WIRE_VERSION = 3;
+export const SIMULATION_OUTPUT_WIRE_VERSION = 3;
 
 class Writer {
     constructor(capacity = 4096) { this.bytes = new Uint8Array(capacity); this.view = new DataView(this.bytes.buffer); this.offset = 0; }
@@ -59,6 +59,8 @@ function writeSimulationState(writer, value) {
     for (const item of (value.speedBoosters ?? [])) writeSpeedBooster(writer, item);
     writer.u32((value.deflectorBumpers ?? []).length);
     for (const item of (value.deflectorBumpers ?? [])) writeDeflectorBumper(writer, item);
+    writer.u32((value.forceFields ?? []).length);
+    for (const item of (value.forceFields ?? [])) writeOneWayForceField(writer, item);
     writeTarget(writer, value.target);
     writeSlingshot(writer, value.slingshot);
     writeBounds(writer, value.bounds);
@@ -117,6 +119,16 @@ function writeDeflectorBumper(writer, value) {
     writer.string(value.id);
     writePoint(writer, value.position);
     writer.f64(value.radius);
+    writer.f64(value.restitution);
+    writer.u8(value.playSound);
+}
+
+function writeOneWayForceField(writer, value) {
+    writer.string(value.id);
+    writePoint(writer, value.position);
+    writer.f64(value.width);
+    writer.f64(value.height);
+    writer.f64(value.rotation);
     writer.f64(value.restitution);
     writer.u8(value.playSound);
 }
@@ -246,6 +258,16 @@ function writeSimulationEvent(writer, value) {
         writer.tag(11);
         writer.string(value.deflectorBumperId);
         writer.f64(value.deflectorBumperIndex);
+        writePoint(writer, value.position);
+        writePoint(writer, value.normal);
+        writePoint(writer, value.incomingVelocity);
+        writePoint(writer, value.velocity);
+        writer.u8(value.playSound);
+        return;
+    case "force_field_reflected":
+        writer.tag(12);
+        writer.string(value.forceFieldId);
+        writer.f64(value.forceFieldIndex);
         writePoint(writer, value.position);
         writePoint(writer, value.normal);
         writePoint(writer, value.incomingVelocity);
@@ -398,6 +420,16 @@ class Reader {
             type: "deflector_bounced",
             "deflectorBumperId": this.string(),
             "deflectorBumperIndex": this.count(),
+            "position": this.readPoint(),
+            "normal": this.readPoint(),
+            "incomingVelocity": this.readPoint(),
+            "velocity": this.readPoint(),
+            "playSound": this.u8()
+        };
+        case 12: return {
+            type: "force_field_reflected",
+            "forceFieldId": this.string(),
+            "forceFieldIndex": this.count(),
             "position": this.readPoint(),
             "normal": this.readPoint(),
             "incomingVelocity": this.readPoint(),

@@ -202,6 +202,7 @@ fn simulate_once(
         portals: initial.portals.clone(),
         speed_boosters: initial.speed_boosters.clone(),
         deflector_bumpers: initial.deflector_bumpers.clone(),
+        force_fields: initial.force_fields.clone(),
         target: initial.target.clone(),
         distance: 0.0,
         portal_lock_id: None,

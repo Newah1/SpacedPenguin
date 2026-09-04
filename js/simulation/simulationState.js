@@ -70,6 +70,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
     const portals = [];
     const speedBoosters = [];
     const deflectorBumpers = [];
+    const forceFields = [];
     const decorations = [];
     for (const definition of objects) {
         const type = normalizeLevelObjectType(definition.type);
@@ -140,6 +141,17 @@ export function createSimulationStateFromLevel(level, options = {}) {
                 playSound: properties.playSound ?? LEVEL_DEFAULTS.deflectorBumper.playSound,
                 waypointPath: waypointPathFromDefinition(definition)
             });
+        } else if (type === LevelObjectType.ONE_WAY_FORCE_FIELD) {
+            forceFields.push({
+                id: nextId(type, properties.id),
+                position: clonePoint(objectPosition(definition)),
+                width: properties.width ?? LEVEL_DEFAULTS.oneWayForceField.width,
+                height: properties.height ?? LEVEL_DEFAULTS.oneWayForceField.height,
+                rotation: properties.rotation ?? LEVEL_DEFAULTS.oneWayForceField.rotation,
+                restitution: properties.restitution ?? LEVEL_DEFAULTS.oneWayForceField.restitution,
+                playSound: properties.playSound ?? LEVEL_DEFAULTS.oneWayForceField.playSound,
+                waypointPath: waypointPathFromDefinition(definition)
+            });
         } else if (type === LevelObjectType.TEXT || type === LevelObjectType.POINTING_ARROW) {
             decorations.push({
                 id: nextId(type, properties.id),
@@ -184,6 +196,7 @@ export function createSimulationStateFromLevel(level, options = {}) {
         portals,
         speedBoosters,
         deflectorBumpers,
+        forceFields,
         decorations,
         target,
         slingshot: {
@@ -253,6 +266,11 @@ export function cloneSimulationState(state) {
             ...bumper,
             position: clonePoint(bumper.position),
             waypointPath: cloneWaypointPathState(bumper.waypointPath)
+        })),
+        forceFields: (state.forceFields || []).map(field => ({
+            ...field,
+            position: clonePoint(field.position),
+            waypointPath: cloneWaypointPathState(field.waypointPath)
         })),
         decorations: (state.decorations || []).map(decoration => ({
             ...decoration,

@@ -48,6 +48,11 @@ export class GameEffectsCoordinator {
         if (bumper) bumper.lastBounceTime = globalThis.performance?.now?.() ?? 0;
     }
 
+    forceFieldReflected(event, field) {
+        if (event.playSound) this.game.playSound(getAudioCue(AudioCue.DEFLECTOR_BOUNCE).soundId);
+        if (field) field.lastReflectionTime = globalThis.performance?.now?.() ?? 0;
+    }
+
     targetHit() {
         const game = this.game;
         game.endRecordingShotPath();

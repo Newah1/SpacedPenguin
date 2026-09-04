@@ -435,6 +435,7 @@ Search resets the result set and cancels the prior request. Pagination appends o
 | `portal` | `Portal` | `id`, `pairedPortalId`, `color`, width, height, rotation, `playSound` | Red/blue endpoints must pair reciprocally. Swept teleportation is deterministic; clipped dual-penguin visuals and audio are browser effects. |
 | `speedbooster`, `booster` | `SpeedBooster` | `id`, width, height, rotation, `speedMultiplier`, `playSound` | Swept contact redirects momentum along the authored rotation and applies the configured multiplier. |
 | `deflectorbumper`, `deflector`, `bumper` | `DeflectorBumper` | `id`, `radius`, `restitution`, `color`, `playSound` | Swept circular contact reflects momentum across the impact normal without ending the attempt; glow, flash, and audio remain browser effects. |
+| `onewayforcefield`, `forcefield` | `OneWayForceField` | `id`, width, height, rotation, `restitution`, `color`, `playSound` | Swept front-face contact reflects momentum; back-face crossings are permeable. The arrow, glow, flash, and audio remain browser effects. |
 | `penguin` | none | exported state only | Accepted for compatibility with older editor exports; runtime creates the singleton penguin from `startPosition`. |
 
 ### Orbit contract
@@ -483,7 +484,7 @@ Validation explicitly rejects duplicate IDs, missing or unavailable references, 
 
 `properties.waypointPath` is the shared fixed-path motion definition for every authored object. It contains at least two absolute `waypoints`, a world-units-per-second `speed`, a `pingpong` or `loop` mode, and an optional distance `phase`. `waypointSimulation.js` owns normalization-independent pure stepping and the lightweight runtime facade. Orbit and waypoint motion are mutually exclusive for one object.
 
-The simulation engine advances waypoint-controlled planets, bonuses, portals, speed boosters, deflector bumpers, the target, slingshot, and decorative objects at the same fixed-step boundary used for orbits. `CompiledWorldTimeline` stores their positions and waypoint phase so headless sweeps remain exact. The browser adapter only applies those positions to runtime objects. The editor uses the same pure step for previews and renders numbered fixed paths; its inspector mutations remain canonical `LevelDocument` commands.
+The simulation engine advances waypoint-controlled planets, bonuses, portals, speed boosters, deflector bumpers, one-way force fields, the target, slingshot, and decorative objects at the same fixed-step boundary used for orbits. `CompiledWorldTimeline` stores their positions and waypoint phase so headless sweeps remain exact. The browser adapter only applies those positions to runtime objects. The editor uses the same pure step for previews and renders numbered fixed paths; its inspector mutations remain canonical `LevelDocument` commands.
 
 ### Level rules
 

@@ -77,4 +77,13 @@ pub(crate) enum SimulationEvent {
         velocity: Point,
         play_sound: bool,
     },
+    ForceFieldReflected {
+        force_field_id: String,
+        force_field_index: usize,
+        position: Point,
+        normal: Point,
+        incoming_velocity: Point,
+        velocity: Point,
+        play_sound: bool,
+    },
 }

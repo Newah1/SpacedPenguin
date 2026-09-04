@@ -127,6 +127,49 @@ test('deflector restitution can damp a head-on bounce without tunneling', () => 
     assert.ok(result.state.penguin.position.x < 24, 'the remaining tick motion must continue away from the bumper');
 });
 
+test('one-way force fields reflect their front side and allow back-side passage', () => {
+    const makeState = () => createSimulationStateFromLevel(levelWith([
+        { type: 'onewayforcefield', position: { x: 100, y: 0 }, properties: {
+            id: 'field', width: 12, height: 80, rotation: 0, restitution: 0.75, playSound: false
+        } }
+    ], { gravitationalConstant: 0 }));
+
+    const front = makeState();
+    front.penguin.position = { x: 160, y: 0 };
+    front.penguin.state = 'soaring';
+    front.penguin.velocity = { x: -3000, y: 0 };
+    const reflected = stepSimulation(front, 1 / 60);
+    const event = reflected.events.find(item => item.type === SimulationEventType.FORCE_FIELD_REFLECTED);
+    assert.ok(event, 'fast front-side contact should be swept');
+    assert.equal(event.forceFieldId, 'field');
+    assert.equal(event.playSound, false);
+    assertPointClose(event.normal, { x: 1, y: 0 });
+    assertPointClose(reflected.state.penguin.velocity, { x: 2250, y: 0 });
+
+    const back = makeState();
+    back.penguin.position = { x: 40, y: 0 };
+    back.penguin.state = 'soaring';
+    back.penguin.velocity = { x: 3000, y: 0 };
+    const passed = stepSimulation(back, 1 / 60);
+    assert.equal(passed.events.some(item => item.type === SimulationEventType.FORCE_FIELD_REFLECTED), false);
+    assertPointClose(passed.state.penguin.velocity, { x: 3000, y: 0 });
+});
+
+test('one-way force-field rotation defines its reflecting normal', () => {
+    const state = createSimulationStateFromLevel(levelWith([
+        { type: 'forcefield', position: { x: 100, y: 100 }, properties: {
+            id: 'field', width: 12, height: 100, rotation: 90, restitution: 1
+        } }
+    ], { gravitationalConstant: 0 }));
+    state.penguin.position = { x: 100, y: 160 };
+    state.penguin.state = 'soaring';
+    state.penguin.velocity = { x: 0, y: -3000 };
+
+    const result = stepSimulation(state, 1 / 60);
+    assert.equal(result.events.some(item => item.type === SimulationEventType.FORCE_FIELD_REFLECTED), true);
+    assertPointClose(result.state.penguin.velocity, { x: 0, y: 3000 });
+});
+
 test('compiled mutable orbit graphs preserve dependency ordering across repeated steps', () => {
     const entities = [
         {

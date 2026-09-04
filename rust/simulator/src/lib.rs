@@ -47,6 +47,7 @@ struct CandidateState {
     portals: Vec<Portal>,
     speed_boosters: Vec<SpeedBooster>,
     deflector_bumpers: Vec<DeflectorBumper>,
+    force_fields: Vec<OneWayForceField>,
     target: Target,
     distance: f64,
     portal_lock_id: Option<String>,
@@ -279,6 +280,7 @@ pub unsafe extern "C" fn sync_runtime_world(
             + runtime.input.state.portals.len()
             + runtime.input.state.speed_boosters.len()
             + runtime.input.state.deflector_bumpers.len()
+            + runtime.input.state.force_fields.len()
             + 1;
         if position_count != expected {
             return Err(format!(
@@ -315,6 +317,13 @@ pub unsafe extern "C" fn sync_runtime_world(
             entity += 1;
         }
         for object in &mut runtime.input.state.deflector_bumpers {
+            object.position = Point {
+                x: positions[entity * 2],
+                y: positions[entity * 2 + 1],
+            };
+            entity += 1;
+        }
+        for object in &mut runtime.input.state.force_fields {
             object.position = Point {
                 x: positions[entity * 2],
                 y: positions[entity * 2 + 1],
@@ -653,6 +662,7 @@ impl Simulator {
             portals: self.initial.portals.clone(),
             speed_boosters: self.initial.speed_boosters.clone(),
             deflector_bumpers: self.initial.deflector_bumpers.clone(),
+            force_fields: self.initial.force_fields.clone(),
             target: self.initial.target.clone(),
             distance: 0.0,
             portal_lock_id: None,
@@ -754,6 +764,10 @@ impl Simulator {
             bumper.position = self.timeline_point(frame, entity);
             entity += 1;
         }
+        for field in &mut state.force_fields {
+            field.position = self.timeline_point(frame, entity);
+            entity += 1;
+        }
         entity += self.initial.decorations.len();
         state.target.position = self.timeline_point(frame, entity);
     }
@@ -786,6 +800,7 @@ fn step_runtime_state_inner(
             portals: state.portals.clone(),
             speed_boosters: state.speed_boosters.clone(),
             deflector_bumpers: state.deflector_bumpers.clone(),
+            force_fields: state.force_fields.clone(),
             target: state.target.clone(),
             distance: state.counters.distance,
             portal_lock_id: state.penguin.portal_lock_id.clone(),
@@ -1139,6 +1154,21 @@ struct SweptCollisionResult {
     planet_collision: bool,
 }
 
+#[derive(Clone, Copy)]
+enum ReflectorKind { Bumper, ForceField }
+
+fn segment_force_field_entry(start: Point, end: Point, field: &OneWayForceField, radius: f64) -> Option<f64> {
+    let a = to_local(start, field.position, field.rotation);
+    let b = to_local(end, field.position, field.rotation);
+    let dx = b.x - a.x;
+    let front = field.width / 2.0 + radius;
+    if dx >= -EPSILON || a.x < front { return None; }
+    let fraction = (front - a.x) / dx;
+    if !(0.0..=1.0).contains(&fraction) { return None; }
+    let y = a.y + (b.y - a.y) * fraction;
+    (y.abs() <= field.height / 2.0 + radius).then_some(fraction)
+}
+
 fn apply_swept_world_collisions(
     state: &mut CandidateState,
     original_start: Point,
@@ -1150,6 +1180,7 @@ fn apply_swept_world_collisions(
     let mut end = state.position;
     let mut traveled = 0.0;
     let mut last_bumper_id: Option<String> = None;
+    let mut last_force_field_id: Option<String> = None;
 
     for _ in 0..4 {
         let planet_hit =
@@ -1170,9 +1201,21 @@ fn apply_swept_world_collisions(
             })
             .min_by(|left, right| left.1.total_cmp(&right.1));
 
-        let planet_wins = match (&planet_hit, &bumper_hit) {
-            (Some(planet), Some((_, bumper_fraction))) => {
-                planet.fraction <= *bumper_fraction
+        let force_field_hit = state.force_fields.iter().enumerate()
+            .filter(|(_, field)| last_force_field_id.as_ref() != Some(&field.id))
+            .filter_map(|(index, field)| segment_force_field_entry(start, end, field, penguin_radius).map(|fraction| (index, fraction)))
+            .min_by(|left, right| left.1.total_cmp(&right.1));
+        let reflector_hit = match (bumper_hit, force_field_hit) {
+            (Some((bi, bf)), Some((_fi, ff))) if bf <= ff => Some((ReflectorKind::Bumper, bi, bf)),
+            (Some((_bi, _bf)), Some((fi, ff))) => Some((ReflectorKind::ForceField, fi, ff)),
+            (Some((i, f)), None) => Some((ReflectorKind::Bumper, i, f)),
+            (None, Some((i, f))) => Some((ReflectorKind::ForceField, i, f)),
+            (None, None) => None,
+        };
+
+        let planet_wins = match (&planet_hit, &reflector_hit) {
+            (Some(planet), Some((_, _, reflector_fraction))) => {
+                planet.fraction <= *reflector_fraction
             }
             (Some(_), None) => true,
             _ => false,
@@ -1209,30 +1252,39 @@ fn apply_swept_world_collisions(
             }
         }
 
-        let Some((index, fraction)) = bumper_hit else {
+        let Some((kind, index, fraction)) = reflector_hit else {
             traveled += distance(start, end);
             break;
         };
 
-        let bumper = state.deflector_bumpers[index].clone();
         let impact = Point {
             x: start.x + (end.x - start.x) * fraction,
             y: start.y + (end.y - start.y) * fraction,
         };
         traveled += distance(start, impact);
-        let mut nx = impact.x - bumper.position.x;
-        let mut ny = impact.y - bumper.position.y;
-        let normal_length = nx.hypot(ny).max(EPSILON);
-        nx /= normal_length;
-        ny /= normal_length;
+        let (nx, ny, restitution) = match kind {
+            ReflectorKind::Bumper => {
+                let bumper = &state.deflector_bumpers[index];
+                let mut nx = impact.x - bumper.position.x;
+                let mut ny = impact.y - bumper.position.y;
+                let normal_length = nx.hypot(ny).max(EPSILON);
+                nx /= normal_length;
+                ny /= normal_length;
+                (nx, ny, bumper.restitution)
+            }
+            ReflectorKind::ForceField => {
+                let angle = state.force_fields[index].rotation.to_radians();
+                (angle.cos(), angle.sin(), state.force_fields[index].restitution)
+            }
+        };
         let normal = Point { x: nx, y: ny };
         let incoming_velocity = state.velocity;
-        state.velocity = reflect(incoming_velocity, normal, bumper.restitution);
+        state.velocity = reflect(incoming_velocity, normal, restitution);
         let remaining = Point {
             x: end.x - impact.x,
             y: end.y - impact.y,
         };
-        let reflected_remaining = reflect(remaining, normal, bumper.restitution);
+        let reflected_remaining = reflect(remaining, normal, restitution);
         start = Point {
             x: impact.x + nx * collision.separation_padding,
             y: impact.y + ny * collision.separation_padding,
@@ -1242,22 +1294,32 @@ fn apply_swept_world_collisions(
             y: start.y + reflected_remaining.y,
         };
         state.position = end;
-        last_bumper_id = Some(bumper.id.clone());
-        events.push(SimulationEvent::DeflectorBounced {
-            deflector_bumper_id: bumper.id,
-            deflector_bumper_index: index,
-            position: impact,
-            normal,
-            incoming_velocity,
-            velocity: state.velocity,
-            play_sound: bumper.play_sound,
-        });
+        match kind {
+            ReflectorKind::Bumper => {
+                let bumper = &state.deflector_bumpers[index];
+                last_bumper_id = Some(bumper.id.clone());
+                events.push(SimulationEvent::DeflectorBounced {
+                    deflector_bumper_id: bumper.id.clone(), deflector_bumper_index: index,
+                    position: impact, normal, incoming_velocity, velocity: state.velocity,
+                    play_sound: bumper.play_sound,
+                });
+            }
+            ReflectorKind::ForceField => {
+                let field = &state.force_fields[index];
+                last_force_field_id = Some(field.id.clone());
+                events.push(SimulationEvent::ForceFieldReflected {
+                    force_field_id: field.id.clone(), force_field_index: index,
+                    position: impact, normal, incoming_velocity, velocity: state.velocity,
+                    play_sound: field.play_sound,
+                });
+            }
+        }
     }
 
     SweptCollisionResult {
         events,
         interaction_start: start,
-        traveled: if state.deflector_bumpers.is_empty() {
+        traveled: if state.deflector_bumpers.is_empty() && state.force_fields.is_empty() {
             distance(original_start, end)
         } else {
             traveled

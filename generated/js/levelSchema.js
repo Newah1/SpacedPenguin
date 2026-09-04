@@ -1267,6 +1267,94 @@ export const LEVEL_DOCUMENT_JSON_SCHEMA = Object.freeze({
                             }
                         }
                     }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "required": [
+                        "type"
+                    ],
+                    "properties": {
+                        "type": {
+                            "enum": [
+                                "onewayforcefield",
+                                "one_way_force_field",
+                                "forcefield"
+                            ]
+                        },
+                        "position": {
+                            "$ref": "#/$defs/Point"
+                        },
+                        "properties": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "position": {
+                                    "$ref": "#/$defs/Point"
+                                },
+                                "width": {
+                                    "type": "number",
+                                    "default": 16,
+                                    "exclusiveMinimum": 0,
+                                    "x-editor": {
+                                        "label": "Thickness",
+                                        "min": 2
+                                    }
+                                },
+                                "height": {
+                                    "type": "number",
+                                    "default": 120,
+                                    "exclusiveMinimum": 0,
+                                    "x-editor": {
+                                        "label": "Length",
+                                        "min": 8
+                                    }
+                                },
+                                "rotation": {
+                                    "type": "number",
+                                    "default": 0
+                                },
+                                "restitution": {
+                                    "type": "number",
+                                    "default": 1,
+                                    "minimum": 0,
+                                    "x-editor": {
+                                        "label": "Bounce Multiplier",
+                                        "min": 0,
+                                        "step": 0.05
+                                    }
+                                },
+                                "color": {
+                                    "type": "string",
+                                    "default": "#65e8ff",
+                                    "x-editor": {
+                                        "label": "Color",
+                                        "control": "color"
+                                    }
+                                },
+                                "playSound": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "x-editor": {
+                                        "label": "Play Reflection Sound",
+                                        "control": "checkbox"
+                                    }
+                                },
+                                "waypointPath": {
+                                    "$ref": "#/$defs/WaypointPath"
+                                },
+                                "orbit": {
+                                    "$ref": "#/$defs/Orbit"
+                                }
+                            }
+                        }
+                    }
                 }
             ]
         },

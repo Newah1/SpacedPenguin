@@ -12,7 +12,8 @@ export const SimulationEventType = Object.freeze({
     "SPEED_BOOSTER_ACTIVATED": "speed_booster_activated",
     "ATTEMPT_RESET_REQUIRED": "attempt_reset_required",
     "RULE_FAILURE": "rule_failure",
-    "DEFLECTOR_BOUNCED": "deflector_bounced"
+    "DEFLECTOR_BOUNCED": "deflector_bounced",
+    "FORCE_FIELD_REFLECTED": "force_field_reflected"
 });
 
 export const SIMULATION_EVENT_SHAPES = Object.freeze({
@@ -166,6 +167,26 @@ export const SIMULATION_EVENT_SHAPES = Object.freeze({
         "required": [
             "deflectorBumperId",
             "deflectorBumperIndex",
+            "position",
+            "normal",
+            "incomingVelocity",
+            "velocity",
+            "playSound"
+        ]
+    },
+    "force_field_reflected": {
+        "fields": [
+            "forceFieldId",
+            "forceFieldIndex",
+            "position",
+            "normal",
+            "incomingVelocity",
+            "velocity",
+            "playSound"
+        ],
+        "required": [
+            "forceFieldId",
+            "forceFieldIndex",
             "position",
             "normal",
             "incomingVelocity",

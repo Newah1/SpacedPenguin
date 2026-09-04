@@ -1,7 +1,7 @@
 // Main game engine for Spaced Penguin
 // Based on the original game loop and GPS scripts
 
-import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper } from './runtime/entities/gameObjects.js';
+import { Planet, Bonus, BonusPopup, Target, Slingshot, Arrow, TextObject, PointingArrow, Portal, SpeedBooster, DeflectorBumper, OneWayForceField } from './runtime/entities/gameObjects.js';
 import { BlackHole } from './runtime/entities/blackHole.js';
 import { RepulsorStar } from './runtime/entities/repulsorStar.js';
 import Utils from './platform/utils.js';
@@ -123,6 +123,8 @@ export class Game {
     set speedBoosters(value) { this.runtimeWorld().speedBoosters = value; this.runtimeWorld().touch(); }
     get deflectorBumpers() { return this.runtimeWorld().deflectorBumpers; }
     set deflectorBumpers(value) { this.runtimeWorld().deflectorBumpers = value; this.runtimeWorld().touch(); }
+    get forceFields() { return this.runtimeWorld().forceFields; }
+    set forceFields(value) { this.runtimeWorld().forceFields = value; this.runtimeWorld().touch(); }
     get textObjects() { return this.runtimeWorld().textObjects; }
     set textObjects(value) { this.runtimeWorld().textObjects = value; this.runtimeWorld().touch(); }
     get pointingArrows() { return this.runtimeWorld().pointingArrows; }
@@ -297,7 +299,8 @@ export class Game {
             PointingArrow,
             Portal,
             SpeedBooster,
-            DeflectorBumper
+            DeflectorBumper,
+            OneWayForceField
         };
         
         this.aimAssistPoints = [];

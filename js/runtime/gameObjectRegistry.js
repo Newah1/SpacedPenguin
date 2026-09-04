@@ -70,6 +70,9 @@ const SINGLE_AUTHORING_FACTORIES = Object.freeze({
     ),
     DeflectorBumper: ({ x, y }) => objectDefinition(
         LevelObjectType.DEFLECTOR_BUMPER, x, y, LEVEL_DEFAULTS.deflectorBumper
+    ),
+    OneWayForceField: ({ x, y }) => objectDefinition(
+        LevelObjectType.ONE_WAY_FORCE_FIELD, x, y, LEVEL_DEFAULTS.oneWayForceField
     )
 });
 
@@ -344,6 +347,13 @@ function validateGravityProperties({ type, properties, propertyPath, collector, 
     }
 }
 
+function createOneWayForceFieldRuntime({ constructors, position, properties }) {
+    const field = new constructors.OneWayForceField(position.x, position.y, properties);
+    field.id = properties.id ?? null;
+    field.name = properties.name ?? '';
+    return field;
+}
+
 function validateRepulsorStarProperties({ properties, propertyPath, collector, helpers }) {
     helpers.optionalNumber(properties.radius, `${propertyPath}.radius`, collector, { exclusiveMin: 0 });
     helpers.optionalNumber(properties.strength, `${propertyPath}.strength`, collector, { min: 0 });
@@ -437,6 +447,16 @@ function validateDeflectorBumperProperties({ properties, propertyPath, collector
     helpers.optionalNumber(properties.restitution, `${propertyPath}.restitution`, collector, { min: 0 });
     if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
         collector.error('DEFLECTOR_BUMPER_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
+    }
+}
+
+function validateOneWayForceFieldProperties({ properties, propertyPath, collector, helpers }) {
+    helpers.optionalNumber(properties.width, `${propertyPath}.width`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.height, `${propertyPath}.height`, collector, { exclusiveMin: 0 });
+    helpers.optionalNumber(properties.rotation, `${propertyPath}.rotation`, collector);
+    helpers.optionalNumber(properties.restitution, `${propertyPath}.restitution`, collector, { min: 0 });
+    if (properties.playSound !== undefined && typeof properties.playSound !== 'boolean') {
+        collector.error('FORCE_FIELD_SOUND_TYPE', `${propertyPath}.playSound`, 'must be a boolean');
     }
 }
 
@@ -537,6 +557,10 @@ const BASE_DEFINITIONS = {
         validateProperties: validateDeflectorBumperProperties,
         createRuntime: createDeflectorBumperRuntime,
         applyRuntimeProperty: applyDeflectorBumperRuntimeProperty
+    },
+    OneWayForceField: {
+        validateProperties: validateOneWayForceFieldProperties,
+        createRuntime: createOneWayForceFieldRuntime
     },
     Penguin: {},
     BonusPopup: { label: 'Bonus Popup', editable: false },

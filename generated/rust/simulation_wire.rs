@@ -4,7 +4,7 @@ use crate::generated_game_objects::*;
 use crate::generated_simulation_state::*;
 
 const MAGIC: u32 = 0x53505731;
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 struct Reader<'a> {
     bytes: &'a [u8],
@@ -151,6 +151,14 @@ impl<'a> Reader<'a> {
                 }
                 values
             },
+            force_fields: {
+                let length = self.u32()? as usize;
+                let mut values = Vec::with_capacity(length);
+                for _ in 0..length {
+                    values.push(self.one_way_force_field()?);
+                }
+                values
+            },
             decorations: Vec::new(),
             target: self.target()?,
             slingshot: self.slingshot()?,
@@ -222,6 +230,18 @@ impl<'a> Reader<'a> {
             id: self.string()?,
             position: self.point()?,
             radius: self.f64()?,
+            restitution: self.f64()?,
+            play_sound: self.u8()?,
+        })
+    }
+
+    fn one_way_force_field(&mut self) -> Result<OneWayForceField, String> {
+        Ok(OneWayForceField {
+            id: self.string()?,
+            position: self.point()?,
+            width: self.f64()?,
+            height: self.f64()?,
+            rotation: self.f64()?,
             restitution: self.f64()?,
             play_sound: self.u8()?,
         })

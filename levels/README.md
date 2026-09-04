@@ -255,6 +255,26 @@ Deflector bumpers are circular, non-terminal collision objects. Kevin's incoming
 
 The aliases `deflector` and `bumper` are accepted, but exported levels use `deflectorbumper`.
 
+One-way force fields are thin, rotatable panels. Rotation `0` makes the arrow-marked front face point right: Kevin reflects when approaching that front face and passes through from the back. `restitution` scales the reflected speed, while `playSound` controls the browser impact cue.
+
+```json
+{
+  "type": "onewayforcefield",
+  "position": { "x": 420, "y": 250 },
+  "properties": {
+    "id": "field_1",
+    "width": 16,
+    "height": 120,
+    "rotation": 0,
+    "restitution": 1,
+    "color": "#65e8ff",
+    "playSound": true
+  }
+}
+```
+
+The aliases `oneWayForceField`, `one_way_force_field`, and `forcefield` are accepted. Force fields support waypoint paths.
+
 ```json
 {
   "type": "pointingarrow",
@@ -451,7 +471,7 @@ Any authored object may follow a fixed waypoint path. Put `waypointPath` beside 
 - `phase` is the optional starting distance along the repeating route. It defaults to zero.
 - An object cannot combine `orbit` and `waypointPath`; validation rejects ambiguous double-motion definitions.
 
-Planets, black holes, repulsor stars, bonuses, targets, portals, speed boosters, and the slingshot move inside the deterministic simulation before collision and gravity checks. Text and pointing-arrow paths use the same deterministic path math and move as part of world state. Headless compiled timelines preserve waypoint positions and phase.
+Planets, black holes, repulsor stars, bonuses, targets, portals, speed boosters, one-way force fields, and the slingshot move inside the deterministic simulation before collision and gravity checks. Text and pointing-arrow paths use the same deterministic path math and move as part of world state. Headless compiled timelines preserve waypoint positions and phase.
 
 In the level editor, select an object and set **Waypoint Motion** to `pingpong` or `loop`. The inspector creates a two-point path, exposes speed and every point's X/Y coordinates, and provides add/remove controls. The canvas draws the route and numbered waypoint handles. Click and drag any numbered handle to reshape the path directly; the drag is one undoable editor command and keeps the inspector coordinates synchronized. Edit-mode preview animates the object without changing its authored position. Set **Waypoint Motion** back to `none` to remove the path.
 

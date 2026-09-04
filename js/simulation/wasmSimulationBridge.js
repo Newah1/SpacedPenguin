@@ -55,6 +55,7 @@ function hasMovingWorldObject(state) {
         ...(state.portals || []),
         ...(state.speedBoosters || []),
         ...(state.deflectorBumpers || []),
+        ...(state.forceFields || []),
         ...(state.decorations || []),
         state.target,
         state.slingshot
@@ -146,6 +147,7 @@ function worldPositions(state) {
         ...(state.portals || []),
         ...(state.speedBoosters || []),
         ...(state.deflectorBumpers || []),
+        ...(state.forceFields || []),
         state.target
     ];
     return objects;

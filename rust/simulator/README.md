@@ -1,6 +1,6 @@
 # Rust Simulation Core
 
-The `spaced-penguin-simulator` crate is the behavioral source of truth for deterministic gameplay inside the simulation boundary. New or changed flight, gravity, collision, bonus, target, portal, booster, deflector, crash/reset, enforced-rule, launch, and in-flight counter behavior must be defined here first. The browser's JavaScript fallback must reproduce the Rust result; it does not define competing gameplay semantics.
+The `spaced-penguin-simulator` crate is the behavioral source of truth for deterministic gameplay inside the simulation boundary. New or changed flight, gravity, collision, bonus, target, portal, booster, deflector, one-way force-field, crash/reset, enforced-rule, launch, and in-flight counter behavior must be defined here first. The browser's JavaScript fallback must reproduce the Rust result; it does not define competing gameplay semantics.
 
 This behavioral authority is intentionally narrower than the repository's other authorities:
 
@@ -38,7 +38,7 @@ The crate exposes a deliberately small raw WebAssembly ABI, so the same packaged
 ## Boundary contracts
 
 - Gameplay runs in exact 1/60-second ticks. The display frame rate must not change results.
-- Moving positions use this fixed order on both sides of the Wasm boundary: planets, bonuses, portals, speed boosters, deflector bumpers, then target.
+- Moving positions use this fixed order on both sides of the Wasm boundary: planets, bonuses, portals, speed boosters, deflector bumpers, one-way force fields, then target.
 - The Rust core emits deterministic state patches and domain events. It must not call DOM, Canvas, audio, timers, storage, or network APIs.
 - Every field reachable from step input or output must be encoded in `domain/simulation.schema.json` or explicitly excluded there with a reason.
 - Generated wire versions and fingerprints live in `domain/simulation-wire-versions.json`. Never hand-edit generated JavaScript or Rust codecs.

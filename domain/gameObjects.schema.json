@@ -352,6 +352,32 @@
       "serializedProperties": ["radius", "restitution", "color", "playSound"]
     },
     {
+      "className": "OneWayForceField", "type": "onewayforcefield", "label": "One-Way Force Field", "aliases": ["oneWayForceField", "one_way_force_field", "forcefield"], "collections": ["forceFields"],
+      "capabilities": { "gameplay": true, "editable": true, "orbitSource": false, "orbitTarget": false, "waypointSource": true },
+      "x-spaced-penguin-simulation-projection": {
+        "record": "OneWayForceField",
+        "fields": {
+          "id": { "field": "id" }, "name": { "excluded": "Authoring name is presentation metadata." },
+          "position": { "field": "position" }, "width": { "field": "width" }, "height": { "field": "height" },
+          "rotation": { "field": "rotation" }, "restitution": { "field": "restitution" },
+          "color": { "excluded": "Force-field color is presentation-only." }, "playSound": { "field": "playSound" },
+          "waypointPath": { "excluded": "Waypoint motion is resolved before the transition step." }
+        }
+      },
+      "x-spaced-penguin-level-defaults": { "key": "oneWayForceField", "include": ["width", "height", "rotation", "restitution", "color", "playSound"] },
+      "properties": {
+        "id": { "type": "string" }, "name": { "type": "string" }, "position": { "$ref": "#/$defs/Point" },
+        "width": { "type": "number", "default": 16, "exclusiveMinimum": 0, "x-editor": { "label": "Thickness", "min": 2 } },
+        "height": { "type": "number", "default": 120, "exclusiveMinimum": 0, "x-editor": { "label": "Length", "min": 8 } },
+        "rotation": { "type": "number", "default": 0 },
+        "restitution": { "type": "number", "default": 1, "minimum": 0, "x-editor": { "label": "Bounce Multiplier", "min": 0, "step": 0.05 } },
+        "color": { "type": "string", "default": "#65e8ff", "x-editor": { "label": "Color", "control": "color" } },
+        "playSound": { "type": "boolean", "default": true, "x-editor": { "label": "Play Reflection Sound", "control": "checkbox" } },
+        "waypointPath": { "type": "object" }
+      },
+      "serializedProperties": ["restitution", "color", "playSound"]
+    },
+    {
       "className": "Penguin", "type": "penguin", "label": "Penguin", "aliases": [], "singleton": "penguin",
       "capabilities": { "gameplay": true, "editable": false, "orbitSource": false, "orbitTarget": false, "waypointSource": false },
       "x-spaced-penguin-simulation-projection": {

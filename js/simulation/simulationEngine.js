@@ -154,6 +154,7 @@ export function advanceSimulationWorldMutable(state, deltaTime) {
             ...(state.portals || []),
             ...(state.speedBoosters || []),
             ...(state.deflectorBumpers || []),
+            ...(state.forceFields || []),
             ...(state.decorations || []),
             state.target,
             state.slingshot
@@ -253,12 +254,26 @@ function reflectVector(vector, normal, multiplier = 1) {
     };
 }
 
+function segmentForceFieldEntry(start, end, field, penguinRadius) {
+    const a = toPortalLocal(start, field);
+    const b = toPortalLocal(end, field);
+    const dx = b.x - a.x;
+    const front = field.width / 2 + penguinRadius;
+    if (dx >= -Number.EPSILON || a.x < front) return null;
+    const fraction = (front - a.x) / dx;
+    if (fraction < 0 || fraction > 1) return null;
+    const y = a.y + (b.y - a.y) * fraction;
+    return Math.abs(y) <= field.height / 2 + penguinRadius ? fraction : null;
+}
+
 function applySweptWorldCollisions(state, originalStart, events) {
     const bumpers = state.deflectorBumpers || [];
+    const forceFields = state.forceFields || [];
     let start = clonePoint(originalStart);
     let end = clonePoint(state.penguin.position);
     let traveled = 0;
     let lastBumperId = null;
+    let lastForceFieldId = null;
 
     for (let bounceCount = 0; bounceCount < 4; bounceCount++) {
         const planetHit = findPlanetCollisionOnSegment(
@@ -282,7 +297,24 @@ function applySweptWorldCollisions(state, originalStart, events) {
             }
         }
 
-        if (planetHit && (!bumperHit || planetHit.fraction <= bumperHit.fraction)) {
+        let forceFieldHit = null;
+        for (let index = 0; index < forceFields.length; index++) {
+            const field = forceFields[index];
+            if (field.id === lastForceFieldId) continue;
+            const fraction = segmentForceFieldEntry(start, end, field, state.penguin.radius);
+            if (fraction !== null && (!forceFieldHit || fraction < forceFieldHit.fraction)) {
+                forceFieldHit = { field, index, fraction };
+            }
+        }
+
+        let reflectiveHit = bumperHit
+            ? { kind: 'bumper', ...bumperHit }
+            : null;
+        if (forceFieldHit && (!reflectiveHit || forceFieldHit.fraction < reflectiveHit.fraction)) {
+            reflectiveHit = { kind: 'forceField', ...forceFieldHit };
+        }
+
+        if (planetHit && (!reflectiveHit || planetHit.fraction <= reflectiveHit.fraction)) {
             const planet = state.planets[planetHit.index];
             const impact = {
                 x: start.x + (end.x - start.x) * planetHit.fraction,
@@ -304,24 +336,33 @@ function applySweptWorldCollisions(state, originalStart, events) {
             return { interactionStart: start, traveled, planetCollision: true };
         }
 
-        if (!bumperHit) {
+        if (!reflectiveHit) {
             traveled += distance(start, end);
             break;
         }
 
         const impact = {
-            x: start.x + (end.x - start.x) * bumperHit.fraction,
-            y: start.y + (end.y - start.y) * bumperHit.fraction
+            x: start.x + (end.x - start.x) * reflectiveHit.fraction,
+            y: start.y + (end.y - start.y) * reflectiveHit.fraction
         };
         traveled += distance(start, impact);
-        let nx = impact.x - bumperHit.bumper.position.x;
-        let ny = impact.y - bumperHit.bumper.position.y;
-        const normalLength = Math.hypot(nx, ny) || 1;
-        nx /= normalLength;
-        ny /= normalLength;
+        let nx;
+        let ny;
+        if (reflectiveHit.kind === 'bumper') {
+            nx = impact.x - reflectiveHit.bumper.position.x;
+            ny = impact.y - reflectiveHit.bumper.position.y;
+            const normalLength = Math.hypot(nx, ny) || 1;
+            nx /= normalLength;
+            ny /= normalLength;
+        } else {
+            const angle = (reflectiveHit.field.rotation || 0) * Math.PI / 180;
+            nx = Math.cos(angle);
+            ny = Math.sin(angle);
+        }
         const normal = { x: nx, y: ny };
         const incomingVelocity = clonePoint(state.penguin.velocity);
-        const multiplier = bumperHit.bumper.restitution ?? 1;
+        const source = reflectiveHit.kind === 'bumper' ? reflectiveHit.bumper : reflectiveHit.field;
+        const multiplier = source.restitution ?? 1;
         state.penguin.velocity = reflectVector(incomingVelocity, normal, multiplier);
         const remaining = { x: end.x - impact.x, y: end.y - impact.y };
         const reflectedRemaining = reflectVector(remaining, normal, multiplier);
@@ -329,22 +370,30 @@ function applySweptWorldCollisions(state, originalStart, events) {
         start = { x: impact.x + nx * padding, y: impact.y + ny * padding };
         end = { x: start.x + reflectedRemaining.x, y: start.y + reflectedRemaining.y };
         state.penguin.position = clonePoint(end);
-        lastBumperId = bumperHit.bumper.id;
-        events.push({
-            type: SimulationEventType.DEFLECTOR_BOUNCED,
-            deflectorBumperId: bumperHit.bumper.id,
-            deflectorBumperIndex: bumperHit.index,
-            position: impact,
-            normal,
-            incomingVelocity,
-            velocity: clonePoint(state.penguin.velocity),
-            playSound: bumperHit.bumper.playSound !== false
-        });
+        if (reflectiveHit.kind === 'bumper') {
+            lastBumperId = source.id;
+            events.push({
+                type: SimulationEventType.DEFLECTOR_BOUNCED,
+                deflectorBumperId: source.id,
+                deflectorBumperIndex: reflectiveHit.index,
+                position: impact, normal, incomingVelocity,
+                velocity: clonePoint(state.penguin.velocity), playSound: source.playSound !== false
+            });
+        } else {
+            lastForceFieldId = source.id;
+            events.push({
+                type: SimulationEventType.FORCE_FIELD_REFLECTED,
+                forceFieldId: source.id,
+                forceFieldIndex: reflectiveHit.index,
+                position: impact, normal, incomingVelocity,
+                velocity: clonePoint(state.penguin.velocity), playSound: source.playSound !== false
+            });
+        }
     }
 
     return {
         interactionStart: start,
-        traveled: bumpers.length ? traveled : distance(originalStart, end),
+        traveled: bumpers.length || forceFields.length ? traveled : distance(originalStart, end),
         planetCollision: false
     };
 }

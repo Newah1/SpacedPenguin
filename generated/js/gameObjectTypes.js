@@ -12,6 +12,7 @@ export const LevelObjectType = Object.freeze({
     "PORTAL": "portal",
     "SPEED_BOOSTER": "speedbooster",
     "DEFLECTOR_BUMPER": "deflectorbumper",
+    "ONE_WAY_FORCE_FIELD": "onewayforcefield",
     "PENGUIN": "penguin"
 });
 
@@ -23,7 +24,9 @@ export const LEVEL_OBJECT_TYPE_ALIASES = Object.freeze({
     "arrow": "pointingarrow",
     "booster": "speedbooster",
     "deflector": "deflectorbumper",
-    "bumper": "deflectorbumper"
+    "bumper": "deflectorbumper",
+    "one_way_force_field": "onewayforcefield",
+    "forcefield": "onewayforcefield"
 });
 
 export const GAME_OBJECT_CONTRACTS = Object.freeze({
@@ -775,6 +778,75 @@ export const GAME_OBJECT_CONTRACTS = Object.freeze({
             "waypointSource": true
         }
     },
+    "OneWayForceField": {
+        "className": "OneWayForceField",
+        "type": "onewayforcefield",
+        "label": "One-Way Force Field",
+        "aliases": [
+            "oneWayForceField",
+            "one_way_force_field",
+            "forcefield"
+        ],
+        "collections": [
+            "forceFields"
+        ],
+        "singleton": null,
+        "levelRole": null,
+        "relationshipValidator": null,
+        "physicsAdd": null,
+        "physicsRemove": null,
+        "defaults": {
+            "width": 16,
+            "height": 120,
+            "rotation": 0,
+            "restitution": 1,
+            "color": "#65e8ff",
+            "playSound": true
+        },
+        "properties": [
+            {
+                "key": "width",
+                "label": "Thickness",
+                "type": "number",
+                "min": 2
+            },
+            {
+                "key": "height",
+                "label": "Length",
+                "type": "number",
+                "min": 8
+            },
+            {
+                "key": "restitution",
+                "label": "Bounce Multiplier",
+                "type": "number",
+                "min": 0,
+                "step": 0.05
+            },
+            {
+                "key": "color",
+                "label": "Color",
+                "type": "color"
+            },
+            {
+                "key": "playSound",
+                "label": "Play Reflection Sound",
+                "type": "checkbox"
+            }
+        ],
+        "serializedProperties": [
+            "restitution",
+            "color",
+            "playSound"
+        ],
+        "capabilities": {
+            "gameplay": true,
+            "editable": true,
+            "orbitSource": false,
+            "orbitTarget": false,
+            "waypointSource": true
+        }
+    },
     "Penguin": {
         "className": "Penguin",
         "type": "penguin",
@@ -886,6 +958,14 @@ export const LEVEL_DEFAULTS = freezeLevelDefaults({
         "radius": 30,
         "restitution": 1,
         "color": "#ff4fd8",
+        "playSound": true
+    },
+    "oneWayForceField": {
+        "width": 16,
+        "height": 120,
+        "rotation": 0,
+        "restitution": 1,
+        "color": "#65e8ff",
         "playSound": true
     },
     "penguin": {

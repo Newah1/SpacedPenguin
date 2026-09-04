@@ -212,7 +212,7 @@ npm.cmd run benchmark:simulator-wasm -- .\levels\level10.json 10000 5
 ```
 
 The Wasm transition covers planets, black holes, bonuses, slingshots, targets,
-portals, speed boosters, deflector bumpers, collisions, crash/reset behavior,
+portals, speed boosters, deflector bumpers, one-way force fields, collisions, crash/reset behavior,
 and enforced rules.
 The existing deterministic orbit and waypoint graph supplies world motion to
 the same Rust transition in both browser and headless execution. Wasm is the

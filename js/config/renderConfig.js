@@ -19,6 +19,7 @@ export const RENDER_CONFIG = deepFreeze({
         portal: 4.5,
         speedBooster: 4.6,
         deflectorBumper: 4.7,
+        forceField: 4.8,
         penguin: 5,
         arrow: 6,
         popup: 7,
@@ -104,6 +105,16 @@ export const RENDER_CONFIG = deepFreeze({
             notchInnerRatio: 0.68,
             notchOuterRatio: 0.88,
             notchHalfWidthRadians: 0.055
+        },
+        forceField: {
+            fillAlpha: 0.16,
+            coreAlpha: 0.8,
+            glowBlur: 16,
+            borderWidth: 2,
+            arrowSpacing: 24,
+            arrowSize: 7,
+            pulseRadiansPerMillisecond: 0.005,
+            reflectionFlashMilliseconds: 180
         },
         slingshot: {
             size: 100,
